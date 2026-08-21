@@ -1,9 +1,8 @@
 'use client';
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Building2, CalendarDays, ExternalLink, FileText, Mail, Pencil, Phone, UserRound } from 'lucide-react';
+import { ArrowLeft, Copy, FileText, Mail, Pencil, Phone, Trash2, Upload } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -11,113 +10,46 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DealForm } from '@/components/pipelines/deal-form';
+import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
+import { toast } from 'sonner';
 import type { Deal, PipelineStage } from '@/types';
 
-type DealNote = { id: string; note_text: string; created_at: string };
-type BankProcess = { id?: string; position: number; bank_name?: string; status?: string; missing_documents?: string; decision?: string };
+type Note={id:string;note_text:string;created_at:string};
+type Bank={id?:string;position:number;bank_name?:string;status?:string;remote_process?:boolean;progress?:number;submitted_at?:string;decision?:string;decision_at?:string;conditions?:string;missing_documents?:string;final_amount?:number;contract_signed_at?:string;launched_at?:string};
+type Doc={id:string;name:string;storage_path:string;status:string;created_at:string};
 
-export default function DealPage() {
-  const { id } = useParams<{ id: string }>();
-  const { accountId } = useAuth();
-  const db = useMemo(() => createClient(), []);
-  const [deal, setDeal] = useState<Deal | null>(null);
-  const [notes, setNotes] = useState<DealNote[]>([]);
-  const [newNote, setNewNote] = useState('');
-  const [banks, setBanks] = useState<BankProcess[]>([1, 2, 3].map((position) => ({ position })));
-  const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [editOpen, setEditOpen] = useState(false);
-
-  const load = useCallback(async () => {
-    const [dealRes, notesRes, banksRes] = await Promise.all([
-      db.from('deals').select('*, contact:contacts(*), company:companies(*), stage:pipeline_stages(*), assignee:profiles!deals_assigned_to_fkey(*)').eq('id', id).single(),
-      db.from('deal_notes').select('*').eq('deal_id', id).order('created_at', { ascending: false }),
-      db.from('bank_processes').select('*').eq('deal_id', id).order('position'),
-    ]);
-    setDeal(dealRes.data as Deal | null);
-    setNotes((notesRes.data ?? []) as DealNote[]);
-    const existing = (banksRes.data ?? []) as BankProcess[];
-    setBanks([1, 2, 3].map((position) => existing.find((bank) => bank.position === position) ?? { position }));
-    if (dealRes.data?.pipeline_id) {
-      const { data: stageRows } = await db.from('pipeline_stages').select('*').eq('pipeline_id', dealRes.data.pipeline_id).order('position');
-      setStages((stageRows ?? []) as PipelineStage[]);
-    }
-  }, [db, id]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
-
-  async function addNote() {
-    if (!newNote.trim() || !deal || !accountId) return;
-    const { data: sessionData } = await db.auth.getSession();
-    if (!sessionData.session?.user) return;
-    await db.from('deal_notes').insert({ account_id: accountId, deal_id: deal.id, user_id: sessionData.session.user.id, note_text: newNote.trim() });
-    setNewNote('');
-    await load();
-  }
-
-  async function saveBank(bank: BankProcess) {
-    if (!deal || !accountId) return;
-    await db.from('bank_processes').upsert({ account_id: accountId, deal_id: deal.id, position: bank.position, bank_name: bank.bank_name || null, status: bank.status || null, missing_documents: bank.missing_documents || null, decision: bank.decision || null }, { onConflict: 'deal_id,position' });
-    await load();
-  }
-
-  if (!deal) return <div className="p-8 text-muted-foreground">Wczytywanie karty Deal…</div>;
-
-  return (
-    <div className="space-y-4">
-      <Link href="/pipelines" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Wróć do lejka</Link>
-      <header className="rounded-xl border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><p className="text-xs font-semibold uppercase text-primary">{deal.stage?.name}</p><h1 className="mt-1 text-2xl font-bold">{deal.title}</h1><p className="mt-1 text-sm text-muted-foreground">{deal.description || 'Brak opisu ogólnego Deala'}</p></div>
-          <div className="text-right"><p className="text-2xl font-bold text-primary">{Number(deal.value || 0).toLocaleString('pl-PL')} {deal.currency || 'PLN'}</p><p className="text-xs text-muted-foreground">Oczekiwana prowizja: {Number(deal.expected_commission || 0).toLocaleString('pl-PL')} PLN</p></div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}><Pencil className="h-4 w-4" /> Edytuj Deal</Button>
-          {deal.contact?.phone && <a href={`tel:${deal.contact.phone}`}><Button size="sm"><Phone className="h-4 w-4" /> Zadzwoń</Button></a>}
-          {deal.contact?.email && <a href={`mailto:${deal.contact.email}`}><Button size="sm" variant="outline"><Mail className="h-4 w-4" /> E-mail</Button></a>}
-          {deal.drive_folder_url && <a href={deal.drive_folder_url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline"><FileText className="h-4 w-4" /> Dokumenty <ExternalLink className="h-3 w-3" /></Button></a>}
-        </div>
-      </header>
-
-      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-        <aside className="space-y-4">
-          <Panel title="Powiązania">
-            <Info icon={UserRound} label="Kontakt" value={deal.contact?.name || deal.contact?.phone || 'Brak'} href={deal.contact_id ? `/contacts?open=${deal.contact_id}` : undefined} />
-            <Info icon={Building2} label="Firma" value={deal.company?.name || 'Brak'} href={deal.company_id ? `/companies?open=${deal.company_id}` : undefined} />
-          </Panel>
-          <Panel title="Najważniejsze dane">
-            <Row label="Źródło" value={deal.source} /><Row label="Cel" value={deal.goal} /><Row label="Typ" value={deal.product_type} /><Row label="Wnioskodawcy" value={deal.applicant_mode} /><Row label="Dochód" value={deal.income_type} /><Row label="NIP" value={deal.company_nip} /><Row label="Księgowość" value={deal.accounting_type} /><Row label="BIK" value={deal.bik_status} />
-          </Panel>
-          <Panel title="Następne działanie">
-            <p className="text-sm font-medium">{deal.next_action || 'Nie ustalono'}</p>{deal.next_action_at && <p className="mt-1 text-xs text-muted-foreground">{new Date(deal.next_action_at).toLocaleString('pl-PL')}</p>}
-            {deal.meeting_at && <p className="mt-3 flex items-center gap-2 text-xs"><CalendarDays className="h-4 w-4" /> {new Date(deal.meeting_at).toLocaleString('pl-PL')} · {deal.meeting_place}</p>}
-          </Panel>
-        </aside>
-
-        <main className="rounded-xl border bg-card p-4">
-          <Tabs defaultValue="case">
-            <TabsList className="mb-4 flex h-auto flex-wrap justify-start"><TabsTrigger value="case">Dane sprawy i ankieta</TabsTrigger><TabsTrigger value="notes">Notatki i działania</TabsTrigger><TabsTrigger value="banks">Proces bankowy</TabsTrigger><TabsTrigger value="files">Dokumenty</TabsTrigger></TabsList>
-            <TabsContent value="case" className="space-y-4">
-              <Section title="Opis ogólny"><p className="whitespace-pre-wrap text-sm">{deal.description || 'Brak opisu.'}</p></Section>
-              <Section title="Dane z formularza"><div className="grid gap-3 sm:grid-cols-2"><Row label="Kwota finansowania" value={`${Number(deal.value || 0).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`} /><Row label="Źródło" value={deal.source} /><Row label="Cel" value={deal.goal} /><Row label="Rodzaj sprawy" value={deal.product_type} /><Row label="Osoba / para" value={deal.applicant_mode} /><Row label="Forma dochodu" value={deal.income_type} /></div></Section>
-              <Section title="Dane z pełnej ankiety"><p className="whitespace-pre-wrap text-sm">{deal.questionnaire_text || 'Ankieta nie została jeszcze przesłana.'}</p></Section>
-              <Section title="Zobowiązania i sytuacja"><p className="whitespace-pre-wrap text-sm">{deal.liabilities || 'Brak danych.'}</p></Section>
-            </TabsContent>
-            <TabsContent value="notes"><div className="mb-4 flex gap-2"><Textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Podyktuj lub wpisz notatkę ze spotkania albo rozmowy…" /><Button onClick={addNote}>Dodaj</Button></div><div className="space-y-3">{notes.map((note) => <article key={note.id} className="rounded-lg border bg-muted/40 p-3"><p className="whitespace-pre-wrap text-sm">{note.note_text}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(note.created_at).toLocaleString('pl-PL')}</p></article>)}{notes.length === 0 && <p className="text-sm text-muted-foreground">Brak notatek.</p>}</div></TabsContent>
-            <TabsContent value="banks" className="grid gap-4 lg:grid-cols-3">{banks.map((bank, index) => <BankCard key={bank.position} bank={bank} onChange={(next) => setBanks((current) => current.map((item, i) => i === index ? next : item))} onSave={() => saveBank(bank)} />)}</TabsContent>
-            <TabsContent value="files"><Section title="Teczka klienta"><p className="text-sm text-muted-foreground">{deal.drive_folder_url ? 'Folder Google Drive jest przypisany do tego Deala.' : 'Folder nie został jeszcze przypisany.'}</p>{deal.drive_folder_url && <a href={deal.drive_folder_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm text-primary">Otwórz folder dokumentów</a>}<p className="mt-4 text-sm"><strong>Lista braków:</strong><br />{deal.missing_documents || 'Brak wpisanej listy.'}</p></Section></TabsContent>
-          </Tabs>
-        </main>
-      </div>
-      <DealForm open={editOpen} onOpenChange={setEditOpen} deal={deal} pipelineId={deal.pipeline_id} stages={stages} onSaved={() => { setEditOpen(false); void load(); }} />
-    </div>
-  );
+export default function DealPage(){
+ const {id}=useParams<{id:string}>(); const {accountId}=useAuth(); const db=useMemo(()=>createClient(),[]);
+ const [deal,setDeal]=useState<Deal|null>(null),[notes,setNotes]=useState<Note[]>([]),[note,setNote]=useState(''),[banks,setBanks]=useState<Bank[]>([1,2,3].map(position=>({position,progress:0}))),[docs,setDocs]=useState<Doc[]>([]),[stages,setStages]=useState<PipelineStage[]>([]),[edit,setEdit]=useState(false),[uploading,setUploading]=useState(false);
+ const load=useCallback(async()=>{const [d,n,b,f]=await Promise.all([db.from('deals').select('*,contact:contacts(*),company:companies(*),stage:pipeline_stages(*)').eq('id',id).single(),db.from('deal_notes').select('*').eq('deal_id',id).order('created_at',{ascending:false}),db.from('bank_processes').select('*').eq('deal_id',id).order('position'),db.from('deal_documents').select('*').eq('deal_id',id).order('created_at',{ascending:false})]);setDeal(d.data as Deal|null);setNotes((n.data??[]) as Note[]);const x=(b.data??[]) as Bank[];setBanks([1,2,3].map(position=>x.find(v=>v.position===position)??{position,progress:0}));setDocs((f.data??[]) as Doc[]);if(d.data?.pipeline_id){const s=await db.from('pipeline_stages').select('*').eq('pipeline_id',d.data.pipeline_id).order('position');setStages((s.data??[]) as PipelineStage[])}},[db,id]);
+ useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer)},[load]);
+ async function addNote(){if(!note.trim()||!accountId||!deal)return;const s=await db.auth.getSession();if(!s.data.session?.user)return;const r=await db.from('deal_notes').insert({account_id:accountId,deal_id:deal.id,user_id:s.data.session.user.id,note_text:note.trim()});if(r.error)toast.error(r.error.message);else{setNote('');await load()}}
+ async function saveBank(bank:Bank){if(!deal||!accountId)return;const r=await db.from('bank_processes').upsert({...bank,id:bank.id||undefined,account_id:accountId,deal_id:deal.id},{onConflict:'deal_id,position'});if(r.error)toast.error(r.error.message);else{toast.success(`Proces Bank ${bank.position} zapisany`);await load()}}
+ async function upload(file:File){if(!deal||!accountId)return;setUploading(true);const s=await db.auth.getSession();if(!s.data.session?.user){setUploading(false);return}const path=`${accountId}/${deal.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g,'-')}`;const u=await db.storage.from('deal-documents').upload(path,file);if(u.error)toast.error(u.error.message);else{const r=await db.from('deal_documents').insert({account_id:accountId,deal_id:deal.id,user_id:s.data.session.user.id,name:file.name,storage_path:path,status:'otrzymany',document_type:'Dokument klienta',source_channel:'Wgrany w CRM'});if(r.error)toast.error(r.error.message);else toast.success('Dokument zapisany w prywatnej teczce')}setUploading(false);await load()}
+ async function openDoc(d:Doc){const r=await db.storage.from('deal-documents').createSignedUrl(d.storage_path,300);if(r.data?.signedUrl)window.open(r.data.signedUrl,'_blank','noopener,noreferrer');else toast.error('Nie udało się otworzyć dokumentu')}
+ async function removeDoc(d:Doc){await db.storage.from('deal-documents').remove([d.storage_path]);await db.from('deal_documents').delete().eq('id',d.id);await load()}
+ async function copy(text:string){await navigator.clipboard.writeText(text);toast.success('Treść skopiowana')}
+ if(!deal)return <div className="p-8">Wczytywanie karty Deal…</div>;
+ const first=deal.contact?.name?.split(' ')[0]||'Dzień dobry', meeting=deal.meeting_at?dt(deal.meeting_at):'[DATA SPOTKANIA]', link=deal.drive_folder_url||'[LINK DO DOKUMENTÓW]', reminder=`${first}, przypominam o spotkaniu: ${meeting}. Tomasz Makson`, documentMessage=`${first}, proszę wgrać uzgodnione dokumenty tutaj: ${link}. Tomasz Makson`;
+ return <div className="space-y-4"><Link href="/pipelines" className="inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4"/>Wróć do lejka</Link>
+ <header className="rounded-xl border bg-card p-4"><div className="flex justify-between gap-4"><div><p className="text-xs font-semibold text-primary">{deal.stage?.name}</p><h1 className="text-2xl font-bold">{deal.title}</h1><p className="whitespace-pre-wrap text-sm text-muted-foreground">{deal.description||'Brak opisu ogólnego'}</p></div><div className="text-right text-xl font-bold">{money(deal.value)} {deal.currency||'PLN'}</div></div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={()=>setEdit(true)}><Pencil className="h-4 w-4"/>Edytuj Deal</Button>{deal.contact?.phone&&<a href={`tel:${deal.contact.phone}`}><Button size="sm"><Phone className="h-4 w-4"/>Zadzwoń</Button></a>}{deal.contact?.email&&<a href={`mailto:${deal.contact.email}`}><Button size="sm" variant="outline"><Mail className="h-4 w-4"/>E-mail</Button></a>}</div></header>
+ <div className="grid gap-4 xl:grid-cols-[320px_1fr]"><aside className="space-y-4"><Panel title="Powiązania"><LinkRow label="Kontakt" value={deal.contact?.name||deal.contact?.phone||'Brak'} href={deal.contact_id?`/contacts?open=${deal.contact_id}`:undefined}/><LinkRow label="Firma" value={deal.company?.name||'Brak'} href={deal.company_id?`/companies?open=${deal.company_id}`:undefined}/></Panel>{accountId&&<Panel title="Tagi Deala"><EntityTagsEditor accountId={accountId} entityType="deal" entityId={deal.id}/></Panel>}<Panel title="Co dalej"><Row label="Następne działanie" value={deal.next_action}/><Row label="Termin" value={deal.next_action_at&&dt(deal.next_action_at)}/><Row label="Ponowny kontakt" value={deal.follow_up_at&&dt(deal.follow_up_at)}/><Row label="Spotkanie" value={deal.meeting_at&&`${dt(deal.meeting_at)} · ${deal.meeting_place||''}`}/></Panel></aside>
+ <main className="rounded-xl border bg-card p-4"><Tabs defaultValue="case"><TabsList className="mb-4 flex h-auto flex-wrap"><TabsTrigger value="case">Dane i kwalifikacja</TabsTrigger><TabsTrigger value="notes">Notatki i działania</TabsTrigger><TabsTrigger value="banks">3 procesy bankowe</TabsTrigger><TabsTrigger value="files">Dokumenty</TabsTrigger><TabsTrigger value="comm">Komunikacja</TabsTrigger><TabsTrigger value="settlement">Rozliczenie</TabsTrigger></TabsList>
+ <TabsContent value="case" className="space-y-4"><Section title="Potrzeba klienta"><p className="whitespace-pre-wrap text-sm">{deal.need_summary||deal.description||'—'}</p></Section><Section title="Źródło i kwalifikacja"><Grid><Row label="Źródło" value={deal.source}/><Row label="Szczegóły źródła" value={deal.source_details}/><Row label="Wynik" value={deal.qualification_status}/><Row label="Uzasadnienie / ryzyka" value={deal.qualification_reason}/><Row label="Cel" value={deal.goal}/><Row label="Produkt" value={deal.product_type}/><Row label="Wnioskodawcy" value={deal.applicant_mode}/><Row label="BIK" value={deal.bik_status}/></Grid></Section><Section title="Dochód i gospodarstwo"><Grid><Row label="Forma dochodu" value={deal.income_type}/><MRow label="Dochód netto" value={deal.monthly_income}/><MRow label="Koszty życia" value={deal.monthly_costs}/><MRow label="Suma rat" value={deal.monthly_installments}/><Row label="Osób w gospodarstwie" value={deal.household_size?String(deal.household_size):undefined}/><Row label="Stan cywilny" value={deal.marital_status}/><Row label="Dochód od" value={deal.employment_from}/><Row label="Umowa do" value={deal.contract_until}/></Grid><p className="mt-3 text-sm">Zobowiązania: {deal.liabilities||'—'}</p></Section><Section title="Finansowanie i nieruchomość"><Grid><MRow label="Kwota wnioskowana" value={deal.value}/><MRow label="Wartość nieruchomości" value={deal.property_value}/><MRow label="Wkład własny" value={deal.own_contribution}/><Row label="Okres" value={deal.loan_term_months?`${deal.loan_term_months} miesięcy`:undefined}/><Row label="Rodzaj nieruchomości" value={deal.property_type}/><Row label="Lokalizacja" value={deal.property_location}/><Row label="Obecny bank" value={deal.current_bank}/><MRow label="Obecne saldo" value={deal.current_balance}/><MRow label="Obecna rata" value={deal.current_installment}/><MRow label="Szacowana oszczędność" value={deal.estimated_savings}/></Grid></Section><Section title="Pełna ankieta"><p className="whitespace-pre-wrap text-sm">{deal.questionnaire_text||'Nie uzupełniono'}</p></Section></TabsContent>
+ <TabsContent value="notes"><div className="mb-4 flex gap-2"><Textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Notatka ze spotkania lub rozmowy"/><Button onClick={addNote}>Dodaj</Button></div>{notes.map(n=><article key={n.id} className="mb-2 rounded-lg border p-3"><p className="whitespace-pre-wrap text-sm">{n.note_text}</p><p className="text-xs text-muted-foreground">{dt(n.created_at)}</p></article>)}</TabsContent>
+ <TabsContent value="banks" className="grid gap-4 2xl:grid-cols-3">{banks.map((b,i)=><BankCard key={b.position} bank={b} change={next=>setBanks(x=>x.map((v,j)=>j===i?next:v))} save={()=>saveBank(b)}/>)}</TabsContent>
+ <TabsContent value="files" className="space-y-4"><Section title="Prywatna teczka dokumentów"><label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"><Upload className="h-4 w-4"/>{uploading?'Wysyłanie…':'Dodaj dokument'}<input type="file" className="hidden" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.currentTarget.value=''}}/></label><div className="mt-4 space-y-2">{docs.map(d=><div key={d.id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="text-sm font-medium">{d.name}</p><p className="text-xs text-muted-foreground">{d.status} · {dt(d.created_at)}</p></div><div className="flex gap-1"><Button size="sm" variant="outline" onClick={()=>openDoc(d)}>Otwórz</Button><Button size="icon" variant="ghost" onClick={()=>removeDoc(d)}><Trash2 className="h-4 w-4"/></Button></div></div>)}{!docs.length&&<p className="text-sm text-muted-foreground">Brak dokumentów.</p>}</div></Section><Section title="Braki dokumentacyjne"><p className="whitespace-pre-wrap text-sm">{deal.missing_documents||'Brak wpisanej listy'}</p></Section>{deal.drive_folder_url&&<a href={deal.drive_folder_url} target="_blank" rel="noreferrer" className="inline-flex gap-2 text-primary"><FileText className="h-4 w-4"/>Otwórz folder Google Drive</a>}</TabsContent>
+ <TabsContent value="comm" className="space-y-4"><Template title="Przypomnienie o spotkaniu" text={reminder} copy={copy}/><Template title="Prośba o dokumenty" text={documentMessage} copy={copy}/><p className="text-xs text-muted-foreground">CRM przygotowuje treść. Niczego nie wysyła bez Twojej decyzji.</p></TabsContent>
+ <TabsContent value="settlement" className="space-y-4"><Section title="Uruchomienie i prowizja"><Grid><MRow label="Kwota uruchomiona" value={deal.launched_amount}/><Row label="Data uruchomienia" value={deal.launched_at}/><Row label="Stawka prowizji" value={deal.commission_rate?`${deal.commission_rate}%`:undefined}/><MRow label="Prowizja oczekiwana" value={deal.expected_commission}/><MRow label="Prowizja rzeczywista" value={deal.actual_commission}/></Grid></Section><Section title="Faktura i archiwum"><Grid><Row label="Numer faktury" value={deal.invoice_number}/><Row label="Data faktury" value={deal.invoice_date}/><Row label="Status" value={deal.invoice_status}/><Row label="Sprawdzone" value={deal.settlement_verified?'Tak':'Nie'}/><Row label="Numer przesyłki" value={deal.tracking_number}/></Grid><p className="mt-3 text-sm">{deal.settlement_notes||'Brak uwag'}</p></Section></TabsContent>
+ </Tabs></main></div><DealForm open={edit} onOpenChange={setEdit} deal={deal} pipelineId={deal.pipeline_id} stages={stages} onSaved={()=>{setEdit(false);void load()}}/></div>
 }
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-xl border bg-card p-4"><h2 className="mb-3 text-sm font-semibold">{title}</h2><div className="space-y-3">{children}</div></section>; }
-function Section({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-lg border p-4"><h3 className="mb-3 font-semibold">{title}</h3>{children}</section>; }
-function Row({ label, value }: { label: string; value?: string | null }) { return <div><p className="text-[11px] uppercase text-muted-foreground">{label}</p><p className="text-sm">{value || '—'}</p></div>; }
-function Info({ icon: Icon, label, value, href }: { icon: typeof UserRound; label: string; value: string; href?: string }) { const content = <div className="flex items-center gap-3"><Icon className="h-4 w-4 text-primary" /><div><p className="text-[11px] uppercase text-muted-foreground">{label}</p><p className="text-sm font-medium">{value}</p></div></div>; return href ? <Link href={href}>{content}</Link> : content; }
-function BankCard({ bank, onChange, onSave }: { bank: BankProcess; onChange: (bank: BankProcess) => void; onSave: () => void }) { return <section className="space-y-3 rounded-xl border p-3"><h3 className="font-semibold">Bank {bank.position}</h3><Input value={bank.bank_name || ''} onChange={(e) => onChange({ ...bank, bank_name: e.target.value })} placeholder="Nazwa banku" /><Input value={bank.status || ''} onChange={(e) => onChange({ ...bank, status: e.target.value })} placeholder="Status procesu" /><Textarea value={bank.missing_documents || ''} onChange={(e) => onChange({ ...bank, missing_documents: e.target.value })} placeholder="Braki dokumentacyjne" /><Input value={bank.decision || ''} onChange={(e) => onChange({ ...bank, decision: e.target.value })} placeholder="Decyzja" /><Button onClick={onSave} size="sm" className="w-full">Zapisz proces</Button></section>; }
+function Panel({title,children}:{title:string;children:React.ReactNode}){return <section className="rounded-xl border bg-card p-4"><h2 className="mb-3 text-sm font-semibold">{title}</h2><div className="space-y-3">{children}</div></section>}
+function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="rounded-lg border p-4"><h3 className="mb-3 font-semibold">{title}</h3>{children}</section>}
+function Grid({children}:{children:React.ReactNode}){return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>}
+function Row({label,value}:{label:string;value?:string|null}){return <div><p className="text-[11px] uppercase text-muted-foreground">{label}</p><p className="text-sm">{value||'—'}</p></div>}
+function MRow({label,value}:{label:string;value?:number|null}){return <Row label={label} value={value==null?undefined:`${money(value)} PLN`}/>}
+function LinkRow({label,value,href}:{label:string;value:string;href?:string}){const c=<div><p className="text-[11px] uppercase text-muted-foreground">{label}</p><p className="text-sm font-medium">{value}</p></div>;return href?<Link href={href}>{c}</Link>:c}
+function Template({title,text,copy}:{title:string;text:string;copy:(x:string)=>Promise<void>}){return <Section title={title}><p className="mb-3 whitespace-pre-wrap text-sm">{text}</p><Button size="sm" onClick={()=>copy(text)}><Copy className="h-4 w-4"/>Kopiuj wiadomość</Button></Section>}
+function money(v?:number|null){return Number(v||0).toLocaleString('pl-PL',{maximumFractionDigits:2})}function dt(v:string){return new Date(v).toLocaleString('pl-PL')}
+function BankCard({bank,change,save}:{bank:Bank;change:(b:Bank)=>void;save:()=>void}){return <section className="space-y-3 rounded-xl border p-3"><h3 className="font-semibold">Bank {bank.position}</h3><Input value={bank.bank_name||''} onChange={e=>change({...bank,bank_name:e.target.value})} placeholder="Nazwa banku"/><Input value={bank.status||''} onChange={e=>change({...bank,status:e.target.value})} placeholder="Status"/><label className="flex gap-2 text-sm"><input type="checkbox" checked={bank.remote_process||false} onChange={e=>change({...bank,remote_process:e.target.checked})}/>Proces zdalny</label><label className="text-xs">Postęp {bank.progress||0}%<Input type="range" min="0" max="100" step="5" value={bank.progress||0} onChange={e=>change({...bank,progress:Number(e.target.value)})}/></label><D label="Data złożenia" value={bank.submitted_at} set={v=>change({...bank,submitted_at:v})}/><Textarea value={bank.conditions||''} onChange={e=>change({...bank,conditions:e.target.value})} placeholder="Warunki banku"/><Textarea value={bank.missing_documents||''} onChange={e=>change({...bank,missing_documents:e.target.value})} placeholder="Braki dokumentacyjne"/><Input value={bank.decision||''} onChange={e=>change({...bank,decision:e.target.value})} placeholder="Decyzja"/><D label="Data decyzji" value={bank.decision_at} set={v=>change({...bank,decision_at:v})}/><Input type="number" value={bank.final_amount??''} onChange={e=>change({...bank,final_amount:Number(e.target.value)||undefined})} placeholder="Kwota końcowa"/><D label="Podpisanie umowy" value={bank.contract_signed_at} set={v=>change({...bank,contract_signed_at:v})}/><D label="Uruchomienie" value={bank.launched_at} set={v=>change({...bank,launched_at:v})}/><Button size="sm" className="w-full" onClick={save}>Zapisz proces</Button></section>}
+function D({label,value,set}:{label:string;value?:string;set:(v:string)=>void}){return <label className="grid gap-1 text-xs text-muted-foreground">{label}<Input type="date" value={value||''} onChange={e=>set(e.target.value)}/></label>}
