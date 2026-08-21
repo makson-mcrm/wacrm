@@ -1,5 +1,5 @@
-import type { AccountRole } from "@/lib/auth/roles";
-import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
+import type { AccountRole } from '@/lib/auth/roles';
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 
 export type {
   InteractiveMessagePayload,
@@ -8,7 +8,7 @@ export type {
   InteractiveButton,
   InteractiveListRow,
   InteractiveListSection,
-} from "@/lib/whatsapp/interactive";
+} from '@/lib/whatsapp/interactive';
 
 export interface Profile {
   id: string;
@@ -87,7 +87,7 @@ export interface AccountInvitation {
   id: string;
   account_id: string;
   /** Roles offered via invite — owner is never offered. */
-  role: Exclude<AccountRole, "owner">;
+  role: Exclude<AccountRole, 'owner'>;
   created_by_user_id: string | null;
   label: string | null;
   created_at: string;
@@ -105,14 +105,81 @@ export interface Contact {
    *  and unique per account. Read-only. */
   phone_normalized?: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   company?: string;
+  description?: string;
+  preferred_contact_channel?: string;
+  source?: string;
+  phone_secondary?: string;
+  source_details?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  contact_consent?: boolean;
+  marketing_consent?: boolean;
+  linkedin_url?: string;
+  pesel?: string;
+  identity_document?: string;
+  bik_status?: string;
+  income_type?: string;
+  monthly_income?: number;
+  employer_name?: string;
+  employment_from?: string;
+  contract_until?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
+}
+
+export interface Company {
+  id: string;
+  account_id: string;
+  user_id: string;
+  name: string;
+  nip?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  description?: string;
+  drive_folder_url?: string;
+  regon?: string;
+  krs?: string;
+  legal_form?: string;
+  pkd?: string;
+  accounting_type?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  website?: string;
+  business_started_on?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactCompany {
+  contact_id: string;
+  company_id: string;
+  account_id: string;
+  role?: string;
+  is_primary: boolean;
+  created_at: string;
+  company?: Company;
+  contact?: Contact;
+}
+
+export interface DealContact {
+  deal_id: string;
+  contact_id: string;
+  account_id: string;
+  role?: string;
+  is_primary: boolean;
+  created_at: string;
+  contact?: Contact;
 }
 
 export interface Tag {
@@ -216,7 +283,8 @@ export type ContentType =
   | 'template'
   /** Customer tapped a reply button or list row on a message we sent. */
   | 'interactive';
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus =
+  'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
   id: string;
@@ -376,23 +444,82 @@ export interface Deal {
    * contact is deleted (ON DELETE SET NULL). History preserved.
    */
   contact_id: string | null;
+  company_id?: string | null;
   conversation_id?: string;
   assigned_to?: string;
   title: string;
   value: number;
   currency?: string;
   notes?: string;
+  description?: string;
+  source?: string;
+  goal?: string;
+  product_type?: string;
+  applicant_mode?: string;
+  co_applicant_contact_id?: string | null;
+  income_type?: string;
+  company_nip?: string;
+  accounting_type?: string;
+  liabilities?: string;
+  bik_status?: string;
+  questionnaire_text?: string;
+  meeting_at?: string;
+  meeting_place?: string;
+  next_action?: string;
+  next_action_at?: string;
+  follow_up_at?: string;
+  expected_commission?: number;
+  whatsapp_sent_status?: string;
+  missing_documents?: string;
+  drive_folder_url?: string;
+  source_details?: string;
+  need_summary?: string;
+  qualification_status?: string;
+  qualification_reason?: string;
+  marital_status?: string;
+  monthly_income?: number;
+  monthly_costs?: number;
+  monthly_installments?: number;
+  household_size?: number;
+  employment_from?: string;
+  contract_until?: string;
+  property_value?: number;
+  own_contribution?: number;
+  loan_term_months?: number;
+  property_location?: string;
+  property_type?: string;
+  loan_purpose_details?: string;
+  current_bank?: string;
+  current_balance?: number;
+  current_installment?: number;
+  estimated_savings?: number;
+  documents_ready?: boolean;
+  signed_forms_ready?: boolean;
+  launched_amount?: number;
+  launched_at?: string;
+  commission_rate?: number;
+  actual_commission?: number;
+  invoice_number?: string;
+  invoice_date?: string;
+  invoice_status?: string;
+  settlement_verified?: boolean;
+  settlement_notes?: string;
+  tracking_number?: string;
+  archived_at?: string;
   expected_close_date?: string;
   status?: DealStatus;
   created_at: string;
   updated_at?: string;
   contact?: Contact;
+  company?: Company;
   stage?: PipelineStage;
   assignee?: Profile;
 }
 
-export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
-export type RecipientStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
+export type BroadcastStatus =
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type RecipientStatus =
+  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
 export interface Broadcast {
   id: string;
@@ -574,10 +701,7 @@ export interface WaitStepConfig {
 }
 
 export type ConditionSubject =
-  | 'contact_field'
-  | 'tag_presence'
-  | 'message_content'
-  | 'time_of_day';
+  'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;

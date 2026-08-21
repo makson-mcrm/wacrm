@@ -13,8 +13,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
-import { toast } from "sonner";
-import { WifiOff } from "lucide-react";
+import { Mail, MessageCircle, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
@@ -563,6 +562,12 @@ function InboxPageInner() {
 
   return (
     <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b bg-card px-4 py-2 text-xs">
+        <span className="font-semibold">Kanały Inbox:</span>
+        <span className={cn("inline-flex items-center gap-1", whatsappConnected ? "text-emerald-600" : "text-amber-600")}><MessageCircle className="h-3.5 w-3.5" />WhatsApp Business — {whatsappConnected ? "podłączony" : "niepodłączony"}</span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground"><Mail className="h-3.5 w-3.5" />Gmail biuro@makson.space — do podłączenia</span>
+        <span className="text-muted-foreground">Poczta mFinanse pozostaje oddzielona.</span>
+      </div>
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (

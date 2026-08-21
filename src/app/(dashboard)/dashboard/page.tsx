@@ -1,234 +1,69 @@
-"use client"
+'use client';
 
-import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/use-auth'
-import { formatCurrency } from '@/lib/currency'
-import {
-  MessageSquare,
-  UserPlus,
-  DollarSign,
-  Send,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { AlertCircle, CalendarDays, CheckCircle2, Phone, Save, Target } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import type { Contact, Deal } from '@/types';
 
-import {
-  loadActivity,
-  loadConversationsSeries,
-  loadMetrics,
-  loadPipelineDonut,
-  loadResponseTime,
-} from '@/lib/dashboard/queries'
-import type {
-  ActivityItem,
-  ConversationsSeriesPoint,
-  MetricsBundle,
-  PipelineDonutData,
-  ResponseTimeSummary,
-} from '@/lib/dashboard/types'
-
-import { MetricCard } from '@/components/dashboard/metric-card'
-import { SkeletonCard } from '@/components/dashboard/skeleton'
-import { QuickActions } from '@/components/dashboard/quick-actions'
-import { ConversationsChart } from '@/components/dashboard/conversations-chart'
-import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
-import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
-import { ActivityFeed } from '@/components/dashboard/activity-feed'
-
-import { useTranslations } from 'next-intl'
-
-type RangeDays = 7 | 30 | 90
+type Priority = { position: number; title: string; completed: boolean; deal_id?: string | null };
+type Activity = { activity_type: string; occurred_at: string };
 
 export default function DashboardPage() {
-  const t = useTranslations('Dashboard.page')
-  const { defaultCurrency } = useAuth()
-  const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
-  const [metricsLoading, setMetricsLoading] = useState(true)
+  const db = useMemo(() => createClient(), []), { accountId } = useAuth();
+  const date = useMemo(() => new Date().toLocaleDateString('sv-SE'), []), [now] = useState(() => Date.now());
+  const [deals, setDeals] = useState<Deal[]>([]), [contacts, setContacts] = useState<Contact[]>([]), [priorities, setPriorities] = useState<Priority[]>(blankPriorities()), [activities, setActivities] = useState<Activity[]>([]), [saving, setSaving] = useState(false), [callOpen, setCallOpen] = useState(false);
+  const [callContactId, setCallContactId] = useState(''), [callDealId, setCallDealId] = useState(''), [callDescription, setCallDescription] = useState(''), [meaningful, setMeaningful] = useState(false);
 
-  const [range, setRange] = useState<RangeDays>(30)
-  // Keep a cache per range so switching tabs doesn't re-fetch what we
-  // already have. Ranges the user hasn't opened yet stay null and
-  // trigger a fetch on first view.
-  const [series, setSeries] = useState<Record<RangeDays, ConversationsSeriesPoint[] | null>>({
-    7: null,
-    30: null,
-    90: null,
-  })
-  const [seriesLoading, setSeriesLoading] = useState(true)
+  const load = useCallback(async () => {
+    const { data: { session } } = await db.auth.getSession(); if (!session?.user) return;
+    const start = new Date(`${date}T00:00:00`).toISOString(), end = new Date(`${date}T23:59:59`).toISOString();
+    const [dealRows, contactRows, priorityRows, activityRows] = await Promise.all([
+      db.from('deals').select('*,contact:contacts(*),company:companies(*),stage:pipeline_stages(*)').eq('status', 'open').order('next_action_at', { ascending: true, nullsFirst: false }),
+      db.from('contacts').select('*').order('name'),
+      db.from('daily_priorities').select('*').eq('priority_date', date).eq('user_id', session.user.id).order('position'),
+      db.from('sales_activities').select('activity_type,occurred_at').gte('occurred_at', start).lte('occurred_at', end),
+    ]);
+    setDeals((dealRows.data ?? []) as Deal[]); setContacts((contactRows.data ?? []) as Contact[]); setActivities((activityRows.data ?? []) as Activity[]);
+    const rows = (priorityRows.data ?? []) as Priority[]; setPriorities([1,2,3,4,5,6].map((position) => rows.find((row) => row.position === position) ?? { position, title: '', completed: false, deal_id: null }));
+  }, [db, date]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
-  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
-  const [pipelineLoading, setPipelineLoading] = useState(true)
+  async function savePriorities() {
+    if (!accountId) return; setSaving(true);
+    const { data: { session } } = await db.auth.getSession(); if (!session?.user) { setSaving(false); return; }
+    const rows = priorities.map((row) => ({ ...row, account_id: accountId, user_id: session.user.id, priority_date: date }));
+    const { error } = await db.from('daily_priorities').upsert(rows, { onConflict: 'account_id,user_id,priority_date,position' });
+    setSaving(false); if (error) toast.error(`Nie zapisano priorytetów: ${error.message}`); else toast.success('Sześć priorytetów zostało zapisanych.');
+  }
 
-  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
-  const [responseTimeLoading, setResponseTimeLoading] = useState(true)
+  async function registerCall() {
+    if (!accountId) return; const { data: { session } } = await db.auth.getSession(); if (!session?.user) return;
+    const contact = contacts.find((row) => row.id === callContactId), deal = deals.find((row) => row.id === callDealId);
+    const base = { account_id: accountId, user_id: session.user.id, contact_id: callContactId || null, deal_id: callDealId || null, title: `Telefon: ${contact?.name || contact?.phone || deal?.title || 'bez powiązania'}`, description: callDescription.trim() || null, occurred_at: new Date().toISOString(), completed: true };
+    const rows = [{ ...base, activity_type: 'telefon' }, ...(meaningful ? [{ ...base, activity_type: 'wartosciowa_rozmowa', title: `Wartościowa rozmowa: ${contact?.name || contact?.phone || deal?.title || 'bez powiązania'}` }] : [])];
+    const { error } = await db.from('sales_activities').insert(rows); if (error) toast.error(`Nie zapisano telefonu: ${error.message}`); else { toast.success('Telefon został zapisany w wyniku dnia.'); setCallOpen(false); setCallDescription(''); setMeaningful(false); await load(); }
+  }
 
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
-  const [activityLoading, setActivityLoading] = useState(true)
-
-  const loadAll = useCallback(() => {
-    const db = createClient()
-
-    // Kick everything off in parallel. Each block has its own
-    // setState + finally so a slow query doesn't hold up faster
-    // sections — each widget shows its own skeleton independently.
-    void loadMetrics(db)
-      .then((m) => setMetrics(m))
-      .catch((err) => console.error('[dashboard] metrics failed:', err))
-      .finally(() => setMetricsLoading(false))
-
-    void loadConversationsSeries(db, 30)
-      .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
-      .catch((err) => console.error('[dashboard] series failed:', err))
-      .finally(() => setSeriesLoading(false))
-
-    void loadPipelineDonut(db)
-      .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
-      .finally(() => setPipelineLoading(false))
-
-    void loadResponseTime(db)
-      .then((r) => setResponseTime(r))
-      .catch((err) => console.error('[dashboard] response time failed:', err))
-      .finally(() => setResponseTimeLoading(false))
-
-    // Fetch up to 50 so the biggest page-size option in the feed
-    // (50 rows) is already in memory — switching sizes then becomes
-    // a pure client-side slice with no extra round trip.
-    void loadActivity(db, 50)
-      .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
-      .finally(() => setActivityLoading(false))
-  }, [])
-
-  useEffect(() => {
-    loadAll()
-  }, [loadAll])
-
-  // Range switch handler — kept in an event callback (not an effect)
-  // so the setState calls stay out of the react-hooks/set-state-in-effect
-  // rule's way. The cached bucket check means switching back to a
-  // previously-viewed range is instant and doesn't re-fetch.
-  const handleRangeChange = useCallback(
-    (r: RangeDays) => {
-      setRange(r)
-      if (series[r] !== null) return
-      setSeriesLoading(true)
-      const db = createClient()
-      loadConversationsSeries(db, r)
-        .then((s) => setSeries((prev) => ({ ...prev, [r]: s })))
-        .catch((err) => console.error('[dashboard] series failed:', err))
-        .finally(() => setSeriesLoading(false))
-    },
-    [series],
-  )
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('description')}
-        </p>
-      </div>
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(
-                  metrics.activeConversations.previous, 
-                  t('newTodayVsYesterday'), 
-                  t('noChange', { suffix: t('newTodayVsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              delta={{
-                sign:
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={t('openDeals', { count: metrics.openDealsCount })}
-            />
-            <MetricCard
-              title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Quick actions */}
-      <QuickActions />
-
-      {/* Charts row */}
-      {/* items-stretch (the grid default) stretches the two columns to
-          match the tallest sibling; adding h-full on each wrapper and
-          on the inner panels makes both cards actually fill that
-          stretched height so their rounded borders line up. Without
-          this, the pipeline card rendered at its natural (shorter)
-          height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
-        </div>
-      </div>
-
-      {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
-    </div>
-  )
+  const overdue = deals.filter((deal) => deal.next_action_at && +new Date(deal.next_action_at) < now), todayActions = deals.filter((deal) => deal.next_action_at?.slice(0,10) === date), meetings = deals.filter((deal) => deal.meeting_at?.slice(0,10) === date), withoutAction = deals.filter((deal) => !deal.next_action_at || !deal.next_action), priorityDeal = overdue[0] ?? todayActions[0] ?? withoutAction[0] ?? deals[0];
+  const calls = activities.filter((row) => row.activity_type === 'telefon').length, conversations = activities.filter((row) => row.activity_type === 'wartosciowa_rozmowa').length;
+  return <div className="space-y-5 p-4 md:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Pulpit — Mój dzień</h1><p className="text-sm text-muted-foreground">Najważniejsze działania sprzedażowe na dziś.</p></div><Button onClick={() => setCallOpen(true)}><Phone className="size-4"/>Zarejestruj telefon</Button></div>
+    <section className="rounded-2xl border-2 border-primary/40 bg-primary/5 p-5"><div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-primary"><Target className="size-4"/>Co masz zrobić teraz</div>{priorityDeal ? <><h2 className="text-xl font-bold">{priorityDeal.next_action || `Ustal następne działanie: ${priorityDeal.title}`}</h2><p className="text-sm text-muted-foreground">{priorityDeal.contact?.name || priorityDeal.company?.name || priorityDeal.title}{priorityDeal.next_action_at ? ` · ${new Date(priorityDeal.next_action_at).toLocaleString('pl-PL')}` : ' · brak terminu'}</p><Link href={`/deals/${priorityDeal.id}`} className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Otwórz Deal</Link></> : <p>Brak otwartych Deali.</p>}</section>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><Metric label="Telefony" value={calls} note="rejestrowane przyciskiem"/><Metric label="Wartościowe rozmowy" value={conversations}/><Metric label="Spotkania dziś" value={meetings.length}/><Metric label="Działania dziś" value={todayActions.length}/><Metric label="Zaległe" value={overdue.length}/><Metric label="Bez następnego kroku" value={withoutAction.length}/></div>
+    <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]"><section className="rounded-xl border bg-card p-4"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-semibold">Sześć priorytetów Ivy Lee</h2><p className="text-xs text-muted-foreground">Wpisujesz je sam. System zapisuje je dopiero po naciśnięciu „Zapisz sześć priorytetów”.</p></div><Button onClick={savePriorities} disabled={saving}><Save className="size-4"/>{saving ? 'Zapisywanie…' : 'Zapisz'}</Button></div><div className="space-y-2">{priorities.map((row, index) => <div key={row.position} className="grid grid-cols-[32px_32px_1fr] items-center gap-2 rounded-lg border p-2"><span className="text-center font-bold text-primary">{row.position}</span><input type="checkbox" checked={row.completed} onChange={(e) => setPriorities((items) => items.map((item, i) => i === index ? { ...item, completed: e.target.checked } : item))}/><Input value={row.title} onChange={(e) => setPriorities((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))} placeholder="Najważniejsze zadanie"/></div>)}</div></section>
+      <section className="rounded-xl border bg-card p-4"><h2 className="mb-3 font-semibold">Kontrola dnia</h2><Status icon={AlertCircle} label="Zaległe działania" count={overdue.length} href="/pipelines"/><Status icon={CalendarDays} label="Spotkania dzisiaj" count={meetings.length} href="/calendar"/><Status icon={CheckCircle2} label="Deale bez następnego kroku" count={withoutAction.length} href="/pipelines"/></section></div>
+    <Dialog open={callOpen} onOpenChange={setCallOpen}><DialogContent><DialogHeader><DialogTitle>Zarejestruj wykonany telefon</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Dodanie nowego numeru do Kontaktów nie zwiększa licznika. Liczy się wykonany telefon zapisany tutaj.</p><div className="space-y-3"><Field label="Osoba"><select value={callContactId} onChange={(e) => setCallContactId(e.target.value)} className="h-9 w-full rounded-md border bg-muted px-3 text-sm"><option value="">Bez osoby</option>{contacts.map((row) => <option key={row.id} value={row.id}>{row.name || row.phone}</option>)}</select></Field><Field label="Deal"><select value={callDealId} onChange={(e) => setCallDealId(e.target.value)} className="h-9 w-full rounded-md border bg-muted px-3 text-sm"><option value="">Bez Deala</option>{deals.map((row) => <option key={row.id} value={row.id}>{row.title}</option>)}</select></Field><Field label="Krótki wynik rozmowy"><Textarea value={callDescription} onChange={(e) => setCallDescription(e.target.value)} /></Field><label className="flex items-center gap-2 rounded-lg border p-3 text-sm"><input type="checkbox" checked={meaningful} onChange={(e) => setMeaningful(e.target.checked)}/>To była wartościowa rozmowa sprzedażowa</label><Button onClick={registerCall} className="w-full">Zapisz telefon</Button></div></DialogContent></Dialog>
+  </div>;
 }
 
-// ------------------------------------------------------------
-
-function deltaLabel(delta: number, suffix: string, noChangeLabel: string): string {
-  if (delta === 0) return noChangeLabel
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${delta.toLocaleString()} ${suffix}`
-}
+function blankPriorities(): Priority[] { return [1,2,3,4,5,6].map((position) => ({ position, title: '', completed: false, deal_id: null })); }
+function Metric({ label, value, note }: { label: string; value: number; note?: string }) { return <div className="rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-bold">{value}</p>{note && <p className="text-[10px] text-muted-foreground">{note}</p>}</div>; }
+function Status({ icon: Icon, label, count, href }: { icon: typeof AlertCircle; label: string; count: number; href: string }) { return <Link href={href} className="mb-2 flex items-center justify-between rounded-lg border p-3 hover:bg-muted"><span className="flex items-center gap-2 text-sm"><Icon className="size-4"/>{label}</span><strong>{count}</strong></Link>; }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="grid gap-1.5"><Label>{label}</Label>{children}</div>; }

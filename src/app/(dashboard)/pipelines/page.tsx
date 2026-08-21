@@ -6,7 +6,6 @@ import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
-import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +29,7 @@ import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -38,15 +38,18 @@ import { useTranslations } from "next-intl";
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "1. KONTAKT POZYSKOWY", color: "#3b82f6", position: 0 },
+  { name: "2. SPOTKANIE / AUDYT", color: "#06b6d4", position: 1 },
+  { name: "3. POCZEKALNIA", color: "#eab308", position: 2 },
+  { name: "4. KOMPLETACJA / OFERTA", color: "#f97316", position: 3 },
+  { name: "5. WNIOSKI / DECYZJA", color: "#8b5cf6", position: 4 },
+  { name: "6. URUCHOMIENIE / FV", color: "#22c55e", position: 5 },
+  { name: "7. ARCHIWUM", color: "#64748b", position: 6 },
 ];
 
 export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
+  const router = useRouter();
   const supabase = createClient();
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
@@ -69,6 +72,8 @@ export default function PipelinesPage() {
   const [dealFormOpen, setDealFormOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>("");
+  const [defaultCompanyId, setDefaultCompanyId] = useState<string>("");
+  const [defaultContactId, setDefaultContactId] = useState<string>("");
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -101,7 +106,7 @@ export default function PipelinesPage() {
     async (pipelineId: string) => {
       const { data } = await supabase
         .from("deals")
-        .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
+        .select("*, contact:contacts(*), company:companies(*), assignee:profiles!deals_assigned_to_fkey(*)")
         .eq("pipeline_id", pipelineId)
         .order("created_at", { ascending: false });
       return (data ?? []) as Deal[];
@@ -120,7 +125,7 @@ export default function PipelinesPage() {
 
     const { data: pipeline, error } = await supabase
       .from("pipelines")
-      .insert({ user_id: user.id, account_id: accountId, name: "Sales Pipeline" })
+      .insert({ user_id: user.id, account_id: accountId, name: "mFinanse" })
       .select()
       .single();
 
@@ -216,6 +221,12 @@ export default function PipelinesPage() {
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
+      const targetStage = stages.find((stage) => stage.id === newStageId);
+      const movedDeal = deals.find((deal) => deal.id === dealId);
+      if (targetStage?.name.includes("POCZEKALNIA") && !movedDeal?.follow_up_at) {
+        toast.error("Najpierw otwórz Deal i ustaw termin ponownego kontaktu.");
+        return;
+      }
       // Optimistic update — board already animated; just persist.
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
@@ -229,23 +240,34 @@ export default function PipelinesPage() {
         refreshDeals();
       }
     },
-    [supabase, refreshDeals, t],
+    [supabase, refreshDeals, t, stages, deals],
   );
 
   const handleAddDeal = useCallback(
-    (stageId?: string) => {
+    (stageId?: string, companyId?: string, contactId?: string) => {
       setEditingDeal(null);
       setDefaultStageId(stageId ?? stages[0]?.id ?? "");
+      setDefaultCompanyId(companyId ?? "");
+      setDefaultContactId(contactId ?? "");
       setDealFormOpen(true);
     },
     [stages],
   );
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const timer = window.setTimeout(() => {
+    if (query.get('new') === 'deal' && stages.length) {
+      handleAddDeal(undefined, query.get('company') ?? undefined, query.get('contact') ?? undefined);
+      window.history.replaceState({}, '', '/pipelines');
+    }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [stages, handleAddDeal]);
+
   const handleEditDeal = useCallback((deal: Deal) => {
-    setEditingDeal(deal);
-    setDefaultStageId(deal.stage_id);
-    setDealFormOpen(true);
-  }, []);
+    router.push(`/deals/${deal.id}`);
+  }, [router]);
 
   async function handleCreatePipeline() {
     const name = newPipelineName.trim();
@@ -412,7 +434,6 @@ export default function PipelinesPage() {
         </div>
       ) : (
         <>
-          <PipelineAnalytics stages={stages} deals={deals} />
           <PipelineBoard
             stages={stages}
             deals={deals}
@@ -487,6 +508,8 @@ export default function PipelinesPage() {
         pipelineId={selectedPipelineId}
         stages={stages}
         defaultStageId={defaultStageId}
+        defaultCompanyId={defaultCompanyId}
+        defaultContactId={defaultContactId}
         onSaved={refreshDeals}
       />
     </div>

@@ -244,6 +244,20 @@ export default function ContactsPage() {
     setDetailOpen(true);
   }
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const timer = window.setTimeout(() => {
+    if (query.get('new') === 'contact') {
+      openAddForm();
+      window.history.replaceState({}, '', '/contacts');
+    } else if (query.get('open')) {
+      openDetail(query.get('open')!);
+      window.history.replaceState({}, '', '/contacts');
+    }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
     setDeleteConfirmOpen(true);
