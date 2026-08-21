@@ -57,6 +57,15 @@ export function ContactForm({
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [description, setDescription] = useState('');
+  const [phoneSecondary, setPhoneSecondary] = useState('');
+  const [source, setSource] = useState('');
+  const [sourceDetails, setSourceDetails] = useState('');
+  const [preferredChannel, setPreferredChannel] = useState('');
+  const [address, setAddress] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [city, setCity] = useState('');
+  const [contactConsent, setContactConsent] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -79,6 +88,15 @@ export function ContactForm({
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
       setDescription(contact?.description ?? '');
+      setPhoneSecondary(contact?.phone_secondary ?? '');
+      setSource(contact?.source ?? '');
+      setSourceDetails(contact?.source_details ?? '');
+      setPreferredChannel(contact?.preferred_contact_channel ?? '');
+      setAddress(contact?.address ?? '');
+      setPostalCode(contact?.postal_code ?? '');
+      setCity(contact?.city ?? '');
+      setContactConsent(contact?.contact_consent ?? false);
+      setMarketingConsent(contact?.marketing_consent ?? false);
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
@@ -152,15 +170,28 @@ export function ContactForm({
 
       let contactId = contact?.id;
 
+      const payload = {
+        name: name.trim() || null,
+        phone: phone.trim(),
+        phone_secondary: phoneSecondary.trim() || null,
+        email: email.trim() || null,
+        company: company.trim() || null,
+        description: description.trim() || null,
+        source: source || null,
+        source_details: sourceDetails.trim() || null,
+        preferred_contact_channel: preferredChannel || null,
+        address: address.trim() || null,
+        postal_code: postalCode.trim() || null,
+        city: city.trim() || null,
+        contact_consent: contactConsent,
+        marketing_consent: marketingConsent,
+      };
+
       if (isEdit && contactId) {
         const { error } = await supabase
           .from('contacts')
           .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            description: description.trim() || null,
+            ...payload,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -171,11 +202,7 @@ export function ContactForm({
           .insert({
             user_id: user.id,
             account_id: accountId,
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            description: description.trim() || null,
+            ...payload,
           })
           .select('id')
           .single();
@@ -227,7 +254,7 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
             {isEdit ? t('editTitle') : t('addTitle')}
@@ -251,6 +278,13 @@ export function ContactForm({
               placeholder={t('namePlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2"><Label>Drugi telefon</Label><Input value={phoneSecondary} onChange={(e) => setPhoneSecondary(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Preferowany kontakt</Label><select value={preferredChannel} onChange={(e) => setPreferredChannel(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Telefon</option><option>WhatsApp</option><option>SMS</option><option>E-mail</option></select></div>
+            <div className="space-y-2"><Label>Źródło pozyskania</Label><select value={source} onChange={(e) => setSource(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Podajnik mBank</option><option>Lead mFinanse</option><option>Własny kontakt</option><option>Polecenie</option><option>Strona makson.space</option></select></div>
+            <div className="space-y-2"><Label>Szczegóły źródła / polecający</Label><Input value={sourceDetails} onChange={(e) => setSourceDetails(e.target.value)} /></div>
           </div>
 
           <div className="space-y-2">
@@ -299,6 +333,17 @@ export function ContactForm({
                 {t('phoneHint')}
               </p>
             )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_120px_1fr]">
+            <div className="space-y-2"><Label>Adres</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Kod</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Miasto</Label><Input value={city} onChange={(e) => setCity(e.target.value)} /></div>
+          </div>
+
+          <div className="grid gap-2 rounded-lg border p-3 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={contactConsent} onChange={(e) => setContactConsent(e.target.checked)} /> Zgoda na kontakt w sprawie zapytania</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} /> Zgoda marketingowa</label>
           </div>
 
           <div className="space-y-2">
