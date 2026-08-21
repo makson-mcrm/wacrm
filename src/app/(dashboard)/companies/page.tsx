@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -446,15 +447,16 @@ function CompanySheet({
               <section className="border-border space-y-3 border-t pt-5">
                 <h3 className="font-medium">Deale firmy</h3>
                 {deals.map((deal) => (
-                  <div
+                  <Link
                     key={deal.id}
+                    href={`/deals/${deal.id}`}
                     className="border-border rounded-lg border p-3 text-sm"
                   >
                     <p className="font-medium">{deal.title}</p>
                     <p className="text-muted-foreground text-xs">
                       {deal.stage?.name ?? 'Bez etapu'}
                     </p>
-                  </div>
+                  </Link>
                 ))}
                 {deals.length === 0 && (
                   <p className="text-muted-foreground text-sm">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { useAuth } from '@/hooks/use-auth';
@@ -899,8 +900,9 @@ export function ContactDetailView({
                   ) : (
                     <div className="space-y-2">
                       {deals.map((deal) => (
-                        <div
+                        <Link
                           key={deal.id}
+                          href={`/deals/${deal.id}`}
                           className="border-border bg-muted/50 rounded-lg border p-3"
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -939,7 +941,7 @@ export function ContactDetailView({
                               </span>
                             )}
                           </div>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
