@@ -39,13 +39,13 @@ import { useRouter } from "next/navigation";
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "1. LEAD / KONTAKT", color: "#3b82f6", position: 0 },
+  { name: "1. KONTAKT POZYSKOWY", color: "#3b82f6", position: 0 },
   { name: "2. SPOTKANIE / AUDYT", color: "#06b6d4", position: 1 },
   { name: "3. POCZEKALNIA", color: "#eab308", position: 2 },
-  { name: "4. OFERTA / ANALIZA", color: "#f97316", position: 3 },
-  { name: "5. WNIOSKI — moje / banki", color: "#8b5cf6", position: 4 },
-  { name: "6. SPRZEDAŻ / URUCHOMIENIE / FV", color: "#22c55e", position: 5 },
-  { name: "7. ARCHIWUM / ROZLICZONE", color: "#64748b", position: 6 },
+  { name: "4. KOMPLETACJA / OFERTA", color: "#f97316", position: 3 },
+  { name: "5. WNIOSKI / DECYZJA", color: "#8b5cf6", position: 4 },
+  { name: "6. URUCHOMIENIE / FV", color: "#22c55e", position: 5 },
+  { name: "7. ARCHIWUM", color: "#64748b", position: 6 },
 ];
 
 export default function PipelinesPage() {
@@ -220,6 +220,12 @@ export default function PipelinesPage() {
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
+      const targetStage = stages.find((stage) => stage.id === newStageId);
+      const movedDeal = deals.find((deal) => deal.id === dealId);
+      if (targetStage?.name.includes("POCZEKALNIA") && !movedDeal?.follow_up_at) {
+        toast.error("Najpierw otwórz Deal i ustaw termin ponownego kontaktu.");
+        return;
+      }
       // Optimistic update — board already animated; just persist.
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
@@ -233,7 +239,7 @@ export default function PipelinesPage() {
         refreshDeals();
       }
     },
-    [supabase, refreshDeals, t],
+    [supabase, refreshDeals, t, stages, deals],
   );
 
   const handleAddDeal = useCallback(
