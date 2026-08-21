@@ -38,11 +38,13 @@ import { useTranslations } from "next-intl";
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "1. LEAD / KONTAKT", color: "#3b82f6", position: 0 },
+  { name: "2. SPOTKANIE / AUDYT", color: "#06b6d4", position: 1 },
+  { name: "3. POCZEKALNIA", color: "#eab308", position: 2 },
+  { name: "4. OFERTA / ANALIZA", color: "#f97316", position: 3 },
+  { name: "5. WNIOSKI — moje / banki", color: "#8b5cf6", position: 4 },
+  { name: "6. SPRZEDAŻ / URUCHOMIENIE / FV", color: "#22c55e", position: 5 },
+  { name: "7. ARCHIWUM / ROZLICZONE", color: "#64748b", position: 6 },
 ];
 
 export default function PipelinesPage() {
@@ -120,7 +122,7 @@ export default function PipelinesPage() {
 
     const { data: pipeline, error } = await supabase
       .from("pipelines")
-      .insert({ user_id: user.id, account_id: accountId, name: "Sales Pipeline" })
+      .insert({ user_id: user.id, account_id: accountId, name: "mFinanse" })
       .select()
       .single();
 

@@ -67,6 +67,24 @@ export function DealForm({
   const [assignedTo, setAssignedTo] = useState('');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [description, setDescription] = useState('');
+  const [source, setSource] = useState('');
+  const [goal, setGoal] = useState('');
+  const [productType, setProductType] = useState('');
+  const [applicantMode, setApplicantMode] = useState('');
+  const [incomeType, setIncomeType] = useState('');
+  const [companyNip, setCompanyNip] = useState('');
+  const [accountingType, setAccountingType] = useState('');
+  const [liabilities, setLiabilities] = useState('');
+  const [bikStatus, setBikStatus] = useState('');
+  const [questionnaireText, setQuestionnaireText] = useState('');
+  const [nextAction, setNextAction] = useState('');
+  const [nextActionAt, setNextActionAt] = useState('');
+  const [meetingAt, setMeetingAt] = useState('');
+  const [meetingPlace, setMeetingPlace] = useState('');
+  const [expectedCommission, setExpectedCommission] = useState('');
+  const [missingDocuments, setMissingDocuments] = useState('');
+  const [driveFolderUrl, setDriveFolderUrl] = useState('');
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -98,6 +116,16 @@ export function DealForm({
       setAssignedTo(deal.assigned_to ?? '');
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
+      setDescription(deal.description ?? '');
+      setSource(deal.source ?? ''); setGoal(deal.goal ?? '');
+      setProductType(deal.product_type ?? ''); setApplicantMode(deal.applicant_mode ?? '');
+      setIncomeType(deal.income_type ?? ''); setCompanyNip(deal.company_nip ?? '');
+      setAccountingType(deal.accounting_type ?? ''); setLiabilities(deal.liabilities ?? '');
+      setBikStatus(deal.bik_status ?? ''); setQuestionnaireText(deal.questionnaire_text ?? '');
+      setNextAction(deal.next_action ?? ''); setNextActionAt(deal.next_action_at?.slice(0, 16) ?? '');
+      setMeetingAt(deal.meeting_at?.slice(0, 16) ?? ''); setMeetingPlace(deal.meeting_place ?? '');
+      setExpectedCommission(String(deal.expected_commission ?? ''));
+      setMissingDocuments(deal.missing_documents ?? ''); setDriveFolderUrl(deal.drive_folder_url ?? '');
     } else {
       setTitle('');
       setValue('');
@@ -108,6 +136,11 @@ export function DealForm({
       setAssignedTo('');
       setExpectedCloseDate('');
       setNotes('');
+      setDescription(''); setSource(''); setGoal(''); setProductType('');
+      setApplicantMode(''); setIncomeType(''); setCompanyNip(''); setAccountingType('');
+      setLiabilities(''); setBikStatus(''); setQuestionnaireText(''); setNextAction('');
+      setNextActionAt(''); setMeetingAt(''); setMeetingPlace(''); setExpectedCommission('');
+      setMissingDocuments(''); setDriveFolderUrl('');
     }
   }, [open, deal, defaultStageId, stages, defaultCurrency]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -175,6 +208,24 @@ export function DealForm({
       stage_id: stageId,
       assigned_to: assignedTo || null,
       notes: notes.trim() || null,
+      description: description.trim() || null,
+      source: source || null,
+      goal: goal || null,
+      product_type: productType || null,
+      applicant_mode: applicantMode || null,
+      income_type: incomeType || null,
+      company_nip: companyNip.trim() || null,
+      accounting_type: accountingType || null,
+      liabilities: liabilities.trim() || null,
+      bik_status: bikStatus || null,
+      questionnaire_text: questionnaireText.trim() || null,
+      next_action: nextAction.trim() || null,
+      next_action_at: nextActionAt || null,
+      meeting_at: meetingAt || null,
+      meeting_place: meetingPlace.trim() || null,
+      expected_commission: parseFloat(expectedCommission) || null,
+      missing_documents: missingDocuments.trim() || null,
+      drive_folder_url: driveFolderUrl.trim() || null,
       expected_close_date: expectedCloseDate || null,
     };
 
@@ -285,6 +336,15 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
+              <Label className="text-muted-foreground">Opis ogólny Deala</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Krótki opis konkretnej sprawy sprzedażowej" className="border-border bg-muted min-h-20" />
+            </div>
+
+            <div className="border-border border-t pt-4">
+              <h3 className="mb-3 text-sm font-semibold">1. Dane sprawy i formularza</h3>
+            </div>
+
+            <div className="grid gap-2">
               <Label className="text-muted-foreground">{t('contact')}</Label>
               <select
                 value={contactId}
@@ -356,6 +416,29 @@ export function DealForm({
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FieldSelect label="Źródło pozyskania" value={source} onChange={setSource} options={['Podajnik mBank', 'Lead mFinanse', 'Własny kontakt', 'Polecenie', 'Strona makson.space']} />
+              <FieldSelect label="Cel" value={goal} onChange={setGoal} options={['Zakup nieruchomości', 'Budowa domu', 'Refinansowanie', 'Konsolidacja', 'Finansowanie firmy', 'Inny']} />
+              <FieldSelect label="Typ produktu" value={productType} onChange={setProductType} options={['HIPOTEKA', 'FIRMA — zabezpieczony', 'FIRMA — niezabezpieczony', 'GOTÓWKA', 'LEASING', 'INNY']} />
+              <FieldSelect label="Wnioskodawcy" value={applicantMode} onChange={setApplicantMode} options={['Jedna osoba', 'Para / małżeństwo', 'Wspólnicy']} />
+              <FieldSelect label="Forma dochodu" value={incomeType} onChange={setIncomeType} options={['Umowa o pracę', 'Działalność gospodarcza', 'Spółka', 'Mieszane', 'Inne']} />
+              <FieldSelect label="Księgowość" value={accountingType} onChange={setAccountingType} options={['KPiR', 'Ryczałt', 'Pełna księgowość', 'Karta podatkowa', 'Nie dotyczy']} />
+              <div className="grid gap-2"><Label className="text-muted-foreground">NIP</Label><Input value={companyNip} onChange={(e) => setCompanyNip(e.target.value)} className="border-border bg-muted" /></div>
+              <FieldSelect label="Raport BIK" value={bikStatus} onChange={setBikStatus} options={['Posiada', 'Do pobrania', 'Otrzymany', 'Nie dotyczy']} />
+            </div>
+
+            <div className="grid gap-2"><Label className="text-muted-foreground">Obecne zobowiązania</Label><Textarea value={liabilities} onChange={(e) => setLiabilities(e.target.value)} className="border-border bg-muted min-h-16" /></div>
+            <div className="grid gap-2"><Label className="text-muted-foreground">Pełne dane z ankiety</Label><Textarea value={questionnaireText} onChange={(e) => setQuestionnaireText(e.target.value)} placeholder="Tu trafi komplet odpowiedzi przesłanych przez klienta" className="border-border bg-muted min-h-24" /></div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-2"><Label className="text-muted-foreground">Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} className="border-border bg-muted" /></div>
+              <div className="grid gap-2"><Label className="text-muted-foreground">Termin działania</Label><Input type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="border-border bg-muted" /></div>
+              <div className="grid gap-2"><Label className="text-muted-foreground">Termin spotkania</Label><Input type="datetime-local" value={meetingAt} onChange={(e) => setMeetingAt(e.target.value)} className="border-border bg-muted" /></div>
+              <div className="grid gap-2"><Label className="text-muted-foreground">Miejsce spotkania</Label><Input value={meetingPlace} onChange={(e) => setMeetingPlace(e.target.value)} placeholder="Online, Mielec, Rzeszów, Kraków" className="border-border bg-muted" /></div>
+            </div>
+
+            <div className="grid gap-2"><Label className="text-muted-foreground">Oczekiwana prowizja</Label><Input type="number" value={expectedCommission} onChange={(e) => setExpectedCommission(e.target.value)} className="border-border bg-muted" /></div>
+
             <div className="grid gap-2">
               <Label className="text-muted-foreground">
                 {t('expectedCloseDate')}
@@ -399,8 +482,9 @@ export function DealForm({
               </select>
             </div>
 
+            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">2. Notatki i działania</h3></div>
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t('notes')}</Label>
+              <Label className="text-muted-foreground">Notatka do historii sprawy</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -408,6 +492,10 @@ export function DealForm({
                 className="border-border bg-muted text-foreground min-h-[100px]"
               />
             </div>
+
+            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">3. Proces bankowy i dokumenty</h3><p className="mb-3 text-xs text-muted-foreground">Trzy banki będą obsługiwane jako osobne procesy powiązane z tym Dealem.</p></div>
+            <div className="grid gap-2"><Label className="text-muted-foreground">Lista brakujących dokumentów</Label><Textarea value={missingDocuments} onChange={(e) => setMissingDocuments(e.target.value)} className="border-border bg-muted min-h-20" /></div>
+            <div className="grid gap-2"><Label className="text-muted-foreground">Folder dokumentów klienta na Google Drive</Label><Input type="url" value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." className="border-border bg-muted" /><p className="text-xs text-muted-foreground">Jeden prywatny folder przypisany do Deala; automatyczne tworzenie i synchronizacja zostaną podłączone później.</p></div>
 
             {deal && (
               <div className="border-border bg-muted/50 space-y-2 rounded-lg border p-3">
@@ -521,4 +609,8 @@ export function DealForm({
       </SheetContent>
     </Sheet>
   );
+}
+
+function FieldSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
+  return <div className="grid gap-2"><Label className="text-muted-foreground">{label}</Label><select value={value} onChange={(e) => onChange(e.target.value)} className="border-border bg-muted text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none"><option value="">Wybierz</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>;
 }

@@ -14,7 +14,7 @@ interface DealCardProps {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  return new Date(dateStr).toLocaleDateString('pl-PL', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -43,7 +43,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         e.stopPropagation();
         onEdit(deal);
       }}
-      className={`group border-border/50 bg-muted/70 relative w-full cursor-pointer rounded-xl border py-3 pr-3 pl-4 text-left shadow-sm transition-all ${
+      className={`group border-border/50 bg-muted/70 relative w-full cursor-pointer rounded-lg border py-2 pr-2 pl-3 text-left shadow-sm transition-all ${
         isOverlay
           ? 'shadow-xl'
           : 'hover:border-border hover:bg-muted hover:-translate-y-0.5 hover:shadow-lg'
@@ -101,6 +101,19 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </span>
         )}
       </div>
+
+      {deal.product_type && (
+        <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          {deal.product_type}
+        </span>
+      )}
+
+      {deal.next_action && (
+        <div className="mt-2 rounded-md border border-border/60 bg-background/50 px-2 py-1.5">
+          <p className="truncate text-[11px] font-medium">Następnie: {deal.next_action}</p>
+          {deal.next_action_at && <p className="text-[10px] text-muted-foreground">{new Date(deal.next_action_at).toLocaleString('pl-PL')}</p>}
+        </div>
+      )}
 
       {assigneeLabel && (
         <div className="mt-2 flex items-center justify-end">

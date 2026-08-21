@@ -1,234 +1,39 @@
-"use client"
+'use client';
 
-import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/use-auth'
-import { formatCurrency } from '@/lib/currency'
-import {
-  MessageSquare,
-  UserPlus,
-  DollarSign,
-  Send,
-} from 'lucide-react'
-
-import {
-  loadActivity,
-  loadConversationsSeries,
-  loadMetrics,
-  loadPipelineDonut,
-  loadResponseTime,
-} from '@/lib/dashboard/queries'
-import type {
-  ActivityItem,
-  ConversationsSeriesPoint,
-  MetricsBundle,
-  PipelineDonutData,
-  ResponseTimeSummary,
-} from '@/lib/dashboard/types'
-
-import { MetricCard } from '@/components/dashboard/metric-card'
-import { SkeletonCard } from '@/components/dashboard/skeleton'
-import { QuickActions } from '@/components/dashboard/quick-actions'
-import { ConversationsChart } from '@/components/dashboard/conversations-chart'
-import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
-import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
-import { ActivityFeed } from '@/components/dashboard/activity-feed'
-
-import { useTranslations } from 'next-intl'
-
-type RangeDays = 7 | 30 | 90
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { AlertCircle, CalendarDays, CheckCircle2, Phone, Target } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import type { Deal } from '@/types';
 
 export default function DashboardPage() {
-  const t = useTranslations('Dashboard.page')
-  const { defaultCurrency } = useAuth()
-  const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
-  const [metricsLoading, setMetricsLoading] = useState(true)
-
-  const [range, setRange] = useState<RangeDays>(30)
-  // Keep a cache per range so switching tabs doesn't re-fetch what we
-  // already have. Ranges the user hasn't opened yet stay null and
-  // trigger a fetch on first view.
-  const [series, setSeries] = useState<Record<RangeDays, ConversationsSeriesPoint[] | null>>({
-    7: null,
-    30: null,
-    90: null,
-  })
-  const [seriesLoading, setSeriesLoading] = useState(true)
-
-  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
-  const [pipelineLoading, setPipelineLoading] = useState(true)
-
-  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
-  const [responseTimeLoading, setResponseTimeLoading] = useState(true)
-
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
-  const [activityLoading, setActivityLoading] = useState(true)
-
-  const loadAll = useCallback(() => {
-    const db = createClient()
-
-    // Kick everything off in parallel. Each block has its own
-    // setState + finally so a slow query doesn't hold up faster
-    // sections — each widget shows its own skeleton independently.
-    void loadMetrics(db)
-      .then((m) => setMetrics(m))
-      .catch((err) => console.error('[dashboard] metrics failed:', err))
-      .finally(() => setMetricsLoading(false))
-
-    void loadConversationsSeries(db, 30)
-      .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
-      .catch((err) => console.error('[dashboard] series failed:', err))
-      .finally(() => setSeriesLoading(false))
-
-    void loadPipelineDonut(db)
-      .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
-      .finally(() => setPipelineLoading(false))
-
-    void loadResponseTime(db)
-      .then((r) => setResponseTime(r))
-      .catch((err) => console.error('[dashboard] response time failed:', err))
-      .finally(() => setResponseTimeLoading(false))
-
-    // Fetch up to 50 so the biggest page-size option in the feed
-    // (50 rows) is already in memory — switching sizes then becomes
-    // a pure client-side slice with no extra round trip.
-    void loadActivity(db, 50)
-      .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
-      .finally(() => setActivityLoading(false))
-  }, [])
-
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [clock] = useState(() => ({ now: Date.now(), today: new Date().toISOString().slice(0, 10) }));
   useEffect(() => {
-    loadAll()
-  }, [loadAll])
-
-  // Range switch handler — kept in an event callback (not an effect)
-  // so the setState calls stay out of the react-hooks/set-state-in-effect
-  // rule's way. The cached bucket check means switching back to a
-  // previously-viewed range is instant and doesn't re-fetch.
-  const handleRangeChange = useCallback(
-    (r: RangeDays) => {
-      setRange(r)
-      if (series[r] !== null) return
-      setSeriesLoading(true)
-      const db = createClient()
-      loadConversationsSeries(db, r)
-        .then((s) => setSeries((prev) => ({ ...prev, [r]: s })))
-        .catch((err) => console.error('[dashboard] series failed:', err))
-        .finally(() => setSeriesLoading(false))
-    },
-    [series],
-  )
-
+    const db = createClient();
+    void db.from('deals').select('*, contact:contacts(*), company:companies(*), stage:pipeline_stages(*)').eq('status', 'open').order('next_action_at', { ascending: true, nullsFirst: false }).then(({ data }) => setDeals((data ?? []) as Deal[]));
+  }, []);
+  const overdue = useMemo(() => deals.filter((d) => d.next_action_at && new Date(d.next_action_at).getTime() < clock.now), [deals, clock.now]);
+  const withoutAction = useMemo(() => deals.filter((d) => !d.next_action_at || !d.next_action), [deals]);
+  const priority = overdue[0] ?? withoutAction[0] ?? deals[0];
+  const todayActions = deals.filter((d) => d.next_action_at?.slice(0, 10) === clock.today);
+  const meetings = deals.filter((d) => d.meeting_at?.slice(0, 10) === clock.today);
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('description')}
-        </p>
+      <div><h1 className="text-2xl font-bold">Pulpit — Mój dzień</h1><p className="mt-1 text-sm text-muted-foreground">Agent Sprzedaży porządkuje pracę według wpływu na sprzedaż i prowizję.</p></div>
+      <section className="rounded-2xl border-2 border-primary/40 bg-primary/5 p-5">
+        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary"><Target className="h-4 w-4" /> Co masz zrobić teraz</div>
+        {priority ? <><h2 className="text-xl font-bold">{priority.next_action || `Ustal następne działanie: ${priority.title}`}</h2><p className="mt-1 text-sm text-muted-foreground">{priority.contact?.name || priority.company?.name || priority.title}{priority.next_action_at ? ` · termin ${new Date(priority.next_action_at).toLocaleString('pl-PL')}` : ' · brak terminu'}</p><Link href="/pipelines" className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Otwórz Deal</Link></> : <p className="text-muted-foreground">Brak otwartych Deali. Zacznij od pozyskania nowego kontaktu.</p>}
+      </section>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Summary icon={AlertCircle} label="Zaległe działania" value={overdue.length} tone="text-red-400" /><Summary icon={Phone} label="Działania na dziś" value={todayActions.length} /><Summary icon={CalendarDays} label="Spotkania dzisiaj" value={meetings.length} /><Summary icon={CheckCircle2} label="Bez następnego kroku" value={withoutAction.length} tone="text-amber-400" />
       </div>
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(
-                  metrics.activeConversations.previous, 
-                  t('newTodayVsYesterday'), 
-                  t('noChange', { suffix: t('newTodayVsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              delta={{
-                sign:
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={t('openDeals', { count: metrics.openDealsCount })}
-            />
-            <MetricCard
-              title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Quick actions */}
-      <QuickActions />
-
-      {/* Charts row */}
-      {/* items-stretch (the grid default) stretches the two columns to
-          match the tallest sibling; adding h-full on each wrapper and
-          on the inner panels makes both cards actually fill that
-          stretched height so their rounded borders line up. Without
-          this, the pipeline card rendered at its natural (shorter)
-          height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
-        </div>
-      </div>
-
-      {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
+      <div className="grid gap-4 lg:grid-cols-2"><WorkList title="Pilne i zaległe" deals={overdue.slice(0, 6)} /><WorkList title="Dzisiejsze działania" deals={todayActions.slice(0, 6)} /></div>
+      <section className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Cel dzienny</h2><div className="mt-3 grid gap-3 sm:grid-cols-3"><Goal label="Nowe telefony" current={0} target={10} /><Goal label="Wartościowe rozmowy" current={0} target={10} /><Goal label="Sprawy przesunięte o etap" current={0} target={1} /></div></section>
     </div>
-  )
+  );
 }
 
-// ------------------------------------------------------------
-
-function deltaLabel(delta: number, suffix: string, noChangeLabel: string): string {
-  if (delta === 0) return noChangeLabel
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${delta.toLocaleString()} ${suffix}`
-}
+function Summary({ icon: Icon, label, value, tone = 'text-primary' }: { icon: typeof Phone; label: string; value: number; tone?: string }) { return <div className="rounded-xl border bg-card p-4"><Icon className={`mb-3 h-5 w-5 ${tone}`} /><p className="text-2xl font-bold">{value}</p><p className="text-sm text-muted-foreground">{label}</p></div>; }
+function WorkList({ title, deals }: { title: string; deals: Deal[] }) { return <section className="rounded-xl border bg-card p-4"><h2 className="mb-3 font-semibold">{title}</h2>{deals.length === 0 ? <p className="text-sm text-muted-foreground">Brak spraw.</p> : <div className="space-y-2">{deals.map((deal) => <Link key={deal.id} href="/pipelines" className="block rounded-lg bg-muted/60 p-3 hover:bg-muted"><p className="text-sm font-medium">{deal.next_action || deal.title}</p><p className="text-xs text-muted-foreground">{deal.title} · {deal.contact?.name || deal.company?.name || 'bez kontaktu'}</p></Link>)}</div>}</section>; }
+function Goal({ label, current, target }: { label: string; current: number; target: number }) { const width = Math.min(100, Math.round((current / target) * 100)); return <div><div className="flex justify-between text-sm"><span>{label}</span><span>{current}/{target}</span></div><div className="mt-2 h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${width}%` }} /></div></div>; }

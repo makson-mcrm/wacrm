@@ -195,6 +195,8 @@ function CompanySheet({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [description, setDescription] = useState('');
+  const [driveFolderUrl, setDriveFolderUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContactRow[]>([]);
@@ -231,6 +233,8 @@ function CompanySheet({
     setPhone(company?.phone ?? '');
     setEmail(company?.email ?? '');
     setNotes(company?.notes ?? '');
+    setDescription(company?.description ?? '');
+    setDriveFolderUrl(company?.drive_folder_url ?? '');
     setContactId('');
     setContactRole('');
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -254,6 +258,8 @@ function CompanySheet({
       phone: phone.trim() || null,
       email: email.trim() || null,
       notes: notes.trim() || null,
+      description: description.trim() || null,
+      drive_folder_url: driveFolderUrl.trim() || null,
     };
     let error;
     if (company) {
@@ -347,11 +353,17 @@ function CompanySheet({
               <Input value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
           </div>
+          <Field label="Opis firmy">
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Stałe informacje dotyczące firmy" />
+          </Field>
           <Field label="Notatka">
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </Field>
+          <Field label="Folder dokumentów na Google Drive">
+            <Input type="url" value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." />
           </Field>
           <Button
             onClick={saveCompany}

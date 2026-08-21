@@ -107,6 +107,9 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
+  description?: string;
+  preferred_contact_channel?: string;
+  source?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -124,6 +127,8 @@ export interface Company {
   phone?: string;
   email?: string;
   notes?: string;
+  description?: string;
+  drive_folder_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -408,6 +413,27 @@ export interface Deal {
   value: number;
   currency?: string;
   notes?: string;
+  description?: string;
+  source?: string;
+  goal?: string;
+  product_type?: string;
+  applicant_mode?: string;
+  co_applicant_contact_id?: string | null;
+  income_type?: string;
+  company_nip?: string;
+  accounting_type?: string;
+  liabilities?: string;
+  bik_status?: string;
+  questionnaire_text?: string;
+  meeting_at?: string;
+  meeting_place?: string;
+  next_action?: string;
+  next_action_at?: string;
+  follow_up_at?: string;
+  expected_commission?: number;
+  whatsapp_sent_status?: string;
+  missing_documents?: string;
+  drive_folder_url?: string;
   expected_close_date?: string;
   status?: DealStatus;
   created_at: string;
