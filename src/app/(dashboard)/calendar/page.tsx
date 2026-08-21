@@ -1,72 +1,20 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Clock, MapPin, Phone } from 'lucide-react';
+import { CalendarDays, Clock, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog,DialogContent,DialogHeader,DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import type { Deal } from '@/types';
 
-type CalendarEvent = {
-  id: string;
-  title: string;
-  event_type: string;
-  starts_at: string;
-  location?: string;
-  deal_id?: string;
-};
-
-export default function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-
-  useEffect(() => {
-    const db = createClient();
-    void db
-      .from('calendar_events')
-      .select('*')
-      .gte('starts_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-      .order('starts_at')
-      .limit(100)
-      .then(({ data }) => setEvents((data ?? []) as CalendarEvent[]));
-  }, []);
-
-  const grouped = events.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
-    const day = new Date(event.starts_at).toLocaleDateString('pl-PL', {
-      weekday: 'long', day: 'numeric', month: 'long',
-    });
-    (acc[day] ??= []).push(event);
-    return acc;
-  }, {});
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Kalendarz</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Spotkania, telefony i terminy powiązane z Dealami.</p>
-      </div>
-      {events.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-          <CalendarDays className="mx-auto mb-3 h-8 w-8" />
-          Brak zaplanowanych wydarzeń. Dodasz je z karty Deal.
-        </div>
-      ) : Object.entries(grouped).map(([day, dayEvents]) => (
-        <section key={day} className="rounded-xl border bg-card p-4">
-          <h2 className="mb-3 font-semibold capitalize">{day}</h2>
-          <div className="space-y-2">
-            {dayEvents.map((event) => (
-              <Link key={event.id} href="/pipelines" className="flex items-center gap-3 rounded-lg bg-muted/60 p-3 hover:bg-muted">
-                {event.event_type === 'call' ? <Phone className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(event.starts_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                    {event.location ? ` · ${event.location}` : ''}
-                  </p>
-                </div>
-                {event.location && <MapPin className="h-4 w-4 text-muted-foreground" />}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
+type Event={id:string;title:string;event_type:string;starts_at:string;location?:string;deal_id?:string};
+export default function CalendarPage(){
+ const db=useMemo(()=>createClient(),[]),{accountId}=useAuth();const [events,setEvents]=useState<Event[]>([]),[deals,setDeals]=useState<Deal[]>([]),[open,setOpen]=useState(false),[title,setTitle]=useState(''),[startsAt,setStartsAt]=useState(''),[type,setType]=useState('spotkanie'),[location,setLocation]=useState(''),[dealId,setDealId]=useState('');
+ const load=useCallback(async()=>{const [e,d]=await Promise.all([db.from('calendar_events').select('*').order('starts_at').limit(200),db.from('deals').select('*,contact:contacts(*),company:companies(*)').eq('status','open')]);const rows=(e.data??[]) as Event[],ds=(d.data??[]) as Deal[];const derived:Event[]=[];for(const deal of ds){if(deal.meeting_at)derived.push({id:`meeting-${deal.id}`,title:`Spotkanie: ${deal.title}`,event_type:'spotkanie',starts_at:deal.meeting_at,location:deal.meeting_place,deal_id:deal.id});if(deal.next_action_at)derived.push({id:`action-${deal.id}`,title:deal.next_action||`Działanie: ${deal.title}`,event_type:'działanie',starts_at:deal.next_action_at,deal_id:deal.id});if(deal.follow_up_at)derived.push({id:`follow-${deal.id}`,title:`Ponowny kontakt: ${deal.title}`,event_type:'telefon',starts_at:deal.follow_up_at,deal_id:deal.id})}setDeals(ds);setEvents([...rows,...derived].sort((a,b)=>+new Date(a.starts_at)-+new Date(b.starts_at)))},[db]);useEffect(()=>{void load()},[load]);
+ async function save(){if(!title.trim()||!startsAt||!accountId)return;const s=await db.auth.getSession();if(!s.data.session?.user)return;const r=await db.from('calendar_events').insert({account_id:accountId,user_id:s.data.session.user.id,title:title.trim(),event_type:type,starts_at:startsAt,location:location.trim()||null,deal_id:dealId||null});if(r.error)toast.error(r.error.message);else{toast.success('Termin dodany do kalendarza');setOpen(false);setTitle('');setStartsAt('');setLocation('');setDealId('');await load()}}
+ const grouped=events.reduce<Record<string,Event[]>>((a,e)=>{const day=new Date(e.starts_at).toLocaleDateString('pl-PL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});(a[day]??=[]).push(e);return a},{});
+ return <div className="space-y-5"><div className="flex items-center justify-between"><div><h1 className="text-2xl font-bold">Kalendarz</h1><p className="text-sm text-muted-foreground">Spotkania, telefony, ponowne kontakty i terminy z kart Deal.</p></div><Button onClick={()=>setOpen(true)}><Plus className="h-4 w-4"/>Dodaj termin</Button></div>{!events.length?<div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground"><CalendarDays className="mx-auto mb-3 h-8 w-8"/>Brak zaplanowanych terminów.</div>:Object.entries(grouped).map(([day,items])=><section key={day} className="rounded-xl border bg-card p-4"><h2 className="mb-3 font-semibold capitalize">{day}</h2><div className="space-y-2">{items.map(e=><Link key={e.id} href={e.deal_id?`/deals/${e.deal_id}`:'/calendar'} className="flex items-center gap-3 rounded-lg bg-muted/60 p-3 hover:bg-muted"><Clock className="h-4 w-4"/><div><p className="text-sm font-medium">{e.title}</p><p className="text-xs text-muted-foreground">{new Date(e.starts_at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}{e.location?` · ${e.location}`:''}</p></div></Link>)}</div></section>)}<Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Nowy termin</DialogTitle></DialogHeader><div className="space-y-3"><Input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Nazwa spotkania, telefonu lub zadania"/><select value={type} onChange={e=>setType(e.target.value)} className="h-9 w-full rounded-md border bg-muted px-3 text-sm"><option>spotkanie</option><option>telefon</option><option>zadanie</option></select><Input type="datetime-local" value={startsAt} onChange={e=>setStartsAt(e.target.value)}/><Input value={location} onChange={e=>setLocation(e.target.value)} placeholder="Miejsce lub link online"/><select value={dealId} onChange={e=>setDealId(e.target.value)} className="h-9 w-full rounded-md border bg-muted px-3 text-sm"><option value="">Bez powiązanego Deala</option>{deals.map(d=><option key={d.id} value={d.id}>{d.title}</option>)}</select><Button className="w-full" onClick={save}>Zapisz termin</Button></div></DialogContent></Dialog></div>
 }
