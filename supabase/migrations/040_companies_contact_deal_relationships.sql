@@ -2,6 +2,8 @@
 -- First mCRM 4.0 domain extension: a real company directory and links
 -- Contact <-> Company plus optional Deal -> Company.
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS companies (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -126,3 +128,5 @@ CREATE POLICY contact_companies_modify ON contact_companies FOR ALL
       WHERE co.id = company_id AND co.account_id = contact_companies.account_id
     )
   );
+
+COMMIT;
