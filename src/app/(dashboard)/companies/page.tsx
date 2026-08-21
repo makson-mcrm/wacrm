@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
+import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import {
   Building2,
   Loader2,
@@ -198,6 +199,16 @@ function CompanySheet({
   const [notes, setNotes] = useState('');
   const [description, setDescription] = useState('');
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
+  const [regon, setRegon] = useState('');
+  const [krs, setKrs] = useState('');
+  const [legalForm, setLegalForm] = useState('');
+  const [pkd, setPkd] = useState('');
+  const [accountingType, setAccountingType] = useState('');
+  const [address, setAddress] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [city, setCity] = useState('');
+  const [website, setWebsite] = useState('');
+  const [businessStartedOn, setBusinessStartedOn] = useState('');
   const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContactRow[]>([]);
@@ -236,6 +247,11 @@ function CompanySheet({
     setNotes(company?.notes ?? '');
     setDescription(company?.description ?? '');
     setDriveFolderUrl(company?.drive_folder_url ?? '');
+    setRegon(company?.regon ?? ''); setKrs(company?.krs ?? '');
+    setLegalForm(company?.legal_form ?? ''); setPkd(company?.pkd ?? '');
+    setAccountingType(company?.accounting_type ?? ''); setAddress(company?.address ?? '');
+    setPostalCode(company?.postal_code ?? ''); setCity(company?.city ?? '');
+    setWebsite(company?.website ?? ''); setBusinessStartedOn(company?.business_started_on ?? '');
     setContactId('');
     setContactRole('');
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -261,6 +277,16 @@ function CompanySheet({
       notes: notes.trim() || null,
       description: description.trim() || null,
       drive_folder_url: driveFolderUrl.trim() || null,
+      regon: regon.trim() || null,
+      krs: krs.trim() || null,
+      legal_form: legalForm || null,
+      pkd: pkd.trim() || null,
+      accounting_type: accountingType || null,
+      address: address.trim() || null,
+      postal_code: postalCode.trim() || null,
+      city: city.trim() || null,
+      website: website.trim() || null,
+      business_started_on: businessStartedOn || null,
     };
     let error;
     if (company) {
@@ -333,7 +359,7 @@ function CompanySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>
             {company ? `Firma: ${company.name}` : 'Nowa firma'}
@@ -353,7 +379,15 @@ function CompanySheet({
             <Field label="E-mail">
               <Input value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            <Field label="REGON"><Input value={regon} onChange={(e) => setRegon(e.target.value)} /></Field>
+            <Field label="KRS"><Input value={krs} onChange={(e) => setKrs(e.target.value)} /></Field>
+            <Field label="Forma prawna"><select value={legalForm} onChange={(e) => setLegalForm(e.target.value)} className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Jednoosobowa działalność</option><option>Spółka cywilna</option><option>Spółka z o.o.</option><option>Inna</option></select></Field>
+            <Field label="Forma księgowości"><select value={accountingType} onChange={(e) => setAccountingType(e.target.value)} className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>KPiR</option><option>Ryczałt</option><option>Pełna księgowość</option><option>Karta podatkowa</option></select></Field>
+            <Field label="PKD"><Input value={pkd} onChange={(e) => setPkd(e.target.value)} /></Field>
+            <Field label="Data rozpoczęcia działalności"><Input type="date" value={businessStartedOn} onChange={(e) => setBusinessStartedOn(e.target.value)} /></Field>
+            <Field label="Strona internetowa"><Input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} /></Field>
           </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_120px_1fr]"><Field label="Adres"><Input value={address} onChange={(e) => setAddress(e.target.value)} /></Field><Field label="Kod"><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></Field><Field label="Miasto"><Input value={city} onChange={(e) => setCity(e.target.value)} /></Field></div>
           <Field label="Opis firmy">
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Stałe informacje dotyczące firmy" />
           </Field>
@@ -373,6 +407,13 @@ function CompanySheet({
           >
             {saving && <Loader2 className="size-4 animate-spin" />} Zapisz firmę
           </Button>
+
+          {company && accountId && (
+            <section className="border-border space-y-3 border-t pt-5">
+              <h3 className="font-medium">Tagi firmy</h3>
+              <EntityTagsEditor accountId={accountId} entityType="company" entityId={company.id} />
+            </section>
+          )}
 
           {company && (
             <>
