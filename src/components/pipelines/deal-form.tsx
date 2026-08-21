@@ -85,6 +85,38 @@ export function DealForm({
   const [expectedCommission, setExpectedCommission] = useState('');
   const [missingDocuments, setMissingDocuments] = useState('');
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
+  const [sourceDetails, setSourceDetails] = useState('');
+  const [needSummary, setNeedSummary] = useState('');
+  const [qualificationStatus, setQualificationStatus] = useState('');
+  const [qualificationReason, setQualificationReason] = useState('');
+  const [maritalStatus, setMaritalStatus] = useState('');
+  const [monthlyIncome, setMonthlyIncome] = useState('');
+  const [monthlyCosts, setMonthlyCosts] = useState('');
+  const [monthlyInstallments, setMonthlyInstallments] = useState('');
+  const [householdSize, setHouseholdSize] = useState('');
+  const [employmentFrom, setEmploymentFrom] = useState('');
+  const [contractUntil, setContractUntil] = useState('');
+  const [propertyValue, setPropertyValue] = useState('');
+  const [ownContribution, setOwnContribution] = useState('');
+  const [loanTermMonths, setLoanTermMonths] = useState('');
+  const [propertyLocation, setPropertyLocation] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+  const [loanPurposeDetails, setLoanPurposeDetails] = useState('');
+  const [currentBank, setCurrentBank] = useState('');
+  const [currentBalance, setCurrentBalance] = useState('');
+  const [currentInstallment, setCurrentInstallment] = useState('');
+  const [estimatedSavings, setEstimatedSavings] = useState('');
+  const [followUpAt, setFollowUpAt] = useState('');
+  const [launchedAmount, setLaunchedAmount] = useState('');
+  const [launchedAt, setLaunchedAt] = useState('');
+  const [commissionRate, setCommissionRate] = useState('');
+  const [actualCommission, setActualCommission] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceStatus, setInvoiceStatus] = useState('');
+  const [settlementVerified, setSettlementVerified] = useState(false);
+  const [settlementNotes, setSettlementNotes] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -126,6 +158,17 @@ export function DealForm({
       setMeetingAt(deal.meeting_at?.slice(0, 16) ?? ''); setMeetingPlace(deal.meeting_place ?? '');
       setExpectedCommission(String(deal.expected_commission ?? ''));
       setMissingDocuments(deal.missing_documents ?? ''); setDriveFolderUrl(deal.drive_folder_url ?? '');
+      setSourceDetails(deal.source_details ?? ''); setNeedSummary(deal.need_summary ?? '');
+      setQualificationStatus(deal.qualification_status ?? ''); setQualificationReason(deal.qualification_reason ?? '');
+      setMaritalStatus(deal.marital_status ?? ''); setMonthlyIncome(String(deal.monthly_income ?? ''));
+      setMonthlyCosts(String(deal.monthly_costs ?? '')); setMonthlyInstallments(String(deal.monthly_installments ?? ''));
+      setHouseholdSize(String(deal.household_size ?? '')); setEmploymentFrom(deal.employment_from ?? ''); setContractUntil(deal.contract_until ?? '');
+      setPropertyValue(String(deal.property_value ?? '')); setOwnContribution(String(deal.own_contribution ?? '')); setLoanTermMonths(String(deal.loan_term_months ?? ''));
+      setPropertyLocation(deal.property_location ?? ''); setPropertyType(deal.property_type ?? ''); setLoanPurposeDetails(deal.loan_purpose_details ?? '');
+      setCurrentBank(deal.current_bank ?? ''); setCurrentBalance(String(deal.current_balance ?? '')); setCurrentInstallment(String(deal.current_installment ?? '')); setEstimatedSavings(String(deal.estimated_savings ?? ''));
+      setFollowUpAt(deal.follow_up_at?.slice(0, 16) ?? ''); setLaunchedAmount(String(deal.launched_amount ?? '')); setLaunchedAt(deal.launched_at ?? '');
+      setCommissionRate(String(deal.commission_rate ?? '')); setActualCommission(String(deal.actual_commission ?? '')); setInvoiceNumber(deal.invoice_number ?? ''); setInvoiceDate(deal.invoice_date ?? ''); setInvoiceStatus(deal.invoice_status ?? '');
+      setSettlementVerified(deal.settlement_verified ?? false); setSettlementNotes(deal.settlement_notes ?? ''); setTrackingNumber(deal.tracking_number ?? '');
     } else {
       setTitle('');
       setValue('');
@@ -141,6 +184,11 @@ export function DealForm({
       setLiabilities(''); setBikStatus(''); setQuestionnaireText(''); setNextAction('');
       setNextActionAt(''); setMeetingAt(''); setMeetingPlace(''); setExpectedCommission('');
       setMissingDocuments(''); setDriveFolderUrl('');
+      setSourceDetails(''); setNeedSummary(''); setQualificationStatus(''); setQualificationReason(''); setMaritalStatus('');
+      setMonthlyIncome(''); setMonthlyCosts(''); setMonthlyInstallments(''); setHouseholdSize(''); setEmploymentFrom(''); setContractUntil('');
+      setPropertyValue(''); setOwnContribution(''); setLoanTermMonths(''); setPropertyLocation(''); setPropertyType(''); setLoanPurposeDetails('');
+      setCurrentBank(''); setCurrentBalance(''); setCurrentInstallment(''); setEstimatedSavings(''); setFollowUpAt('');
+      setLaunchedAmount(''); setLaunchedAt(''); setCommissionRate(''); setActualCommission(''); setInvoiceNumber(''); setInvoiceDate(''); setInvoiceStatus(''); setSettlementVerified(false); setSettlementNotes(''); setTrackingNumber('');
     }
   }, [open, deal, defaultStageId, stages, defaultCurrency]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -196,6 +244,11 @@ export function DealForm({
       toast.error(t('toastRequired'));
       return;
     }
+    const selectedStage = stages.find((stage) => stage.id === stageId);
+    if (selectedStage?.name.includes('POCZEKALNIA') && !followUpAt) {
+      toast.error('W POCZEKALNI trzeba ustawić termin ponownego kontaktu.');
+      return;
+    }
     setSaving(true);
 
     const payload = {
@@ -226,6 +279,20 @@ export function DealForm({
       expected_commission: parseFloat(expectedCommission) || null,
       missing_documents: missingDocuments.trim() || null,
       drive_folder_url: driveFolderUrl.trim() || null,
+      source_details: sourceDetails.trim() || null,
+      need_summary: needSummary.trim() || null,
+      qualification_status: qualificationStatus || null,
+      qualification_reason: qualificationReason.trim() || null,
+      marital_status: maritalStatus || null,
+      monthly_income: numberOrNull(monthlyIncome), monthly_costs: numberOrNull(monthlyCosts), monthly_installments: numberOrNull(monthlyInstallments), household_size: numberOrNull(householdSize),
+      employment_from: employmentFrom || null, contract_until: contractUntil || null,
+      property_value: numberOrNull(propertyValue), own_contribution: numberOrNull(ownContribution), loan_term_months: numberOrNull(loanTermMonths),
+      property_location: propertyLocation.trim() || null, property_type: propertyType || null, loan_purpose_details: loanPurposeDetails.trim() || null,
+      current_bank: currentBank.trim() || null, current_balance: numberOrNull(currentBalance), current_installment: numberOrNull(currentInstallment), estimated_savings: numberOrNull(estimatedSavings),
+      follow_up_at: followUpAt || null,
+      launched_amount: numberOrNull(launchedAmount), launched_at: launchedAt || null, commission_rate: numberOrNull(commissionRate), actual_commission: numberOrNull(actualCommission),
+      invoice_number: invoiceNumber.trim() || null, invoice_date: invoiceDate || null, invoice_status: invoiceStatus || null,
+      settlement_verified: settlementVerified, settlement_notes: settlementNotes.trim() || null, tracking_number: trackingNumber.trim() || null,
       expected_close_date: expectedCloseDate || null,
     };
 
@@ -315,7 +382,7 @@ export function DealForm({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-lg"
+        className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-3xl"
       >
         <div className="flex h-full flex-col">
           <SheetHeader className="border-border/50 border-b p-4">
@@ -425,14 +492,45 @@ export function DealForm({
               <FieldSelect label="Księgowość" value={accountingType} onChange={setAccountingType} options={['KPiR', 'Ryczałt', 'Pełna księgowość', 'Karta podatkowa', 'Nie dotyczy']} />
               <div className="grid gap-2"><Label className="text-muted-foreground">NIP</Label><Input value={companyNip} onChange={(e) => setCompanyNip(e.target.value)} className="border-border bg-muted" /></div>
               <FieldSelect label="Raport BIK" value={bikStatus} onChange={setBikStatus} options={['Posiada', 'Do pobrania', 'Otrzymany', 'Nie dotyczy']} />
+              <Field label="Szczegóły źródła / osoba polecająca"><Input value={sourceDetails} onChange={(e) => setSourceDetails(e.target.value)} /></Field>
+              <FieldSelect label="Wynik kwalifikacji" value={qualificationStatus} onChange={setQualificationStatus} options={['Do kwalifikacji', 'Zakwalifikowany', 'Braki do uzupełnienia', 'Niekwalifikowany']} />
+            </div>
+
+            <Field label="Potrzeba klienta i oczekiwany efekt"><Textarea value={needSummary} onChange={(e) => setNeedSummary(e.target.value)} placeholder="Co klient chce osiągnąć, w jakim czasie i dlaczego" /></Field>
+            <Field label="Uzasadnienie kwalifikacji / ryzyka"><Textarea value={qualificationReason} onChange={(e) => setQualificationReason(e.target.value)} /></Field>
+
+            <div className="border-border border-t pt-4"><h3 className="text-sm font-semibold">2. Dochód, gospodarstwo i zobowiązania</h3></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <FieldSelect label="Stan cywilny" value={maritalStatus} onChange={setMaritalStatus} options={['Wolny/a', 'Małżeństwo', 'Rozdzielność majątkowa', 'Inny']} />
+              <NumberField label="Liczba osób w gospodarstwie" value={householdSize} onChange={setHouseholdSize} />
+              <NumberField label="Miesięczny dochód netto" value={monthlyIncome} onChange={setMonthlyIncome} />
+              <NumberField label="Miesięczne koszty życia" value={monthlyCosts} onChange={setMonthlyCosts} />
+              <NumberField label="Suma miesięcznych rat" value={monthlyInstallments} onChange={setMonthlyInstallments} />
+              <Field label="Dochód od"><Input type="date" value={employmentFrom} onChange={(e) => setEmploymentFrom(e.target.value)} /></Field>
+              <Field label="Umowa do"><Input type="date" value={contractUntil} onChange={(e) => setContractUntil(e.target.value)} /></Field>
             </div>
 
             <div className="grid gap-2"><Label className="text-muted-foreground">Obecne zobowiązania</Label><Textarea value={liabilities} onChange={(e) => setLiabilities(e.target.value)} className="border-border bg-muted min-h-16" /></div>
+
+            <div className="border-border border-t pt-4"><h3 className="text-sm font-semibold">3. Finansowanie i nieruchomość</h3></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <NumberField label="Wartość nieruchomości" value={propertyValue} onChange={setPropertyValue} />
+              <NumberField label="Wkład własny" value={ownContribution} onChange={setOwnContribution} />
+              <NumberField label="Okres kredytu w miesiącach" value={loanTermMonths} onChange={setLoanTermMonths} />
+              <FieldSelect label="Rodzaj nieruchomości" value={propertyType} onChange={setPropertyType} options={['Mieszkanie', 'Dom', 'Działka', 'Lokal komercyjny', 'Inna']} />
+              <Field label="Lokalizacja nieruchomości"><Input value={propertyLocation} onChange={(e) => setPropertyLocation(e.target.value)} /></Field>
+              <Field label="Obecny bank"><Input value={currentBank} onChange={(e) => setCurrentBank(e.target.value)} /></Field>
+              <NumberField label="Obecne saldo kredytu" value={currentBalance} onChange={setCurrentBalance} />
+              <NumberField label="Obecna rata" value={currentInstallment} onChange={setCurrentInstallment} />
+              <NumberField label="Szacowana oszczędność" value={estimatedSavings} onChange={setEstimatedSavings} />
+            </div>
+            <Field label="Szczegóły celu finansowania"><Textarea value={loanPurposeDetails} onChange={(e) => setLoanPurposeDetails(e.target.value)} /></Field>
             <div className="grid gap-2"><Label className="text-muted-foreground">Pełne dane z ankiety</Label><Textarea value={questionnaireText} onChange={(e) => setQuestionnaireText(e.target.value)} placeholder="Tu trafi komplet odpowiedzi przesłanych przez klienta" className="border-border bg-muted min-h-24" /></div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2"><Label className="text-muted-foreground">Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} className="border-border bg-muted" /></div>
               <div className="grid gap-2"><Label className="text-muted-foreground">Termin działania</Label><Input type="datetime-local" value={nextActionAt} onChange={(e) => setNextActionAt(e.target.value)} className="border-border bg-muted" /></div>
+              <div className="grid gap-2"><Label className="text-muted-foreground">Ponowny kontakt — obowiązkowy w POCZEKALNI</Label><Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} className="border-border bg-muted" /></div>
               <div className="grid gap-2"><Label className="text-muted-foreground">Termin spotkania</Label><Input type="datetime-local" value={meetingAt} onChange={(e) => setMeetingAt(e.target.value)} className="border-border bg-muted" /></div>
               <div className="grid gap-2"><Label className="text-muted-foreground">Miejsce spotkania</Label><Input value={meetingPlace} onChange={(e) => setMeetingPlace(e.target.value)} placeholder="Online, Mielec, Rzeszów, Kraków" className="border-border bg-muted" /></div>
             </div>
@@ -482,7 +580,7 @@ export function DealForm({
               </select>
             </div>
 
-            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">2. Notatki i działania</h3></div>
+            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">4. Notatki i działania</h3></div>
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Notatka do historii sprawy</Label>
               <Textarea
@@ -493,9 +591,23 @@ export function DealForm({
               />
             </div>
 
-            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">3. Proces bankowy i dokumenty</h3><p className="mb-3 text-xs text-muted-foreground">Trzy banki będą obsługiwane jako osobne procesy powiązane z tym Dealem.</p></div>
+            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">5. Proces bankowy i dokumenty</h3><p className="mb-3 text-xs text-muted-foreground">Trzy banki są obsługiwane jako osobne procesy powiązane z tym Dealem.</p></div>
             <div className="grid gap-2"><Label className="text-muted-foreground">Lista brakujących dokumentów</Label><Textarea value={missingDocuments} onChange={(e) => setMissingDocuments(e.target.value)} className="border-border bg-muted min-h-20" /></div>
             <div className="grid gap-2"><Label className="text-muted-foreground">Folder dokumentów klienta na Google Drive</Label><Input type="url" value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." className="border-border bg-muted" /><p className="text-xs text-muted-foreground">Jeden prywatny folder przypisany do Deala; automatyczne tworzenie i synchronizacja zostaną podłączone później.</p></div>
+
+            <div className="border-border border-t pt-4"><h3 className="mb-3 text-sm font-semibold">6. Uruchomienie, prowizja i archiwum</h3></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <NumberField label="Kwota uruchomiona" value={launchedAmount} onChange={setLaunchedAmount} />
+              <Field label="Data uruchomienia"><Input type="date" value={launchedAt} onChange={(e) => setLaunchedAt(e.target.value)} /></Field>
+              <NumberField label="Stawka prowizji %" value={commissionRate} onChange={setCommissionRate} />
+              <NumberField label="Prowizja rzeczywista" value={actualCommission} onChange={setActualCommission} />
+              <Field label="Numer faktury"><Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} /></Field>
+              <Field label="Data faktury"><Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} /></Field>
+              <FieldSelect label="Status faktury" value={invoiceStatus} onChange={setInvoiceStatus} options={['Do wystawienia', 'Wystawiona', 'Opłacona', 'Korekta / reklamacja']} />
+              <Field label="Numer przesyłki archiwum"><Input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} /></Field>
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border p-3 text-sm"><input type="checkbox" checked={settlementVerified} onChange={(e) => setSettlementVerified(e.target.checked)} /> Rozliczenie sprawdzone</label>
+            <Field label="Uwagi do rozliczenia / reklamacji"><Textarea value={settlementNotes} onChange={(e) => setSettlementNotes(e.target.value)} /></Field>
 
             {deal && (
               <div className="border-border bg-muted/50 space-y-2 rounded-lg border p-3">
@@ -613,4 +725,18 @@ export function DealForm({
 
 function FieldSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
   return <div className="grid gap-2"><Label className="text-muted-foreground">{label}</Label><select value={value} onChange={(e) => onChange(e.target.value)} className="border-border bg-muted text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none"><option value="">Wybierz</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="grid gap-2"><Label className="text-muted-foreground">{label}</Label>{children}</div>;
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <Field label={label}><Input type="number" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} className="border-border bg-muted" /></Field>;
+}
+
+function numberOrNull(value: string) {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
