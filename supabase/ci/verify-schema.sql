@@ -41,6 +41,9 @@ BEGIN
   IF to_regclass('public.accounts') IS NULL THEN
     RAISE EXCEPTION 'public.accounts is missing — migration 017 did not apply';
   END IF;
+  IF to_regclass('public.public_lead_submissions') IS NULL THEN
+    RAISE EXCEPTION 'public.public_lead_submissions is missing — migration 040 did not apply';
+  END IF;
 
   -- mCRM 4.0 company directory and Contact <-> Company relation (040).
   IF to_regclass('public.companies') IS NULL THEN

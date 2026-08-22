@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { VoiceTextarea } from '@/components/ui/voice-textarea';
+import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import {
   Sheet,
   SheetContent,
@@ -37,7 +38,7 @@ interface LinkedContactRow {
 }
 
 export default function CompaniesPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -86,17 +87,17 @@ export default function CompaniesPage() {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     const timer = window.setTimeout(() => {
-    if (query.get('new') === 'company') {
-      openNew();
-      window.history.replaceState({}, '', '/companies');
-      return;
-    }
-    const openId = query.get('open');
-    if (openId && companies.length) {
-      const company = companies.find((row) => row.id === openId);
-      if (company) openCompany(company);
-      window.history.replaceState({}, '', '/companies');
-    }
+      if (query.get('new') === 'company') {
+        openNew();
+        window.history.replaceState({}, '', '/companies');
+        return;
+      }
+      const openId = query.get('open');
+      if (openId && companies.length) {
+        const company = companies.find((row) => row.id === openId);
+        if (company) openCompany(company);
+        window.history.replaceState({}, '', '/companies');
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [companies]);
@@ -209,7 +210,7 @@ function CompanySheet({
   canEdit: boolean;
   onSaved: () => Promise<void>;
 }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [name, setName] = useState('');
   const [nip, setNip] = useState('');
   const [phone, setPhone] = useState('');
@@ -269,11 +270,16 @@ function CompanySheet({
     setNotes(company?.notes ?? '');
     setDescription(company?.description ?? '');
     setDriveFolderUrl(company?.drive_folder_url ?? '');
-    setRegon(company?.regon ?? ''); setKrs(company?.krs ?? '');
-    setLegalForm(company?.legal_form ?? ''); setPkd(company?.pkd ?? '');
-    setAccountingType(company?.accounting_type ?? ''); setAddress(company?.address ?? '');
-    setPostalCode(company?.postal_code ?? ''); setCity(company?.city ?? '');
-    setWebsite(company?.website ?? ''); setBusinessStartedOn(company?.business_started_on ?? '');
+    setRegon(company?.regon ?? '');
+    setKrs(company?.krs ?? '');
+    setLegalForm(company?.legal_form ?? '');
+    setPkd(company?.pkd ?? '');
+    setAccountingType(company?.accounting_type ?? '');
+    setAddress(company?.address ?? '');
+    setPostalCode(company?.postal_code ?? '');
+    setCity(company?.city ?? '');
+    setWebsite(company?.website ?? '');
+    setBusinessStartedOn(company?.business_started_on ?? '');
     setContactId('');
     setContactRole('');
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -336,7 +342,7 @@ function CompanySheet({
       toast.error(
         error.code === '23505'
           ? 'Firma o takim NIP już istnieje.'
-          : 'Nie udało się zapisać firmy.'
+          : `Nie udało się zapisać firmy: ${error.message}`
       );
       return;
     }
@@ -373,25 +379,50 @@ function CompanySheet({
       toast.error('Numer telefonu jest wymagany.');
       return;
     }
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const fullName = [newContactFirstName.trim(), newContactLastName.trim()].filter(Boolean).join(' ');
-    const { data, error } = await supabase.from('contacts').insert({
-      account_id: accountId,
-      user_id: session.user.id,
-      first_name: newContactFirstName.trim() || null,
-      last_name: newContactLastName.trim() || null,
-      name: fullName || null,
-      phone: newContactPhone.trim(),
-      company: company.name,
-    }).select('*').single();
+    const fullName = [newContactFirstName.trim(), newContactLastName.trim()]
+      .filter(Boolean)
+      .join(' ');
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        account_id: accountId,
+        user_id: session.user.id,
+        first_name: newContactFirstName.trim() || null,
+        last_name: newContactLastName.trim() || null,
+        name: fullName || null,
+        phone: newContactPhone.trim(),
+        company: company.name,
+      })
+      .select('*')
+      .single();
     if (error) {
-      toast.error(error.code === '23505' ? 'Kontakt z tym telefonem już istnieje.' : 'Nie udało się dodać Kontaktu.');
+      toast.error(
+        error.code === '23505'
+          ? 'Kontakt z tym telefonem już istnieje.'
+          : 'Nie udało się dodać Kontaktu.'
+      );
       return;
     }
-    const link = await supabase.from('contact_companies').insert({ company_id: company.id, contact_id: data.id, account_id: accountId, role: contactRole.trim() || 'Powiązana osoba', is_primary: true });
-    if (link.error) { toast.error('Kontakt powstał, ale nie udało się powiązać go z firmą.'); return; }
-    setNewContactFirstName(''); setNewContactLastName(''); setNewContactPhone(''); setShowNewContact(false); setContactRole('');
+    const link = await supabase.from('contact_companies').insert({
+      company_id: company.id,
+      contact_id: data.id,
+      account_id: accountId,
+      role: contactRole.trim() || 'Powiązana osoba',
+      is_primary: true,
+    });
+    if (link.error) {
+      toast.error('Kontakt powstał, ale nie udało się powiązać go z firmą.');
+      return;
+    }
+    setNewContactFirstName('');
+    setNewContactLastName('');
+    setNewContactPhone('');
+    setShowNewContact(false);
+    setContactRole('');
     toast.success('Kontakt został dodany i powiązany z firmą.');
     await loadRelations();
   }
@@ -409,7 +440,7 @@ function CompanySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl">
         <SheetHeader>
           <SheetTitle>
             {company ? `Firma: ${company.name}` : 'Nowa firma'}
@@ -429,26 +460,90 @@ function CompanySheet({
             <Field label="E-mail">
               <Input value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
-            <Field label="REGON"><Input value={regon} onChange={(e) => setRegon(e.target.value)} /></Field>
-            <Field label="KRS"><Input value={krs} onChange={(e) => setKrs(e.target.value)} /></Field>
-            <Field label="Forma prawna"><select value={legalForm} onChange={(e) => setLegalForm(e.target.value)} className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Jednoosobowa działalność</option><option>Spółka cywilna</option><option>Spółka z o.o.</option><option>Inna</option></select></Field>
-            <Field label="Forma księgowości"><select value={accountingType} onChange={(e) => setAccountingType(e.target.value)} className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>KPiR</option><option>Ryczałt</option><option>Pełna księgowość</option><option>Karta podatkowa</option></select></Field>
-            <Field label="PKD"><Input value={pkd} onChange={(e) => setPkd(e.target.value)} /></Field>
-            <Field label="Data rozpoczęcia działalności"><Input type="date" value={businessStartedOn} onChange={(e) => setBusinessStartedOn(e.target.value)} /></Field>
-            <Field label="Strona internetowa"><Input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} /></Field>
+            <Field label="REGON">
+              <Input value={regon} onChange={(e) => setRegon(e.target.value)} />
+            </Field>
+            <Field label="KRS">
+              <Input value={krs} onChange={(e) => setKrs(e.target.value)} />
+            </Field>
+            <Field label="Forma prawna">
+              <select
+                value={legalForm}
+                onChange={(e) => setLegalForm(e.target.value)}
+                className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Wybierz</option>
+                <option>Jednoosobowa działalność</option>
+                <option>Spółka cywilna</option>
+                <option>Spółka z o.o.</option>
+                <option>Inna</option>
+              </select>
+            </Field>
+            <Field label="Forma księgowości">
+              <select
+                value={accountingType}
+                onChange={(e) => setAccountingType(e.target.value)}
+                className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Wybierz</option>
+                <option>KPiR</option>
+                <option>Ryczałt</option>
+                <option>Pełna księgowość</option>
+                <option>Karta podatkowa</option>
+              </select>
+            </Field>
+            <Field label="PKD">
+              <Input value={pkd} onChange={(e) => setPkd(e.target.value)} />
+            </Field>
+            <Field label="Data rozpoczęcia działalności">
+              <Input
+                type="date"
+                value={businessStartedOn}
+                onChange={(e) => setBusinessStartedOn(e.target.value)}
+              />
+            </Field>
+            <Field label="Strona internetowa">
+              <Input
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </Field>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_120px_1fr]"><Field label="Adres"><Input value={address} onChange={(e) => setAddress(e.target.value)} /></Field><Field label="Kod"><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></Field><Field label="Miasto"><Input value={city} onChange={(e) => setCity(e.target.value)} /></Field></div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_120px_1fr]">
+            <Field label="Adres">
+              <Input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </Field>
+            <Field label="Kod">
+              <Input
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+              />
+            </Field>
+            <Field label="Miasto">
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            </Field>
+          </div>
           <Field label="Opis firmy">
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Stałe informacje dotyczące firmy" />
-          </Field>
-          <Field label="Notatka">
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+            <VoiceTextarea
+              value={description}
+              onChange={setDescription}
+              placeholder="Stałe informacje dotyczące firmy"
             />
           </Field>
+          <Field label="Notatka">
+            <VoiceTextarea value={notes} onChange={setNotes} />
+          </Field>
           <Field label="Folder dokumentów na Google Drive">
-            <Input type="url" value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." />
+            <Input
+              type="url"
+              value={driveFolderUrl}
+              onChange={(e) => setDriveFolderUrl(e.target.value)}
+              placeholder="https://drive.google.com/drive/folders/..."
+            />
           </Field>
           <Button
             onClick={saveCompany}
@@ -461,14 +556,30 @@ function CompanySheet({
           {company && accountId && (
             <section className="border-border space-y-3 border-t pt-5">
               <h3 className="font-medium">Tagi firmy</h3>
-              <EntityTagsEditor accountId={accountId} entityType="company" entityId={company.id} />
+              <EntityTagsEditor
+                accountId={accountId}
+                entityType="company"
+                entityId={company.id}
+              />
             </section>
           )}
 
           {company && (
             <>
               <section className="border-border space-y-3 border-t pt-5">
-                <div className="flex items-center justify-between"><h3 className="flex items-center gap-2 font-medium"><Users className="size-4" /> Kontakty w firmie</h3><Button size="sm" variant="outline" onClick={() => setShowNewContact((value) => !value)}><Plus className="size-4"/>Nowy Kontakt</Button></div>
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 font-medium">
+                    <Users className="size-4" /> Kontakty w firmie
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNewContact((value) => !value)}
+                  >
+                    <Plus className="size-4" />
+                    Nowy Kontakt
+                  </Button>
+                </div>
                 {linkedContacts.map((link) => (
                   <div
                     key={link.contact_id}
@@ -500,25 +611,27 @@ function CompanySheet({
                   </p>
                 )}
                 <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <select
+                  <EntitySearchSelect
                     value={contactId}
-                    onChange={(e) => setContactId(e.target.value)}
-                    className="border-border bg-muted h-9 rounded-lg border px-3 text-sm"
-                  >
-                    <option value="">Wybierz Kontakt</option>
-                    {contacts
+                    onChange={setContactId}
+                    placeholder="Wyszukaj Kontakt"
+                    options={contacts
                       .filter(
-                        (c) =>
+                        (contact) =>
                           !linkedContacts.some(
-                            (link) => link.contact_id === c.id
+                            (link) => link.contact_id === contact.id
                           )
                       )
-                      .map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {contact.name || contact.phone}
-                        </option>
-                      ))}
-                  </select>
+                      .map((contact) => ({
+                        value: contact.id,
+                        label: contact.name || contact.phone,
+                        keywords: [contact.phone, contact.email, contact.pesel]
+                          .filter(Boolean)
+                          .join(' '),
+                      }))}
+                    onAdd={() => setShowNewContact((value) => !value)}
+                    addLabel="Dodaj nowy Kontakt"
+                  />
                   <Input
                     value={contactRole}
                     onChange={(e) => setContactRole(e.target.value)}
@@ -531,11 +644,48 @@ function CompanySheet({
                     Przypisz
                   </Button>
                 </div>
-                {showNewContact && <div className="grid gap-2 rounded-lg border bg-muted/40 p-3 sm:grid-cols-3"><Input value={newContactFirstName} onChange={(e) => setNewContactFirstName(e.target.value)} placeholder="Imię"/><Input value={newContactLastName} onChange={(e) => setNewContactLastName(e.target.value)} placeholder="Nazwisko"/><Input value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} placeholder="Telefon *"/><Button className="sm:col-span-3" onClick={createAndLinkContact}>Dodaj i powiąż Kontakt</Button></div>}
+                {showNewContact && (
+                  <div className="bg-muted/40 grid gap-2 rounded-lg border p-3 sm:grid-cols-3">
+                    <Input
+                      value={newContactFirstName}
+                      onChange={(e) => setNewContactFirstName(e.target.value)}
+                      placeholder="Imię"
+                    />
+                    <Input
+                      value={newContactLastName}
+                      onChange={(e) => setNewContactLastName(e.target.value)}
+                      placeholder="Nazwisko"
+                    />
+                    <Input
+                      value={newContactPhone}
+                      onChange={(e) => setNewContactPhone(e.target.value)}
+                      placeholder="Telefon *"
+                    />
+                    <Button
+                      className="sm:col-span-3"
+                      onClick={createAndLinkContact}
+                    >
+                      Dodaj i powiąż Kontakt
+                    </Button>
+                  </div>
+                )}
               </section>
 
               <section className="border-border space-y-3 border-t pt-5">
-                <div className="flex items-center justify-between"><h3 className="font-medium">Deale firmy</h3><Button size="sm" render={<Link href={`/pipelines?new=deal&company=${company.id}`}/>}><Plus className="size-4"/>Nowy Deal</Button></div>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Deale firmy</h3>
+                  <Button
+                    size="sm"
+                    render={
+                      <Link
+                        href={`/pipelines?new=deal&company=${company.id}`}
+                      />
+                    }
+                  >
+                    <Plus className="size-4" />
+                    Nowy Deal
+                  </Button>
+                </div>
                 {deals.map((deal) => (
                   <Link
                     key={deal.id}

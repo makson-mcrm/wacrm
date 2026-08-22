@@ -1,7 +1,7 @@
 'use client';
 
 import type { Deal, PipelineStage } from '@/types';
-import { Building2 } from 'lucide-react';
+import { Building2, ExternalLink } from 'lucide-react';
 import { Calendar, Check, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { useTranslations } from 'next-intl';
@@ -34,14 +34,19 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const assigneeLabel = deal.assignee?.full_name || null;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={(e) => {
         // `onClick` still fires after a non-drag tap because the PointerSensor
         // requires 5px movement before it counts as a drag.
         if (isOverlay) return;
         e.stopPropagation();
         onEdit(deal);
+      }}
+      onKeyDown={(event) => {
+        if (isOverlay) return;
+        if (event.key === 'Enter' || event.key === ' ') onEdit(deal);
       }}
       className={`group border-border/50 bg-muted/70 relative w-full cursor-pointer border py-1.5 pr-1.5 pl-2.5 text-left shadow-sm transition-all ${
         isOverlay
@@ -60,6 +65,19 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         <h4 className="text-foreground flex-1 truncate text-xs leading-tight font-semibold">
           {deal.title}
         </h4>
+        {!isOverlay && (
+          <a
+            href={`/deals/${deal.id}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Otwórz Deal w nowej karcie"
+            aria-label="Otwórz Deal w nowej karcie"
+            className="text-muted-foreground hover:bg-background hover:text-foreground rounded p-0.5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ExternalLink className="size-3" />
+          </a>
+        )}
         {deal.status === 'won' && (
           <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
             <Check className="h-3 w-3" />
@@ -103,15 +121,21 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       </div>
 
       {deal.product_type && (
-        <span className="mt-1 inline-flex rounded-full bg-primary/10 px-1.5 py-0 text-[9px] font-semibold text-primary">
+        <span className="bg-primary/10 text-primary mt-1 inline-flex rounded-full px-1.5 py-0 text-[9px] font-semibold">
           {deal.product_type}
         </span>
       )}
 
       {deal.next_action && (
-        <div className="mt-1 border-t border-border/60 pt-1">
-          <p className="truncate text-[11px] font-medium">Następnie: {deal.next_action}</p>
-          {deal.next_action_at && <p className="text-[10px] text-muted-foreground">{new Date(deal.next_action_at).toLocaleString('pl-PL')}</p>}
+        <div className="border-border/60 mt-1 border-t pt-1">
+          <p className="truncate text-[11px] font-medium">
+            Następnie: {deal.next_action}
+          </p>
+          {deal.next_action_at && (
+            <p className="text-muted-foreground text-[10px]">
+              {new Date(deal.next_action_at).toLocaleString('pl-PL')}
+            </p>
+          )}
         </div>
       )}
 
@@ -125,6 +149,6 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </span>
         </div>
       )}
-    </button>
+    </div>
   );
 }

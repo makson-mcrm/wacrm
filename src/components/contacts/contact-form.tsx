@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -23,10 +23,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, Plus } from 'lucide-react';
+import { VoiceTextarea } from '@/components/ui/voice-textarea';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 
 interface ContactFormProps {
   open: boolean;
@@ -48,7 +48,7 @@ export function ContactForm({
   onViewExisting,
 }: ContactFormProps) {
   const t = useTranslations('Contacts.form');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
   const isEdit = !!contact;
 
@@ -84,9 +84,10 @@ export function ContactForm({
   // hard-blocks the save; a fuzzy trunk-variant match only warns. The
   // DB unique index (migration 022) is the real backstop — this is the
   // friendly heads-up before we get there.
-  const [dupMatch, setDupMatch] = useState<
-    { contact: ExistingContact; exact: boolean } | null
-  >(null);
+  const [dupMatch, setDupMatch] = useState<{
+    contact: ExistingContact;
+    exact: boolean;
+  } | null>(null);
   const [checkingDup, setCheckingDup] = useState(false);
 
   const [tags, setTags] = useState<Tag[]>([]);
@@ -96,7 +97,9 @@ export function ContactForm({
   useEffect(() => {
     if (open) {
       setFirstName(contact?.first_name ?? contact?.name?.split(' ')[0] ?? '');
-      setLastName(contact?.last_name ?? contact?.name?.split(' ').slice(1).join(' ') ?? '');
+      setLastName(
+        contact?.last_name ?? contact?.name?.split(' ').slice(1).join(' ') ?? ''
+      );
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompanyId('');
@@ -131,27 +134,48 @@ export function ContactForm({
     const [{ data: companyRows }, { data: linkRows }] = await Promise.all([
       supabase.from('companies').select('*').order('name'),
       contact?.id
-        ? supabase.from('contact_companies').select('company_id').eq('contact_id', contact.id).eq('is_primary', true).limit(1)
+        ? supabase
+            .from('contact_companies')
+            .select('company_id')
+            .eq('contact_id', contact.id)
+            .eq('is_primary', true)
+            .limit(1)
         : Promise.resolve({ data: [] }),
     ]);
     setCompanies((companyRows ?? []) as Company[]);
-    setCompanyId((linkRows?.[0] as { company_id?: string } | undefined)?.company_id ?? '');
+    setCompanyId(
+      (linkRows?.[0] as { company_id?: string } | undefined)?.company_id ?? ''
+    );
   }
 
   async function createCompanyInline() {
     if (!newCompanyName.trim() || !accountId) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const { data, error } = await supabase.from('companies').insert({
-      account_id: accountId,
-      user_id: session.user.id,
-      name: newCompanyName.trim(),
-    }).select('*').single();
+    const { data, error } = await supabase
+      .from('companies')
+      .insert({
+        account_id: accountId,
+        user_id: session.user.id,
+        name: newCompanyName.trim(),
+      })
+      .select('*')
+      .single();
     if (error) {
-      toast.error(error.code === '23505' ? 'Taka firma już istnieje.' : 'Nie udało się dodać firmy.');
+      toast.error(
+        error.code === '23505'
+          ? 'Taka firma już istnieje.'
+          : 'Nie udało się dodać firmy.'
+      );
       return;
     }
-    setCompanies((rows) => [...rows, data as Company].sort((a, b) => a.name.localeCompare(b.name, 'pl')));
+    setCompanies((rows) =>
+      [...rows, data as Company].sort((a, b) =>
+        a.name.localeCompare(b.name, 'pl')
+      )
+    );
     setCompanyId(data.id);
     setNewCompanyName('');
     setShowNewCompany(false);
@@ -173,7 +197,7 @@ export function ContactForm({
       setDupMatch(
         existing
           ? { contact: existing, exact: isExactMatch(existing, value) }
-          : null,
+          : null
       );
     } finally {
       setCheckingDup(false);
@@ -182,10 +206,7 @@ export function ContactForm({
 
   async function fetchTags() {
     setLoadingTags(true);
-    const { data } = await supabase
-      .from('tags')
-      .select('*')
-      .order('name');
+    const { data } = await supabase.from('tags').select('*').order('name');
     if (data) setTags(data);
     setLoadingTags(false);
   }
@@ -201,8 +222,8 @@ export function ContactForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!phone.trim()) {
-      toast.error(t('phoneRequired'));
+    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
+      toast.error('Imię, nazwisko i numer telefonu są wymagane.');
       return;
     }
 
@@ -221,14 +242,16 @@ export function ContactForm({
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
-      if (!accountId) throw new Error('Your profile is not linked to an account.');
+      if (!accountId)
+        throw new Error('Your profile is not linked to an account.');
 
       let contactId = contact?.id;
 
       const payload = {
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
-        name: [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || null,
+        name:
+          [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || null,
         phone: phone.trim(),
         phone_secondary: phoneSecondary.trim() || null,
         email: email.trim() || null,
@@ -278,21 +301,44 @@ export function ContactForm({
 
       // Sync tags
       if (contactId) {
-        await supabase.from('contact_companies').delete().eq('contact_id', contactId).eq('is_primary', true);
-        if (companyId) {
-          const { error: linkError } = await supabase.from('contact_companies').upsert({
-            contact_id: contactId,
-            company_id: companyId,
-            account_id: accountId,
-            role: 'Powiązana osoba',
-            is_primary: true,
-          }, { onConflict: 'contact_id,company_id' });
-          if (linkError) throw linkError;
+        try {
+          await supabase
+            .from('contact_companies')
+            .delete()
+            .eq('contact_id', contactId)
+            .eq('is_primary', true);
+          if (companyId) {
+            const { error: linkError } = await supabase
+              .from('contact_companies')
+              .upsert(
+                {
+                  contact_id: contactId,
+                  company_id: companyId,
+                  account_id: accountId,
+                  role: 'Powiązana osoba',
+                  is_primary: true,
+                },
+                { onConflict: 'contact_id,company_id' }
+              );
+            if (linkError) throw linkError;
+          }
+        } catch (relationError) {
+          console.error(
+            'Kontakt zapisany, ale nie udało się zapisać firmy:',
+            relationError
+          );
+          toast.warning(
+            'Kontakt zapisany. Powiązanie z firmą wymaga ponowienia.'
+          );
         }
         const existingTagIds = new Set(contactTags.map((tag) => tag.tag_id));
         const desiredTagIds = new Set(selectedTagIds);
-        const toRemove = [...existingTagIds].filter((id) => !desiredTagIds.has(id));
-        const toAdd = [...desiredTagIds].filter((id) => !existingTagIds.has(id));
+        const toRemove = [...existingTagIds].filter(
+          (id) => !desiredTagIds.has(id)
+        );
+        const toAdd = [...desiredTagIds].filter(
+          (id) => !existingTagIds.has(id)
+        );
 
         for (const tagId of toRemove) {
           await deleteContactTag(contactId, tagId);
@@ -316,7 +362,7 @@ export function ContactForm({
           const existing = await findExistingContact(
             supabase,
             accountId,
-            phone.trim(),
+            phone.trim()
           );
           if (existing) setDupMatch({ contact: existing, exact: true });
         }
@@ -331,29 +377,34 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
             {isEdit ? t('editTitle') : t('addTitle')}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            {isEdit
-              ? t('editDesc')
-              : t('addDesc')}
+            {isEdit ? t('editDesc') : t('addDesc')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Imię</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Imię" /></div>
-            <div className="space-y-2"><Label>Nazwisko</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Nazwisko" /></div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Drugi telefon</Label><Input value={phoneSecondary} onChange={(e) => setPhoneSecondary(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Preferowany kontakt</Label><select value={preferredChannel} onChange={(e) => setPreferredChannel(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Telefon</option><option>WhatsApp</option><option>SMS</option><option>E-mail</option></select></div>
-            <div className="space-y-2"><Label>Źródło pozyskania</Label><select value={source} onChange={(e) => setSource(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Podajnik mBank</option><option>Lead mFinanse</option><option>Własny kontakt</option><option>Polecenie</option><option>Strona makson.space</option></select></div>
-            <div className="space-y-2"><Label>LinkedIn</Label><Input type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." /></div>
+            <div className="space-y-2">
+              <Label>Imię *</Label>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Imię"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nazwisko *</Label>
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Nazwisko"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -381,85 +432,251 @@ export function ContactForm({
               >
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                 <div className="space-y-1">
-                  <p>
-                    {dupMatch.exact
-                      ? t('dupExact')
-                      : t('dupSimilar')}
-                  </p>
+                  <p>{dupMatch.exact ? t('dupExact') : t('dupSimilar')}</p>
                   {onViewExisting && (
                     <button
                       type="button"
                       onClick={() => onViewExisting(dupMatch.contact.id)}
                       className="font-medium underline underline-offset-2 hover:no-underline"
                     >
-                      {t('viewExisting', { name: dupMatch.contact.name || dupMatch.contact.phone })}
+                      {t('viewExisting', {
+                        name: dupMatch.contact.name || dupMatch.contact.phone,
+                      })}
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                {t('phoneHint')}
-              </p>
+              <p className="text-muted-foreground text-xs">{t('phoneHint')}</p>
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_120px_1fr]">
-            <div className="space-y-2"><Label>Adres</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Kod</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Miasto</Label><Input value={city} onChange={(e) => setCity(e.target.value)} /></div>
-          </div>
-
-          <div className="grid gap-2 rounded-lg border p-3 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={contactConsent} onChange={(e) => setContactConsent(e.target.checked)} /> Zgoda na kontakt w sprawie zapytania</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} /> Zgoda marketingowa</label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Drugi telefon</Label>
+              <Input
+                value={phoneSecondary}
+                onChange={(e) => setPhoneSecondary(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('emailPlaceholder')}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cf-email" className="text-muted-foreground">
-              {t('emailLabel')}
-            </Label>
-            <Input
-              id="cf-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('emailPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+            <Label>Opis Kontaktu</Label>
+            <VoiceTextarea
+              value={description}
+              onChange={setDescription}
+              placeholder="Najważniejsze informacje o kliencie i ostatnie ustalenia"
+              className="min-h-24"
             />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_120px_1fr]">
+            <div className="space-y-2">
+              <Label>Adres</Label>
+              <Input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Kod</Label>
+              <Input
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Miasto</Label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid gap-2 rounded-lg border p-3 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={contactConsent}
+                onChange={(e) => setContactConsent(e.target.checked)}
+              />{' '}
+              Zgoda na kontakt w sprawie zapytania
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={marketingConsent}
+                onChange={(e) => setMarketingConsent(e.target.checked)}
+              />{' '}
+              Zgoda marketingowa
+            </label>
           </div>
 
           <div className="space-y-2">
             <Label>Powiązana firma</Label>
-            <div className="flex gap-2"><select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="bg-muted border-border h-9 min-w-0 flex-1 rounded-md border px-3 text-sm"><option value="">Bez firmy</option>{companies.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select><Button type="button" variant="outline" size="icon" title="Dodaj nową firmę" onClick={() => setShowNewCompany((value) => !value)}><Plus className="size-4" /></Button></div>
-            {showNewCompany && <div className="flex gap-2"><Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} placeholder="Nazwa nowej firmy" /><Button type="button" onClick={createCompanyInline}>Dodaj</Button></div>}
+            <EntitySearchSelect
+              value={companyId}
+              onChange={setCompanyId}
+              placeholder="Wyszukaj firmę"
+              options={companies.map((row) => ({
+                value: row.id,
+                label: row.name,
+                keywords: `${row.nip ?? ''} ${row.phone ?? ''}`,
+              }))}
+              onAdd={() => setShowNewCompany((value) => !value)}
+              addLabel="Dodaj nową firmę"
+            />
+            {showNewCompany && (
+              <div className="flex gap-2">
+                <Input
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  placeholder="Nazwa nowej firmy"
+                />
+                <Button type="button" onClick={createCompanyInline}>
+                  Dodaj
+                </Button>
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-4 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-2"><Label>PESEL</Label><Input value={pesel} onChange={(e) => setPesel(e.target.value)} inputMode="numeric" /></div>
-            <div className="space-y-2"><Label>Seria i numer dowodu</Label><Input value={identityDocument} onChange={(e) => setIdentityDocument(e.target.value)} /></div>
-            <div className="space-y-2"><Label>BIK</Label><select value={bikStatus} onChange={(e) => setBikStatus(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Nie ustalono</option><option>Do pobrania</option><option>Posiada</option><option>Otrzymany</option><option>Sprawdzony</option></select></div>
-            <div className="space-y-2"><Label>Źródło dochodu</Label><select value={incomeType} onChange={(e) => setIncomeType(e.target.value)} className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"><option value="">Wybierz</option><option>Umowa o pracę</option><option>Działalność gospodarcza</option><option>Spółka</option><option>Emerytura / renta</option><option>Inne</option></select></div>
-            <div className="space-y-2"><Label>Dochód netto</Label><Input type="number" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Pracodawca / źródło</Label><Input value={employerName} onChange={(e) => setEmployerName(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Dochód od</Label><Input type="date" value={employmentFrom} onChange={(e) => setEmploymentFrom(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Umowa do</Label><Input type="date" value={contractUntil} onChange={(e) => setContractUntil(e.target.value)} /></div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-description" className="text-muted-foreground">Opis Kontaktu</Label>
-            <Textarea id="cf-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Stałe informacje dotyczące tej osoby" className="border-border bg-muted min-h-20" />
-          </div>
+          <details className="rounded-lg border p-3">
+            <summary className="cursor-pointer font-medium">
+              Dane dodatkowe i do wniosków
+            </summary>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Preferowany kontakt</Label>
+                <select
+                  value={preferredChannel}
+                  onChange={(e) => setPreferredChannel(e.target.value)}
+                  className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="">Wybierz</option>
+                  <option>Telefon</option>
+                  <option>WhatsApp</option>
+                  <option>SMS</option>
+                  <option>E-mail</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Źródło pozyskania</Label>
+                <select
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="">Wybierz</option>
+                  <option>Podajnik mBank</option>
+                  <option>Lead mFinanse</option>
+                  <option>Własny kontakt</option>
+                  <option>Polecenie</option>
+                  <option>Strona makson.space</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>LinkedIn</Label>
+                <Input
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>PESEL</Label>
+                <Input
+                  value={pesel}
+                  onChange={(e) => setPesel(e.target.value)}
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Seria i numer dowodu</Label>
+                <Input
+                  value={identityDocument}
+                  onChange={(e) => setIdentityDocument(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>BIK</Label>
+                <select
+                  value={bikStatus}
+                  onChange={(e) => setBikStatus(e.target.value)}
+                  className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="">Nie ustalono</option>
+                  <option>Do pobrania</option>
+                  <option>Posiada</option>
+                  <option>Otrzymany</option>
+                  <option>Sprawdzony</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Źródło dochodu</Label>
+                <select
+                  value={incomeType}
+                  onChange={(e) => setIncomeType(e.target.value)}
+                  className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="">Wybierz</option>
+                  <option>Umowa o pracę</option>
+                  <option>Działalność gospodarcza</option>
+                  <option>Spółka</option>
+                  <option>Emerytura / renta</option>
+                  <option>Inne</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Dochód netto</Label>
+                <Input
+                  type="number"
+                  value={monthlyIncome}
+                  onChange={(e) => setMonthlyIncome(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Pracodawca / źródło</Label>
+                <Input
+                  value={employerName}
+                  onChange={(e) => setEmployerName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Dochód od</Label>
+                <Input
+                  type="date"
+                  value={employmentFrom}
+                  onChange={(e) => setEmploymentFrom(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Umowa do</Label>
+                <Input
+                  type="date"
+                  value={contractUntil}
+                  onChange={(e) => setContractUntil(e.target.value)}
+                />
+              </div>
+            </div>
+          </details>
 
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t('tagsLabel')}</Label>
             {loadingTags ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Loader2 className="size-3 animate-spin" />
                 {t('loadingTags')}
               </div>
             ) : tags.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {t('noTagsAvailable')}
               </p>
             ) : (
@@ -471,9 +688,9 @@ export function ContactForm({
                       key={tag.id}
                       type="button"
                       onClick={() => toggleTag(tag.id)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors cursor-pointer ${
+                      className={`inline-flex cursor-pointer items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                         selected
-                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
+                          ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
                           : 'opacity-60 hover:opacity-100'
                       }`}
                       style={{

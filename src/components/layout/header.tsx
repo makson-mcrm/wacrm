@@ -3,7 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { BriefcaseBusiness, Building2, CalendarPlus, ListTodo, LogOut, Menu, Plus, Settings as SettingsIcon, User, UserPlus } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  Building2,
+  CalendarPlus,
+  ListTodo,
+  LogOut,
+  Menu,
+  Plus,
+  Settings as SettingsIcon,
+  User,
+  UserPlus,
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -20,6 +31,7 @@ const pageTitles: Record<string, string> = {
   '/notifications': 'notifications',
   '/contacts': 'contacts',
   '/companies': 'companies',
+  '/submissions': 'submissions',
   '/pipelines': 'pipelines',
   '/calendar': 'calendar',
   '/deals': 'deals',
@@ -75,15 +87,31 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       <div className="flex items-center gap-1 sm:gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold">
-            <Plus className="size-4"/><span className="hidden sm:inline">Dodaj</span>
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Dodaj</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-52">
-            <DropdownMenuItem render={<Link href="/pipelines?new=deal"/>}><BriefcaseBusiness className="size-4"/>Deal</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/contacts?new=contact"/>}><UserPlus className="size-4"/>Kontakt</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/companies?new=company"/>}><Building2 className="size-4"/>Firma</DropdownMenuItem>
-            <DropdownMenuSeparator/>
-            <DropdownMenuItem render={<Link href="/calendar?new=task"/>}><ListTodo className="size-4"/>Zadanie</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/calendar?new=event"/>}><CalendarPlus className="size-4"/>Spotkanie</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
+              <BriefcaseBusiness className="size-4" />
+              Deal
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
+              <UserPlus className="size-4" />
+              Kontakt
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/companies?new=company" />}>
+              <Building2 className="size-4" />
+              Firma
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem render={<a href="/calendar?new=task" />}>
+              <ListTodo className="size-4" />
+              Zadanie
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<a href="/calendar?new=event" />}>
+              <CalendarPlus className="size-4" />
+              Spotkanie
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <ModeToggle />
