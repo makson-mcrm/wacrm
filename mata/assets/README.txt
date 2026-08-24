@@ -1,0 +1,1 @@
+MATA 2.2 exercise visual assets.
