@@ -70,8 +70,8 @@ export default function CompanyDetailPage() {
           <p className="text-sm text-muted-foreground">Karta Firmy</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild><Link href={`/contacts?company=${company.id}`}><Plus className="size-4" /> Kontakt</Link></Button>
-          <Button asChild><Link href={`/pipelines?company=${company.id}`}><Plus className="size-4" /> Deal</Link></Button>
+          <Button variant="outline" render={<Link href={`/contacts?company=${company.id}`} />}><Plus className="size-4" /> Kontakt</Button>
+          <Button render={<Link href={`/pipelines?company=${company.id}`} />}><Plus className="size-4" /> Deal</Button>
         </div>
       </div>
 
