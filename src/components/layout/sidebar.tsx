@@ -330,70 +330,29 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 : null}
             </div>
           ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="hover:bg-muted/60 focus:bg-muted/60 data-popup-open:bg-muted/60 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
-              <Avatar className="size-8 shrink-0">
-                {profile?.avatar_url ? (
-                  <AvatarImage
-                    src={profile.avatar_url}
-                    alt={profile.full_name ?? t('defaultAvatar')}
-                  />
-                ) : null}
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                  {profile?.full_name?.charAt(0)?.toUpperCase() ??
-                    profile?.email?.charAt(0)?.toUpperCase() ??
-                    'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="text-foreground truncate text-sm font-medium">
-                  {profile?.full_name ?? t('defaultUser')}
-                </p>
-                <p className="text-muted-foreground truncate text-xs">
-                  {profile?.email ?? ''}
-                </p>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              side="top"
-              sideOffset={6}
-              className="bg-popover text-popover-foreground ring-border min-w-56"
-            >
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=profile"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <User className="size-4" />
-                {t('menuProfile')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=whatsapp"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <Settings className="size-4" />
-                {t('menuSettings')}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={signOut}
-                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-              >
-                <LogOut className="size-4" />
-                {t('menuSignOut')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex w-full items-center gap-3 rounded-lg px-3 py-2">
+            <Avatar className="size-8 shrink-0">
+              {profile?.avatar_url ? (
+                <AvatarImage
+                  src={profile.avatar_url}
+                  alt={profile.full_name ?? t('defaultAvatar')}
+                />
+              ) : null}
+              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                {profile?.full_name?.charAt(0)?.toUpperCase() ??
+                  profile?.email?.charAt(0)?.toUpperCase() ??
+                  'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-foreground truncate text-sm font-medium">
+                {profile?.full_name ?? t('defaultUser')}
+              </p>
+              <p className="text-muted-foreground truncate text-xs">
+                {profile?.email ?? ''}
+              </p>
+            </div>
+          </div>
         </div>
       </aside>
     </>
