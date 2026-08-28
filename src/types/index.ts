@@ -108,10 +108,10 @@ export interface Company {
 }
 
 export interface ContactCompany {
-  id: string;
   account_id: string;
   contact_id: string;
   company_id: string;
+  role?: string;
   is_primary: boolean;
   created_at: string;
   company?: Company;
