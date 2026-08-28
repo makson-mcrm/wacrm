@@ -30,7 +30,7 @@ import { toast } from 'sonner';
 import type { Deal, PipelineStage } from '@/types';
 import { buildClientJourneyChecks } from '@/lib/mcrm/client-journey';
 
-type Note = { id: string; note_text: string; created_at: string };
+type Note = { id: string; user_id: string; note_text: string; created_at: string; author_name?: string };
 type Bank = {
   id?: string;
   position: number;
@@ -92,7 +92,7 @@ export default function DealPage() {
     [uploading, setUploading] = useState(false),
     [creatingFolder, setCreatingFolder] = useState(false);
   const load = useCallback(async () => {
-    const [d, n, b, f, p, h, requirements] = await Promise.all([
+    const [d, n, b, f, p, h, requirements, profileRows] = await Promise.all([
       db
         .from('deals')
         .select(
@@ -128,10 +128,21 @@ export default function DealPage() {
         .select('id,status,required')
         .eq('deal_id', id)
         .eq('required', true),
+      accountId
+        ? db.from('profiles').select('user_id,full_name').eq('account_id', accountId)
+        : Promise.resolve({ data: [] }),
     ]);
     setDeal(d.data as Deal | null);
     setPeople((p.data ?? []) as unknown as DealPerson[]);
-    setNotes((n.data ?? []) as Note[]);
+    const authorByUser = new Map(
+      (profileRows.data ?? []).map((row) => [row.user_id, row.full_name || 'Użytkownik'])
+    );
+    setNotes(
+      ((n.data ?? []) as Note[]).map((row) => ({
+        ...row,
+        author_name: authorByUser.get(row.user_id) || 'Użytkownik',
+      }))
+    );
     const x = (b.data ?? []) as Bank[];
     setBanks(
       [1, 2, 3].map(
@@ -155,7 +166,7 @@ export default function DealPage() {
         .order('position');
       setStages((s.data ?? []) as PipelineStage[]);
     }
-  }, [db, id]);
+  }, [db, id, accountId]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -533,7 +544,7 @@ export default function DealPage() {
                 <article key={n.id} className="rounded-lg border p-3">
                   <p className="text-sm whitespace-pre-wrap">{n.note_text}</p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    {dt(n.created_at)}
+                    {dt(n.created_at)} · {n.author_name || 'Użytkownik'}
                   </p>
                 </article>
               ))}
@@ -696,7 +707,7 @@ export default function DealPage() {
                 <article key={n.id} className="mb-2 rounded-lg border p-3">
                   <p className="text-sm whitespace-pre-wrap">{n.note_text}</p>
                   <p className="text-muted-foreground text-xs">
-                    {dt(n.created_at)}
+                    {dt(n.created_at)} · {n.author_name || 'Użytkownik'}
                   </p>
                 </article>
               ))}
