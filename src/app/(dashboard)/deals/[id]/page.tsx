@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarPlus, Loader2, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
+import { DealRelationsField } from "@/components/pipelines/deal-relations-field";
 
 type DealFull = Deal & {
   contact?: Contact | null;
@@ -25,8 +26,6 @@ export default function DealDetailPage() {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [notes, setNotes] = useState<DealNote[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [saving, setSaving] = useState(false);
   const [newNote, setNewNote] = useState("");
@@ -35,12 +34,10 @@ export default function DealDetailPage() {
 
   const load = useCallback(async () => {
     if (!accountId) return;
-    const [dealRes, notesRes, activitiesRes, contactsRes, companiesRes] = await Promise.all([
+    const [dealRes, notesRes, activitiesRes] = await Promise.all([
       supabase.from("deals").select("*, contact:contacts(*), company:companies(*), stage:pipeline_stages(*)").eq("id", id).single(),
       supabase.from("deal_notes").select("*").eq("deal_id", id).order("created_at", { ascending: false }),
       supabase.from("crm_activities").select("*").eq("deal_id", id).order("due_at", { ascending: true }),
-      supabase.from("contacts").select("*").eq("account_id", accountId).order("name"),
-      supabase.from("companies").select("*").eq("account_id", accountId).order("name"),
     ]);
     if (dealRes.error || !dealRes.data) {
       toast.error("Nie udało się otworzyć Deala");
@@ -50,8 +47,6 @@ export default function DealDetailPage() {
     setDeal(row);
     setNotes((notesRes.data ?? []) as DealNote[]);
     setActivities((activitiesRes.data ?? []) as CrmActivity[]);
-    setContacts((contactsRes.data ?? []) as Contact[]);
-    setCompanies((companiesRes.data ?? []) as Company[]);
     const { data: stageRows } = await supabase
       .from("pipeline_stages")
       .select("*")
@@ -180,22 +175,16 @@ export default function DealDetailPage() {
 
         <section className="space-y-3 rounded-xl border bg-card p-4">
           <div className="flex items-center justify-between"><h2 className="font-semibold">Kontakt i Firma</h2></div>
-          <div className="flex gap-2">
-            <select className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" value={deal.contact_id ?? ""} onChange={(e) => setDeal({ ...deal, contact_id: e.target.value || null })}>
-              <option value="">Wybierz Kontakt</option>
-              {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone} — {c.phone}</option>)}
-            </select>
-            <Button variant="outline" render={<Link href="/contacts" />}><Plus className="size-4" /> Kontakt</Button>
+          <DealRelationsField
+            contactId={deal.contact_id ?? ""}
+            companyId={deal.company_id ?? ""}
+            onContactChange={(contactId) => setDeal({ ...deal, contact_id: contactId || null })}
+            onCompanyChange={(companyId) => setDeal({ ...deal, company_id: companyId || null })}
+          />
+          <div>
+            {deal.contact_id ? <Link className="text-sm text-primary underline-offset-4 hover:underline" href={`/contacts?open=${deal.contact_id}`}>Otwórz Kontakt</Link> : null}
+            {deal.company_id ? <Link className="ml-3 text-sm text-primary underline-offset-4 hover:underline" href={`/companies/${deal.company_id}`}>Otwórz Firmę</Link> : null}
           </div>
-          <div className="flex gap-2">
-            <select className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" value={deal.company_id ?? ""} onChange={(e) => setDeal({ ...deal, company_id: e.target.value || null })}>
-              <option value="">Firma opcjonalna</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}{c.nip ? ` — ${c.nip}` : ""}</option>)}
-            </select>
-            <Button variant="outline" render={<Link href="/companies" />}><Plus className="size-4" /> Firma</Button>
-          </div>
-          {deal.contact_id ? <Link className="text-sm text-primary underline-offset-4 hover:underline" href={`/contacts?open=${deal.contact_id}`}>Otwórz Kontakt</Link> : null}
-          {deal.company_id ? <Link className="ml-3 text-sm text-primary underline-offset-4 hover:underline" href={`/companies/${deal.company_id}`}>Otwórz Firmę</Link> : null}
         </section>
       </div>
 
