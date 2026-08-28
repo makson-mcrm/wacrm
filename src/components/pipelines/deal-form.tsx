@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { CURRENCIES } from "@/lib/currency";
 import type {
   Conversation,
   Deal,
@@ -59,11 +58,10 @@ export function DealForm({
 }: DealFormProps) {
   const t = useTranslations("Pipelines.form");
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId } = useAuth();
 
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
-  const [currency, setCurrency] = useState(defaultCurrency);
   const [contactId, setContactId] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [description, setDescription] = useState("");
@@ -95,7 +93,6 @@ export function DealForm({
     if (deal) {
       setTitle(deal.title);
       setValue(String(deal.value ?? ""));
-      setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
       setContactId(deal.contact_id ?? "");
@@ -112,7 +109,6 @@ export function DealForm({
     } else {
       setTitle("");
       setValue("");
-      setCurrency(defaultCurrency);
       setContactId(defaultContactId ?? "");
       setCompanyId(defaultCompanyId ?? "");
       setDescription("");
@@ -125,7 +121,7 @@ export function DealForm({
       setExpectedCloseDate("");
       setNotes("");
     }
-  }, [open, deal, defaultStageId, defaultContactId, defaultCompanyId, stages, defaultCurrency]);
+  }, [open, deal, defaultStageId, defaultContactId, defaultCompanyId, stages]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load supporting data once the sheet is open
@@ -169,8 +165,17 @@ export function DealForm({
   }, [open, contactId, supabase]);
 
   async function handleSave() {
-    if (!title.trim() || !contactId || !stageId) {
-      toast.error(t("toastRequired"));
+    if (
+      !title.trim() ||
+      !description.trim() ||
+      !source.trim() ||
+      !dealType.trim() ||
+      !contactId ||
+      !stageId ||
+      !value.trim() ||
+      Number(value) <= 0
+    ) {
+      toast.error("Uzupełnij: nazwę, opis, kwotę, Kontakt, źródło, typ Deala i etap.");
       return;
     }
     setSaving(true);
@@ -178,7 +183,7 @@ export function DealForm({
     const payload = {
       title: title.trim(),
       value: parseFloat(value) || 0,
-      currency,
+      currency: "PLN",
       contact_id: contactId,
       company_id: companyId || null,
       description: description.trim() || null,
@@ -330,33 +335,19 @@ export function DealForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-[1fr_110px] gap-3">
-              <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t("value")}</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="0"
-                    className="border-border bg-muted pl-7 text-foreground"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t("currency")}</Label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </select>
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Kwota (PLN) *</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="0"
+                  className="border-border bg-muted pl-7 text-foreground"
+                />
               </div>
             </div>
 
@@ -490,7 +481,17 @@ export function DealForm({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !title.trim() || !contactId || !stageId}
+                disabled={
+                  saving ||
+                  !title.trim() ||
+                  !description.trim() ||
+                  !source.trim() ||
+                  !dealType.trim() ||
+                  !contactId ||
+                  !stageId ||
+                  !value.trim() ||
+                  Number(value) <= 0
+                }
                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {saving ? t("saving") : deal ? t("saveChanges") : t("createDeal")}
