@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
@@ -50,7 +50,7 @@ const SPEC_DEFAULT_STAGES = [
 export default function PipelinesPage() {
   const t = useTranslations('Pipelines.page');
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const canEditSettings = useCan('edit-settings');
   const canCreateDeals = useCan('send-messages');
   const { accountId } = useAuth();
