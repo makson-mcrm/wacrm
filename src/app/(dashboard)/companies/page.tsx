@@ -113,7 +113,7 @@ export default function CompaniesPage() {
             Kartoteka firm powiązana z Kontaktami i Dealami.
           </p>
         </div>
-        <Button onClick={openNew} disabled={!canEdit}>
+        <Button onClick={() => openNew()} disabled={!canEdit}>
           <Plus className="size-4" /> Dodaj firmę
         </Button>
       </div>
