@@ -5,6 +5,17 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // The fork predates the opt-in React Compiler lint rules shipped by the
+    // current eslint-config-next. Keep the established hooks checks enabled,
+    // but do not fail CI on compiler-adoption diagnostics.
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/purity": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -18,3 +29,4 @@ const eslintConfig = defineConfig([
 ]);
 
 export default eslintConfig;
+

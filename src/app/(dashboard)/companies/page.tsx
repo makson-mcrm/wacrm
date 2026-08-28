@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
+import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 import {
   Building2,
   Loader2,
@@ -193,6 +194,10 @@ export default function CompaniesPage() {
         canEdit={canEdit}
         initialContactId={pendingContactId}
         onSaved={loadCompanies}
+        onExisting={(existing) => {
+          setSelected(existing);
+          setPendingContactId('');
+        }}
       />
     </div>
   );
@@ -206,6 +211,7 @@ function CompanySheet({
   canEdit,
   initialContactId,
   onSaved,
+  onExisting,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -214,6 +220,7 @@ function CompanySheet({
   canEdit: boolean;
   initialContactId: string;
   onSaved: () => Promise<void>;
+  onExisting: (company: Company) => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [name, setName] = useState('');
@@ -301,10 +308,53 @@ function CompanySheet({
       toast.error('Nazwa firmy jest wymagana.');
       return;
     }
+    if (!isValidNip(nip)) {
+      toast.error('NIP musi mieć 10 cyfr.');
+      return;
+    }
     setSaving(true);
+    const normalizedNip = normalizeNip(nip);
+    if (!company && normalizedNip) {
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('nip_normalized', normalizedNip)
+        .maybeSingle();
+      if (existing) {
+        if (initialContactId) {
+          const { error: linkError } = await supabase
+            .from('contact_companies')
+            .upsert(
+              {
+                contact_id: initialContactId,
+                company_id: existing.id,
+                account_id: accountId,
+                role: 'Powiązana osoba',
+                is_primary: true,
+              },
+              { onConflict: 'contact_id,company_id' }
+            );
+          if (linkError) {
+            setSaving(false);
+            toast.error(
+              'Znaleziono Firmę, ale nie udało się jej powiązać z Kontaktem.'
+            );
+            return;
+          }
+        }
+        setSaving(false);
+        await onSaved();
+        onExisting(existing as Company);
+        toast.info(
+          `Firma z tym NIP już istnieje: ${existing.name}. Otwieram ją.`
+        );
+        return;
+      }
+    }
     const payload = {
       name: name.trim(),
-      nip: nip.trim() || null,
+      nip: normalizedNip || null,
       phone: phone.trim() || null,
       email: email.trim() || null,
       notes: notes.trim() || null,
@@ -370,7 +420,9 @@ function CompanySheet({
         { onConflict: 'contact_id,company_id' }
       );
       if (link.error) {
-        toast.error('Firma powstała, ale nie udało się powiązać jej z Kontaktem.');
+        toast.error(
+          'Firma powstała, ale nie udało się powiązać jej z Kontaktem.'
+        );
         return;
       }
     }
@@ -758,3 +810,4 @@ function Field({
     </div>
   );
 }
+

@@ -24,6 +24,7 @@ import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { Banknote, Check, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 
 interface DealFormProps {
   open: boolean;
@@ -100,7 +101,8 @@ export function DealForm({
     [newLastName, setNewLastName] = useState(''),
     [newPhone, setNewPhone] = useState('');
   const [showNewCompany, setShowNewCompany] = useState(false),
-    [newCompanyName, setNewCompanyName] = useState('');
+    [newCompanyName, setNewCompanyName] = useState(''),
+    [newCompanyNip, setNewCompanyNip] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -136,9 +138,11 @@ export function DealForm({
           ''
       );
       setSecondContactId(
-        links.find((row) => !row.is_primary)?.contact_id ??
-          deal?.co_applicant_contact_id ??
-          ''
+        deal?.product_type === 'ML — HIPOTEKA'
+          ? (links.find((row) => !row.is_primary)?.contact_id ??
+              deal?.co_applicant_contact_id ??
+              '')
+          : ''
       );
       setCompanyId(deal?.company_id ?? defaultCompanyId ?? '');
       setValue(deal?.value == null ? '' : String(deal.value));
@@ -227,9 +231,10 @@ export function DealForm({
   }
   const isMortgageDeal = productType === 'ML — HIPOTEKA';
 
-  useEffect(() => {
-    if (!isMortgageDeal && secondContactId) setSecondContactId('');
-  }, [isMortgageDeal, secondContactId]);
+  function changeProductType(nextProductType: string) {
+    setProductType(nextProductType);
+    if (nextProductType !== 'ML — HIPOTEKA') setSecondContactId('');
+  }
 
   const companyOptions = companies.map((row) => ({
     value: row.id,
@@ -293,6 +298,32 @@ export function DealForm({
 
   async function addCompanyInline() {
     if (!newCompanyName.trim() || !accountId) return;
+    if (!isValidNip(newCompanyNip)) {
+      toast.error('NIP musi mieć 10 cyfr.');
+      return;
+    }
+    const normalizedNip = normalizeNip(newCompanyNip);
+    if (normalizedNip) {
+      const { data: existing } = await db
+        .from('companies')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('nip_normalized', normalizedNip)
+        .maybeSingle();
+      if (existing) {
+        setCompanies((rows) =>
+          rows.some((row) => row.id === existing.id)
+            ? rows
+            : [...rows, existing as Company]
+        );
+        setCompanyId(existing.id);
+        setShowNewCompany(false);
+        toast.info(
+          `Firma z tym NIP już istnieje: ${existing.name}. Wybrano ją.`
+        );
+        return;
+      }
+    }
     const {
       data: { session },
     } = await db.auth.getSession();
@@ -303,6 +334,7 @@ export function DealForm({
         account_id: accountId,
         user_id: session.user.id,
         name: newCompanyName.trim(),
+        nip: normalizedNip || null,
       })
       .select('*')
       .single();
@@ -317,6 +349,7 @@ export function DealForm({
     setCompanies((rows) => [...rows, data as Company]);
     setCompanyId(data.id);
     setNewCompanyName('');
+    setNewCompanyNip('');
     setShowNewCompany(false);
     toast.success('Firma została dodana i powiązana.');
   }
@@ -635,11 +668,17 @@ export function DealForm({
                 </div>
               )}
               {showNewCompany && (
-                <div className="bg-muted/50 flex gap-2 rounded-lg p-3">
+                <div className="bg-muted/50 grid gap-2 rounded-lg p-3 sm:grid-cols-[1fr_180px_auto]">
                   <Input
                     value={newCompanyName}
                     onChange={(e) => setNewCompanyName(e.target.value)}
                     placeholder="Nazwa firmy *"
+                  />
+                  <Input
+                    value={newCompanyNip}
+                    onChange={(e) => setNewCompanyNip(e.target.value)}
+                    placeholder="NIP (opcjonalnie)"
+                    inputMode="numeric"
                   />
                   <Button type="button" onClick={addCompanyInline}>
                     Dodaj i powiąż
@@ -666,7 +705,7 @@ export function DealForm({
                 <Select
                   label="Typ Deala *"
                   value={productType}
-                  set={setProductType}
+                  set={changeProductType}
                   values={[
                     'ML — HIPOTEKA',
                     'ML — FIRMA',
@@ -841,9 +880,10 @@ export function DealForm({
                   </p>
                 </Field>
                 <p className="text-muted-foreground text-xs">
-                  Dokumenty prowadź w checkliście na karcie Deala. Folder Dysku Google
-                  twórz tylko na żądanie przyciskiem „Utwórz folder”. Notatki dodawaj
-                  w zakładce „Komentarze i notatki”, gdzie zapisują się z datą i autorem.
+                  Dokumenty prowadź w checkliście na karcie Deala. Folder Dysku
+                  Google twórz tylko na żądanie przyciskiem „Utwórz folder”.
+                  Notatki dodawaj w zakładce „Komentarze i notatki”, gdzie
+                  zapisują się z datą i autorem.
                 </p>
               </div>
             </details>
@@ -1034,3 +1074,4 @@ function numberOrNull(value: string) {
 function localDateTime(value?: string) {
   return value ? value.slice(0, 16) : '';
 }
+

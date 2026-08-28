@@ -112,6 +112,10 @@ export interface Contact {
   description?: string;
   preferred_contact_channel?: string;
   source?: string;
+  product_category?: string;
+  contact_result?: string;
+  next_step?: string;
+  follow_up_at?: string;
   phone_secondary?: string;
   source_details?: string;
   address?: string;
@@ -142,6 +146,8 @@ export interface Company {
   user_id: string;
   name: string;
   nip?: string;
+  /** Digits-only generated duplicate key. */
+  nip_normalized?: string;
   phone?: string;
   email?: string;
   notes?: string;
@@ -825,3 +831,4 @@ export interface QuickReply {
   created_at: string;
   updated_at: string;
 }
+

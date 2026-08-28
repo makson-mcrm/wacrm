@@ -27,6 +27,7 @@ import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
+import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 
 interface ContactFormProps {
   open: boolean;
@@ -59,10 +60,15 @@ export function ContactForm({
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState('');
   const [newCompanyName, setNewCompanyName] = useState('');
+  const [newCompanyNip, setNewCompanyNip] = useState('');
   const [showNewCompany, setShowNewCompany] = useState(false);
   const [description, setDescription] = useState('');
   const [phoneSecondary, setPhoneSecondary] = useState('');
   const [source, setSource] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [contactResult, setContactResult] = useState('');
+  const [nextStep, setNextStep] = useState('');
+  const [followUpAt, setFollowUpAt] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [pesel, setPesel] = useState('');
   const [identityDocument, setIdentityDocument] = useState('');
@@ -104,10 +110,15 @@ export function ContactForm({
       setEmail(contact?.email ?? '');
       setCompanyId('');
       setNewCompanyName('');
+      setNewCompanyNip('');
       setShowNewCompany(false);
       setDescription(contact?.description ?? '');
       setPhoneSecondary(contact?.phone_secondary ?? '');
       setSource(contact?.source ?? '');
+      setProductCategory(contact?.product_category ?? '');
+      setContactResult(contact?.contact_result ?? '');
+      setNextStep(contact?.next_step ?? '');
+      setFollowUpAt(toLocalDateTime(contact?.follow_up_at));
       setLinkedinUrl(contact?.linkedin_url ?? '');
       setPesel(contact?.pesel ?? '');
       setIdentityDocument(contact?.identity_document ?? '');
@@ -150,6 +161,32 @@ export function ContactForm({
 
   async function createCompanyInline() {
     if (!newCompanyName.trim() || !accountId) return;
+    if (!isValidNip(newCompanyNip)) {
+      toast.error('NIP musi mieć 10 cyfr.');
+      return;
+    }
+    const normalizedNip = normalizeNip(newCompanyNip);
+    if (normalizedNip) {
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('nip_normalized', normalizedNip)
+        .maybeSingle();
+      if (existing) {
+        setCompanies((rows) =>
+          rows.some((row) => row.id === existing.id)
+            ? rows
+            : [...rows, existing as Company]
+        );
+        setCompanyId(existing.id);
+        setShowNewCompany(false);
+        toast.info(
+          `Firma z tym NIP już istnieje: ${existing.name}. Wybrano ją.`
+        );
+        return;
+      }
+    }
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -160,6 +197,7 @@ export function ContactForm({
         account_id: accountId,
         user_id: session.user.id,
         name: newCompanyName.trim(),
+        nip: normalizedNip || null,
       })
       .select('*')
       .single();
@@ -178,6 +216,7 @@ export function ContactForm({
     );
     setCompanyId(data.id);
     setNewCompanyName('');
+    setNewCompanyNip('');
     setShowNewCompany(false);
     toast.success('Firma została dodana i wybrana.');
   }
@@ -258,6 +297,10 @@ export function ContactForm({
         company: companies.find((row) => row.id === companyId)?.name ?? null,
         description: description.trim() || null,
         source: source || null,
+        product_category: productCategory || null,
+        contact_result: contactResult || null,
+        next_step: nextStep.trim() || null,
+        follow_up_at: followUpAt || null,
         source_details: null,
         linkedin_url: linkedinUrl.trim() || null,
         pesel: pesel.trim() || null,
@@ -480,6 +523,56 @@ export function ContactForm({
             />
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Kategoria / produkt</Label>
+              <select
+                value={productCategory}
+                onChange={(e) => setProductCategory(e.target.value)}
+                className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Wybierz</option>
+                <option>ML — HIPOTEKA</option>
+                <option>ML — FIRMA</option>
+                <option>BC — FIRMA</option>
+                <option>NML — OFF</option>
+                <option>LEASING</option>
+                <option>INNY</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Wynik kontaktu</Label>
+              <select
+                value={contactResult}
+                onChange={(e) => setContactResult(e.target.value)}
+                className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">Wybierz</option>
+                <option>Do kwalifikacji</option>
+                <option>Zakwalifikowany</option>
+                <option>Nie zainteresowany</option>
+                <option>Nie odebrał</option>
+                <option>Oddzwonić</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Następny krok</Label>
+              <Input
+                value={nextStep}
+                onChange={(e) => setNextStep(e.target.value)}
+                placeholder="Co należy zrobić dalej"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Follow-up</Label>
+              <Input
+                type="datetime-local"
+                value={followUpAt}
+                onChange={(e) => setFollowUpAt(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-[1fr_120px_1fr]">
             <div className="space-y-2">
               <Label>Adres</Label>
@@ -535,11 +628,17 @@ export function ContactForm({
               addLabel="Dodaj nową firmę"
             />
             {showNewCompany && (
-              <div className="flex gap-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
                 <Input
                   value={newCompanyName}
                   onChange={(e) => setNewCompanyName(e.target.value)}
                   placeholder="Nazwa nowej firmy"
+                />
+                <Input
+                  value={newCompanyNip}
+                  onChange={(e) => setNewCompanyNip(e.target.value)}
+                  placeholder="NIP (opcjonalnie)"
+                  inputMode="numeric"
                 />
                 <Button type="button" onClick={createCompanyInline}>
                   Dodaj
@@ -730,3 +829,11 @@ export function ContactForm({
     </Dialog>
   );
 }
+
+function toLocalDateTime(value?: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+

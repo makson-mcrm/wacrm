@@ -10,3 +10,4 @@ revoke execute on function public.notify_conversation_assigned() from anon;
 revoke execute on function public.recompute_broadcast_counts(uuid) from anon;
 revoke execute on function public.record_webhook_failure(uuid,integer) from anon;
 revoke execute on function public.touch_presence(text) from anon;
+

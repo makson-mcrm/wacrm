@@ -39,3 +39,4 @@ for update
 to authenticated
 using (is_account_member(account_id, 'agent'::account_role_enum))
 with check (is_account_member(account_id, 'agent'::account_role_enum));
+
