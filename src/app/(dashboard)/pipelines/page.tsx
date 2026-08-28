@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
@@ -48,6 +49,10 @@ const SPEC_DEFAULT_STAGES = [
 export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const contactFromQuery = searchParams.get("contact") ?? "";
+  const companyFromQuery = searchParams.get("company") ?? "";
+  const contextOpened = useRef(false);
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
   const { accountId } = useAuth();
@@ -231,6 +236,15 @@ export default function PipelinesPage() {
     },
     [supabase, refreshDeals, t],
   );
+
+  useEffect(() => {
+    if (contextOpened.current || stages.length === 0) return;
+    if (!contactFromQuery && !companyFromQuery) return;
+    contextOpened.current = true;
+    setEditingDeal(null);
+    setDefaultStageId(stages[0]?.id ?? "");
+    setDealFormOpen(true);
+  }, [contactFromQuery, companyFromQuery, stages]);
 
   const handleAddDeal = useCallback(
     (stageId?: string) => {
