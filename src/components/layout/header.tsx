@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
+import { GlobalCrmSearch } from '@/components/layout/global-crm-search';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'dashboard',
@@ -82,6 +83,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <h1 className="text-foreground truncate text-base font-semibold sm:text-lg">
           {t(titleKey as string)}
         </h1>
+      </div>
+
+      <div className="hidden min-w-0 flex-1 justify-center px-3 md:flex">
+        <GlobalCrmSearch />
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
