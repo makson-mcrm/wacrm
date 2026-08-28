@@ -39,6 +39,7 @@ import {
   Search,
   Plus,
   Upload,
+  Download,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -356,6 +357,63 @@ export default function ContactsPage() {
     setPage(0);
   }
 
+  async function exportContactsCsv() {
+    if (!canEditSettings) return;
+    const { data, error } = await supabase
+      .from('contacts')
+      .select(
+        'first_name,last_name,phone,phone_secondary,email,company,source,preferred_contact_channel,contact_consent,marketing_consent,created_at'
+      )
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Nie udało się wyeksportować Kontaktów.');
+      return;
+    }
+    const headers = [
+      'imie',
+      'nazwisko',
+      'telefon',
+      'telefon_dodatkowy',
+      'email',
+      'firma',
+      'zrodlo',
+      'preferowany_kanal',
+      'zgoda_kontakt',
+      'zgoda_marketing',
+      'utworzono',
+    ];
+    const quote = (value: unknown) =>
+      `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const rows = (data ?? []).map((row) =>
+      [
+        row.first_name,
+        row.last_name,
+        row.phone,
+        row.phone_secondary,
+        row.email,
+        row.company,
+        row.source,
+        row.preferred_contact_channel,
+        row.contact_consent ? 'tak' : 'nie',
+        row.marketing_consent ? 'tak' : 'nie',
+        row.created_at,
+      ]
+        .map(quote)
+        .join(',')
+    );
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `kontakty-${new Date().toLocaleDateString('sv-SE')}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Wyeksportowano Kontaktów: ${data?.length ?? 0}`);
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -387,6 +445,16 @@ export default function ContactsPage() {
             >
               <Upload className="size-4" />
               {t('importBtn')}
+            </Button>
+          )}
+          {canEditSettings && (
+            <Button
+              variant="outline"
+              onClick={() => void exportContactsCsv()}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <Download className="size-4" />
+              Eksport CSV
             </Button>
           )}
           <GatedButton
