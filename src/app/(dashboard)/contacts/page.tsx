@@ -69,6 +69,7 @@ export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const companyFromQuery = searchParams.get('company') ?? '';
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -227,10 +228,17 @@ export default function ContactsPage() {
 
   useEffect(() => {
     const openId = searchParams.get('open');
-    if (!openId) return;
-    setDetailContactId(openId);
-    setDetailOpen(true);
-  }, [searchParams]);
+    if (openId) {
+      setDetailContactId(openId);
+      setDetailOpen(true);
+      return;
+    }
+    if (companyFromQuery) {
+      setEditContact(null);
+      setEditContactTags([]);
+      setFormOpen(true);
+    }
+  }, [searchParams, companyFromQuery]);
 
   function openAddForm() {
     setEditContact(null);
@@ -744,7 +752,25 @@ export default function ContactsPage() {
         onOpenChange={setFormOpen}
         contact={editContact}
         contactTags={editContactTags}
-        onSaved={() => {
+        onSaved={async (savedContactId) => {
+          if (companyFromQuery && savedContactId) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('account_id')
+                .eq('user_id', session.user.id)
+                .single();
+              if (profile?.account_id) {
+                await supabase.from('contact_companies').upsert({
+                  account_id: profile.account_id,
+                  contact_id: savedContactId,
+                  company_id: companyFromQuery,
+                  is_primary: true,
+                }, { onConflict: 'contact_id,company_id' });
+              }
+            }
+          }
           fetchContacts();
           fetchTags();
         }}
