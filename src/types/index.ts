@@ -431,20 +431,26 @@ export interface DealNote {
   created_at: string;
 }
 
-export interface CrmActivity {
+export interface SalesActivity {
   id: string;
   account_id: string;
   user_id: string;
-  activity_type: 'follow_up' | 'meeting' | 'task' | 'call';
-  title: string;
-  due_at?: string;
-  completed_at?: string;
-  deal_id?: string;
+  activity_type: string;
   contact_id?: string;
   company_id?: string;
-  notes?: string;
+  deal_id?: string;
+  title: string;
+  description?: string;
+  occurred_at: string;
+  completed: boolean;
+  phone_number?: string;
+  call_result?: string;
+  call_category?: string;
+  call_product?: string;
+  call_channel?: string;
+  attempt_number?: number;
+  expires_at?: string;
   created_at: string;
-  updated_at: string;
 }
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
