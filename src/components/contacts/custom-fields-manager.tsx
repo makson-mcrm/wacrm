@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -56,7 +56,7 @@ export function CustomFieldsManager({
  */
 export function CustomFieldsPanel() {
   const t = useTranslations('Contacts.customFields');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { user, accountId } = useAuth();
 
   const [fields, setFields] = useState<CustomField[]>([]);
