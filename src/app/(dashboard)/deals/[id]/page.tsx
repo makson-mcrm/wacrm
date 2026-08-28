@@ -185,14 +185,14 @@ export default function DealDetailPage() {
               <option value="">Wybierz Kontakt</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.name || c.phone} — {c.phone}</option>)}
             </select>
-            <Button variant="outline" asChild><Link href="/contacts"><Plus className="size-4" /> Kontakt</Link></Button>
+            <Button variant="outline" render={<Link href="/contacts" />}><Plus className="size-4" /> Kontakt</Button>
           </div>
           <div className="flex gap-2">
             <select className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" value={deal.company_id ?? ""} onChange={(e) => setDeal({ ...deal, company_id: e.target.value || null })}>
               <option value="">Firma opcjonalna</option>
               {companies.map((c) => <option key={c.id} value={c.id}>{c.name}{c.nip ? ` — ${c.nip}` : ""}</option>)}
             </select>
-            <Button variant="outline" asChild><Link href="/companies"><Plus className="size-4" /> Firma</Link></Button>
+            <Button variant="outline" render={<Link href="/companies" />}><Plus className="size-4" /> Firma</Button>
           </div>
           {deal.contact_id ? <Link className="text-sm text-primary underline-offset-4 hover:underline" href={`/contacts?open=${deal.contact_id}`}>Otwórz Kontakt</Link> : null}
           {deal.company_id ? <Link className="ml-3 text-sm text-primary underline-offset-4 hover:underline" href={`/companies/${deal.company_id}`}>Otwórz Firmę</Link> : null}
