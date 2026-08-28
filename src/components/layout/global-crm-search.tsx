@@ -39,7 +39,7 @@ export function GlobalCrmSearch() {
       const [deals, contacts, companies] = await Promise.all([
         db
           .from('deals')
-          .select('id,title,value,currency,contact_id,company_id,pipeline_id,stage_id,status,created_at,account_id')
+          .select('id,user_id,title,value,currency,contact_id,company_id,pipeline_id,stage_id,status,created_at,account_id')
           .eq('account_id', accountId)
           .ilike('title', like)
           .limit(8),
