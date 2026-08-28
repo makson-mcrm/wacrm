@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Company } from "@/types";
@@ -14,6 +15,8 @@ import { toast } from "sonner";
 
 export default function CompaniesPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const contactFromQuery = searchParams.get("contact") ?? "";
   const { accountId } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,9 @@ export default function CompaniesPage() {
   }, [accountId, supabase]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (contactFromQuery) setOpen(true);
+  }, [contactFromQuery]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -57,19 +63,27 @@ export default function CompaniesPage() {
       toast.error("Brak aktywnej sesji");
       return;
     }
-    const { error } = await supabase.from("companies").insert({
+    const { data: created, error } = await supabase.from("companies").insert({
       account_id: accountId,
       user_id: user.id,
       name: name.trim(),
       nip: nip.trim() || null,
       description: description.trim() || null,
-    });
+    }).select("*").single();
     setSaving(false);
     if (error) {
       toast.error("Nie udało się zapisać firmy");
       return;
     }
-    toast.success("Firma zapisana");
+    if (created && contactFromQuery) {
+      await supabase.from("contact_companies").upsert({
+        account_id: accountId,
+        contact_id: contactFromQuery,
+        company_id: created.id,
+        is_primary: true,
+      }, { onConflict: "contact_id,company_id" });
+    }
+    toast.success(contactFromQuery ? "Firma zapisana i powiązana z Kontaktem" : "Firma zapisana");
     setOpen(false);
     setName(""); setNip(""); setDescription("");
     await load();
