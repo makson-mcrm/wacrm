@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import type { Company, Contact, CrmActivity, Deal, DealNote, PipelineStage } from "@/types";
+import type { Company, Contact, Deal, DealNote, PipelineStage, SalesActivity } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ export default function DealDetailPage() {
   const { accountId } = useAuth();
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [notes, setNotes] = useState<DealNote[]>([]);
-  const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [activities, setActivities] = useState<SalesActivity[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [saving, setSaving] = useState(false);
   const [newNote, setNewNote] = useState("");
@@ -37,7 +37,7 @@ export default function DealDetailPage() {
     const [dealRes, notesRes, activitiesRes] = await Promise.all([
       supabase.from("deals").select("*, contact:contacts(*), company:companies(*), stage:pipeline_stages(*)").eq("id", id).single(),
       supabase.from("deal_notes").select("*").eq("deal_id", id).order("created_at", { ascending: false }),
-      supabase.from("crm_activities").select("*").eq("deal_id", id).order("due_at", { ascending: true }),
+      supabase.from("sales_activities").select("*").eq("deal_id", id).order("occurred_at", { ascending: true }),
     ]);
     if (dealRes.error || !dealRes.data) {
       toast.error("Nie udało się otworzyć Deala");
@@ -46,7 +46,7 @@ export default function DealDetailPage() {
     const row = dealRes.data as DealFull;
     setDeal(row);
     setNotes((notesRes.data ?? []) as DealNote[]);
-    setActivities((activitiesRes.data ?? []) as CrmActivity[]);
+    setActivities((activitiesRes.data ?? []) as SalesActivity[]);
     const { data: stageRows } = await supabase
       .from("pipeline_stages")
       .select("*")
@@ -58,7 +58,7 @@ export default function DealDetailPage() {
   useEffect(() => { void load(); }, [load]);
 
   const nextOpenActivity = useMemo(
-    () => activities.find((a) => !a.completed_at) ?? null,
+    () => activities.find((a) => !a.completed) ?? null,
     [activities],
   );
 
@@ -109,12 +109,14 @@ export default function DealDetailPage() {
     if (!deal || !accountId || !activityTitle.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const { error } = await supabase.from("crm_activities").insert({
+    const { error } = await supabase.from("sales_activities").insert({
       account_id: accountId,
       user_id: session.user.id,
       activity_type: "follow_up",
       title: activityTitle.trim(),
-      due_at: activityDue || null,
+      description: null,
+      occurred_at: activityDue ? new Date(activityDue).toISOString() : new Date().toISOString(),
+      completed: false,
       deal_id: deal.id,
       contact_id: deal.contact_id || null,
       company_id: deal.company_id || null,
@@ -127,10 +129,10 @@ export default function DealDetailPage() {
     }
   }
 
-  async function completeActivity(activity: CrmActivity) {
+  async function completeActivity(activity: SalesActivity) {
     const { error } = await supabase
-      .from("crm_activities")
-      .update({ completed_at: new Date().toISOString() })
+      .from("sales_activities")
+      .update({ completed: true })
       .eq("id", activity.id);
     if (!error) await load();
   }
@@ -151,7 +153,7 @@ export default function DealDetailPage() {
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Następne działanie</div>
           <div className="font-semibold">{nextOpenActivity.title}</div>
-          {nextOpenActivity.due_at ? <div className="text-sm text-muted-foreground">{new Date(nextOpenActivity.due_at).toLocaleString("pl-PL")}</div> : null}
+          {nextOpenActivity.occurred_at ? <div className="text-sm text-muted-foreground">{new Date(nextOpenActivity.occurred_at).toLocaleString("pl-PL")}</div> : null}
         </div>
       ) : null}
 
@@ -199,10 +201,10 @@ export default function DealDetailPage() {
           {activities.map((a) => (
             <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
               <div>
-                <div className={a.completed_at ? "text-sm line-through opacity-60" : "text-sm font-medium"}>{a.title}</div>
-                {a.due_at ? <div className="text-xs text-muted-foreground">{new Date(a.due_at).toLocaleString("pl-PL")}</div> : null}
+                <div className={a.completed ? "text-sm line-through opacity-60" : "text-sm font-medium"}>{a.title}</div>
+                {a.occurred_at ? <div className="text-xs text-muted-foreground">{new Date(a.occurred_at).toLocaleString("pl-PL")}</div> : null}
               </div>
-              {!a.completed_at ? <Button size="sm" variant="outline" onClick={() => completeActivity(a)}>Gotowe</Button> : null}
+              {!a.completed ? <Button size="sm" variant="outline" onClick={() => completeActivity(a)}>Gotowe</Button> : null}
             </div>
           ))}
         </div>
