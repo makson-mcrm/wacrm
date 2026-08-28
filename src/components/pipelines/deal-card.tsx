@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { Deal, PipelineStage } from "@/types";
 import { Calendar, Check, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
@@ -58,6 +59,17 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         <h4 className="flex-1 text-sm font-semibold leading-snug text-foreground break-words">
           {deal.title}
         </h4>
+        {!isOverlay ? (
+          <Link
+            href={`/deals/${deal.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10"
+          >
+            Otwórz Deal ↗
+          </Link>
+        ) : null}
         {deal.status === "won" && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
             <Check className="h-3 w-3" />
