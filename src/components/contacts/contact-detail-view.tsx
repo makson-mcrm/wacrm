@@ -675,9 +675,11 @@ export function ContactDetailView({
                       <Label className="text-muted-foreground text-xs">Opis Kontaktu</Label>
                       <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-32 resize-y" placeholder="Pełny opis osoby i ustaleń" />
                     </div>
-                    <div className="space-y-2 rounded-lg border p-3">
-                      <p className="text-xs font-semibold">Dane osoby — do wniosku</p>
-                      <div className="grid grid-cols-2 gap-2">
+                    <details className="rounded-lg border p-3">
+                      <summary className="cursor-pointer text-xs font-semibold">
+                        Dane do wniosku — wrażliwe
+                      </summary>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         <Input value={editPesel} onChange={(e) => setEditPesel(e.target.value)} placeholder="PESEL" />
                         <Input value={editIdentityDocument} onChange={(e) => setEditIdentityDocument(e.target.value)} placeholder="Seria i numer dokumentu" />
                         <select value={editBikStatus} onChange={(e) => setEditBikStatus(e.target.value)} className="h-9 rounded-md border bg-muted px-2 text-sm">
@@ -686,7 +688,7 @@ export function ContactDetailView({
                         <Input value={editIncomeType} onChange={(e) => setEditIncomeType(e.target.value)} placeholder="Źródło dochodu" />
                         <Input type="number" value={editMonthlyIncome} onChange={(e) => setEditMonthlyIncome(e.target.value)} placeholder="Dochód miesięczny" />
                       </div>
-                    </div>
+                    </details>
                     <Button
                       onClick={saveDetails}
                       disabled={savingDetails}
