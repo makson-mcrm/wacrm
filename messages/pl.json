@@ -285,5 +285,605 @@
       "toastFailedDeletePipeline": "Nie udało się usunąć lejka",
       "toastDeleted": "Lejek został usunięty"
     }
+  },
+  "Inbox": {
+    "page": {
+      "whatsappNotConnected": "WhatsApp® nie jest połączony. Przejdź do Ustawień, aby połączyć konto."
+    },
+    "conversationList": {
+      "searchPlaceholder": "Szukaj rozmów...",
+      "filterAll": "Wszystkie",
+      "filterUnread": "Nieprzeczytane",
+      "filterOpen": "Otwarte",
+      "filterPending": "Oczekujące",
+      "filterClosed": "Zamknięte",
+      "tags": "Tagi",
+      "company": "Firma",
+      "allCompanies": "Wszystkie firmy",
+      "clearAll": "Wyczyść wszystko",
+      "noConversations": "Nie znaleziono rozmów",
+      "noMessagesYet": "Brak wiadomości",
+      "unknown": "Nieznany"
+    },
+    "messageThread": {
+      "backToConversations": "Wróć do rozmów",
+      "hideContactPanel": "Ukryj panel Kontaktu",
+      "showContactPanel": "Pokaż panel Kontaktu",
+      "hideContact": "Ukryj Kontakt",
+      "showContact": "Pokaż Kontakt",
+      "refresh": "Odśwież",
+      "refreshConversation": "Odśwież rozmowę",
+      "status": "Status",
+      "statusOpen": "Otwarta",
+      "statusPending": "Oczekująca",
+      "statusClosed": "Zamknięta",
+      "assign": "Przypisz",
+      "assigned": "Przypisano",
+      "unassign": "Usuń przypisanie",
+      "noTeammates": "Brak dostępnych użytkowników",
+      "me": " (ja)",
+      "noMessagesYet": "Brak wiadomości",
+      "sendTemplateHint": "Wyślij szablon, aby rozpocząć rozmowę",
+      "selectConversation": "Wybierz rozmowę",
+      "selectConversationHint": "Wybierz rozmowę z lewej strony, aby rozpocząć pisanie",
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj"
+    },
+    "sessionTimer": {
+      "expired": "Wygasło",
+      "xhRemaining": "Pozostało {hours} godz.",
+      "xmRemaining": "Pozostało {minutes} min",
+      "noCustomerMessages": "Brak wiadomości od klienta"
+    },
+    "composer": {
+      "draftHint": "Kliknij ✨, aby przygotować szkic odpowiedzi z AI — możesz go edytować przed wysłaniem",
+      "sessionExpiredHint": "24-godzinne okno wygasło. Użyj szablonu, aby ponownie rozpocząć kontakt.",
+      "templates": "Szablony",
+      "readOnlyPlaceholder": "Tylko odczyt — ta rola nie może odpowiadać",
+      "sessionExpiredPlaceholder": "Okno wygasło — użyj szablonu",
+      "typeMessagePlaceholder": "Wpisz wiadomość... (Shift+Enter = nowa linia)",
+      "readOnlyTitle": "Tylko odczyt — ta rola nie może wysyłać wiadomości",
+      "recording": "Nagrywanie… {current} / {max}",
+      "cancel": "Anuluj",
+      "stopAndAttach": "Zatrzymaj i dołącz",
+      "attachMedia": "Dodaj załącznik",
+      "photo": "Zdjęcie",
+      "video": "Wideo",
+      "document": "Dokument",
+      "voiceNote": "Notatka głosowa",
+      "sendTemplate": "Wyślij szablon",
+      "draftWithAI": "Przygotuj szkic z AI",
+      "addCaption": "Dodaj opis…",
+      "removeAttachment": "Usuń załącznik",
+      "moreActions": "Więcej",
+      "interactiveMessage": "Wiadomość interaktywna",
+      "quickReplies": "Szybkie odpowiedzi",
+      "quickRepliesEmpty": "Brak szybkich odpowiedzi. Dodaj je w Ustawieniach → Szybkie odpowiedzi.",
+      "saveAsQuickReply": "Zapisz jako szybką odpowiedź",
+      "send": "Wyślij",
+      "quickReplyNamePrompt": "Nazwa szybkiej odpowiedzi:",
+      "quickReplySaved": "Zapisano jako szybką odpowiedź.",
+      "quickReplySaveError": "Nie udało się zapisać szybkiej odpowiedzi."
+    },
+    "bubble": {
+      "photo": "Zdjęcie",
+      "video": "Wideo",
+      "audio": "Audio",
+      "unavailable": "{label} niedostępne",
+      "document": "Dokument",
+      "locationShared": "Udostępniono lokalizację",
+      "template": "Szablon",
+      "buttonReply": "Odpowiedź przyciskiem",
+      "interactiveReply": "[Odpowiedź interaktywna]",
+      "unsupported": "[Nieobsługiwany typ wiadomości]",
+      "aiBadge": "AI",
+      "aiBadgeTitle": "Wysłano automatycznie przez asystenta AI",
+      "download": "Pobierz",
+      "downloadFailed": "Nie udało się pobrać załącznika",
+      "viewImage": "Pokaż obraz",
+      "expandVideo": "Powiększ wideo",
+      "imageAlt": "Udostępniony obraz"
+    },
+    "mediaViewer": {
+      "counter": "{index} z {total}",
+      "previous": "Poprzedni",
+      "next": "Następny",
+      "zoomIn": "Powiększ do pełnego rozmiaru",
+      "zoomOut": "Dopasuj do ekranu",
+      "openOriginal": "Otwórz oryginał",
+      "download": "Pobierz",
+      "downloadFailed": "Nie udało się pobrać załącznika",
+      "failed": "Załącznik nie jest już dostępny",
+      "imageAlt": "Udostępniony obraz",
+      "you": "Ty"
+    },
+    "actions": {
+      "reply": "Odpowiedz",
+      "copyText": "Kopiuj tekst",
+      "delete": "Usuń",
+      "react": "Reakcja",
+      "reactWith": "Zareaguj {emoji}",
+      "nothingToCopy": "Brak tekstu do skopiowania",
+      "copied": "Skopiowano",
+      "copyFailed": "Nie udało się skopiować"
+    },
+    "replyQuote": {
+      "photo": "[Zdjęcie]",
+      "video": "[Wideo]",
+      "document": "[Dokument]",
+      "audio": "[Audio]",
+      "voiceMessage": "[Wiadomość głosowa]",
+      "location": "[Lokalizacja]",
+      "template": "[Szablon]",
+      "message": "[Wiadomość]",
+      "cancelReply": "Anuluj odpowiedź"
+    },
+    "templatePicker": {
+      "sendTemplate": "Wyślij szablon",
+      "fillPlaceholders": "Uzupełnij pola, aby przygotować szablon. Meta wymaga uzupełnienia wszystkich zmiennych.",
+      "pickTemplate": "Wybierz zatwierdzony szablon WhatsApp do wysłania temu Kontaktowi.",
+      "noApprovedTemplates": "Brak zatwierdzonych szablonów",
+      "noApprovedTemplatesHint": "Zatwierdź szablon w Meta WhatsApp Manager, a następnie zsynchronizuj go w Ustawienia → Szablony.",
+      "preview": "Podgląd",
+      "headerValuePlaceholder": "Wartość zmiennej nagłówka",
+      "bodyValuePlaceholder": "Wartość dla {val}",
+      "urlSuffixValuePlaceholder": "Końcówka adresu URL",
+      "finalUrl": "Końcowy URL: {url}",
+      "back": "Wstecz",
+      "cancel": "Anuluj",
+      "send": "Wyślij szablon"
+    },
+    "sidebar": {
+      "contactInfo": "Dane Kontaktu",
+      "tags": "Tagi",
+      "notes": "Notatki",
+      "deals": "Deale",
+      "noTags": "Brak tagów",
+      "noDeals": "Brak Deali",
+      "addNotePlaceholder": "Dodaj notatkę..."
+    },
+    "aiBanner": {
+      "pausedTitle": "Asystent AI jest tutaj wstrzymany",
+      "activeText": "Asystent AI odpowiada automatycznie",
+      "takeOver": "Przejmij rozmowę",
+      "resume": "Wznów AI",
+      "tookOver": "Przejąłeś tę rozmowę.",
+      "resumed": "AI wznowione.",
+      "updateError": "Nie udało się zaktualizować asystenta AI.",
+      "networkError": "Nie udało się połączyć z serwerem."
+    }
+  },
+  "Automations": {
+    "list": {
+      "title": "Automatyzacje",
+      "subtitle": "Twórz działania uruchamiane automatycznie przez zdarzenia w WhatsApp®.",
+      "create": "Utwórz automatyzację",
+      "retry": "Spróbuj ponownie",
+      "templatesTitle": "Gotowe szablony startowe",
+      "emptyTitle": "Brak automatyzacji",
+      "emptyDesc": "Wybierz szablon powyżej albo utwórz automatyzację od zera.",
+      "runs": "{count} uruchomienie",
+      "runsPlural": "{count} uruchomień",
+      "lastRun": "ostatnio {time}",
+      "activate": "Włącz",
+      "deactivate": "Wyłącz",
+      "edit": "Edytuj",
+      "duplicate": "Duplikuj",
+      "viewLogs": "Pokaż logi",
+      "delete": "Usuń",
+      "cancel": "Anuluj",
+      "deleteTitle": "Usuń automatyzację",
+      "deleteDesc": "Spowoduje to trwałe usunięcie {name} i historii wykonań. Tej operacji nie można cofnąć.",
+      "toasts": {
+        "activated": "Automatyzacja została włączona",
+        "paused": "Automatyzacja została wstrzymana",
+        "duplicated": "Automatyzacja została skopiowana",
+        "deleted": "Automatyzacja została usunięta",
+        "updateError": "Nie udało się zaktualizować",
+        "duplicateError": "Nie udało się skopiować",
+        "deleteError": "Nie udało się usunąć"
+      }
+    },
+    "edit": {
+      "loading": "Wczytywanie...",
+      "loadError": "Nie udało się wczytać ({status})",
+      "back": "Wróć do Automatyzacji"
+    },
+    "logs": {
+      "title": "Dziennik wykonań",
+      "loadError": "Nie udało się wczytać logów",
+      "emptyTitle": "Brak uruchomień",
+      "emptyDesc": "Uruchom automatyzację, aby zobaczyć historię.",
+      "unknownContact": "Nieznany Kontakt",
+      "step": "{count} krok",
+      "stepPlural": "{count} kroków",
+      "noSteps": "Brak zapisanych kroków.",
+      "status": {
+        "success": "powodzenie",
+        "partial": "częściowe",
+        "failed": "błąd"
+      },
+      "back": "Wstecz",
+      "backAria": "Wstecz"
+    },
+    "builder": {
+      "steps": {
+        "send_message": "Wyślij wiadomość",
+        "send_buttons": "Wyślij przyciski",
+        "send_list": "Wyślij listę",
+        "send_template": "Wyślij szablon",
+        "add_tag": "Dodaj tag",
+        "remove_tag": "Usuń tag",
+        "assign_conversation": "Przypisz rozmowę",
+        "update_contact_field": "Zmień pole Kontaktu",
+        "create_deal": "Utwórz Deal",
+        "wait": "Czekaj",
+        "condition": "Warunek (jeżeli/inaczej)",
+        "send_webhook": "Wyślij webhook",
+        "close_conversation": "Zamknij rozmowę"
+      },
+      "triggers": {
+        "new_message_received": {
+          "label": "Odebrano nową wiadomość",
+          "hint": "Dowolna wiadomość przychodząca"
+        },
+        "first_inbound_message": {
+          "label": "Pierwsza wiadomość od Kontaktu",
+          "hint": "Pierwsza wiadomość od tego Kontaktu"
+        },
+        "keyword_match": {
+          "label": "Dopasowanie słowa kluczowego",
+          "hint": "Wiadomość zawiera określone słowo lub słowa"
+        },
+        "interactive_reply": {
+          "label": "Odpowiedź przyciskiem / z listy",
+          "hint": "Klient wybiera przycisk lub pozycję listy"
+        },
+        "new_contact_created": {
+          "label": "Utworzono nowy Kontakt",
+          "hint": "Gdy Kontakt powstaje z wiadomości przychodzącej"
+        },
+        "conversation_assigned": {
+          "label": "Przypisano rozmowę",
+          "hint": "Gdy rozmowa zostaje przypisana użytkownikowi"
+        },
+        "tag_added": {
+          "label": "Dodano tag",
+          "hint": "Gdy do Kontaktu zostanie dodany tag"
+        },
+        "time_based": {
+          "label": "Czas",
+          "hint": "Według cyklicznego harmonogramu"
+        }
+      },
+      "trigger": "Wyzwalacz",
+      "triggerType": "Typ wyzwalacza",
+      "keywords": "Słowa kluczowe",
+      "keywordsHint": "Lista oddzielona przecinkami, np. pomoc, oferta",
+      "replyIds": "Identyfikatory odpowiedzi",
+      "replyIdsHint": "tak, nie, więcej",
+      "replyIdsHelp": "Identyfikatory przycisków/wierszy listy oddzielone przecinkami.",
+      "schedule": "Harmonogram",
+      "scheduleHint": "Wyrażenie cron, np. 0 9 * * 1-5",
+      "active": "Aktywna",
+      "activeAria": "Aktywna",
+      "save": "Zapisz",
+      "saveDraft": "Zapisz szkic",
+      "untitled": "Automatyzacja bez nazwy",
+      "backToAutomations": "Wróć do automatyzacji",
+      "toasts": {
+        "saved": "Automatyzacja została zapisana",
+        "created": "Automatyzacja została utworzona",
+        "saveFailed": "Nie udało się zapisać"
+      },
+      "tags": {
+        "select": "Wybierz tag…",
+        "placeholder": "ID tagu",
+        "unknown": "{id} (nieznany tag)"
+      },
+      "fields": {
+        "name": "Nazwa",
+        "email": "E-mail",
+        "company": "Firma",
+        "customFields": "Pola dodatkowe",
+        "unknown": "{id} (nieznane pole)"
+      },
+      "agents": {
+        "select": "Wybierz użytkownika…",
+        "placeholder": "ID użytkownika",
+        "unknown": "{id} (nieznany użytkownik)"
+      },
+      "pipelines": {
+        "pipelineLabel": "Lejek",
+        "pipelineIdLabel": "ID lejka",
+        "stageLabel": "Etap",
+        "stageIdLabel": "ID etapu",
+        "selectPipeline": "Wybierz lejek…",
+        "selectStage": "Wybierz etap…",
+        "selectPipelineFirst": "Najpierw wybierz lejek…",
+        "unknownPipeline": "{id} (nieznany lejek)",
+        "unknownStage": "{id} (nieznany etap)"
+      },
+      "templates": {
+        "templateLabel": "Szablon",
+        "templateNameLabel": "Nazwa szablonu",
+        "languageLabel": "Język",
+        "select": "Wybierz szablon…",
+        "unknown": "{name} ({lang}) — brak na liście zatwierdzonych",
+        "unknownLang": "nieznany"
+      },
+      "branches": {
+        "yes": "Tak",
+        "no": "Nie"
+      },
+      "addStep": "Dodaj krok",
+      "delete": "Usuń",
+      "config": {
+        "messageText": "Treść wiadomości",
+        "placeholderMessageText": "Dzień dobry! Dziękuję za kontakt…",
+        "tagLabel": "Tag",
+        "modeLabel": "Tryb",
+        "modes": {
+          "round_robin": "Rotacyjnie",
+          "specific": "Wybrana osoba"
+        },
+        "agentLabel": "Użytkownik",
+        "fieldLabel": "Pole",
+        "valueLabel": "Wartość",
+        "placeholderValue": "Tekst lub {{ vars.x }} / {{ message.text }}",
+        "titleLabel": "Nazwa",
+        "amountLabel": "Kwota",
+        "unitLabel": "Jednostka",
+        "units": {
+          "minutes": "Minuty",
+          "hours": "Godziny",
+          "days": "Dni"
+        },
+        "subjectLabel": "Warunek",
+        "subjects": {
+          "tag_presence": "Obecność tagu",
+          "contact_field": "Pole Kontaktu",
+          "message_content": "Treść wiadomości",
+          "time_of_day": "Pora dnia"
+        },
+        "operandLabel": "Wartość porównania",
+        "placeholderTime": "GG:mm-GG:mm",
+        "placeholderContact": "nazwa / e-mail / firma",
+        "placeholderTag": "ID tagu",
+        "urlLabel": "URL",
+        "headersLabel": "Nagłówki",
+        "placeholderHeaders": "{\"Authorization\": \"Bearer ...\"}",
+        "bodyTemplateLabel": "Szablon treści",
+        "placeholderBody": "{\"id\": \"{{ contact.id }}\"}",
+        "matchType": "Sposób dopasowania",
+        "matchContains": "Zawiera",
+        "matchWord": "Całe słowo",
+        "matchWordHint": "Dopasowuje słowo tylko jako osobny wyraz.",
+        "matchExact": "Dokładne",
+        "closeConversationHint": "Ustawia status rozmowy na „zamknięta”. Nie wymaga dodatkowej konfiguracji."
+      }
+    }
+  },
+  "Flows": {
+    "list": {
+      "title": "Przepływy",
+      "beta": "Beta",
+      "description": "Buduj rozgałęzione rozmowy WhatsApp oparte na przyciskach. Przydatne do menu, FAQ i wstępnej kwalifikacji.",
+      "newFlow": "Nowy przepływ",
+      "statusDraft": "Szkic",
+      "statusActive": "Aktywny",
+      "statusArchived": "Archiwalny",
+      "loadError": "Nie udało się wczytać przepływów.",
+      "createError": "Nie udało się utworzyć przepływu.",
+      "cloneError": "Nie udało się skopiować",
+      "deleteConfirm": "Usunąć „{name}”? Aktywne wykonania zostaną zakończone.",
+      "deleteSuccess": "Przepływ został usunięty.",
+      "deleteError": "Nie udało się usunąć przepływu.",
+      "emptyTitle": "Brak przepływów",
+      "emptyDesc": "Utwórz pierwszą rozmowę: menu powitalne, FAQ albo kwalifikację przed przejęciem rozmowy przez człowieka.",
+      "createFirst": "Utwórz pierwszy przepływ",
+      "createTitle": "Utwórz nowy przepływ",
+      "createDesc": "Zacznij od szablonu albo od pustego przepływu.",
+      "startTemplate": "Zacznij od szablonu",
+      "nodeCount": "{count} węzłów",
+      "startBlank": "Albo zacznij od zera",
+      "placeholderName": "np. Menu powitalne",
+      "cancel": "Anuluj",
+      "createBlank": "Utwórz pusty przepływ",
+      "runCount": "{count} uruchomień",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "triggerKeywordNone": "Uruchamiany przez słowo kluczowe (brak ustawionego)",
+      "triggerKeyword": "Uruchamiany przez: {keywords}",
+      "triggerFirstInbound": "Uruchamiany przy pierwszej wiadomości od Kontaktu",
+      "triggerManual": "Uruchamiany ręcznie"
+    },
+    "edit": {
+      "notFound": "Nie znaleziono przepływu.",
+      "backToFlows": "← Wróć do Przepływów",
+      "loadError": "Nie udało się wczytać przepływu."
+    },
+    "logs": {
+      "title": "Uruchomienia",
+      "description": "50 ostatnich uruchomień tego przepływu. Rozwiń wiersz, aby zobaczyć przebieg kroków.",
+      "emptyState": "Brak uruchomień.",
+      "loadError": "Nie udało się wczytać uruchomień.",
+      "unknownContact": "Nieznany Kontakt",
+      "atNode": "w węźle {node}",
+      "started": "Rozpoczęto {time}",
+      "reprompts": "ponowień: {count}",
+      "ranFor": "czas: {duration}",
+      "capturedVars": "Zapisane zmienne ({count})",
+      "noEvents": "Brak zapisanych zdarzeń.",
+      "statusActive": "Aktywny",
+      "statusCompleted": "Zakończony",
+      "statusHandedOff": "Przekazany człowiekowi",
+      "statusTimedOut": "Przekroczono czas",
+      "statusPaused": "Wstrzymany przez użytkownika",
+      "statusFailed": "Błąd"
+    },
+    "builder": {
+      "triggerTitle": "Wyzwalacz",
+      "whenLabel": "Kiedy…",
+      "triggerKeywordTitle": "Wiadomość zawiera słowo kluczowe",
+      "triggerFirstInboundTitle": "Pierwsza wiadomość przychodząca od klienta",
+      "triggerManualTitle": "Tylko ręcznie",
+      "keywordsLabel": "Słowa kluczowe (oddzielone przecinkami)",
+      "keywordsPlaceholder": "pomoc, oferta, dzień dobry",
+      "entryNodeTitle": "Węzeł startowy:",
+      "entryNodePlaceholder": "Wybierz pierwszy węzeł…",
+      "nodesTitle": "Węzły ({count})",
+      "nodesEmpty": "Dodaj węzeł Start, następnie Wyślij przyciski i Przekaż do człowieka.",
+      "addNode": "Dodaj węzeł",
+      "setAsEntry": "Ustaw jako startowy",
+      "removeNode": "Usuń węzeł",
+      "showAdvanced": "Pokaż zaawansowane",
+      "hideAdvanced": "Ukryj zaawansowane",
+      "nodeKeyLabel": "Klucz węzła (identyfikator wewnętrzny)",
+      "replyIdsHint": "Identyfikatory odpowiedzi są pokazane przy opcjach.",
+      "badgeEntry": "Start",
+      "noNodesYet": "Brak węzłów.",
+      "deleteNode": "Usuń węzeł",
+      "canvasView": "Widok diagramu",
+      "listView": "Widok listy",
+      "noNodeSelected": "Nie wybrano węzła",
+      "noNodeDesc": "Wybierz węzeł na diagramie, aby edytować jego ustawienia.",
+      "form": {
+        "advancesTo": "Przejdź do",
+        "textToCustomer": "Tekst wysyłany klientowi",
+        "promptToCustomer": "Pytanie do klienta",
+        "varKeyLabel": "Klucz zmiennej",
+        "varKeyPlaceholder": "np. imie, email, firma",
+        "varKeyHelp": "Możesz używać tej zmiennej w dalszych krokach",
+        "advanceAfterCapture": "Po zapisaniu przejdź do",
+        "internalNote": "Notatka wewnętrzna dla osoby przejmującej rozmowę",
+        "endNodeHelp": "Węzeł końcowy. Po jego osiągnięciu przepływ zostaje zakończony.",
+        "bodyText": "Treść",
+        "footerText": "Stopka (opcjonalna, maks. 60 znaków)",
+        "buttonsHelp": "Przyciski (1–3) — każdy może prowadzić do innego węzła",
+        "optionTitlePlaceholder": "Widoczna nazwa (maks. 20 znaków)",
+        "nextNodePlaceholder": "Następny węzeł…",
+        "addButton": "Dodaj przycisk",
+        "buttonLabel": "Nazwa przycisku (maks. 20 znaków)",
+        "rowsHelp": "Wiersze (łącznie 1–10)",
+        "sectionTitlePlaceholder": "Nazwa sekcji {count} (opcjonalna)",
+        "rowTitlePlaceholder": "Nazwa wiersza (maks. 24 znaki)",
+        "addRow": "Dodaj wiersz",
+        "addSection": "Dodaj sekcję",
+        "ifLabel": "Jeżeli",
+        "capturedVariable": "Zapisana zmienna",
+        "contactHasTag": "Kontakt ma tag",
+        "contactField": "Pole Kontaktu",
+        "varName": "nazwa zmiennej",
+        "tagLabel": "Tag",
+        "fieldLabel": "Pole",
+        "pickTag": "Wybierz tag…",
+        "pickField": "Wybierz pole…",
+        "operatorLabel": "Operator",
+        "isPresent": "istnieje",
+        "isAbsent": "brak",
+        "equals": "równa się",
+        "contains": "zawiera",
+        "valueLabel": "Wartość",
+        "ifTrueAdvance": "Jeżeli prawda → przejdź do",
+        "ifFalseAdvance": "Jeżeli fałsz → przejdź do",
+        "actionLabel": "Działanie",
+        "addTag": "Dodaj tag",
+        "removeTag": "Usuń tag",
+        "tagUuidPlaceholder": "UUID tagu",
+        "thenAdvanceTo": "Następnie przejdź do",
+        "mediaTypeLabel": "Typ pliku",
+        "imageLabel": "Obraz (PNG, JPEG, WebP)",
+        "videoLabel": "Wideo (MP4, 3GP)",
+        "documentLabel": "Dokument (PDF, Word, Excel, PowerPoint, TXT)",
+        "fileLabel": "Plik",
+        "removeFile": "Usuń plik",
+        "uploading": "Wysyłanie…",
+        "clickToUpload": "Kliknij, aby wgrać (maks. 16 MB)",
+        "captionLabel": "Opis (opcjonalny)",
+        "filenameLabel": "Nazwa pliku widoczna dla klienta",
+        "filenamePlaceholder": "faktura.pdf",
+        "advanceAfterSending": "Po wysłaniu przejdź do",
+        "pickNextNode": "Wybierz następny węzeł…",
+        "none": "— Brak —"
+      },
+      "categories": {
+        "messaging": "Wiadomości",
+        "logic": "Logika i dane",
+        "flow": "Sterowanie przepływem"
+      },
+      "nodes": {
+        "start": {
+          "label": "Start",
+          "blurb": "Początek przepływu"
+        },
+        "send_message": {
+          "label": "Wyślij wiadomość",
+          "blurb": "Wysyła wiadomość tekstową WhatsApp"
+        },
+        "send_buttons": {
+          "label": "Wyślij przyciski",
+          "blurb": "Wysyła przyciski szybkiej odpowiedzi"
+        },
+        "send_list": {
+          "label": "Wyślij listę",
+          "blurb": "Wysyła listę opcji do wyboru"
+        },
+        "send_media": {
+          "label": "Wyślij plik",
+          "blurb": "Wysyła obraz, wideo lub dokument"
+        },
+        "collect_input": {
+          "label": "Zbierz odpowiedź",
+          "blurb": "Zadaje pytanie i zapisuje odpowiedź"
+        },
+        "condition": {
+          "label": "Jeżeli / inaczej",
+          "blurb": "Rozgałęzia przepływ według warunku"
+        },
+        "set_tag": {
+          "label": "Oznacz Kontakt",
+          "blurb": "Dodaje lub usuwa tag Kontaktu"
+        },
+        "handoff": {
+          "label": "Przekaż człowiekowi",
+          "blurb": "Przekazuje rozmowę do człowieka"
+        },
+        "end": {
+          "label": "Koniec",
+          "blurb": "Kończy przepływ"
+        }
+      }
+    },
+    "validation": {
+      "noIssues": "Brak błędów. Można aktywować.",
+      "summary": "Błędy: {errorCount}, ostrzeżenia: {warningCount}",
+      "jumpToNode": "Przejdź do węzła {key}"
+    },
+    "editorState": {
+      "saved": "Zapisano.",
+      "fixIssues": "Przed aktywacją popraw poniższe problemy.",
+      "statusActivated": "Przepływ został aktywowany.",
+      "statusArchived": "Zarchiwizowano.",
+      "statusDraft": "Zapisano jako szkic."
+    },
+    "summary": {
+      "options": "Opcje: {count}",
+      "optionsAcrossSections": "Opcje: {rowCount} w {sectionCount} sekcjach",
+      "noFile": "{label} (brak pliku)",
+      "media": "Plik",
+      "image": "Obraz",
+      "video": "Wideo",
+      "document": "Dokument",
+      "audio": "Audio",
+      "hasTag": "ma tag {tag}",
+      "opContains": "zawiera",
+      "opExists": "istnieje",
+      "opMissing": "brak",
+      "modeAdd": "Dodaj",
+      "modeRemove": "Usuń",
+      "tagPicked": "{mode} tag {tag}…",
+      "tagNone": "{mode} tag (nie wybrano)"
+    }
   }
 }
