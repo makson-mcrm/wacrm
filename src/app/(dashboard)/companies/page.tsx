@@ -46,6 +46,7 @@ export default function CompaniesPage() {
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Company | null>(null);
+  const [pendingContactId, setPendingContactId] = useState('');
 
   const loadCompanies = useCallback(async () => {
     setLoading(true);
@@ -74,8 +75,9 @@ export default function CompaniesPage() {
     );
   }, [companies, search]);
 
-  function openNew() {
+  function openNew(contactId = '') {
     setSelected(null);
+    setPendingContactId(contactId);
     setSheetOpen(true);
   }
 
@@ -88,7 +90,7 @@ export default function CompaniesPage() {
     const query = new URLSearchParams(window.location.search);
     const timer = window.setTimeout(() => {
       if (query.get('new') === 'company') {
-        openNew();
+        openNew(query.get('contact') ?? '');
         window.history.replaceState({}, '', '/companies');
         return;
       }
@@ -189,6 +191,7 @@ export default function CompaniesPage() {
         company={selected}
         accountId={accountId}
         canEdit={canEdit}
+        initialContactId={pendingContactId}
         onSaved={loadCompanies}
       />
     </div>
@@ -201,6 +204,7 @@ function CompanySheet({
   company,
   accountId,
   canEdit,
+  initialContactId,
   onSaved,
 }: {
   open: boolean;
@@ -208,6 +212,7 @@ function CompanySheet({
   company: Company | null;
   accountId: string | null;
   canEdit: boolean;
+  initialContactId: string;
   onSaved: () => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
@@ -317,6 +322,7 @@ function CompanySheet({
       business_started_on: businessStartedOn || null,
     };
     let error;
+    let createdCompanyId = company?.id ?? '';
     if (company) {
       ({ error } = await supabase
         .from('companies')
@@ -331,11 +337,17 @@ function CompanySheet({
         toast.error('Brak aktywnego logowania.');
         return;
       }
-      ({ error } = await supabase.from('companies').insert({
-        ...payload,
-        account_id: accountId,
-        user_id: session.user.id,
-      }));
+      const created = await supabase
+        .from('companies')
+        .insert({
+          ...payload,
+          account_id: accountId,
+          user_id: session.user.id,
+        })
+        .select('id')
+        .single();
+      error = created.error;
+      createdCompanyId = created.data?.id ?? '';
     }
     setSaving(false);
     if (error) {
@@ -346,8 +358,28 @@ function CompanySheet({
       );
       return;
     }
+    if (!company && initialContactId && createdCompanyId) {
+      const link = await supabase.from('contact_companies').upsert(
+        {
+          contact_id: initialContactId,
+          company_id: createdCompanyId,
+          account_id: accountId,
+          role: 'Powiązana osoba',
+          is_primary: true,
+        },
+        { onConflict: 'contact_id,company_id' }
+      );
+      if (link.error) {
+        toast.error('Firma powstała, ale nie udało się powiązać jej z Kontaktem.');
+        return;
+      }
+    }
     toast.success(
-      company ? 'Firma została zaktualizowana.' : 'Firma została utworzona.'
+      company
+        ? 'Firma została zaktualizowana.'
+        : initialContactId
+          ? 'Firma została utworzona i powiązana z Kontaktem.'
+          : 'Firma została utworzona.'
     );
     await onSaved();
     onOpenChange(false);
