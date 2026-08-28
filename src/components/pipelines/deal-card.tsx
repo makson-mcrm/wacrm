@@ -33,14 +33,20 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const assigneeLabel = deal.assignee?.full_name || null;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={isOverlay ? -1 : 0}
       onClick={(e) => {
-        // `onClick` still fires after a non-drag tap because the PointerSensor
-        // requires 5px movement before it counts as a drag.
         if (isOverlay) return;
         e.stopPropagation();
         onEdit(deal);
+      }}
+      onKeyDown={(e) => {
+        if (isOverlay) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onEdit(deal);
+        }
       }}
       className={`group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 pl-4 pr-3 py-3 text-left shadow-sm transition-all ${
         isOverlay
@@ -114,6 +120,6 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </span>
         </div>
       )}
-    </button>
+    </div>
   );
 }
