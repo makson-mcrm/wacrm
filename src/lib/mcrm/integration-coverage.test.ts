@@ -86,12 +86,13 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     );
   });
 
-  it('agent analizuje tylko z bazy instrukcji i nie działa bez źródeł', () => {
+  it('Analiza AI filtruje banki przed modelem i jawnie obsługuje brak źródeł', () => {
     const route = source('src/app/api/ai/deal-analysis/route.ts');
-    expect(route).toContain('retrieveKnowledge');
-    expect(route).toContain('WYŁĄCZNIE');
-    expect(route).toContain('Brak zindeksowanej instrukcji bankowej');
-    expect(route).toContain('instruction_url');
+    expect(route).toContain('applyDealBankRules');
+    expect(route).toContain('enforceAllowedRecommendations');
+    expect(route).toContain('MANUAL_VERIFICATION_MESSAGE');
+    expect(route).toContain('ai_knowledge_chunks');
+    expect(route).toContain('deal_ai_analyses');
   });
 
   it('Google Drive tworzy folder dopiero na żądanie z zapisanego Deala', () => {
@@ -123,3 +124,4 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 });
+

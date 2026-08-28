@@ -19,7 +19,7 @@ export async function GET() {
     const { supabase, accountId } = await getCurrentAccount()
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select('id, title, updated_at')
+      .select('id, title, bank, product, document_type, source_name, source_version, effective_date, updated_at')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
     if (error) {
@@ -59,7 +59,18 @@ export async function POST(request: Request) {
 
     const { data: doc, error } = await supabase
       .from('ai_knowledge_documents')
-      .insert({ account_id: accountId, created_by: userId, title, content })
+      .insert({
+        account_id: accountId,
+        created_by: userId,
+        title,
+        content,
+        bank: typeof body.bank === 'string' ? body.bank.trim() || null : null,
+        product: typeof body.product === 'string' ? body.product.trim() || null : null,
+        document_type: typeof body.document_type === 'string' ? body.document_type.trim() || null : null,
+        source_name: typeof body.source_name === 'string' ? body.source_name.trim() || null : title,
+        source_version: typeof body.source_version === 'string' ? body.source_version.trim() || null : null,
+        effective_date: typeof body.effective_date === 'string' ? body.effective_date || null : null,
+      })
       .select('id')
       .single()
     if (error || !doc) {
@@ -108,3 +119,4 @@ export async function POST(request: Request) {
     return toErrorResponse(err)
   }
 }
+

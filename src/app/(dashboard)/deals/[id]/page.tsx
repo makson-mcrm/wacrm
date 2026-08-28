@@ -25,6 +25,7 @@ import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DealForm } from '@/components/pipelines/deal-form';
 import { DealProcessControl } from '@/components/pipelines/deal-process-control';
+import { DealAiAnalysis } from '@/components/pipelines/deal-ai-analysis';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { toast } from 'sonner';
 import type { Deal, PipelineStage } from '@/types';
@@ -545,6 +546,7 @@ export default function DealPage() {
               <TabsTrigger value="notes">Komentarze i notatki</TabsTrigger>
               <TabsTrigger value="activities">Aktywności</TabsTrigger>
               <TabsTrigger value="case">Dane sprawy</TabsTrigger>
+              <TabsTrigger value="analysis">Analiza AI</TabsTrigger>
               <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
               <TabsTrigger value="comm">Komunikacja</TabsTrigger>
               <TabsTrigger value="email">Wiadomości e-mail</TabsTrigger>
@@ -705,6 +707,9 @@ export default function DealPage() {
                   {deal.questionnaire_text || 'Nie uzupełniono'}
                 </p>
               </Section>
+            </TabsContent>
+            <TabsContent value="analysis">
+              <DealAiAnalysis deal={deal} />
             </TabsContent>
             <TabsContent value="control">
               {accountId && (
@@ -1158,3 +1163,4 @@ function D({
     </label>
   );
 }
+

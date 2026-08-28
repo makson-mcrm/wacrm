@@ -527,6 +527,10 @@ export interface Deal {
   analysis_source_version?: string;
   analysis_approved_at?: string;
   analysis_approved_by?: string;
+  mandatory_bank?: string | null;
+  preferred_bank?: string | null;
+  excluded_banks?: string[];
+  analysis_include_banks?: string[];
   post_consultation_report?: string;
   benefit_report?: string;
   measured_benefit?: number;
@@ -831,4 +835,5 @@ export interface QuickReply {
   created_at: string;
   updated_at: string;
 }
+
 

@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select('id, title, content, updated_at')
+      .select('id, title, content, bank, product, document_type, source_name, source_version, effective_date, updated_at')
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle()
@@ -59,9 +59,12 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'content cannot be empty' }, { status: 400 })
     }
 
-    const update: Record<string, string> = {}
+    const update: Record<string, string | null> = {}
     if (title !== undefined) update.title = title
     if (content !== undefined) update.content = content
+    for (const field of ['bank', 'product', 'document_type', 'source_name', 'source_version', 'effective_date'] as const) {
+      if (typeof body?.[field] === 'string') update[field] = body[field].trim() || null
+    }
 
     const { data: updated, error } = await supabase
       .from('ai_knowledge_documents')
@@ -130,3 +133,4 @@ export async function DELETE(_request: Request, { params }: Params) {
     return toErrorResponse(err)
   }
 }
+
