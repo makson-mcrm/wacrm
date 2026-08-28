@@ -4,9 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { CURRENCIES } from "@/lib/currency";
 import type {
-  Contact,
   Conversation,
   Deal,
   DealStatus,
@@ -33,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { DealRelationsField } from "@/components/pipelines/deal-relations-field";
 
 interface DealFormProps {
   open: boolean;
@@ -41,6 +40,8 @@ interface DealFormProps {
   pipelineId: string;
   stages: PipelineStage[];
   defaultStageId?: string;
+  defaultContactId?: string;
+  defaultCompanyId?: string;
   onSaved: () => void;
 }
 
@@ -51,22 +52,28 @@ export function DealForm({
   pipelineId,
   stages,
   defaultStageId,
+  defaultContactId,
+  defaultCompanyId,
   onSaved,
 }: DealFormProps) {
   const t = useTranslations("Pipelines.form");
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId } = useAuth();
 
   const [title, setTitle] = useState("");
   const [value, setValue] = useState("");
-  const [currency, setCurrency] = useState(defaultCurrency);
   const [contactId, setContactId] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [description, setDescription] = useState("");
+  const [source, setSource] = useState("");
+  const [dealType, setDealType] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [nextActionAt, setNextActionAt] = useState("");
   const [stageId, setStageId] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
@@ -86,10 +93,15 @@ export function DealForm({
     if (deal) {
       setTitle(deal.title);
       setValue(String(deal.value ?? ""));
-      setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
       setContactId(deal.contact_id ?? "");
+      setCompanyId(deal.company_id ?? "");
+      setDescription(deal.description ?? "");
+      setSource(deal.source ?? "");
+      setDealType(deal.deal_type ?? "");
+      setNextAction(deal.next_action ?? "");
+      setNextActionAt(deal.next_action_at ? deal.next_action_at.slice(0, 16) : "");
       setStageId(deal.stage_id);
       setAssignedTo(deal.assigned_to ?? "");
       setExpectedCloseDate(deal.expected_close_date ?? "");
@@ -97,14 +109,19 @@ export function DealForm({
     } else {
       setTitle("");
       setValue("");
-      setCurrency(defaultCurrency);
-      setContactId("");
+      setContactId(defaultContactId ?? "");
+      setCompanyId(defaultCompanyId ?? "");
+      setDescription("");
+      setSource("");
+      setDealType("");
+      setNextAction("");
+      setNextActionAt("");
       setStageId(defaultStageId || stages[0]?.id || "");
       setAssignedTo("");
       setExpectedCloseDate("");
       setNotes("");
     }
-  }, [open, deal, defaultStageId, stages, defaultCurrency]);
+  }, [open, deal, defaultStageId, defaultContactId, defaultCompanyId, stages]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load supporting data once the sheet is open
@@ -112,13 +129,9 @@ export function DealForm({
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([
-        supabase.from("contacts").select("*").order("name"),
-        supabase.from("profiles").select("*").order("full_name"),
-      ]);
+      const { data: p } = await supabase.from("profiles").select("*").order("full_name");
       if (cancelled) return;
-      setContacts((c.data ?? []) as Contact[]);
-      setProfiles((p.data ?? []) as Profile[]);
+      setProfiles((p ?? []) as Profile[]);
     })();
     return () => {
       cancelled = true;
@@ -152,8 +165,17 @@ export function DealForm({
   }, [open, contactId, supabase]);
 
   async function handleSave() {
-    if (!title.trim() || !contactId || !stageId) {
-      toast.error(t("toastRequired"));
+    if (
+      !title.trim() ||
+      !description.trim() ||
+      !source.trim() ||
+      !dealType.trim() ||
+      !contactId ||
+      !stageId ||
+      !value.trim() ||
+      Number(value) <= 0
+    ) {
+      toast.error("Uzupełnij: nazwę, opis, kwotę, Kontakt, źródło, typ Deala i etap.");
       return;
     }
     setSaving(true);
@@ -161,8 +183,14 @@ export function DealForm({
     const payload = {
       title: title.trim(),
       value: parseFloat(value) || 0,
-      currency,
+      currency: "PLN",
       contact_id: contactId,
+      company_id: companyId || null,
+      description: description.trim() || null,
+      source: source.trim() || null,
+      deal_type: dealType.trim() || null,
+      next_action: nextAction.trim() || null,
+      next_action_at: nextActionAt ? new Date(nextActionAt).toISOString() : null,
       pipeline_id: pipelineId,
       stage_id: stageId,
       assigned_to: assignedTo || null,
@@ -269,59 +297,57 @@ export function DealForm({
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label className="text-muted-foreground">{t("contact")}</Label>
-              <select
-                value={contactId}
-                onChange={(e) => setContactId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                <option value="">{t("selectContact")}</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.phone}
-                  </option>
-                ))}
-              </select>
+            <DealRelationsField
+              contactId={contactId}
+              companyId={companyId}
+              onContactChange={setContactId}
+              onCompanyChange={setCompanyId}
+            />
 
-              {linkedConversation && (
-                <Link
-                  href="/inbox"
-                  className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
-                >
-                  <MessageSquare className="h-3 w-3" />
-                  {t("linkToConversation")}
-                </Link>
-              )}
+            {linkedConversation && (
+              <Link
+                href="/inbox"
+                className="inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
+              >
+                <MessageSquare className="h-3 w-3" />
+                {t("linkToConversation")}
+              </Link>
+            )}
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Opis sprawy</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Krótki opis celu i sytuacji"
+                className="min-h-[80px] border-border bg-muted text-foreground"
+              />
             </div>
 
-            <div className="grid grid-cols-[1fr_110px] gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t("value")}</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="0"
-                    className="border-border bg-muted pl-7 text-foreground"
-                  />
-                </div>
+                <Label className="text-muted-foreground">Źródło</Label>
+                <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="np. polecenie, formularz" />
               </div>
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">{t("currency")}</Label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary"
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </select>
+                <Label className="text-muted-foreground">Typ Deala</Label>
+                <Input value={dealType} onChange={(e) => setDealType(e.target.value)} placeholder="np. hipoteka, firma" />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Kwota (PLN) *</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="0"
+                  className="border-border bg-muted pl-7 text-foreground"
+                />
               </div>
             </div>
 
@@ -364,6 +390,22 @@ export function DealForm({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Następny krok</Label>
+              <Textarea
+                value={nextAction}
+                onChange={(e) => setNextAction(e.target.value)}
+                placeholder="Co konkretnie ma wydarzyć się dalej?"
+                className="min-h-[72px] border-border bg-muted text-foreground"
+              />
+              <Input
+                type="datetime-local"
+                value={nextActionAt}
+                onChange={(e) => setNextActionAt(e.target.value)}
+                className="border-border bg-muted text-foreground"
+              />
             </div>
 
             <div className="grid gap-2">
@@ -439,7 +481,17 @@ export function DealForm({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !title.trim() || !contactId || !stageId}
+                disabled={
+                  saving ||
+                  !title.trim() ||
+                  !description.trim() ||
+                  !source.trim() ||
+                  !dealType.trim() ||
+                  !contactId ||
+                  !stageId ||
+                  !value.trim() ||
+                  Number(value) <= 0
+                }
                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {saving ? t("saving") : deal ? t("saveChanges") : t("createDeal")}

@@ -96,6 +96,28 @@ export interface AccountInvitation {
   accepted_by_user_id: string | null;
 }
 
+export interface Company {
+  id: string;
+  account_id: string;
+  user_id: string;
+  name: string;
+  nip?: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactCompany {
+  account_id: string;
+  contact_id: string;
+  company_id: string;
+  role?: string;
+  is_primary: boolean;
+  created_at: string;
+  company?: Company;
+  contact?: Contact;
+}
+
 export interface Contact {
   id: string;
   user_id: string;
@@ -377,18 +399,58 @@ export interface Deal {
    */
   contact_id: string | null;
   conversation_id?: string;
+  company_id?: string | null;
   assigned_to?: string;
   title: string;
   value: number;
   currency?: string;
   notes?: string;
+  description?: string;
+  source?: string;
+  deal_type?: string;
+  next_action?: string;
+  next_action_at?: string;
+  blocker?: string;
+  blocker_since?: string;
   expected_close_date?: string;
   status?: DealStatus;
   created_at: string;
   updated_at?: string;
   contact?: Contact;
+  company?: Company;
   stage?: PipelineStage;
   assignee?: Profile;
+}
+
+export interface DealNote {
+  id: string;
+  account_id: string;
+  deal_id: string;
+  user_id: string;
+  note_text: string;
+  created_at: string;
+}
+
+export interface SalesActivity {
+  id: string;
+  account_id: string;
+  user_id: string;
+  activity_type: string;
+  contact_id?: string;
+  company_id?: string;
+  deal_id?: string;
+  title: string;
+  description?: string;
+  occurred_at: string;
+  completed: boolean;
+  phone_number?: string;
+  call_result?: string;
+  call_category?: string;
+  call_product?: string;
+  call_channel?: string;
+  attempt_number?: number;
+  expires_at?: string;
+  created_at: string;
 }
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';

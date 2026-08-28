@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -67,6 +68,8 @@ interface ContactWithTags extends Contact {
 export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const companyFromQuery = searchParams.get('company') ?? '';
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -222,6 +225,20 @@ export default function ContactsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
+
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId) {
+      setDetailContactId(openId);
+      setDetailOpen(true);
+      return;
+    }
+    if (companyFromQuery) {
+      setEditContact(null);
+      setEditContactTags([]);
+      setFormOpen(true);
+    }
+  }, [searchParams, companyFromQuery]);
 
   function openAddForm() {
     setEditContact(null);
@@ -735,7 +752,25 @@ export default function ContactsPage() {
         onOpenChange={setFormOpen}
         contact={editContact}
         contactTags={editContactTags}
-        onSaved={() => {
+        onSaved={async (savedContactId) => {
+          if (companyFromQuery && savedContactId) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('account_id')
+                .eq('user_id', session.user.id)
+                .single();
+              if (profile?.account_id) {
+                await supabase.from('contact_companies').upsert({
+                  account_id: profile.account_id,
+                  contact_id: savedContactId,
+                  company_id: companyFromQuery,
+                  is_primary: true,
+                }, { onConflict: 'contact_id,company_id' });
+              }
+            }
+          }
           fetchContacts();
           fetchTags();
         }}

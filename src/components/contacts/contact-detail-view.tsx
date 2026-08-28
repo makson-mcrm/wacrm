@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { useAuth } from '@/hooks/use-auth';
@@ -446,6 +447,18 @@ export function ContactDetailView({
                   )}
                   {t('sendTemplateBtn')}
                 </Button>
+                <Link
+                  href={`/pipelines?contact=${contactId ?? ''}`}
+                  className="ml-2 inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-primary hover:bg-muted"
+                >
+                  <Plus className="size-4" /> Dodaj Deal
+                </Link>
+                <Link
+                  href={`/companies?contact=${contactId ?? ''}`}
+                  className="ml-2 inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-sm font-medium text-primary hover:bg-muted"
+                >
+                  <Plus className="size-4" /> Dodaj Firmę
+                </Link>
               </div>
             </SheetHeader>
 

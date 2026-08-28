@@ -17,12 +17,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { GlobalCrmSearch } from "@/components/layout/global-crm-search";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "dashboard",
   "/inbox": "inbox",
   "/notifications": "notifications",
   "/contacts": "contacts",
+  "/companies": "contacts",
+  "/deals": "pipelines",
   "/pipelines": "pipelines",
   "/broadcasts": "broadcasts",
   "/automations": "automations",
@@ -72,6 +75,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           {t(titleKey as string)}
         </h1>
       </div>
+
+      <div className="hidden min-w-0 flex-1 justify-center px-4 md:flex"><GlobalCrmSearch /></div>
 
       <div className="flex items-center gap-1 sm:gap-2">
         <ModeToggle />
