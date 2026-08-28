@@ -932,6 +932,15 @@ export function ContactDetailView({
                         placeholder="Rola w firmie, np. właściciel"
                       />
                       <Button
+                        variant="outline"
+                        render={<Link href={`/companies?new=company&contact=${contact.id}`} />}
+                        className="w-full"
+                      >
+                        <Plus className="size-4" />
+                        Nowa Firma dla tego Kontaktu
+                      </Button>
+
+                      <Button
                         onClick={linkCompany}
                         disabled={!selectedCompanyId || savingCompanyLink}
                         className="w-full"
