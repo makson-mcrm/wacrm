@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -68,7 +68,7 @@ export function ContactDetailView({
   onUpdated,
 }: ContactDetailViewProps) {
   const t = useTranslations('Contacts.detailView');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId, defaultCurrency } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
