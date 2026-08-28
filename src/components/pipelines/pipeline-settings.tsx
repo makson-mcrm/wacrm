@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -70,7 +70,7 @@ export function PipelineSettings({
   onCreateNewPipeline,
 }: PipelineSettingsProps) {
   const t = useTranslations("Pipelines.settings");
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
