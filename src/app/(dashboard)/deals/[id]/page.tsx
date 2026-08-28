@@ -57,8 +57,12 @@ type Doc = {
   name: string;
   storage_path: string;
   status: string;
+  document_type?: string;
+  received_at?: string;
+  requirement_id?: string;
   created_at: string;
 };
+type Requirement = { id: string; name: string; status: string; required: boolean };
 type DealPerson = {
   contact_id: string;
   role?: string;
@@ -68,6 +72,8 @@ type DealPerson = {
 type StageHistory = {
   id: string;
   changed_at: string;
+  changed_by?: string | null;
+  author_name?: string;
   from_stage?: { name?: string } | null;
   to_stage?: { name?: string } | null;
 };
@@ -84,12 +90,18 @@ export default function DealPage() {
       [1, 2, 3].map((position) => ({ position, progress: 0 }))
     ),
     [docs, setDocs] = useState<Doc[]>([]),
+    [requirements, setRequirements] = useState<Requirement[]>([]),
     [stageHistory, setStageHistory] = useState<StageHistory[]>([]),
     [missingRequiredDocuments, setMissingRequiredDocuments] = useState(0),
     [requiredDocumentsCount, setRequiredDocumentsCount] = useState(0),
     [stages, setStages] = useState<PipelineStage[]>([]),
     [edit, setEdit] = useState(false),
     [uploading, setUploading] = useState(false),
+    [documentName, setDocumentName] = useState(''),
+    [documentType, setDocumentType] = useState('Dokument klienta'),
+    [documentStatus, setDocumentStatus] = useState('otrzymany'),
+    [documentDate, setDocumentDate] = useState(new Date().toISOString().slice(0, 10)),
+    [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
   const load = useCallback(async () => {
     const [d, n, b, f, p, h, requirements, profileRows] = await Promise.all([
@@ -119,13 +131,13 @@ export default function DealPage() {
       db
         .from('deal_stage_history')
         .select(
-          'id,changed_at,from_stage:pipeline_stages!deal_stage_history_from_stage_id_fkey(name),to_stage:pipeline_stages!deal_stage_history_to_stage_id_fkey(name)'
+          'id,changed_at,changed_by,from_stage:pipeline_stages!deal_stage_history_from_stage_id_fkey(name),to_stage:pipeline_stages!deal_stage_history_to_stage_id_fkey(name)'
         )
         .eq('deal_id', id)
         .order('changed_at', { ascending: false }),
       db
         .from('deal_document_requirements')
-        .select('id,status,required')
+        .select('id,name,status,required')
         .eq('deal_id', id)
         .eq('required', true),
       accountId
@@ -151,10 +163,18 @@ export default function DealPage() {
       )
     );
     setDocs((f.data ?? []) as Doc[]);
-    setStageHistory((h.data ?? []) as unknown as StageHistory[]);
+    setRequirements((requirements.data ?? []) as Requirement[]);
+    setStageHistory(
+      ((h.data ?? []) as unknown as StageHistory[]).map((row) => ({
+        ...row,
+        author_name: row.changed_by
+          ? authorByUser.get(row.changed_by) || 'Użytkownik'
+          : 'Automatycznie',
+      }))
+    );
     setMissingRequiredDocuments(
       (requirements.data ?? []).filter(
-        (row) => !['zaakceptowany', 'wyslany'].includes(row.status)
+        (row) => ['brak', 'poproszono', 'do_poprawy'].includes(row.status)
       ).length
     );
     setRequiredDocumentsCount((requirements.data ?? []).length);
@@ -220,14 +240,26 @@ export default function DealPage() {
         account_id: accountId,
         deal_id: deal.id,
         user_id: s.data.session.user.id,
-        name: file.name,
+        name: documentName.trim() || file.name,
         storage_path: path,
-        status: 'otrzymany',
-        document_type: 'Dokument klienta',
+        status: documentStatus,
+        document_type: documentType.trim() || null,
+        received_at: new Date(`${documentDate}T12:00:00`).toISOString(),
+        requirement_id: documentRequirementId || null,
         source_channel: 'Wgrany w CRM',
       });
       if (r.error) toast.error(r.error.message);
-      else toast.success('Dokument zapisany w prywatnej teczce');
+      else {
+        if (documentRequirementId && documentStatus === 'otrzymany') {
+          await db
+            .from('deal_document_requirements')
+            .update({ status: 'otrzymany', received_at: new Date().toISOString() })
+            .eq('id', documentRequirementId);
+        }
+        setDocumentName('');
+        setDocumentRequirementId('');
+        toast.success('Dokument zapisany w prywatnej teczce');
+      }
     }
     setUploading(false);
     await load();
@@ -271,9 +303,6 @@ export default function DealPage() {
   }
   async function changeStage(nextStageId: string) {
     if (!deal || !accountId || nextStageId === deal.stage_id) return;
-    const session = await db.auth.getSession();
-    const userId = session.data.session?.user?.id;
-    const previousStageId = deal.stage_id;
     const { error } = await db
       .from('deals')
       .update({ stage_id: nextStageId })
@@ -282,13 +311,6 @@ export default function DealPage() {
       toast.error(`Nie zmieniono etapu: ${error.message}`);
       return;
     }
-    await db.from('deal_stage_history').insert({
-      account_id: accountId,
-      deal_id: deal.id,
-      from_stage_id: previousStageId,
-      to_stage_id: nextStageId,
-      changed_by: userId || null,
-    });
     toast.success('Deal został przesunięty do kolejnego etapu.');
     await load();
   }
@@ -598,7 +620,7 @@ export default function DealPage() {
                         {entry.to_stage?.name || 'Nieznany etap'}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {dt(entry.changed_at)}
+                        {dt(entry.changed_at)} · {entry.author_name || 'Użytkownik'}
                       </p>
                     </div>
                   ))}
@@ -726,6 +748,20 @@ export default function DealPage() {
             </TabsContent>
             <TabsContent value="files" className="space-y-4">
               <Section title="Prywatna teczka dokumentów">
+                <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  <Input value={documentName} onChange={(e) => setDocumentName(e.target.value)} placeholder="Nazwa dokumentu (domyślnie nazwa pliku)" />
+                  <Input value={documentType} onChange={(e) => setDocumentType(e.target.value)} placeholder="Typ dokumentu" />
+                  <select className="bg-muted h-10 rounded-md border px-3 text-sm" value={documentStatus} onChange={(e) => setDocumentStatus(e.target.value)}>
+                    <option value="otrzymany">Otrzymany</option>
+                    <option value="do_weryfikacji">Do weryfikacji</option>
+                    <option value="zaakceptowany">Zaakceptowany</option>
+                  </select>
+                  <Input type="date" value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
+                  <select className="bg-muted h-10 rounded-md border px-3 text-sm md:col-span-2" value={documentRequirementId} onChange={(e) => setDocumentRequirementId(e.target.value)}>
+                    <option value="">Bez powiązania z wymaganiem</option>
+                    {requirements.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                  </select>
+                </div>
                 <label className="bg-primary text-primary-foreground inline-flex cursor-pointer items-center gap-2 rounded-md px-4 py-2 text-sm">
                   <Upload className="h-4 w-4" />
                   {uploading ? 'Wysyłanie…' : 'Dodaj dokument'}
@@ -749,7 +785,7 @@ export default function DealPage() {
                       <div>
                         <p className="text-sm font-medium">{d.name}</p>
                         <p className="text-muted-foreground text-xs">
-                          {d.status} · {dt(d.created_at)}
+                          {d.document_type || 'Dokument'} · {d.status} · {dt(d.received_at || d.created_at)}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -776,11 +812,6 @@ export default function DealPage() {
                     </p>
                   )}
                 </div>
-              </Section>
-              <Section title="Braki dokumentacyjne">
-                <p className="text-sm whitespace-pre-wrap">
-                  {deal.missing_documents || 'Brak wpisanej listy'}
-                </p>
               </Section>
               {deal.drive_folder_url && (
                 <a

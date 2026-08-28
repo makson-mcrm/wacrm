@@ -245,18 +245,9 @@ export default function PipelinesPage() {
       if (error) {
         toast.error(t('toastFailedMoveDeal'));
         refreshDeals();
-      } else if (accountId && movedDeal) {
-        const session = await supabase.auth.getSession();
-        await supabase.from('deal_stage_history').insert({
-          account_id: accountId,
-          deal_id: dealId,
-          from_stage_id: movedDeal.stage_id,
-          to_stage_id: newStageId,
-          changed_by: session.data.session?.user?.id || null,
-        });
       }
     },
-    [supabase, refreshDeals, t, stages, deals, accountId]
+    [supabase, refreshDeals, t, stages, deals]
   );
 
   const handleAddDeal = useCallback(

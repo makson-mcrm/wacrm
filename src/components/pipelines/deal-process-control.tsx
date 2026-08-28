@@ -16,6 +16,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import type { Deal } from '@/types';
+import {
+  buildMissingDocumentsMessage,
+  missingDocumentRequirements,
+} from '@/lib/deals/document-requirements';
 
 type Requirement = {
   id: string;
@@ -215,17 +219,10 @@ export function DealProcessControl({
     else await loadRequirements();
   }
 
-  const missing = requirements.filter((row) =>
-    ['brak', 'poproszono', 'do_poprawy'].includes(row.status)
-  );
+  const missing = missingDocumentRequirements(requirements);
   const firstName =
     deal.contact?.first_name || deal.contact?.name?.split(' ')[0];
-  const missingMessage = `${firstName ? `${firstName}, p` : 'P'}roszę o uzupełnienie dokumentów:\n${missing
-    .map(
-      (row) =>
-        `• ${row.name}${row.status === 'do_poprawy' ? ' — do poprawy' : ''}`
-    )
-    .join('\n')}\n\nTomasz Makson`;
+  const missingMessage = buildMissingDocumentsMessage(requirements, firstName);
   const clientPhone = deal.contact?.phone?.replace(/\D/g, '') || '';
   const clientEmail = deal.contact?.email || '';
 

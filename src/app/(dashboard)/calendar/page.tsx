@@ -366,6 +366,18 @@ export default function CalendarPage() {
                 onChange={(e) => setStartsAt(e.target.value)}
               />
             </Field>
+            <Field label="Rodzaj zdarzenia *">
+              <select
+                className="bg-muted h-10 rounded-md border px-3 text-sm"
+                value={type}
+                onChange={(event) => setType(event.target.value)}
+              >
+                <option value="spotkanie">Spotkanie</option>
+                <option value="telefon">Telefon</option>
+                <option value="zadanie">Zadanie</option>
+                <option value="follow_up">Ponowny kontakt</option>
+              </select>
+            </Field>
             <Field label="Opis">
               <VoiceTextarea
                 value={description}

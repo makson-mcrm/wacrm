@@ -44,9 +44,11 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(source('src/components/pipelines/pipeline-board.tsx')).toContain(
       'onDealMoved(dealId, targetStageId)'
     );
-    expect(source('src/app/(dashboard)/pipelines/page.tsx')).toContain(
-      "from('deal_stage_history')"
+    const migration = source(
+      'supabase/migrations/054_package2_deal_process_integrity.sql'
     );
+    expect(migration).toContain('AFTER UPDATE OF stage_id ON public.deals');
+    expect(migration).toContain('INSERT INTO public.deal_stage_history');
   });
 
   it('działa dyktowanie opisów z transkrypcją zapasową nagrania', () => {
