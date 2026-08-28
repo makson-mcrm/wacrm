@@ -127,7 +127,7 @@ export function ImportModal({
   onImported,
 }: ImportModalProps) {
   const t = useTranslations('Contacts.importModal');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId, canEditSettings } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
