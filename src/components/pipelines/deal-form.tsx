@@ -225,6 +225,12 @@ export function DealForm({
     const inheritedSource = contacts.find((row) => row.id === id)?.source;
     if (!source && inheritedSource) setSource(inheritedSource);
   }
+  const isMortgageDeal = productType === 'ML — HIPOTEKA';
+
+  useEffect(() => {
+    if (!isMortgageDeal && secondContactId) setSecondContactId('');
+  }, [isMortgageDeal, secondContactId]);
+
   const companyOptions = companies.map((row) => ({
     value: row.id,
     label: row.name,
@@ -373,6 +379,10 @@ export function DealForm({
       toast.error(
         'Uzupełnij pola oznaczone gwiazdką: nazwę, opis, kwotę, osobę, źródło, typ i etap.'
       );
+      return;
+    }
+    if (secondContactId && !isMortgageDeal) {
+      toast.error('Druga osoba jest dostępna tylko dla Deala hipotecznego.');
       return;
     }
     if (
@@ -573,18 +583,20 @@ export function DealForm({
                     addLabel="Dodaj nową osobę"
                   />
                 </Field>
-                <Field label="Druga osoba">
-                  <EntitySearchSelect
-                    value={secondContactId}
-                    onChange={setSecondContactId}
-                    options={contactOptions.filter(
-                      (row) => row.value !== contactId
-                    )}
-                    placeholder="Wyszukaj drugą osobę"
-                    onAdd={() => setShowNewContact((v) => !v)}
-                    addLabel="Dodaj drugą osobę"
-                  />
-                </Field>
+                {isMortgageDeal && (
+                  <Field label="Druga osoba — tylko hipoteka">
+                    <EntitySearchSelect
+                      value={secondContactId}
+                      onChange={setSecondContactId}
+                      options={contactOptions.filter(
+                        (row) => row.value !== contactId
+                      )}
+                      placeholder="Wyszukaj drugą osobę"
+                      onAdd={() => setShowNewContact((v) => !v)}
+                      addLabel="Dodaj drugą osobę"
+                    />
+                  </Field>
+                )}
                 <Field label="Firma">
                   <EntitySearchSelect
                     value={companyId}
