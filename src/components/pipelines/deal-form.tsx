@@ -840,22 +840,11 @@ export function DealForm({
                     spotkaniem.
                   </p>
                 </Field>
-                <Field label="Brakujące dokumenty">
-                  <VoiceTextarea
-                    value={missingDocuments}
-                    onChange={setMissingDocuments}
-                  />
-                </Field>
-                <Field label="Folder dokumentów na Dysku Google">
-                  <Input
-                    type="url"
-                    value={driveFolderUrl}
-                    onChange={(e) => setDriveFolderUrl(e.target.value)}
-                  />
-                </Field>
-                <Field label="Notatka wewnętrzna">
-                  <VoiceTextarea value={notes} onChange={setNotes} />
-                </Field>
+                <p className="text-muted-foreground text-xs">
+                  Dokumenty prowadź w checkliście na karcie Deala. Folder Dysku Google
+                  twórz tylko na żądanie przyciskiem „Utwórz folder”. Notatki dodawaj
+                  w zakładce „Komentarze i notatki”, gdzie zapisują się z datą i autorem.
+                </p>
               </div>
             </details>
             <details className="rounded-xl border p-4">
