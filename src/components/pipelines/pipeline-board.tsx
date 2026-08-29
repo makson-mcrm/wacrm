@@ -22,6 +22,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
 
+const BRAND_STAGE_COLORS = ['#173A52', '#245247', '#B7D84B', '#173A52', '#245247', '#B7D84B', '#1B2730'];
+
 interface PipelineBoardProps {
   stages: PipelineStage[];
   deals: Deal[];
@@ -215,7 +217,7 @@ function StageColumn({
       {/* 3px colored top border — sits above the column's padding */}
       <div
         className="-mx-1.5 -mt-1.5 h-[3px]"
-        style={{ backgroundColor: stage.color }}
+        style={{ backgroundColor: BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length] }}
       />
       <div className="flex items-center justify-between pt-1.5">
         <h3 className="truncate text-[11px] font-bold text-foreground">

@@ -94,7 +94,7 @@ export default function DashboardPage() {
       db
         .from('deals')
         .select(
-          '*,contact:contacts(*),company:companies(*),stage:pipeline_stages(*),document_requirements:deal_document_requirements(status),bank_processes(progress,status)'
+          '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*),document_requirements:deal_document_requirements(status),bank_processes(progress,status)'
         )
         .eq('status', 'open')
         .order('next_action_at', { ascending: true, nullsFirst: false }),

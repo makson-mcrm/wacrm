@@ -53,6 +53,7 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -233,7 +234,9 @@ export function ContactDetailView({
       supabase.from('companies').select('*').order('name'),
       supabase
         .from('contact_companies')
-        .select('*, company:companies(*)')
+        .select(
+          '*, company:companies!contact_companies_company_id_fkey(*)'
+        )
         .eq('contact_id', contactId)
         .order('created_at'),
     ]);
@@ -499,7 +502,7 @@ export function ContactDetailView({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-lg"
+          className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-[calc(100vw-15rem)]"
         >
           {loading || !contact ? (
             <div className="flex h-full items-center justify-center">
@@ -572,7 +575,7 @@ export function ContactDetailView({
                 defaultValue="details"
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="bg-muted/50 border-border mx-4 mt-3 border-b">
+                <TabsList className="bg-muted/50 border-border mx-4 mt-3 flex-wrap border-b">
                   <TabsTrigger
                     value="details"
                     className="data-active:bg-muted data-active:text-primary text-muted-foreground"
@@ -617,7 +620,7 @@ export function ContactDetailView({
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2 md:max-w-md md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label className="text-muted-foreground text-xs">Imię</Label>
                         <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} />
@@ -679,7 +682,7 @@ export function ContactDetailView({
                       <summary className="cursor-pointer text-xs font-semibold">
                         Dane do wniosku — wrażliwe
                       </summary>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
                         <Input value={editPesel} onChange={(e) => setEditPesel(e.target.value)} placeholder="PESEL" />
                         <Input value={editIdentityDocument} onChange={(e) => setEditIdentityDocument(e.target.value)} placeholder="Seria i numer dokumentu" />
                         <select value={editBikStatus} onChange={(e) => setEditBikStatus(e.target.value)} className="h-9 rounded-md border bg-muted px-2 text-sm">
@@ -711,6 +714,16 @@ export function ContactDetailView({
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
                   <div className="space-y-3">
+                    {accountId && contactId && (
+                      <section className="rounded-xl border p-4">
+                        <h3 className="mb-3 text-sm font-semibold">Tagi CRM Kontaktu</h3>
+                        <EntityTagsEditor
+                          accountId={accountId}
+                          entityType="contact"
+                          entityId={contactId}
+                        />
+                      </section>
+                    )}
                     <p className="text-muted-foreground text-xs">
                       {t('tagsTab.clickTagDesc')}
                     </p>

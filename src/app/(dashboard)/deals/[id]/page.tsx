@@ -104,12 +104,14 @@ export default function DealPage() {
     [documentDate, setDocumentDate] = useState(new Date().toISOString().slice(0, 10)),
     [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const load = useCallback(async () => {
+    setLoadError('');
     const [d, n, b, f, p, h, requirements, profileRows] = await Promise.all([
       db
         .from('deals')
         .select(
-          '*,contact:contacts(*),company:companies(*),stage:pipeline_stages(*)'
+          '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*)'
         )
         .eq('id', id)
         .single(),
@@ -145,6 +147,11 @@ export default function DealPage() {
         ? db.from('profiles').select('user_id,full_name').eq('account_id', accountId)
         : Promise.resolve({ data: [] }),
     ]);
+    if (d.error) {
+      setLoadError(d.error.message);
+      setDeal(null);
+      return;
+    }
     setDeal(d.data as Deal | null);
     setPeople((p.data ?? []) as unknown as DealPerson[]);
     const authorByUser = new Map(
@@ -315,6 +322,16 @@ export default function DealPage() {
     toast.success('Deal został przesunięty do kolejnego etapu.');
     await load();
   }
+  if (loadError)
+    return (
+      <div className="border-destructive/30 bg-destructive/5 m-6 rounded-xl border p-8">
+        <h2 className="font-semibold">Nie udało się otworzyć karty Deal</h2>
+        <p className="text-muted-foreground mt-2 text-sm">{loadError}</p>
+        <Button className="mt-4" onClick={() => void load()}>
+          Spróbuj ponownie
+        </Button>
+      </div>
+    );
   if (!deal) return <div className="p-8">Wczytywanie karty Deal…</div>;
   const first = deal.contact?.name?.split(' ')[0] || 'Dzień dobry',
     meeting = deal.meeting_at ? dt(deal.meeting_at) : '[DATA SPOTKANIA]',

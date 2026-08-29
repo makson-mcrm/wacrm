@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 type Submission = {
   id: string;
@@ -17,6 +18,8 @@ type Submission = {
   status?: string;
   summary?: string | null;
   missing?: string[];
+  contact_created?: boolean;
+  handled_at?: string | null;
 };
 
 export default function SubmissionsPage() {
@@ -58,6 +61,8 @@ export default function SubmissionsPage() {
         company: row.submitted_company,
         created_at: row.created_at,
         summary: row.message,
+        contact_created: row.contact_created,
+        handled_at: row.handled_at,
       })),
       ...(questionnaires.data ?? []).map((row) => ({
         id: row.id,
@@ -70,6 +75,8 @@ export default function SubmissionsPage() {
         status: row.status,
         summary: row.preliminary_analysis,
         missing: row.missing_items ?? [],
+        contact_created: row.contact_created,
+        handled_at: row.handled_at,
       })),
       ...(bookings.data ?? []).map((row) => ({
         id: row.id,
@@ -81,11 +88,32 @@ export default function SubmissionsPage() {
         created_at: row.created_at,
         status: row.status,
         summary: `${row.topic}\nTermin: ${new Date(row.starts_at).toLocaleString('pl-PL')}${row.note ? `\n${row.note}` : ''}`,
+        contact_created: row.contact_created,
+        handled_at: row.handled_at,
       })),
     ].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     setRows(combined);
     setLoading(false);
   }, [accountId, db]);
+
+  async function setHandled(row: Submission, handled: boolean) {
+    const table =
+      row.kind === 'kontakt'
+        ? 'public_lead_submissions'
+        : row.kind === 'ankieta'
+          ? 'financial_questionnaire_submissions'
+          : 'public_booking_submissions';
+    const { error } = await db
+      .from(table)
+      .update({ handled_at: handled ? new Date().toISOString() : null })
+      .eq('id', row.id);
+    if (!error) {
+      await load();
+      window.dispatchEvent(new Event('wacrm:submissions-changed'));
+    }
+  }
+
+  const unhandledCount = rows.filter((row) => !row.handled_at).length;
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -95,7 +123,14 @@ export default function SubmissionsPage() {
   return (
     <div className="space-y-5 p-4 md:p-6">
       <header>
-        <h1 className="text-2xl font-bold">Zgłoszenia ze strony</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Zgłoszenia ze strony</h1>
+          {unhandledCount > 0 && (
+            <Badge className="bg-[#B7D84B] text-[#173A52]">
+              {unhandledCount} nowych
+            </Badge>
+          )}
+        </div>
         <p className="text-muted-foreground mt-1 text-sm">
           Krótki formularz tworzy lub odnajduje Kontakt i zapisuje pełne
           zgłoszenie tutaj. Nie tworzy automatycznie Deala. Ankietę można
@@ -109,7 +144,7 @@ export default function SubmissionsPage() {
           {rows.map((row) => (
             <article
               key={`${row.kind}-${row.id}`}
-              className="bg-card rounded-xl border p-4"
+              className={`bg-card rounded-xl border p-4 ${!row.handled_at ? 'border-[#B7D84B] shadow-sm' : ''}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -126,6 +161,18 @@ export default function SubmissionsPage() {
                     {row.company ? ` · ${row.company}` : ''} ·{' '}
                     {new Date(row.created_at).toLocaleString('pl-PL')}
                   </p>
+                  <Badge
+                    variant="outline"
+                    className={
+                      row.contact_created
+                        ? 'mt-2 border-[#245247]/30 bg-[#EAF1E5] text-[#245247]'
+                        : 'mt-2 border-[#173A52]/20 text-[#173A52]'
+                    }
+                  >
+                    {row.contact_created
+                      ? 'Kontakt utworzony'
+                      : 'Kontakt już istniał'}
+                  </Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/contacts?open=${row.contact_id}`}>
@@ -138,6 +185,13 @@ export default function SubmissionsPage() {
                   >
                     <Button size="sm">Utwórz Deal</Button>
                   </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void setHandled(row, !row.handled_at)}
+                  >
+                    {row.handled_at ? 'Oznacz jako nowe' : 'Oznacz obsłużone'}
+                  </Button>
                 </div>
               </div>
               {row.status && (

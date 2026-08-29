@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
+import { useUnhandledSubmissions } from '@/hooks/use-unhandled-submissions';
 import {
   Bell,
   Bot,
@@ -117,6 +118,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  const unhandledSubmissions = useUnhandledSubmissions();
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -218,6 +220,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               // viewing this section".
               const showNotificationBadge =
                 item.href === '/notifications' && unreadNotifications > 0;
+              const showSubmissionBadge =
+                item.href === '/submissions' && unhandledSubmissions > 0;
 
               return (
                 <li key={item.href}>
@@ -260,6 +264,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
                       >
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </span>
+                    )}
+                    {showSubmissionBadge && (
+                      <span className="bg-[#B7D84B] text-[#173A52] min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold">
+                        {unhandledSubmissions > 99 ? '99+' : unhandledSubmissions}
                       </span>
                     )}
                   </Link>

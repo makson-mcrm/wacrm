@@ -38,13 +38,13 @@ import { useRouter } from 'next/navigation';
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: '1. KONTAKT POZYSKOWY', color: '#3b82f6', position: 0 },
-  { name: '2. SPOTKANIE / AUDYT', color: '#06b6d4', position: 1 },
-  { name: '3. POCZEKALNIA', color: '#eab308', position: 2 },
-  { name: '4. KOMPLETACJA / OFERTA', color: '#f97316', position: 3 },
-  { name: '5. WNIOSKI / DECYZJA', color: '#8b5cf6', position: 4 },
-  { name: '6. URUCHOMIENIE / FV', color: '#22c55e', position: 5 },
-  { name: '7. ARCHIWUM', color: '#64748b', position: 6 },
+  { name: '1. KONTAKT POZYSKOWY', color: '#173A52', position: 0 },
+  { name: '2. SPOTKANIE / AUDYT', color: '#245247', position: 1 },
+  { name: '3. POCZEKALNIA', color: '#B7D84B', position: 2 },
+  { name: '4. KOMPLETACJA / OFERTA', color: '#173A52', position: 3 },
+  { name: '5. WNIOSKI / DECYZJA', color: '#245247', position: 4 },
+  { name: '6. URUCHOMIENIE / FV', color: '#B7D84B', position: 5 },
+  { name: '7. ARCHIWUM', color: '#1B2730', position: 6 },
 ];
 
 export default function PipelinesPage() {
@@ -109,10 +109,13 @@ export default function PipelinesPage() {
       const { data } = await supabase
         .from('deals')
         .select(
-          '*, contact:contacts(*), company:companies(*), assignee:profiles!deals_assigned_to_fkey(*)'
+          '*, contact:contacts!deals_contact_id_fkey(*), company:companies!deals_company_id_fkey(*), assignee:profiles!deals_assigned_to_fkey(*)'
         )
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false });
+      if (data === null) {
+        console.error('Failed to load deals for pipeline:', pipelineId);
+      }
       return (data ?? []) as Deal[];
     },
     [supabase]

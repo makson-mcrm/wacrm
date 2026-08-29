@@ -64,7 +64,7 @@ export default function CalendarPage() {
       db
         .from('deals')
         .select(
-          '*,contact:contacts(*),company:companies(*),stage:pipeline_stages(*)'
+          '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*)'
         )
         .eq('status', 'open')
         .order('title'),

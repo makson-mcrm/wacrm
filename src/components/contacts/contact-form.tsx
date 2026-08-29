@@ -27,6 +27,7 @@ import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
+import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 
 interface ContactFormProps {
@@ -420,7 +421,7 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[92vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
             {isEdit ? t('editTitle') : t('addTitle')}
@@ -431,7 +432,7 @@ export function ContactForm({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <div className="space-y-2">
               <Label>Imię *</Label>
               <Input
@@ -494,7 +495,7 @@ export function ContactForm({
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <div className="space-y-2">
               <Label>Drugi telefon</Label>
               <Input
@@ -523,7 +524,7 @@ export function ContactForm({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <div className="space-y-2">
               <Label>Kategoria / produkt</Label>
               <select
@@ -565,15 +566,11 @@ export function ContactForm({
             </div>
             <div className="space-y-2">
               <Label>Follow-up</Label>
-              <Input
-                type="datetime-local"
-                value={followUpAt}
-                onChange={(e) => setFollowUpAt(e.target.value)}
-              />
+              <MobileDateTimeInput value={followUpAt} onChange={setFollowUpAt} />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_120px_1fr]">
+          <div className="grid gap-4">
             <div className="space-y-2">
               <Label>Adres</Label>
               <Input
@@ -628,7 +625,7 @@ export function ContactForm({
               addLabel="Dodaj nową firmę"
             />
             {showNewCompany && (
-              <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
+              <div className="grid gap-2">
                 <Input
                   value={newCompanyName}
                   onChange={(e) => setNewCompanyName(e.target.value)}
@@ -651,7 +648,7 @@ export function ContactForm({
             <summary className="cursor-pointer font-medium">
               Dane dodatkowe i do wniosków
             </summary>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid gap-4">
               <div className="space-y-2">
                 <Label>Preferowany kontakt</Label>
                 <select

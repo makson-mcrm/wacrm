@@ -13,6 +13,8 @@ interface DealCardProps {
   isOverlay?: boolean;
 }
 
+const BRAND_STAGE_COLORS = ['#173A52', '#245247', '#B7D84B', '#173A52', '#245247', '#B7D84B', '#1B2730'];
+
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pl-PL', {
     month: 'short',
@@ -58,7 +60,12 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       <span
         aria-hidden
         className="absolute top-0 left-0 h-full w-0.5"
-        style={{ backgroundColor: stage?.color ?? '#94a3b8' }}
+        style={{
+          backgroundColor:
+            stage == null
+              ? '#173A52'
+              : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length],
+        }}
       />
 
       <div className="flex items-start justify-between gap-2">

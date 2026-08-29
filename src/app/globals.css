@@ -88,13 +88,13 @@
 
 :root,
 html[data-mode="dark"] {
-  --background: oklch(0.13 0.01 260);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.01 260);
-  --card-2: oklch(0.205 0.01 260);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0.01 260);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: #1b2730;
+  --foreground: #f7f9f5;
+  --card: #173a52;
+  --card-2: #245247;
+  --card-foreground: #ffffff;
+  --popover: #173a52;
+  --popover-foreground: #ffffff;
   --secondary: oklch(0.22 0.01 260);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.22 0.01 260);
@@ -117,19 +117,19 @@ html[data-mode="dark"] {
 }
 
 html[data-mode="light"] {
-  --background: oklch(0.99 0.002 260);
-  --foreground: oklch(0.21 0.01 260);
+  --background: #f7f9f5;
+  --foreground: #1b2730;
   --card: oklch(1 0 0);
-  --card-2: oklch(0.985 0.002 260);
-  --card-foreground: oklch(0.21 0.01 260);
+  --card-2: #eaf1e5;
+  --card-foreground: #1b2730;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.01 260);
   --secondary: oklch(0.967 0.003 260);
   --secondary-foreground: oklch(0.25 0.01 260);
-  --muted: oklch(0.967 0.003 260);
-  --muted-foreground: oklch(0.52 0.015 260);
-  --accent: oklch(0.96 0.004 260);
-  --accent-foreground: oklch(0.25 0.01 260);
+  --muted: #eaf1e5;
+  --muted-foreground: #52636d;
+  --accent: #eaf1e5;
+  --accent-foreground: #173a52;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0.004 260);
   --input: oklch(0.922 0.004 260);
@@ -138,10 +138,10 @@ html[data-mode="light"] {
   --chart-4: oklch(0.8 0.04 260);
   --chart-5: oklch(0.87 0.03 260);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.002 260);
-  --sidebar-foreground: oklch(0.21 0.01 260);
-  --sidebar-accent: oklch(0.96 0.004 260);
-  --sidebar-accent-foreground: oklch(0.25 0.01 260);
+  --sidebar: #173a52;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #245247;
+  --sidebar-accent-foreground: #ffffff;
   --sidebar-border: oklch(0.922 0.004 260);
 }
 
@@ -149,16 +149,16 @@ html[data-mode="light"] {
 
 :root,
 html[data-theme="violet"] {
-  --primary: oklch(0.526 0.247 293);
-  --primary-foreground: oklch(0.985 0 0);
-  --primary-hover: oklch(0.6 0.22 293);
-  --primary-soft: oklch(0.526 0.247 293 / 0.12);
-  --primary-soft-2: oklch(0.526 0.247 293 / 0.2);
-  --ring: oklch(0.526 0.247 293);
-  --chart-1: oklch(0.526 0.247 293);
-  --sidebar-primary: oklch(0.526 0.247 293);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-ring: oklch(0.526 0.247 293);
+  --primary: #245247;
+  --primary-foreground: #ffffff;
+  --primary-hover: #173a52;
+  --primary-soft: rgb(36 82 71 / 0.12);
+  --primary-soft-2: rgb(183 216 75 / 0.24);
+  --ring: #b7d84b;
+  --chart-1: #245247;
+  --sidebar-primary: #b7d84b;
+  --sidebar-primary-foreground: #173a52;
+  --sidebar-ring: #b7d84b;
 }
 
 html[data-theme="emerald"] {

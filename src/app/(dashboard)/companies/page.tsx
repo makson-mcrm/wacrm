@@ -260,7 +260,9 @@ function CompanySheet({
     const [links, companyDeals] = await Promise.all([
       supabase
         .from('contact_companies')
-        .select('contact_id, role, is_primary, contact:contacts(*)')
+        .select(
+          'contact_id, role, is_primary, contact:contacts!contact_companies_contact_id_fkey(*)'
+        )
         .eq('company_id', company.id),
       supabase
         .from('deals')
@@ -524,14 +526,16 @@ function CompanySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl">
+      <SheetContent
+        className={`w-full overflow-y-auto ${company ? 'sm:max-w-[calc(100vw-15rem)]' : 'sm:max-w-xl'}`}
+      >
         <SheetHeader>
           <SheetTitle>
             {company ? `Firma: ${company.name}` : 'Nowa firma'}
           </SheetTitle>
         </SheetHeader>
         <div className="mt-5 space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <section className="grid max-w-xl gap-3">
             <Field label="Nazwa firmy *">
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
@@ -544,6 +548,27 @@ function CompanySheet({
             <Field label="E-mail">
               <Input value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            <Field label="Strona internetowa">
+              <Input
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </Field>
+            <Field label="Adres">
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+            <Field label="Miasto">
+              <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            </Field>
+            <Field label="Kod pocztowy">
+              <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+            </Field>
+          </section>
+
+          <details className="max-w-xl rounded-xl border p-4">
+            <summary className="cursor-pointer font-semibold">Dane rejestrowe</summary>
+            <div className="mt-4 grid gap-3">
             <Field label="REGON">
               <Input value={regon} onChange={(e) => setRegon(e.target.value)} />
             </Field>
@@ -586,31 +611,11 @@ function CompanySheet({
                 onChange={(e) => setBusinessStartedOn(e.target.value)}
               />
             </Field>
-            <Field label="Strona internetowa">
-              <Input
-                type="url"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </Field>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_120px_1fr]">
-            <Field label="Adres">
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </Field>
-            <Field label="Kod">
-              <Input
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value)}
-              />
-            </Field>
-            <Field label="Miasto">
-              <Input value={city} onChange={(e) => setCity(e.target.value)} />
-            </Field>
-          </div>
+            </div>
+          </details>
+          <details className="max-w-xl rounded-xl border p-4">
+            <summary className="cursor-pointer font-semibold">Informacje dodatkowe</summary>
+            <div className="mt-4 space-y-3">
           <Field label="Opis firmy">
             <VoiceTextarea
               value={description}
@@ -629,10 +634,12 @@ function CompanySheet({
               placeholder="https://drive.google.com/drive/folders/..."
             />
           </Field>
+            </div>
+          </details>
           <Button
             onClick={saveCompany}
             disabled={!canEdit || saving}
-            className="w-full"
+            className="w-full max-w-xl"
           >
             {saving && <Loader2 className="size-4 animate-spin" />} Zapisz firmę
           </Button>
@@ -694,7 +701,7 @@ function CompanySheet({
                     Brak przypisanych Kontaktów.
                   </p>
                 )}
-                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
                   <EntitySearchSelect
                     value={contactId}
                     onChange={setContactId}

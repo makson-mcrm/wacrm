@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { CustomFieldsSettings } from './custom-fields-settings';
 import { SettingsPanelHead } from './settings-panel-head';
 import { TagManager } from './tag-manager';
+import { EntityTagManager } from './entity-tag-manager';
 
 /**
  * "Fields & tags" section — merges the former Tags and Custom Fields
@@ -25,7 +26,12 @@ export function FieldsAndTagsPanel() {
         title={t('title')}
         description={t('description')}
       />
-      <TagManager />
+      <div className="space-y-4">
+        <TagManager />
+        <EntityTagManager entityType="contact" title="Tagi CRM Kontaktów" />
+        <EntityTagManager entityType="company" title="Tagi Firm" />
+        <EntityTagManager entityType="deal" title="Tagi Deali" />
+      </div>
       {canEditSettings ? <CustomFieldsSettings /> : null}
     </section>
   );

@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
+import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
 import { Banknote, Check, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
@@ -561,7 +562,7 @@ export function DealForm({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full p-0 sm:max-w-5xl">
+      <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
         <div className="flex h-full flex-col">
           <SheetHeader className="border-b p-4">
             <SheetTitle>{deal ? 'Edytuj Deal' : 'Nowy Deal'}</SheetTitle>
@@ -569,7 +570,7 @@ export function DealForm({
           <div className="flex-1 space-y-5 overflow-y-auto p-4">
             <section className="space-y-3">
               <h3 className="font-semibold">Najważniejsze informacje</h3>
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3">
                 <Field label="Nazwa Deala *">
                   <Input
                     value={title}
@@ -604,7 +605,7 @@ export function DealForm({
             </section>
             <section className="space-y-3 rounded-xl border p-4">
               <h3 className="font-semibold">Osoby i firma</h3>
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="grid gap-3">
                 <Field label="Główna osoba *">
                   <EntitySearchSelect
                     value={contactId}
@@ -642,7 +643,7 @@ export function DealForm({
                 </Field>
               </div>
               {showNewContact && (
-                <div className="bg-muted/50 grid gap-2 rounded-lg p-3 sm:grid-cols-3">
+                <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
                   <Input
                     value={newFirstName}
                     onChange={(e) => setNewFirstName(e.target.value)}
@@ -661,14 +662,14 @@ export function DealForm({
                   <Button
                     type="button"
                     onClick={addContactInline}
-                    className="sm:col-span-3"
+                    className="w-full"
                   >
                     Dodaj i powiąż osobę
                   </Button>
                 </div>
               )}
               {showNewCompany && (
-                <div className="bg-muted/50 grid gap-2 rounded-lg p-3 sm:grid-cols-[1fr_180px_auto]">
+                <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
                   <Input
                     value={newCompanyName}
                     onChange={(e) => setNewCompanyName(e.target.value)}
@@ -688,7 +689,7 @@ export function DealForm({
             </section>
             <section className="space-y-3">
               <h3 className="font-semibold">Sprawa sprzedażowa</h3>
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="grid gap-3">
                 <Select
                   label="Źródło *"
                   value={source}
@@ -807,13 +808,9 @@ export function DealForm({
                   placeholder="Co zatrzymuje sprawę? Zostaw puste, jeśli nie ma blokera."
                 />
               </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <Field label="Termin następnego działania">
-                  <Input
-                    type="datetime-local"
-                    value={nextActionAt}
-                    onChange={(e) => setNextActionAt(e.target.value)}
-                  />
+                  <MobileDateTimeInput value={nextActionAt} onChange={setNextActionAt} />
                 </Field>
                 <Field label="Miejsce lub link">
                   <Input
@@ -826,11 +823,7 @@ export function DealForm({
                   .find((row) => row.id === stageId)
                   ?.name.includes('POCZEKALNIA') && (
                   <Field label="Termin ponownego kontaktu *">
-                    <Input
-                      type="datetime-local"
-                      value={followUpAt}
-                      onChange={(e) => setFollowUpAt(e.target.value)}
-                    />
+                    <MobileDateTimeInput value={followUpAt} onChange={setFollowUpAt} required />
                   </Field>
                 )}
               </div>
@@ -839,13 +832,9 @@ export function DealForm({
               <summary className="cursor-pointer font-semibold">
                 Dodatkowe terminy
               </summary>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3">
                 <Field label="Spotkanie zapisane na Dealu">
-                  <Input
-                    type="datetime-local"
-                    value={meetingAt}
-                    onChange={(e) => setMeetingAt(e.target.value)}
-                  />
+                  <MobileDateTimeInput value={meetingAt} onChange={setMeetingAt} />
                 </Field>
                 <Field label="Planowane zamknięcie">
                   <Input
@@ -869,11 +858,7 @@ export function DealForm({
                   />
                 </Field>
                 <Field label="Ankieta wymagana do">
-                  <Input
-                    type="datetime-local"
-                    value={questionnaireDueAt}
-                    onChange={(e) => setQuestionnaireDueAt(e.target.value)}
-                  />
+                  <MobileDateTimeInput value={questionnaireDueAt} onChange={setQuestionnaireDueAt} />
                   <p className="text-muted-foreground text-xs">
                     Dla płatnej konsultacji ustaw termin co najmniej 2 dni przed
                     spotkaniem.
@@ -891,7 +876,7 @@ export function DealForm({
               <summary className="cursor-pointer font-semibold">
                 Uruchomienie, prowizja i faktura
               </summary>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3">
                 <Field label="Kwota uruchomiona">
                   <Input
                     type="number"

@@ -226,7 +226,7 @@ export async function saveFinancialQuestionnaire(
 ): Promise<SavedFinancialQuestionnaire> {
   const accountId = await resolvePublicFormAccountId(db);
   const auditUserId = await resolveAuditUserId(db, accountId);
-  const { id: contactId } = await findOrCreateContact(
+  const { id: contactId, created: contactCreated } = await findOrCreateContact(
     db,
     accountId,
     auditUserId,
@@ -251,6 +251,7 @@ export async function saveFinancialQuestionnaire(
       status,
       missing_items: missingItems,
       preliminary_analysis: preliminaryAnalysis,
+      contact_created: contactCreated,
       consent_to_analysis: true,
       consented_at: new Date().toISOString(),
       request_fingerprint: metadata.fingerprint,
