@@ -116,6 +116,7 @@ export function isAllowedPublicFormOrigin(origin: string | null): boolean {
     'https://makson.space',
     'https://www.makson.space',
     'https://darkslateblue-mallard-102045.hostingersite.com',
+    'https://mediumslateblue-okapi-264879.hostingersite.com',
   ]);
   if (process.env.NODE_ENV !== 'production') {
     allowed.add('http://localhost:3000');
@@ -154,12 +155,28 @@ export async function savePublicLead(
 ): Promise<void> {
   const accountId = await resolvePublicFormAccountId(db);
   const auditUserId = await resolveAuditUserId(db, accountId);
-  const { id: contactId, created } = await findOrCreateContact(
-    db,
-    accountId,
-    auditUserId,
-    input
-  );
+  let contactId: string | undefined;
+  if (input.email) {
+    const { data: emailMatch, error: emailLookupError } = await db
+      .from('contacts')
+      .select('id')
+      .eq('account_id', accountId)
+      .ilike('email', input.email)
+      .limit(1)
+      .maybeSingle();
+    if (emailLookupError) {
+      console.error(
+        '[public-leads] email dedupe lookup failed:',
+        emailLookupError
+      );
+      throw new PublicLeadError('Nie udało się zapisać zgłoszenia.', 500);
+    }
+    contactId = emailMatch?.id as string | undefined;
+  }
+  const contact = contactId
+    ? { id: contactId, created: false }
+    : await findOrCreateContact(db, accountId, auditUserId, input);
+  contactId = contact.id;
 
   const { error } = await db.from('public_lead_submissions').insert({
     account_id: accountId,
@@ -174,7 +191,7 @@ export async function savePublicLead(
     source: 'makson_space_form',
     consent_to_contact: true,
     consented_at: new Date().toISOString(),
-    contact_created: created,
+    contact_created: contact.created,
     request_fingerprint: metadata.fingerprint,
     user_agent: metadata.userAgent.slice(0, 500) || null,
   });
@@ -236,3 +253,4 @@ export function publicLeadErrorResponse(error: unknown): {
   console.error('[public-leads] unexpected error:', error);
   return { message: 'Nie udało się zapisać zgłoszenia.', status: 500 };
 }
+

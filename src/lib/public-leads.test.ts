@@ -6,6 +6,7 @@ import {
   isAllowedPublicFormOrigin,
   parsePublicLead,
   requestFingerprint,
+  savePublicLead,
 } from './public-leads';
 
 const valid = {
@@ -49,6 +50,11 @@ describe('public financial lead intake', () => {
   it('allows only production form origins', () => {
     vi.stubEnv('NODE_ENV', 'production');
     expect(isAllowedPublicFormOrigin('https://makson.space')).toBe(true);
+    expect(
+      isAllowedPublicFormOrigin(
+        'https://mediumslateblue-okapi-264879.hostingersite.com'
+      )
+    ).toBe(true);
     expect(isAllowedPublicFormOrigin('https://evil.example')).toBe(false);
   });
 
@@ -69,4 +75,68 @@ describe('public financial lead intake', () => {
     );
     expect(`${service}\n${route}`).not.toMatch(/\.from\(["']deals["']\)/);
   });
+
+  it('reuses a contact with the same email instead of creating a duplicate', async () => {
+    const insertedSubmission = vi.fn().mockResolvedValue({ error: null });
+    const insertedNote = vi.fn().mockResolvedValue({ error: null });
+    const from = vi.fn((table: string) => {
+      if (table === 'accounts') {
+        return {
+          select: () => ({
+            limit: vi.fn().mockResolvedValue({
+              data: [{ id: 'account-1' }],
+              error: null,
+            }),
+          }),
+        };
+      }
+      if (table === 'whatsapp_config') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: vi
+                .fn()
+                .mockResolvedValue({ data: { user_id: 'user-1' } }),
+            }),
+          }),
+        };
+      }
+      if (table === 'contacts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              ilike: () => ({
+                limit: () => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: 'existing-contact' },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'public_lead_submissions') {
+        return { insert: insertedSubmission };
+      }
+      if (table === 'contact_notes') return { insert: insertedNote };
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await savePublicLead(
+      { from } as never,
+      { ...parsePublicLead({ ...valid, email: 'jan@example.com' }) },
+      { fingerprint: 'fingerprint', userAgent: 'test' }
+    );
+
+    expect(insertedSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_id: 'existing-contact',
+        contact_created: false,
+      })
+    );
+    expect(from).not.toHaveBeenCalledWith('deals');
+  });
 });
+
