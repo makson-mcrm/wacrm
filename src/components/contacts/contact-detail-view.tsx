@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
+import { formatWarsawDateTime } from '@/lib/date-time';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -108,7 +109,10 @@ export function ContactDetailView({
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
-  const [activityNotes, setActivityNotes] = useState<Array<{ id: string; description: string; created_at: string; title: string }>>([]);
+  const [activityNotes, setActivityNotes] = useState<Array<{
+    id: string; description?: string | null; occurred_at: string; title: string;
+    activity_type: string; activity_status?: string | null; call_result?: string | null;
+  }>>([]);
 
   // Custom fields tab
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -181,12 +185,13 @@ export function ContactDetailView({
 
     const [notesResult, activitiesResult] = await Promise.all([
       supabase.from('contact_notes').select('*').eq('contact_id', contactId).order('created_at', { ascending: false }),
-      supabase.from('sales_activities').select('id,title,description,occurred_at').eq('contact_id', contactId)
-        .not('description', 'is', null).order('occurred_at', { ascending: false }),
+      supabase.from('sales_activities')
+        .select('id,title,description,activity_type,activity_status,call_result,occurred_at')
+        .eq('contact_id', contactId).order('occurred_at', { ascending: false }),
     ]);
     if (notesResult.data) setNotes(notesResult.data);
     setActivityNotes((activitiesResult.data ?? []).map((row) => ({
-      id: row.id, title: row.title ?? 'Aktywność', description: row.description ?? '', created_at: row.occurred_at,
+      ...row, title: row.title ?? 'Aktywność',
     })));
     setLoadingNotes(false);
   }, [contactId, supabase]);
@@ -809,9 +814,11 @@ export function ContactDetailView({
                       <>
                       {activityNotes.map((activity) => (
                         <div key={activity.id} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                          <p className="text-xs font-semibold text-emerald-900">{activity.title}</p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{activity.description}</p>
-                          <p className="mt-1.5 text-xs text-slate-500">{new Date(activity.created_at).toLocaleString('pl-PL')}</p>
+                          <p className="text-xs font-semibold uppercase text-emerald-900">{activity.activity_type.replaceAll('_', ' ')}</p>
+                          <p className="font-semibold text-slate-900">{activity.title}</p>
+                          <p className="text-xs text-slate-600">{activity.activity_status || 'Status nieustawiony'}{activity.call_result ? ` · ${activity.call_result.replaceAll('_', ' ')}` : ''}</p>
+                          {activity.description && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{activity.description}</p>}
+                          <p className="mt-1.5 text-xs text-slate-500">{formatWarsawDateTime(activity.occurred_at)} · Europe/Warsaw</p>
                         </div>
                       ))}
                       {notes.map((note) => (
@@ -831,16 +838,7 @@ export function ContactDetailView({
                             </button>
                           </div>
                           <p className="text-muted-foreground mt-1.5 text-xs">
-                            {new Date(note.created_at).toLocaleDateString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }
-                            )}
+                            {formatWarsawDateTime(note.created_at)} · Europe/Warsaw
                           </p>
                         </div>
                       ))}

@@ -1,3 +1,5 @@
+import { toWarsawDateTimeInput } from '@/lib/date-time';
+
 export const ACTIVITY_TYPES = ['TELEFON','SPOTKANIE','FOLLOW_UP','WIADOMOSC','ZADANIE','INNY_KONTAKT'] as const;
 export const ACTIVITY_STATUSES = ['PLANOWANE','WYKONANE','NIE_ODBYLO_SIE','PRZELOZONE','ANULOWANE'] as const;
 export const OBJECTIVE_TYPES = ['NOWE_POZYSKANIE','OBSLUGA_SERWIS','FOLLOW_UP'] as const;
@@ -32,6 +34,6 @@ export function suggestedRetryAt(attempt: number, now = new Date()) {
   return null;
 }
 export function toLocalDateTimeValue(date: Date) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  return toWarsawDateTimeInput(date);
 }
 

@@ -15,6 +15,7 @@ import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { CatalogSearchSelect } from '@/components/ui/catalog-search-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Company, Contact, Deal, PipelineStage } from '@/types';
+import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import {
   ACTIVITY_STATUSES,
   ACTIVITY_TYPES,
@@ -77,7 +78,13 @@ export function QuickActivityForm() {
     setType('TELEFON'); setStatus('WYKONANE'); setObjective('NOWE_POZYSKANIE');
     setPhone(''); setFirstName(''); setLastName(''); setContactId(''); setCompanyId(''); setDealId('');
     setNote(''); setWhen(''); setResult('odebral'); setSource(SOURCES[0]); setProductGroup('');
-    setNextAction(''); setNextActionDate(''); setDetailsOpen(false);
+    setNextAction(''); setNextActionDate(''); setDetailsOpen(false); setCompanyNip('');
+    setContactDialog(false); setCompanyDialog(false); setDealDialog(false);
+  }
+
+  function clearContactSelection() {
+    setContactId(''); setPhone(''); setFirstName(''); setLastName('');
+    setCompanyId(''); setDealId('');
   }
 
   const load = useCallback(async () => {
@@ -279,7 +286,7 @@ export function QuickActivityForm() {
         effectiveWhen = toLocalDateTimeValue(later);
       }
       const contact = contacts.find((row) => row.id === contactId);
-      const scheduledIso = effectiveWhen ? new Date(effectiveWhen).toISOString() : null;
+      const scheduledIso = effectiveWhen ? warsawDateTimeInputToIso(effectiveWhen) : null;
       const occurredIso = status === 'WYKONANE' ? new Date().toISOString() : scheduledIso ?? new Date().toISOString();
       const { error } = await db.from('sales_activities').insert({
         account_id: accountId, user_id: session.user.id,
@@ -293,8 +300,8 @@ export function QuickActivityForm() {
         completed: status === 'WYKONANE', call_result: type === 'TELEFON' ? result : null,
         call_type: objective === 'NOWE_POZYSKANIE' ? 'nowe_pozyskanie' : objective === 'OBSLUGA_SERWIS' ? 'obsluga_serwis' : 'follow_up',
         source: source || null, product_group: productGroup || null,
-        next_action: nextAction.trim() || null, next_action_date: nextActionDate ? new Date(nextActionDate).toISOString() : null,
-        next_contact_at: scheduledIso || (nextActionDate ? new Date(nextActionDate).toISOString() : null),
+        next_action: nextAction.trim() || null, next_action_date: nextActionDate ? warsawDateTimeInputToIso(nextActionDate) : null,
+        next_contact_at: scheduledIso || (nextActionDate ? warsawDateTimeInputToIso(nextActionDate) : null),
         next_contact_reason: nextAction.trim() || note.trim() || null,
         attempt_number: type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,
         expires_at: type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3 ? new Date(Date.now() + 30 * 86400000).toISOString() : null,
@@ -306,8 +313,8 @@ export function QuickActivityForm() {
       if (dealId && actionDate) {
         const reason = nextAction.trim() || note.trim() || type.replace('_', ' ');
         const { error: dealError } = await db.from('deals').update({
-          next_action: reason, next_action_at: new Date(actionDate).toISOString(),
-          follow_up_at: type === 'FOLLOW_UP' ? new Date(actionDate).toISOString() : undefined,
+          next_action: reason, next_action_at: warsawDateTimeInputToIso(actionDate),
+          follow_up_at: type === 'FOLLOW_UP' ? warsawDateTimeInputToIso(actionDate) : undefined,
           contact_id: contactId, company_id: companyId || null,
         }).eq('id', dealId);
         if (dealError) throw dealError;
@@ -348,7 +355,7 @@ export function QuickActivityForm() {
           <div><Label>Imię</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
           <div><Label>Nazwisko</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
         </div>
-        {contactId ? <div className="rounded-xl bg-emerald-50 px-3 py-2"><p className="text-xs text-emerald-800">Wybrany Kontakt</p><p className="text-lg font-black text-emerald-950">{contacts.find((row) => row.id === contactId)?.name}</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => { setContactId(''); setDealId(''); }}>Zmień kontakt</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setContactId(''); setCompanyId(''); setDealId(''); setPhone(''); setFirstName(''); setLastName(''); }}><X className="size-4" /> Usuń powiązanie</Button></div></div> : <Button type="button" variant="outline" className="w-full" onClick={() => setContactDialog(true)}><Plus className="size-4" /> Dodaj nowy kontakt</Button>}
+        {contactId ? <div className="rounded-xl bg-emerald-50 px-3 py-2"><p className="text-xs text-emerald-800">Wybrany Kontakt</p><p className="text-lg font-black text-emerald-950">{contacts.find((row) => row.id === contactId)?.name}</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={clearContactSelection}>Wybierz inny kontakt</Button><Button type="button" size="sm" variant="ghost" onClick={clearContactSelection}><X className="size-4" /> Usuń powiązanie</Button></div></div> : <Button type="button" variant="outline" className="w-full" onClick={() => setContactDialog(true)}><Plus className="size-4" /> Dodaj nowy kontakt</Button>}
         <div className="grid gap-2 sm:grid-cols-2"><div><Label>Źródło</Label><CatalogSearchSelect catalogType="source" value={source} onChange={setSource} placeholder="Wyszukaj lub wybierz źródło" defaults={SOURCES} /></div><div><Label>Grupa produktu</Label><CatalogSearchSelect catalogType="product_group" value={productGroup} onChange={setProductGroup} placeholder="Wybierz grupę produktu" defaults={PRODUCT_GROUPS} /></div></div>
         <div><Label>Krótka notatka</Label><VoiceTextarea value={note} onChange={setNote} placeholder="Podyktuj lub wpisz pełną notatkę" className="min-h-24" /></div>
         <div><Label>Status</Label><div className="mt-1 grid grid-cols-2 gap-1.5">{ACTIVITY_STATUSES.map((item) => <button key={item} type="button" onClick={() => setStatus(item)} className={`min-h-10 rounded-lg px-2 text-xs font-bold ${status === item ? 'bg-lime-300 text-emerald-950 ring-2 ring-emerald-900' : 'bg-slate-100 text-slate-700'}`}>{item.replaceAll('_', ' ')}</button>)}</div></div>
