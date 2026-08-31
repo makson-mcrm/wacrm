@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Phone, Plus, Save, Search } from 'lucide-react';
+import { ChevronDown, Phone, Plus, Save, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,6 +31,7 @@ import {
 } from '@/lib/sales/quick-activity';
 
 const PRODUCT_GROUPS = ['1_HIPO_OF_ML','2_FIRMA_BC_ML','3_FIRMA_BC_NML','4_GOTÓWKA_OF_NML','5_LEASING_BC_ML'];
+const SOURCES = ['PODAJNIK do mbank','Własny Kontakt','FLASH podajnik','LEAD / DK','WKO mbank CRM','www.makson.space/formularz','TARGI / KONFERENCJE','Pośrednik PRZEKAZAŁ','REKOMENDACJA','Partner','zimna rozmowa','Reklama FB'];
 const RESULT_OPTIONS = [
   ['odebral', 'Odebrał / wykonano'],
   ['nie_odebral', 'Nie odebrał'],
@@ -62,14 +63,22 @@ export function QuickActivityForm() {
   const [note, setNote] = useState('');
   const [when, setWhen] = useState('');
   const [result, setResult] = useState('odebral');
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState(SOURCES[0]);
   const [productGroup, setProductGroup] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [contactDialog, setContactDialog] = useState(false);
   const [companyDialog, setCompanyDialog] = useState(false);
+  const [companyNip, setCompanyNip] = useState('');
   const [dealDialog, setDealDialog] = useState(false);
+
+  function resetForm() {
+    setType('TELEFON'); setStatus('WYKONANE'); setObjective('NOWE_POZYSKANIE');
+    setPhone(''); setFirstName(''); setLastName(''); setContactId(''); setCompanyId(''); setDealId('');
+    setNote(''); setWhen(''); setResult('odebral'); setSource(SOURCES[0]); setProductGroup('');
+    setNextAction(''); setNextActionDate(''); setDetailsOpen(false);
+  }
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -93,6 +102,11 @@ export function QuickActivityForm() {
     if (phoneSearchStrength(phone) === 'none') return [];
     return contacts.filter((row) => phoneContains(row.phone, phone)).slice(0, 8);
   }, [contacts, phone]);
+  const companyNipMatch = useMemo(() => {
+    const digits = companyNip.replace(/\D/g, '');
+    if (digits.length < 6) return undefined;
+    return companies.find((row) => (row.nip_normalized ?? row.nip?.replace(/\D/g, '')) === digits);
+  }, [companies, companyNip]);
 
   useEffect(() => {
     if (phoneSearchStrength(phone) !== 'strong' || contactId || phoneMatches.length !== 1) return;
@@ -165,23 +179,36 @@ export function QuickActivityForm() {
     const name = String(form.get('name') ?? '').trim();
     const nip = String(form.get('nip') ?? '').replace(/\D/g, '');
     if (!name) return toast.error('Podaj nazwę Firmy.');
-    const existing = nip.length === 10 ? companies.find((row) => row.nip_normalized === nip || row.nip?.replace(/\D/g, '') === nip) : undefined;
+    if (nip.length !== 10) return toast.error('NIP jest obowiązkowy i musi mieć 10 cyfr.');
+    const { data: existingRow, error: searchError } = await db.from('companies').select('*')
+      .eq('account_id', accountId).eq('nip_normalized', nip).maybeSingle();
+    if (searchError) return toast.error(`Nie sprawdzono NIP: ${searchError.message}`);
+    const existing = existingRow as Company | null;
     if (existing) {
       setCompanyId(existing.id);
+      if (contactId) {
+        const relationError = await saveRelations('', existing.id);
+        if (relationError) return toast.error(relationError);
+      }
       setCompanyDialog(false);
+      setCompanyNip('');
       toast.info('Firma już istnieje — została wybrana.');
       return;
     }
-    if (nip && nip.length !== 10) return toast.error('NIP musi mieć 10 cyfr.');
     const { data: { session } } = await db.auth.getSession();
     if (!session?.user) return;
     const { data, error } = await db.from('companies').insert({
-      account_id: accountId, user_id: session.user.id, name, nip: nip || null,
+      account_id: accountId, user_id: session.user.id, name, nip,
     }).select('*').single();
     if (error) return toast.error(`Nie zapisano Firmy: ${error.message}`);
     setCompanies((rows) => [...rows, data as Company]);
     setCompanyId(data.id);
+    if (contactId) {
+      const relationError = await saveRelations('', data.id);
+      if (relationError) return toast.error(relationError);
+    }
     setCompanyDialog(false);
+    setCompanyNip('');
     toast.success('Firma została dodana i wybrana.');
   }
 
@@ -207,16 +234,22 @@ export function QuickActivityForm() {
     toast.success('Deal został dodany i wybrany.');
   }
 
-  async function saveRelations(selectedDealId: string) {
-    if (!accountId) return;
-    if (contactId && companyId) await db.from('contact_companies').upsert({
-      account_id: accountId, contact_id: contactId, company_id: companyId,
+  async function saveRelations(selectedDealId: string, selectedCompanyId = companyId) {
+    if (!accountId) return 'Brak aktywnego konta.';
+    if (contactId && selectedCompanyId) {
+      const { error } = await db.from('contact_companies').upsert({
+      account_id: accountId, contact_id: contactId, company_id: selectedCompanyId,
       role: 'Osoba w sprawie', is_primary: true,
-    }, { onConflict: 'contact_id,company_id' });
-    if (contactId && selectedDealId) await db.from('deal_contacts').upsert({
+      }, { onConflict: 'contact_id,company_id' });
+      if (error) return `Nie zapisano relacji Kontakt–Firma: ${error.message}`;
+    }
+    if (contactId && selectedDealId) {
+      const { error } = await db.from('deal_contacts').upsert({
       account_id: accountId, deal_id: selectedDealId, contact_id: contactId,
       role: 'Osoba w sprawie', is_primary: true,
-    }, { onConflict: 'deal_id,contact_id' });
+      }, { onConflict: 'deal_id,contact_id' });
+      if (error) return `Nie zapisano relacji Kontakt–Deal: ${error.message}`;
+    }
   }
 
   async function saveActivity() {
@@ -267,7 +300,8 @@ export function QuickActivityForm() {
         expires_at: type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3 ? new Date(Date.now() + 30 * 86400000).toISOString() : null,
       });
       if (error) throw error;
-      await saveRelations(dealId);
+      const relationError = await saveRelations(dealId);
+      if (relationError) throw new Error(relationError);
       const actionDate = nextActionDate || (status !== 'WYKONANE' ? effectiveWhen : '');
       if (dealId && actionDate) {
         const reason = nextAction.trim() || note.trim() || type.replace('_', ' ');
@@ -279,7 +313,7 @@ export function QuickActivityForm() {
         if (dealError) throw dealError;
       }
       toast.success('Aktywność została zapisana.');
-      setNote(''); setNextAction(''); setNextActionDate(''); setWhen('');
+      resetForm();
     } catch (error) {
       toast.error(`Nie zapisano aktywności: ${error instanceof Error ? error.message : 'nieznany błąd'}`);
     } finally {
@@ -314,7 +348,8 @@ export function QuickActivityForm() {
           <div><Label>Imię</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
           <div><Label>Nazwisko</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
         </div>
-        {contactId ? <div className="rounded-xl bg-emerald-50 px-3 py-2"><p className="text-xs text-emerald-800">Wybrany Kontakt</p><p className="text-lg font-black text-emerald-950">{contacts.find((row) => row.id === contactId)?.name}</p></div> : <Button type="button" variant="outline" className="w-full" onClick={() => setContactDialog(true)}><Plus className="size-4" /> Dodaj osobę bez wychodzenia</Button>}
+        {contactId ? <div className="rounded-xl bg-emerald-50 px-3 py-2"><p className="text-xs text-emerald-800">Wybrany Kontakt</p><p className="text-lg font-black text-emerald-950">{contacts.find((row) => row.id === contactId)?.name}</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => { setContactId(''); setDealId(''); }}>Zmień kontakt</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setContactId(''); setCompanyId(''); setDealId(''); setPhone(''); setFirstName(''); setLastName(''); }}><X className="size-4" /> Usuń powiązanie</Button></div></div> : <Button type="button" variant="outline" className="w-full" onClick={() => setContactDialog(true)}><Plus className="size-4" /> Dodaj nowy kontakt</Button>}
+        <div className="grid gap-2 sm:grid-cols-2"><div><Label>Źródło</Label><CatalogSearchSelect catalogType="source" value={source} onChange={setSource} placeholder="Wyszukaj lub wybierz źródło" defaults={SOURCES} /></div><div><Label>Grupa produktu</Label><CatalogSearchSelect catalogType="product_group" value={productGroup} onChange={setProductGroup} placeholder="Wybierz grupę produktu" defaults={PRODUCT_GROUPS} /></div></div>
         <div><Label>Krótka notatka</Label><VoiceTextarea value={note} onChange={setNote} placeholder="Podyktuj lub wpisz pełną notatkę" className="min-h-24" /></div>
         <div><Label>Status</Label><div className="mt-1 grid grid-cols-2 gap-1.5">{ACTIVITY_STATUSES.map((item) => <button key={item} type="button" onClick={() => setStatus(item)} className={`min-h-10 rounded-lg px-2 text-xs font-bold ${status === item ? 'bg-lime-300 text-emerald-950 ring-2 ring-emerald-900' : 'bg-slate-100 text-slate-700'}`}>{item.replaceAll('_', ' ')}</button>)}</div></div>
         {status !== 'WYKONANE' && <div><Label>Data i godzina</Label><MobileDateTimeInput value={when} onChange={setWhen} required /></div>}
@@ -323,11 +358,9 @@ export function QuickActivityForm() {
 
       <button type="button" onClick={() => setDetailsOpen((value) => !value)} className="my-3 flex w-full items-center justify-between rounded-xl border bg-white px-4 py-3 font-bold text-emerald-950"><span>Firma, Deal i szczegóły</span><ChevronDown className={`size-5 transition ${detailsOpen ? 'rotate-180' : ''}`} /></button>
       {detailsOpen && <section className="space-y-3 rounded-2xl border bg-white p-3 shadow-sm">
-        <div><Label>Firma (opcjonalna)</Label><EntitySearchSelect value={companyId} onChange={setCompanyId} options={companies.map((row) => ({ value: row.id, label: row.name, keywords: `${row.nip ?? ''} ${row.phone ?? ''}` }))} placeholder="Wyszukaj Firmę" onAdd={() => setCompanyDialog(true)} addLabel="Dodaj Firmę" /></div>
-        <div><Label>Deal (opcjonalny)</Label><EntitySearchSelect value={dealId} onChange={setDealId} options={relatedDeals.map((row) => ({ value: row.id, label: row.title }))} placeholder="Wybierz Deal" onAdd={() => setDealDialog(true)} addLabel="Dodaj Deal" /></div>
+        <div><Label>Firma (opcjonalna)</Label><EntitySearchSelect value={companyId} onChange={setCompanyId} options={companies.map((row) => ({ value: row.id, label: `${row.name}${row.nip ? ` · NIP ${row.nip}` : ''}`, keywords: `${row.nip ?? ''} ${row.nip_normalized ?? ''} ${row.phone ?? ''}` }))} placeholder="Wyszukaj firmę po nazwie lub NIP" onAdd={() => setCompanyDialog(true)} addLabel="Dodaj firmę" />{companyId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => { setCompanyId(''); setDealId(''); }}><X className="size-4" /> Usuń powiązanie z firmą</Button>}</div>
+        <div><Label>Deal (opcjonalny)</Label><EntitySearchSelect value={dealId} onChange={setDealId} options={relatedDeals.map((row) => ({ value: row.id, label: row.title }))} placeholder="Wybierz Deal" onAdd={() => setDealDialog(true)} addLabel="Dodaj Deal" />{dealId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => setDealId('')}><X className="size-4" /> Usuń powiązanie z Dealem</Button>}</div>
         <div><Label>Cel aktywności / KPI</Label><select value={objective} onChange={(e) => setObjective(e.target.value as ObjectiveType)} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3">{OBJECTIVE_TYPES.map((item) => <option key={item}>{item}</option>)}</select></div>
-        <div><Label>Źródło</Label><CatalogSearchSelect catalogType="source" value={source} onChange={setSource} placeholder="Wyszukaj lub dodaj źródło" /></div>
-        <div><Label>Grupa produktu</Label><CatalogSearchSelect catalogType="product_group" value={productGroup} onChange={setProductGroup} placeholder="Wybierz grupę" defaults={PRODUCT_GROUPS} /></div>
         <div><Label>Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="Co dalej?" /></div>
         <div><Label>Termin następnego działania</Label><MobileDateTimeInput value={nextActionDate} onChange={setNextActionDate} /></div>
       </section>}
@@ -339,7 +372,7 @@ export function QuickActivityForm() {
       <Link href="/dashboard" className="mt-3 block text-center text-xs text-slate-500">Wróć do Pulpitu</Link>
 
       <InlineDialog open={contactDialog} onOpenChange={setContactDialog} title="Nowa osoba"><form onSubmit={createContact} className="space-y-3"><Input name="first_name" defaultValue={firstName} autoComplete="given-name" placeholder="Imię" /><Input name="last_name" defaultValue={lastName} autoComplete="family-name" placeholder="Nazwisko" /><Input name="phone" defaultValue={phone} inputMode="tel" autoComplete="tel" placeholder="Telefon" /><Button type="submit" className="w-full">Zapisz i wybierz</Button></form></InlineDialog>
-      <InlineDialog open={companyDialog} onOpenChange={setCompanyDialog} title="Nowa Firma"><form onSubmit={createCompany} className="space-y-3"><Input name="name" placeholder="Nazwa Firmy" /><Input name="nip" inputMode="numeric" placeholder="NIP (opcjonalnie)" /><Button type="submit" className="w-full">Zapisz i wybierz</Button></form></InlineDialog>
+      <InlineDialog open={companyDialog} onOpenChange={(open) => { setCompanyDialog(open); if (!open) setCompanyNip(''); }} title="Dodaj firmę"><form onSubmit={createCompany} className="space-y-3"><Input name="name" placeholder="Nazwa Firmy" required /><div><Label htmlFor="quick-company-nip">NIP (wymagany)</Label><Input id="quick-company-nip" name="nip" inputMode="numeric" placeholder="10 cyfr" required minLength={10} value={companyNip} onChange={(event) => setCompanyNip(event.target.value.replace(/\D/g, '').slice(0, 10))} /></div>{companyNipMatch ? <button type="button" className="w-full rounded-lg border border-amber-300 bg-amber-50 p-3 text-left" onClick={() => { setCompanyId(companyNipMatch.id); setCompanyDialog(false); setCompanyNip(''); }}><span className="block text-xs font-semibold text-amber-900">Ten NIP już istnieje — wybierz Firmę</span><span className="font-bold">{companyNipMatch.name}</span></button> : <p className="text-xs text-slate-500">Po wpisaniu NIP system sprawdzi istniejące Firmy.</p>}<Button type="submit" className="w-full" disabled={Boolean(companyNipMatch)}>Zapisz i wybierz</Button></form></InlineDialog>
       <InlineDialog open={dealDialog} onOpenChange={setDealDialog} title="Nowy Deal"><form onSubmit={createDeal} className="space-y-3"><Input name="title" placeholder="Nazwa Deala" /><p className="text-xs text-slate-500">Deal zostanie powiązany z wybraną osobą i Firmą.</p><Button type="submit" className="w-full">Zapisz i wybierz</Button></form></InlineDialog>
     </div>
   );

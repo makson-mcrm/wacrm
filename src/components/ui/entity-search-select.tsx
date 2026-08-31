@@ -43,13 +43,14 @@ export function EntitySearchSelect({
   const selected = options.find((option) => option.value === value);
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('pl');
+    const normalizedDigits = query.replace(/\D/g, '');
     if (!normalized) return options.slice(0, 50);
     return options
-      .filter((option) =>
-        `${option.label} ${option.keywords ?? ''}`
-          .toLocaleLowerCase('pl')
-          .includes(normalized)
-      )
+      .filter((option) => {
+        const haystack = `${option.label} ${option.keywords ?? ''}`;
+        return haystack.toLocaleLowerCase('pl').includes(normalized)
+          || (normalizedDigits.length >= 3 && haystack.replace(/\D/g, '').includes(normalizedDigits));
+      })
       .slice(0, 50);
   }, [options, query]);
 
@@ -160,3 +161,4 @@ export function EntitySearchSelect({
     </Popover>
   );
 }
+

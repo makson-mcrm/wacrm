@@ -108,6 +108,7 @@ export function ContactDetailView({
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [activityNotes, setActivityNotes] = useState<Array<{ id: string; description: string; created_at: string; title: string }>>([]);
 
   // Custom fields tab
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -178,13 +179,15 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoadingNotes(true);
 
-    const { data } = await supabase
-      .from('contact_notes')
-      .select('*')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-
-    if (data) setNotes(data);
+    const [notesResult, activitiesResult] = await Promise.all([
+      supabase.from('contact_notes').select('*').eq('contact_id', contactId).order('created_at', { ascending: false }),
+      supabase.from('sales_activities').select('id,title,description,occurred_at').eq('contact_id', contactId)
+        .not('description', 'is', null).order('occurred_at', { ascending: false }),
+    ]);
+    if (notesResult.data) setNotes(notesResult.data);
+    setActivityNotes((activitiesResult.data ?? []).map((row) => ({
+      id: row.id, title: row.title ?? 'Aktywność', description: row.description ?? '', created_at: row.occurred_at,
+    })));
     setLoadingNotes(false);
   }, [contactId, supabase]);
 
@@ -550,6 +553,12 @@ export function ContactDetailView({
                           {contact.company}
                         </span>
                       )}
+                      {contactCompanies.map((link) => (
+                        <span key={link.company_id} className="flex items-center gap-1 font-semibold text-emerald-700">
+                          <Building2 className="size-3" />
+                          {link.company?.name}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -792,12 +801,20 @@ export function ContactDetailView({
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="text-muted-foreground size-5 animate-spin" />
                       </div>
-                    ) : notes.length === 0 ? (
+                    ) : notes.length === 0 && activityNotes.length === 0 ? (
                       <p className="text-muted-foreground py-8 text-center text-sm">
                         {t('notesTab.noNotes')}
                       </p>
                     ) : (
-                      notes.map((note) => (
+                      <>
+                      {activityNotes.map((activity) => (
+                        <div key={activity.id} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                          <p className="text-xs font-semibold text-emerald-900">{activity.title}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{activity.description}</p>
+                          <p className="mt-1.5 text-xs text-slate-500">{new Date(activity.created_at).toLocaleString('pl-PL')}</p>
+                        </div>
+                      ))}
+                      {notes.map((note) => (
                         <div
                           key={note.id}
                           className="bg-muted/50 border-border/50 group rounded-lg border p-3"
@@ -826,7 +843,8 @@ export function ContactDetailView({
                             )}
                           </p>
                         </div>
-                      ))
+                      ))}
+                      </>
                     )}
                   </div>
                 </TabsContent>
@@ -1049,3 +1067,4 @@ export function ContactDetailView({
     </>
   );
 }
+

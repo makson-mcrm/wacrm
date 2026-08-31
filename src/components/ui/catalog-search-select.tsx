@@ -42,9 +42,10 @@ export function CatalogSearchSelect({
 
   useEffect(() => void load(), [load]);
 
-  const visible = options.length
-    ? options
-    : defaults.map((item) => ({ id: item, value: item }));
+  const visible = [
+    ...defaults.map((item) => options.find((option) => option.value === item) ?? ({ id: item, value: item })),
+    ...options.filter((option) => !defaults.includes(option.value)),
+  ];
 
   async function addOption() {
     const next = window.prompt('Nazwa nowej opcji');
@@ -105,4 +106,5 @@ export function CatalogSearchSelect({
     </div>
   );
 }
+
 
