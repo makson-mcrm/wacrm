@@ -33,6 +33,7 @@ import {
   type PriorityDeal,
 } from '@/lib/sales/priorities';
 import { buildCallRetryQueue } from '@/lib/sales/call-queue';
+import { toLocalDateTimeValue } from '@/lib/sales/quick-activity';
 
 type Priority = {
   position: number;
@@ -336,6 +337,23 @@ export default function DashboardPage() {
     }
   }
 
+  async function rescheduleActivity(id: string, value: string) {
+    const iso = value ? new Date(value).toISOString() : null;
+    const { error } = await db
+      .from('sales_activities')
+      .update({ next_contact_at: iso, scheduled_at: iso })
+      .eq('id', id);
+    if (error) toast.error(`Nie zmieniono terminu: ${error.message}`);
+    else {
+      setCallHistory((rows) =>
+        rows.map((row) =>
+          row.id === id ? { ...row, next_contact_at: iso } : row
+        )
+      );
+      toast.success('Termin został zmieniony bez tworzenia duplikatu.');
+    }
+  }
+
   const overdue = deals.filter(
       (deal) => deal.next_action_at && +new Date(deal.next_action_at) < now
     ),
@@ -377,9 +395,9 @@ export default function DashboardPage() {
             Najważniejsze działania sprzedażowe na dziś.
           </p>
         </div>
-        <Button onClick={() => setCallOpen(true)}>
+        <Button render={<Link href="/quick-call" />}>
           <Phone className="size-4" />
-          Zarejestruj telefon
+          Szybka Aktywność
         </Button>
       </div>
       <section className="border-primary/40 bg-primary/5 rounded-2xl border-2 p-5">
@@ -487,6 +505,14 @@ export default function DashboardPage() {
                       ? new Date(row.next_contact_at).toLocaleString('pl-PL')
                       : `Próba ${row.attempt_number || 1} z 3`}
                   </p>
+                  <MobileDateTimeInput
+                    value={
+                      row.next_contact_at
+                        ? toLocalDateTimeValue(new Date(row.next_contact_at))
+                        : ''
+                    }
+                    onChange={(value) => void rescheduleActivity(row.id, value)}
+                  />
                   {row.deal_id && (
                     <Link
                       href={`/deals/${row.deal_id}`}
@@ -864,4 +890,5 @@ function Field({
     </div>
   );
 }
+
 

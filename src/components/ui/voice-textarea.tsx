@@ -44,7 +44,7 @@ export function VoiceTextarea({
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const valueRef = useRef(value);
-  const dictatedRef = useRef(new Map<number, string>());
+  const finalDictationRef = useRef('');
   const baseValueRef = useRef('');
 
   useEffect(() => {
@@ -86,16 +86,21 @@ export function VoiceTextarea({
     instance.continuous = true;
     instance.interimResults = false;
     baseValueRef.current = valueRef.current;
-    dictatedRef.current.clear();
+    finalDictationRef.current = '';
     instance.onresult = (event) => {
-      for (let i = event.resultIndex ?? 0; i < event.results.length; i += 1)
-        if (event.results[i].isFinal)
-          dictatedRef.current.set(i, event.results[i][0].transcript.trim());
-      const spoken = [...dictatedRef.current.entries()]
-        .sort(([left], [right]) => left - right)
-        .map(([, text]) => text)
-        .filter(Boolean)
-        .join(' ');
+      let interim = '';
+      for (let i = event.resultIndex ?? 0; i < event.results.length; i += 1) {
+        const transcript = event.results[i][0].transcript.trim();
+        if (!transcript) continue;
+        if (event.results[i].isFinal) {
+          // Safari may restart result indexes at zero for every phrase. Append
+          // final phrases instead of keying them by index, which used to
+          // overwrite the beginning and leave only the last word/fragment.
+          if (!finalDictationRef.current.endsWith(transcript))
+            finalDictationRef.current = `${finalDictationRef.current} ${transcript}`.trim();
+        } else interim = `${interim} ${transcript}`.trim();
+      }
+      const spoken = `${finalDictationRef.current} ${interim}`.trim();
       if (spoken) {
         const base = baseValueRef.current;
         const next = `${base}${base.trim() ? '\n' : ''}${spoken}`;
@@ -200,4 +205,5 @@ export function VoiceTextarea({
     </div>
   );
 }
+
 

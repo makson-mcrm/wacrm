@@ -74,10 +74,9 @@ export default function CalendarPage() {
         db
           .from('sales_activities')
           .select(
-            'id,title,description,occurred_at,next_contact_at,deal_id,contact_id,company_id'
+            'id,title,description,activity_type,activity_status,occurred_at,scheduled_at,next_contact_at,next_action_date,deal_id,contact_id,company_id'
           )
-          .eq('activity_type', 'telefon')
-          .eq('completed', false),
+          .or('activity_status.eq.PLANOWANE,completed.eq.false'),
       ]);
     if (eventRows.error) toast.error('Nie udało się pobrać kalendarza.');
     const ds = (dealRows.data ?? []) as Deal[];
@@ -122,10 +121,14 @@ export default function CalendarPage() {
     }
     for (const followUp of followUpRows.data ?? []) {
       derived.push({
-        id: `call-${followUp.id}`,
+        id: `activity-${followUp.id}`,
         title: followUp.title,
-        event_type: 'telefon',
-        starts_at: followUp.next_contact_at || followUp.occurred_at,
+        event_type: followUp.activity_type || 'zadanie',
+        starts_at:
+          followUp.scheduled_at ||
+          followUp.next_action_date ||
+          followUp.next_contact_at ||
+          followUp.occurred_at,
         description: followUp.description,
         deal_id: followUp.deal_id,
         contact_id: followUp.contact_id,
@@ -511,4 +514,5 @@ function localDateTime(date: Date) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
+
 
