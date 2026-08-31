@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +43,20 @@ export function VoiceTextarea({
   const recognition = useRef<SpeechRecognitionLike | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const valueRef = useRef(value);
+  const dictatedRef = useRef(new Map<number, string>());
+  const baseValueRef = useRef('');
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  function appendText(text: string) {
+    const current = valueRef.current;
+    const next = `${current}${current.trim() ? '\n' : ''}${text.trim()}`;
+    valueRef.current = next;
+    onChange(next);
+  }
 
   function toggleRecording() {
     if (recording) {
@@ -71,13 +85,23 @@ export function VoiceTextarea({
     instance.lang = 'pl-PL';
     instance.continuous = true;
     instance.interimResults = false;
+    baseValueRef.current = valueRef.current;
+    dictatedRef.current.clear();
     instance.onresult = (event) => {
-      let spoken = '';
       for (let i = event.resultIndex ?? 0; i < event.results.length; i += 1)
         if (event.results[i].isFinal)
-          spoken += `${event.results[i][0].transcript} `;
-      if (spoken.trim())
-        onChange(`${value}${value.trim() ? '\n' : ''}${spoken.trim()}`);
+          dictatedRef.current.set(i, event.results[i][0].transcript.trim());
+      const spoken = [...dictatedRef.current.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([, text]) => text)
+        .filter(Boolean)
+        .join(' ');
+      if (spoken) {
+        const base = baseValueRef.current;
+        const next = `${base}${base.trim() ? '\n' : ''}${spoken}`;
+        valueRef.current = next;
+        onChange(next);
+      }
     };
     instance.onend = () => setRecording(false);
     instance.onerror = () => {
@@ -129,7 +153,7 @@ export function VoiceTextarea({
             throw new Error(
               result.error || 'Nie udało się przepisać nagrania.'
             );
-          onChange(`${value}${value.trim() ? '\n' : ''}${result.text}`);
+          appendText(result.text);
         } catch (error) {
           toast.error(
             error instanceof Error
@@ -176,3 +200,4 @@ export function VoiceTextarea({
     </div>
   );
 }
+

@@ -9,6 +9,8 @@ const row = (input: Partial<CallAttempt>): CallAttempt => ({
   call_result: input.call_result ?? 'nie_odebral',
   attempt_number: input.attempt_number ?? 1,
   expires_at: input.expires_at ?? '2026-09-22T10:00:00Z',
+  next_contact_at: input.next_contact_at,
+  completed: input.completed,
 });
 
 describe('buildCallRetryQueue', () => {
@@ -38,4 +40,25 @@ describe('buildCallRetryQueue', () => {
       buildCallRetryQueue([row({ expires_at: '2026-08-01T10:00:00Z' })], now)
     ).toEqual([]);
   });
+
+  it('keeps a planned follow-up and orders planned calls by deadline', () => {
+    const later = row({
+      id: 'later',
+      phone_number: '500600701',
+      call_result: 'follow_up',
+      completed: false,
+      next_contact_at: '2026-08-24T10:00:00Z',
+    });
+    const sooner = row({
+      id: 'sooner',
+      phone_number: '500600702',
+      call_result: 'follow_up',
+      completed: false,
+      next_contact_at: '2026-08-23T10:00:00Z',
+    });
+    expect(
+      buildCallRetryQueue([later, sooner], now).map((item) => item.id)
+    ).toEqual(['sooner', 'later']);
+  });
 });
+

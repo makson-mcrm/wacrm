@@ -25,6 +25,9 @@ import {
 import { toast } from 'sonner';
 import type { Company, Contact, Deal } from '@/types';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
+import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
+import { CatalogSearchSelect } from '@/components/ui/catalog-search-select';
+import { phonesMatch } from '@/lib/whatsapp/phone-utils';
 import {
   buildPrioritySuggestions,
   type PriorityDeal,
@@ -48,6 +51,13 @@ type CallQueueActivity = Activity & {
   company_id?: string | null;
   deal_id?: string | null;
   title?: string | null;
+  description?: string | null;
+  call_type?: string | null;
+  source?: string | null;
+  product_group?: string | null;
+  next_contact_at?: string | null;
+  next_contact_reason?: string | null;
+  completed?: boolean | null;
 };
 
 export default function DashboardPage() {
@@ -71,7 +81,10 @@ export default function DashboardPage() {
     [callResult, setCallResult] = useState('nie_odebral'),
     [callCategory, setCallCategory] = useState('Podajnik mBank'),
     [callProduct, setCallProduct] = useState(''),
-    [callChannel, setCallChannel] = useState('telefon');
+    [callChannel, setCallChannel] = useState('telefon'),
+    [callType, setCallType] = useState('nowe_pozyskanie'),
+    [nextContactAt, setNextContactAt] = useState(''),
+    [nextContactReason, setNextContactReason] = useState('');
 
   const load = useCallback(async () => {
     const {
@@ -114,7 +127,7 @@ export default function DashboardPage() {
       db
         .from('sales_activities')
         .select(
-          'id,activity_type,occurred_at,phone_number,call_result,attempt_number,expires_at,contact_id,company_id,deal_id,title'
+          'id,activity_type,occurred_at,phone_number,call_result,attempt_number,expires_at,contact_id,company_id,deal_id,title,description,call_type,source,product_group,next_contact_at,next_contact_reason,completed'
         )
         .eq('activity_type', 'telefon')
         .gte('occurred_at', queueStart)
@@ -138,10 +151,36 @@ export default function DashboardPage() {
       )
     );
   }, [db, date]);
+
+  const matchNumber = useCallback(
+    (number: string) => {
+      if (!number.trim()) return;
+      const contact = contacts.find((row) => phonesMatch(row.phone, number));
+      const company = companies.find(
+        (row) => row.phone && phonesMatch(row.phone, number)
+      );
+      const deal = deals.find(
+        (row) =>
+          row.contact_id === contact?.id || row.company_id === company?.id
+      );
+      if (contact) setCallContactId(contact.id);
+      if (deal) {
+        setCallDealId(deal.id);
+        setCallCompanyId(deal.company_id ?? company?.id ?? '');
+        if (deal.source) setCallCategory(deal.source);
+        if (deal.product_type) setCallProduct(deal.product_type);
+      } else if (company) setCallCompanyId(company.id);
+    },
+    [contacts, companies, deals]
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get('quick-call') === '1') setCallOpen(true);
+  }, []);
 
   async function savePriorities() {
     if (!accountId) return;
@@ -190,9 +229,11 @@ export default function DashboardPage() {
       .eq('phone_number', number)
       .order('occurred_at', { ascending: false })
       .limit(1);
+    const increasesAttempt = callResult === 'nie_odebral';
     const attemptNumber = Math.min(
       3,
-      Number(previousAttempts?.[0]?.attempt_number || 0) + 1
+      Number(previousAttempts?.[0]?.attempt_number || 0) +
+        (increasesAttempt ? 1 : 0)
     );
     const resultLabel =
       (
@@ -209,6 +250,7 @@ export default function DashboardPage() {
       callCategory && `Kategoria: ${callCategory}`,
       callProduct && `Produkt: ${callProduct}`,
       callDescription.trim() && `Ustalenia: ${callDescription.trim()}`,
+      nextContactReason.trim() && `Następny krok: ${nextContactReason.trim()}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -228,16 +270,68 @@ export default function DashboardPage() {
       call_category: callCategory || null,
       call_product: callProduct || null,
       call_channel: callChannel,
+      call_type: callType,
+      source: callCategory || null,
+      product_group: callProduct || null,
+      next_contact_at: nextContactAt || null,
+      next_contact_reason: nextContactReason.trim() || null,
       attempt_number: attemptNumber,
       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
-    const { error } = await db.from('sales_activities').insert(base);
+    const { data: saved, error } = await db
+      .from('sales_activities')
+      .insert(base)
+      .select('id')
+      .single();
     if (error) toast.error(`Nie zapisano telefonu: ${error.message}`);
     else {
+      if (nextContactAt) {
+        const reason =
+          nextContactReason.trim() ||
+          callDescription.trim() ||
+          'Ponowny kontakt';
+        const { error: followUpError } = await db
+          .from('sales_activities')
+          .insert({
+            ...base,
+            title: `Follow-up: ${contact?.name || company?.name || deal?.title || number}`,
+            description: reason,
+            occurred_at: new Date(nextContactAt).toISOString(),
+            completed: false,
+            call_result: 'follow_up',
+            next_contact_at: nextContactAt,
+            next_contact_reason: reason,
+            parent_activity_id: saved.id,
+          });
+        if (followUpError) {
+          toast.error(
+            `Telefon zapisano, ale follow-up wymaga ponowienia: ${followUpError.message}`
+          );
+          return;
+        }
+        if (deal) {
+          const { error: dealError } = await db
+            .from('deals')
+            .update({
+              next_action: reason,
+              next_action_at: nextContactAt,
+              follow_up_at: nextContactAt,
+            })
+            .eq('id', deal.id);
+          if (dealError) {
+            toast.error(
+              `Follow-up zapisano, ale nie zaktualizowano Deala: ${dealError.message}`
+            );
+            return;
+          }
+        }
+      }
       toast.success('Telefon został zapisany i doliczony do celu dnia.');
       setCallOpen(false);
       setCallDescription('');
       setCallNumber('');
+      setNextContactAt('');
+      setNextContactReason('');
       await load();
     }
   }
@@ -354,22 +448,56 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {callQueue.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{row.phone_number}</p>
-                  <p className="text-muted-foreground text-xs">
-                    Próba {row.attempt_number || 1} z 3
-                  </p>
+              <div key={row.id} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {contacts.find((item) => item.id === row.contact_id)
+                        ?.name ||
+                        companies.find((item) => item.id === row.company_id)
+                          ?.name ||
+                        'Numer bez kartoteki'}
+                    </p>
+                    <a
+                      href={`tel:${row.phone_number}`}
+                      className="text-primary text-sm underline-offset-2 hover:underline"
+                    >
+                      {row.phone_number}
+                    </a>
+                  </div>
+                  <a
+                    href={`tel:${row.phone_number}`}
+                    className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-semibold"
+                  >
+                    Zadzwoń
+                  </a>
                 </div>
-                <a
-                  href={`tel:${row.phone_number}`}
-                  className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-semibold"
-                >
-                  Zadzwoń
-                </a>
+                <div className="text-muted-foreground mt-2 space-y-1 text-xs">
+                  <p>
+                    {row.source || 'Bez źródła'} ·{' '}
+                    {row.product_group || 'Bez grupy produktu'}
+                  </p>
+                  <p>
+                    {row.next_contact_reason ||
+                      row.description ||
+                      'Ponowić kontakt'}
+                  </p>
+                  <p>
+                    {row.next_contact_at
+                      ? new Date(row.next_contact_at).toLocaleString('pl-PL')
+                      : `Próba ${row.attempt_number || 1} z 3`}
+                  </p>
+                  {row.deal_id && (
+                    <Link
+                      href={`/deals/${row.deal_id}`}
+                      target="_blank"
+                      className="text-primary inline-block font-medium hover:underline"
+                    >
+                      {deals.find((item) => item.id === row.deal_id)?.title ||
+                        'Otwórz Deal'}
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -470,6 +598,7 @@ export default function DashboardPage() {
                 <Input
                   value={callNumber}
                   onChange={(e) => setCallNumber(e.target.value)}
+                  onBlur={(e) => matchNumber(e.target.value)}
                   inputMode="tel"
                   placeholder="Wpisz lub podyktuj numer"
                 />
@@ -493,6 +622,16 @@ export default function DashboardPage() {
                       (contact) => contact.id === value
                     );
                     if (row?.phone) setCallNumber(row.phone);
+                    const linkedDeal = deals.find(
+                      (deal) => deal.contact_id === value
+                    );
+                    if (linkedDeal) {
+                      setCallDealId(linkedDeal.id);
+                      setCallCompanyId(linkedDeal.company_id ?? '');
+                      if (linkedDeal.source) setCallCategory(linkedDeal.source);
+                      if (linkedDeal.product_type)
+                        setCallProduct(linkedDeal.product_type);
+                    }
                   }}
                   placeholder="Wyszukaj osobę"
                   options={contacts.map((row) => ({
@@ -527,7 +666,26 @@ export default function DashboardPage() {
               <Field label="Deal">
                 <EntitySearchSelect
                   value={callDealId}
-                  onChange={setCallDealId}
+                  onChange={(value) => {
+                    setCallDealId(value);
+                    const linked = deals.find((deal) => deal.id === value);
+                    if (!linked) return;
+                    setCallContactId(linked.contact_id ?? '');
+                    setCallCompanyId(linked.company_id ?? '');
+                    const linkedContact = contacts.find(
+                      (contact) => contact.id === linked.contact_id
+                    );
+                    const linkedCompany = companies.find(
+                      (company) => company.id === linked.company_id
+                    );
+                    if (linkedContact?.phone || linkedCompany?.phone)
+                      setCallNumber(
+                        linkedContact?.phone || linkedCompany?.phone || ''
+                      );
+                    if (linked.source) setCallCategory(linked.source);
+                    if (linked.product_type)
+                      setCallProduct(linked.product_type);
+                  }}
                   placeholder="Wyszukaj Deal"
                   options={deals.map((row) => ({
                     value: row.id,
@@ -547,22 +705,50 @@ export default function DashboardPage() {
                   <option value="nie_odebral">Nie odebrał</option>
                   <option value="odebral">Odebrał</option>
                   <option value="oddzwonic">Oddzwonić później</option>
+                  <option value="przelozone_dzis">Przełożone na dziś</option>
+                  <option value="serwis_zakonczony">Serwis zakończony</option>
                   <option value="niezainteresowany">
                     Niezainteresowany — zamknij
                   </option>
                 </select>
               </Field>
-              <Field label="Kategoria">
-                <Input
+              <Field label="Typ rozmowy">
+                <select
+                  value={callType}
+                  onChange={(e) => setCallType(e.target.value)}
+                  className="bg-muted h-9 rounded-md border px-3 text-sm"
+                >
+                  <option value="nowe_pozyskanie">Nowe pozyskanie</option>
+                  <option value="follow_up">Follow-up</option>
+                  <option value="obsluga_serwis">Obsługa / serwis</option>
+                  <option value="spotkanie_telefoniczne">
+                    Spotkanie telefoniczne
+                  </option>
+                  <option value="przychodzacy">Kontakt przychodzący</option>
+                  <option value="inne">Inne</option>
+                </select>
+              </Field>
+              <Field label="Źródło">
+                <CatalogSearchSelect
+                  catalogType="call_source"
                   value={callCategory}
-                  onChange={(e) => setCallCategory(e.target.value)}
+                  onChange={setCallCategory}
+                  placeholder="Wyszukaj lub wpisz źródło"
                 />
               </Field>
-              <Field label="Produkt">
-                <Input
+              <Field label="Grupa produktu">
+                <CatalogSearchSelect
+                  catalogType="product_group"
                   value={callProduct}
-                  onChange={(e) => setCallProduct(e.target.value)}
-                  placeholder="Np. limit firmowy, hipoteka"
+                  onChange={setCallProduct}
+                  placeholder="Wybierz grupę"
+                  defaults={[
+                    '1_HIPO_OF_ML',
+                    '2_FIRMA_BC_ML',
+                    '3_FIRMA_BC_NML',
+                    '4_GOTÓWKA_OF_NML',
+                    '5_LEASING_BC_ML',
+                  ]}
                 />
               </Field>
             </div>
@@ -573,6 +759,21 @@ export default function DashboardPage() {
                 placeholder="Na telefonie możesz użyć dyktowania głosowego"
               />
             </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Następny kontakt — data i godzina">
+                <MobileDateTimeInput
+                  value={nextContactAt}
+                  onChange={setNextContactAt}
+                />
+              </Field>
+              <Field label="Powód / następny krok">
+                <Input
+                  value={nextContactReason}
+                  onChange={(e) => setNextContactReason(e.target.value)}
+                  placeholder="Np. sprawdzić dokument od klienta"
+                />
+              </Field>
+            </div>
             <div className="flex flex-wrap gap-2">
               {callContactId && (
                 <Button
@@ -663,3 +864,4 @@ function Field({
     </div>
   );
 }
+

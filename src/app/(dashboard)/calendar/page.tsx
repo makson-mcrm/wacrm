@@ -59,21 +59,34 @@ export default function CalendarPage() {
     [companyId, setCompanyId] = useState('');
 
   const load = useCallback(async () => {
-    const [eventRows, dealRows, contactRows, companyRows] = await Promise.all([
-      db.from('calendar_events').select('*').order('starts_at'),
-      db
-        .from('deals')
-        .select(
-          '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*)'
-        )
-        .eq('status', 'open')
-        .order('title'),
-      db.from('contacts').select('*').order('name'),
-      db.from('companies').select('*').order('name'),
-    ]);
+    const [eventRows, dealRows, contactRows, companyRows, followUpRows] =
+      await Promise.all([
+        db.from('calendar_events').select('*').order('starts_at'),
+        db
+          .from('deals')
+          .select(
+            '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*)'
+          )
+          .eq('status', 'open')
+          .order('title'),
+        db.from('contacts').select('*').order('name'),
+        db.from('companies').select('*').order('name'),
+        db
+          .from('sales_activities')
+          .select(
+            'id,title,description,occurred_at,next_contact_at,deal_id,contact_id,company_id'
+          )
+          .eq('activity_type', 'telefon')
+          .eq('completed', false),
+      ]);
     if (eventRows.error) toast.error('Nie udało się pobrać kalendarza.');
     const ds = (dealRows.data ?? []) as Deal[];
     const derived: CalendarEvent[] = [];
+    const dealsWithPlannedCall = new Set(
+      (followUpRows.data ?? [])
+        .map((row) => row.deal_id)
+        .filter((id): id is string => Boolean(id))
+    );
     for (const deal of ds) {
       if (deal.meeting_at)
         derived.push({
@@ -86,7 +99,7 @@ export default function CalendarPage() {
           contact_id: deal.contact_id ?? undefined,
           derived: true,
         });
-      if (deal.next_action_at)
+      if (deal.next_action_at && !dealsWithPlannedCall.has(deal.id))
         derived.push({
           id: `action-${deal.id}`,
           title: deal.next_action || `Działanie: ${deal.title}`,
@@ -96,7 +109,7 @@ export default function CalendarPage() {
           contact_id: deal.contact_id ?? undefined,
           derived: true,
         });
-      if (deal.follow_up_at)
+      if (deal.follow_up_at && !dealsWithPlannedCall.has(deal.id))
         derived.push({
           id: `follow-${deal.id}`,
           title: `Ponowny kontakt: ${deal.title}`,
@@ -106,6 +119,19 @@ export default function CalendarPage() {
           contact_id: deal.contact_id ?? undefined,
           derived: true,
         });
+    }
+    for (const followUp of followUpRows.data ?? []) {
+      derived.push({
+        id: `call-${followUp.id}`,
+        title: followUp.title,
+        event_type: 'telefon',
+        starts_at: followUp.next_contact_at || followUp.occurred_at,
+        description: followUp.description,
+        deal_id: followUp.deal_id,
+        contact_id: followUp.contact_id,
+        company_id: followUp.company_id,
+        derived: true,
+      });
     }
     setDeals(ds);
     setContacts((contactRows.data ?? []) as Contact[]);
@@ -485,3 +511,4 @@ function localDateTime(date: Date) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
+

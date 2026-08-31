@@ -5,6 +5,8 @@ export type CallAttempt = {
   call_result?: string | null;
   attempt_number?: number | null;
   expires_at?: string | null;
+  next_contact_at?: string | null;
+  completed?: boolean | null;
 };
 
 /**
@@ -24,10 +26,20 @@ export function buildCallRetryQueue<T extends CallAttempt>(
     if (number && !latestByNumber.has(number)) latestByNumber.set(number, row);
   }
 
-  return [...latestByNumber.values()].filter(
-    (row) =>
-      ['nie_odebral', 'oddzwonic'].includes(row.call_result || '') &&
-      Number(row.attempt_number || 0) < 3 &&
-      (!row.expires_at || +new Date(row.expires_at) > now)
-  );
+  return [...latestByNumber.values()]
+    .filter(
+      (row) =>
+        (row.completed === false ||
+          ['nie_odebral', 'oddzwonic', 'przelozone_dzis'].includes(
+            row.call_result || ''
+          )) &&
+        Number(row.attempt_number || 0) < 3 &&
+        (!row.expires_at || +new Date(row.expires_at) > now)
+    )
+    .sort(
+      (left, right) =>
+        +new Date(left.next_contact_at || left.occurred_at) -
+        +new Date(right.next_contact_at || right.occurred_at)
+    );
 }
+

@@ -29,6 +29,7 @@ import { useTranslations } from 'next-intl';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 interface ContactFormProps {
   open: boolean;
@@ -261,8 +262,19 @@ export function ContactForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
+    const form = new FormData(e.currentTarget as HTMLFormElement);
+    // Safari/iOS autofill can update the visible input without firing React's
+    // change event. FormData is the submitted source of truth in that case.
+    const submittedFirstName = String(
+      form.get('first_name') ?? firstName
+    ).trim();
+    const submittedLastName = String(form.get('last_name') ?? lastName).trim();
+    const submittedPhone = String(form.get('phone') ?? phone).trim();
+    if (
+      !submittedFirstName ||
+      !submittedLastName ||
+      normalizePhone(submittedPhone).length < 7
+    ) {
       toast.error('Imię, nazwisko i numer telefonu są wymagane.');
       return;
     }
@@ -288,11 +300,12 @@ export function ContactForm({
       let contactId = contact?.id;
 
       const payload = {
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
+        first_name: submittedFirstName,
+        last_name: submittedLastName,
         name:
-          [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || null,
-        phone: phone.trim(),
+          [submittedFirstName, submittedLastName].filter(Boolean).join(' ') ||
+          null,
+        phone: submittedPhone,
         phone_secondary: phoneSecondary.trim() || null,
         email: email.trim() || null,
         company: companies.find((row) => row.id === companyId)?.name ?? null,
@@ -436,6 +449,7 @@ export function ContactForm({
             <div className="space-y-2">
               <Label>Imię *</Label>
               <Input
+                name="first_name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Imię"
@@ -444,6 +458,7 @@ export function ContactForm({
             <div className="space-y-2">
               <Label>Nazwisko *</Label>
               <Input
+                name="last_name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Nazwisko"
@@ -457,6 +472,7 @@ export function ContactForm({
             </Label>
             <Input
               id="cf-phone"
+              name="phone"
               value={phone}
               onChange={(e) => {
                 setPhone(e.target.value);
@@ -566,7 +582,10 @@ export function ContactForm({
             </div>
             <div className="space-y-2">
               <Label>Follow-up</Label>
-              <MobileDateTimeInput value={followUpAt} onChange={setFollowUpAt} />
+              <MobileDateTimeInput
+                value={followUpAt}
+                onChange={setFollowUpAt}
+              />
             </div>
           </div>
 
