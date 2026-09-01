@@ -277,7 +277,6 @@ export function ImportModal({
           phone: row.phone,
           name: row.name || null,
           email: row.email || null,
-          company: row.company || null,
         }));
 
         const { data, error } = await supabase
@@ -622,3 +621,4 @@ export function ImportModal({
     </Dialog>
   );
 }
+

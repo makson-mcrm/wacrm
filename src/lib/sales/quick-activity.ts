@@ -1,4 +1,5 @@
 import { toWarsawDateTimeInput } from '@/lib/date-time';
+import { phoneDigits } from '@/lib/contacts/phone';
 
 export const ACTIVITY_TYPES = ['TELEFON','SPOTKANIE','FOLLOW_UP','WIADOMOSC','ZADANIE','INNY_KONTAKT'] as const;
 export const ACTIVITY_STATUSES = ['PLANOWANE','WYKONANE','NIE_ODBYLO_SIE','PRZELOZONE','ANULOWANE'] as const;
@@ -7,7 +8,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 export type ObjectiveType = (typeof OBJECTIVE_TYPES)[number];
 export const activityTypeForDb = (type: ActivityType) => type.toLocaleLowerCase('pl');
-export const normalizeActivityPhone = (value: string) => value.replace(/\D/g, '');
+export const normalizeActivityPhone = (value: string) => phoneDigits(value) || value.replace(/\D/g, '');
 export function phoneSearchStrength(query: string) {
   const size = normalizeActivityPhone(query).length;
   return size >= 6 ? 'strong' : size >= 3 ? 'suggest' : 'none';

@@ -30,6 +30,7 @@ import {
   type ActivityType,
   type ObjectiveType,
 } from '@/lib/sales/quick-activity';
+import { parseCrmPhone } from '@/lib/contacts/phone';
 
 const PRODUCT_GROUPS = ['1_HIPO_OF_ML','2_FIRMA_BC_ML','3_FIRMA_BC_NML','4_GOTÓWKA_OF_NML','5_LEASING_BC_ML'];
 const SOURCES = ['PODAJNIK do mbank','Własny Kontakt','FLASH podajnik','LEAD / DK','WKO mbank CRM','www.makson.space/formularz','TARGI / KONFERENCJE','Pośrednik PRZEKAZAŁ','REKOMENDACJA','Partner','zimna rozmowa','Reklama FB'];
@@ -154,8 +155,9 @@ export function QuickActivityForm() {
     const submittedFirst = String(form.get('first_name') ?? '').trim();
     const submittedLast = String(form.get('last_name') ?? '').trim();
     const submittedPhone = String(form.get('phone') ?? '').trim();
-    if (normalizeActivityPhone(submittedPhone).length < 7 || (!submittedFirst && !submittedLast)) {
-      toast.error('Podaj numer telefonu oraz imię lub nazwisko.');
+    const parsedPhone = parseCrmPhone(submittedPhone);
+    if (!parsedPhone.valid || (!submittedFirst && !submittedLast)) {
+      toast.error(!parsedPhone.valid ? parsedPhone.reason : 'Podaj numer telefonu oraz imię lub nazwisko.');
       return;
     }
     const existing = contacts.find((row) =>
@@ -176,7 +178,7 @@ export function QuickActivityForm() {
       first_name: submittedFirst || null,
       last_name: submittedLast || null,
       name: fullName,
-      phone: submittedPhone,
+      phone: parsedPhone.canonical,
     }).select('*').single();
     if (error) return toast.error(`Nie zapisano Kontaktu: ${error.message}`);
     const contact = data as Contact;

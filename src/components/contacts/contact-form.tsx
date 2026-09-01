@@ -8,10 +8,12 @@ import { toast } from 'sonner';
 import type { Company, Contact, Tag, ContactTag } from '@/types';
 import {
   findExistingContact,
+  findPossibleContactDuplicate,
   isExactMatch,
   isUniqueViolation,
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
+import { parseCrmPhone } from '@/lib/contacts/phone';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +31,6 @@ import { useTranslations } from 'next-intl';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
-import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 
 interface ContactFormProps {
   open: boolean;
@@ -235,9 +236,10 @@ export function ContactForm({
     setCheckingDup(true);
     try {
       const existing = await findExistingContact(supabase, accountId, value);
+      const possible = existing ? null : await findPossibleContactDuplicate(supabase, accountId, value);
       setDupMatch(
-        existing
-          ? { contact: existing, exact: isExactMatch(existing, value) }
+        existing || possible
+          ? { contact: (existing ?? possible)!, exact: existing ? isExactMatch(existing, value) : false }
           : null
       );
     } finally {
@@ -270,12 +272,9 @@ export function ContactForm({
     ).trim();
     const submittedLastName = String(form.get('last_name') ?? lastName).trim();
     const submittedPhone = String(form.get('phone') ?? phone).trim();
-    if (
-      !submittedFirstName ||
-      !submittedLastName ||
-      normalizePhone(submittedPhone).length < 7
-    ) {
-      toast.error('Imię, nazwisko i numer telefonu są wymagane.');
+    const parsedPhone = parseCrmPhone(submittedPhone);
+    if (!submittedFirstName || !submittedLastName || !parsedPhone.valid) {
+      toast.error(!parsedPhone.valid ? parsedPhone.reason : 'Imię, nazwisko i numer telefonu są wymagane.');
       return;
     }
 
@@ -305,7 +304,7 @@ export function ContactForm({
         name:
           [submittedFirstName, submittedLastName].filter(Boolean).join(' ') ||
           null,
-        phone: submittedPhone,
+        phone: parsedPhone.canonical,
         phone_secondary: phoneSecondary.trim() || null,
         email: email.trim() || null,
         description: description.trim() || null,

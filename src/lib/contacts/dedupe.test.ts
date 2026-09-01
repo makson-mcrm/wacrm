@@ -78,10 +78,10 @@ describe("findExistingContact", () => {
     return { from: () => builder } as unknown as SupabaseClient;
   }
 
-  it("returns a trunk-variant match via phonesMatch", async () => {
+  it("does not treat a trunk-variant as an exact duplicate", async () => {
     const db = stubDb([{ id: "c1", phone: "37063949836" }]);
     const hit = await findExistingContact(db, "acct", "+370 063 949 836");
-    expect(hit?.id).toBe("c1");
+    expect(hit).toBeNull();
   });
 
   it("returns null when no candidate matches", async () => {
@@ -95,3 +95,4 @@ describe("findExistingContact", () => {
     expect(await findExistingContact(db, "acct", "   ")).toBeNull();
   });
 });
+

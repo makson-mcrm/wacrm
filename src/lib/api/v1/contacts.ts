@@ -12,10 +12,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
-import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { parseCrmPhone } from '@/lib/contacts/phone';
 
 /** Row select that embeds the contact's tags for serialization. */
-export const CONTACT_SELECT = '*, contact_tags(tags(*))';
+export const CONTACT_SELECT = '*, contact_tags(tags(*)), contact_companies(company:companies(name))';
 
 export interface ApiContact {
   id: string;
@@ -40,16 +41,18 @@ export class ContactError extends Error {
 }
 
 type RawTagJoin = { tags: { id: string; name: string; color: string } | null };
+type RawCompanyJoin = { company: { name: string } | null };
 
 /** Flatten a `CONTACT_SELECT` row into the public contact shape. */
 export function serializeContact(row: Record<string, unknown>): ApiContact {
   const joins = (row.contact_tags as RawTagJoin[] | undefined) ?? [];
+  const companyJoins = (row.contact_companies as RawCompanyJoin[] | undefined) ?? [];
   return {
     id: row.id as string,
     phone: row.phone as string,
     name: (row.name as string | null) ?? null,
     email: (row.email as string | null) ?? null,
-    company: (row.company as string | null) ?? null,
+    company: companyJoins.find((join) => join.company)?.company?.name ?? null,
     avatar_url: (row.avatar_url as string | null) ?? null,
     tags: joins
       .map((j) => j.tags)
@@ -113,8 +116,9 @@ export async function findOrCreateContact(
   auditUserId: string,
   input: ContactInput
 ): Promise<{ id: string; created: boolean }> {
-  const sanitized = sanitizePhoneForMeta(input.phone);
-  if (!isValidE164(sanitized)) {
+  const parsedPhone = parseCrmPhone(input.phone);
+  const sanitized = parsedPhone.valid ? parsedPhone.canonical : '';
+  if (!parsedPhone.valid || !isValidE164(sanitized)) {
     throw new ContactError(
       "'phone' must be a valid phone number in E.164 format (e.g. +14155550123)",
       400
@@ -132,7 +136,6 @@ export async function findOrCreateContact(
       phone: sanitized,
       name: input.name ?? sanitized,
       email: input.email ?? null,
-      company: input.company ?? null,
     })
     .select('id')
     .single();
@@ -231,3 +234,4 @@ export async function getContactById(
   if (error || !data) return null;
   return serializeContact(data as Record<string, unknown>);
 }
+

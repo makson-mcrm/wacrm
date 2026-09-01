@@ -14,7 +14,8 @@ describe('serializeContact', () => {
       phone: '+14155550123',
       name: 'Jane',
       email: null,
-      company: 'Acme',
+      company: 'legacy value must not be used',
+      contact_companies: [{ company: { name: 'Acme' } }],
       avatar_url: null,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-02T00:00:00Z',
@@ -63,3 +64,4 @@ describe('findOrCreateContact', () => {
     ).rejects.toBeInstanceOf(ContactError);
   });
 });
+

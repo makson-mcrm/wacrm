@@ -87,7 +87,6 @@ export function ContactDetailView({
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editCompany, setEditCompany] = useState('');
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -150,7 +149,6 @@ export function ContactDetailView({
       setEditLastName(data.last_name ?? '');
       setEditPhone(data.phone);
       setEditEmail(data.email ?? '');
-      setEditCompany(data.company ?? '');
       setEditDescription(data.description ?? '');
       setEditLinkedin(data.linkedin_url ?? '');
       setEditPesel(data.pesel ?? '');
@@ -330,7 +328,6 @@ export function ContactDetailView({
         name: fullName || null,
         phone: editPhone.trim(),
         email: editEmail.trim() || null,
-        company: editCompany.trim() || null,
         description: editDescription.trim() || null,
         linkedin_url: editLinkedin.trim() || null,
         pesel: editPesel.trim() || null,
@@ -552,12 +549,6 @@ export function ContactDetailView({
                           {contact.email}
                         </span>
                       )}
-                      {contact.company && (
-                        <span className="flex items-center gap-1">
-                          <Building2 className="size-3" />
-                          {contact.company}
-                        </span>
-                      )}
                       {contactCompanies.map((link) => (
                         <span key={link.company_id} className="flex items-center gap-1 font-semibold text-emerald-700">
                           <Building2 className="size-3" />
@@ -671,16 +662,6 @@ export function ContactDetailView({
                       <Input
                         value={editEmail}
                         onChange={(e) => setEditEmail(e.target.value)}
-                        className="bg-muted border-border text-foreground h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
-                        {t('company')}
-                      </Label>
-                      <Input
-                        value={editCompany}
-                        onChange={(e) => setEditCompany(e.target.value)}
                         className="bg-muted border-border text-foreground h-8 text-sm"
                       />
                     </div>

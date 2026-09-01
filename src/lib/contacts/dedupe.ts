@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizePhone, phonesMatch } from "@/lib/whatsapp/phone-utils";
+import { canonicalPhone, isPossiblePhoneDuplicate, phoneDigits } from '@/lib/contacts/phone';
 
 /**
  * Contact de-duplication helpers, shared by the WhatsApp webhook, the
@@ -15,7 +15,7 @@ import { normalizePhone, phonesMatch } from "@/lib/whatsapp/phone-utils";
 
 /** Canonical de-dup key for a phone string (digits only). */
 export function normalizeKey(phone: string): string {
-  return normalizePhone(phone);
+  return phoneDigits(phone) || phone.replace(/\D/g, '');
 }
 
 /** Minimal shape we need back from a contacts lookup. */
@@ -37,22 +37,27 @@ export async function findExistingContact(
   accountId: string,
   phone: string,
 ): Promise<ExistingContact | null> {
-  const normalized = normalizePhone(phone);
+  const normalized = normalizeKey(phone);
   if (!normalized) return null;
-
-  const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
-
   const { data, error } = await db
     .from("contacts")
     .select("*")
     .eq("account_id", accountId)
-    .like("phone", `%${suffix}`);
+    .like('phone_normalized', `%${normalized.slice(-8)}`);
 
   if (error || !data) return null;
 
   return (
-    (data as ExistingContact[]).find((c) => phonesMatch(c.phone, phone)) ?? null
+    (data as ExistingContact[]).find((contact) => normalizeKey(contact.phone) === normalized) ?? null
   );
+}
+
+export async function findPossibleContactDuplicate(db: SupabaseClient, accountId: string, phone: string): Promise<ExistingContact | null> {
+  const canonical = canonicalPhone(phone);
+  if (!canonical) return null;
+  const { data, error } = await db.from('contacts').select('*').eq('account_id', accountId).not('phone', 'is', null).limit(5000);
+  if (error || !data) return null;
+  return (data as ExistingContact[]).find((contact) => isPossiblePhoneDuplicate(contact.phone, canonical)) ?? null;
 }
 
 /**
@@ -103,3 +108,4 @@ export function dedupeByPhone<T extends { phone: string }>(
 
   return { unique, duplicates };
 }
+

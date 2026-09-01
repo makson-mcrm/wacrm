@@ -36,6 +36,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [companyNames, setCompanyNames] = useState<string[]>([]);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
@@ -43,7 +44,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     const supabase = createClient();
 
     // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    const [dealsRes, notesRes, tagsRes, companiesRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -58,6 +59,10 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      supabase
+        .from('contact_companies')
+        .select('company:companies(name)')
+        .eq('contact_id', contact.id),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -71,6 +76,13 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
+    setCompanyNames(
+      (companiesRes.data ?? []).flatMap((row) => {
+        const company = row.company as { name?: string } | { name?: string }[] | null;
+        const value = Array.isArray(company) ? company[0]?.name : company?.name;
+        return value ? [value] : [];
+      })
+    );
   }, [contact]);
 
   // Load on contact change. setContactData/setTags run inside async
@@ -150,9 +162,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             <h3 className="mt-3 text-sm font-semibold text-foreground">
               {displayName}
             </h3>
-            {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
-            )}
+            {companyNames.map((name) => (
+              <p key={name} className="text-xs text-muted-foreground">{name}</p>
+            ))}
           </div>
 
           {/* Phone */}
@@ -301,3 +313,4 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     </div>
   );
 }
+
