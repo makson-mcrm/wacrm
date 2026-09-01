@@ -34,7 +34,6 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      await fetch('/api/quick-replies/defaults', { method: 'POST' });
       const response = await fetch('/api/quick-replies', { cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
       const rows = ((payload.quick_replies ?? []) as SmsTemplate[]).filter((item) => item.title.startsWith(SMS_TEMPLATE_PREFIX) && item.content_text);
