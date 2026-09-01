@@ -524,6 +524,9 @@ function CompanySheet({
     else await loadRelations();
   }
 
+  const smsContact = linkedContacts.find((link) => link.contact?.phone)?.contact ?? null;
+  const actionPhone = company?.phone || smsContact?.phone;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -533,10 +536,10 @@ function CompanySheet({
           <SheetTitle>
             {company ? `Firma: ${company.name}` : 'Nowa firma'}
           </SheetTitle>
-          {company?.phone && (
+          {company && actionPhone && (
             <div className="flex flex-wrap gap-2 pt-2">
-              <a className={buttonVariants({ size: 'sm' })} href={`tel:${company.phone}`}><Phone className="size-4" /> Zadzwoń</a>
-              <SmsAction phone={company.phone} contactName={company.name} companyId={company.id} />
+              <a className={buttonVariants({ size: 'sm' })} href={`tel:${actionPhone}`}><Phone className="size-4" /> Zadzwoń</a>
+              <SmsAction phone={actionPhone} contactName={smsContact?.name || company.name} contactId={smsContact?.id} companyId={company.id} />
             </div>
           )}
         </SheetHeader>

@@ -344,6 +344,7 @@ export default function DealPage() {
       </div>
     );
   if (!deal) return <div className="p-8">Wczytywanie karty Deal…</div>;
+  const actionContact = deal.contact?.phone ? deal.contact : people.find((person) => person.contact?.phone)?.contact;
   const first = deal.contact?.name?.split(' ')[0] || 'Dzień dobry',
     meeting = deal.meeting_at ? dt(deal.meeting_at) : '[DATA SPOTKANIA]',
     link = deal.drive_folder_url || '[LINK DO DOKUMENTÓW]',
@@ -411,13 +412,13 @@ export default function DealPage() {
             <Pencil className="h-4 w-4" />
             Edytuj Deal i powiązania
           </Button>
-          {deal.contact?.phone && (
+          {actionContact?.phone && (
             <>
-              <a className={buttonVariants({ size: 'sm' })} href={`tel:${deal.contact.phone}`}>
+              <a className={buttonVariants({ size: 'sm' })} href={`tel:${actionContact.phone}`}>
                 <Phone className="h-4 w-4" />
                 Zadzwoń
               </a>
-              <SmsAction phone={deal.contact.phone} contactName={deal.contact.name} contactId={deal.contact.id} companyId={deal.company_id} dealId={deal.id} />
+              <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} />
             </>
           )}
           {deal.contact?.email && (
