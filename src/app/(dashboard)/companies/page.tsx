@@ -481,7 +481,6 @@ function CompanySheet({
         last_name: newContactLastName.trim() || null,
         name: fullName || null,
         phone: newContactPhone.trim(),
-        company: company.name,
       })
       .select('*')
       .single();
@@ -539,7 +538,7 @@ function CompanySheet({
             <Field label="Nazwa firmy *">
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </Field>
-            <Field label="NIP">
+            <Field label="NIP *">
               <Input value={nip} onChange={(e) => setNip(e.target.value)} />
             </Field>
             <Field label="Telefon">
@@ -817,4 +816,5 @@ function Field({
     </div>
   );
 }
+
 

@@ -4,7 +4,7 @@ export function normalizeNip(value: string | null | undefined): string {
 }
 
 export function isValidNip(value: string | null | undefined): boolean {
-  const normalized = normalizeNip(value);
-  return normalized.length === 0 || normalized.length === 10;
+  return normalizeNip(value).length === 10;
 }
+
 

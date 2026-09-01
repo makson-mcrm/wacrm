@@ -65,6 +65,12 @@ interface ContactWithTags extends Contact {
   tags?: Tag[];
 }
 
+interface ContactCompanyRow {
+  contact_id: string;
+  is_primary: boolean;
+  company: { name: string } | null;
+}
+
 export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = useMemo(() => createClient(), []);
@@ -187,12 +193,21 @@ export default function ContactsPage() {
       return;
     }
 
-    // Fetch tags for these contacts
+    // Fetch tags and the canonical Contact↔Company links for these contacts.
+    // The legacy contacts.company text is not a relationship source.
     const contactIds = contactRows.map((c) => c.id);
-    const { data: contactTags } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag_id')
-      .in('contact_id', contactIds);
+    const [{ data: contactTags }, { data: companyLinks }] = await Promise.all([
+      supabase
+        .from('contact_tags')
+        .select('contact_id, tag_id')
+        .in('contact_id', contactIds),
+      supabase
+        .from('contact_companies')
+        .select('contact_id,is_primary,company:companies!contact_companies_company_id_fkey(name)')
+        .in('contact_id', contactIds)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true }),
+    ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
 
     const tagsByContact: Record<string, string[]> = {};
@@ -201,8 +216,16 @@ export default function ContactsPage() {
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
 
+    const companyByContact: Record<string, string> = {};
+    (companyLinks as unknown as ContactCompanyRow[] | null)?.forEach((link) => {
+      if (!companyByContact[link.contact_id] && link.company?.name) {
+        companyByContact[link.contact_id] = link.company.name;
+      }
+    });
+
     const enriched: ContactWithTags[] = contactRows.map((c) => ({
       ...c,
+      company: companyByContact[c.id] ?? null,
       tags: (tagsByContact[c.id] ?? [])
         .map((tid) => tagsMap[tid])
         .filter(Boolean),
@@ -943,3 +966,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+

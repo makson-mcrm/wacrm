@@ -7,10 +7,11 @@ describe('NIP duplicate key', () => {
     expect(normalizeNip('123 456 78 90')).toBe('1234567890');
   });
 
-  it('accepts an empty optional NIP or exactly ten digits', () => {
-    expect(isValidNip('')).toBe(true);
+  it('requires exactly ten digits', () => {
+    expect(isValidNip('')).toBe(false);
     expect(isValidNip('123-456-78-90')).toBe(true);
     expect(isValidNip('123')).toBe(false);
   });
 });
+
 

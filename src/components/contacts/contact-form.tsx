@@ -308,7 +308,6 @@ export function ContactForm({
         phone: submittedPhone,
         phone_secondary: phoneSecondary.trim() || null,
         email: email.trim() || null,
-        company: companies.find((row) => row.id === companyId)?.name ?? null,
         description: description.trim() || null,
         source: source || null,
         product_category: productCategory || null,
@@ -852,4 +851,5 @@ function toLocalDateTime(value?: string | null): string {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
+
 
