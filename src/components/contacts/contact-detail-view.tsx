@@ -31,7 +31,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,6 +55,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { formatWarsawDateTime } from '@/lib/date-time';
+import { SmsAction } from '@/components/sales/sms-action';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -558,7 +559,14 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={`tel:${contact.phone}`}><Phone className="size-4" /> Zadzwoń</a>
+                  <SmsAction
+                    phone={contact.phone}
+                    contactName={contact.name}
+                    contactId={contact.id}
+                    companyId={contactCompanies.find((link) => link.is_primary)?.company_id ?? contactCompanies[0]?.company_id}
+                  />
                   <Button
                     size="sm"
                     onClick={() => setTemplatePickerOpen(true)}

@@ -164,7 +164,7 @@ export function QuickRepliesManager() {
     <div>
       <SettingsPanelHead
         title="Szybkie odpowiedzi"
-        description="Gotowe teksty wstawiane do rozmowy WhatsApp. Zmienne w nawiasach uzupełnij danymi klienta przed wysłaniem."
+        description="Edytowalne gotowe teksty dla WhatsApp oraz szablony oznaczone „SMS —”, które otwierają aplikację Wiadomości bez automatycznej wysyłki."
         action={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -330,3 +330,4 @@ function KindTab({
     </button>
   );
 }
+

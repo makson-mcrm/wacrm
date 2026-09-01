@@ -16,9 +16,10 @@ import {
   Upload,
   UserPlus,
 } from 'lucide-react';
+import { SmsAction } from '@/components/sales/sms-action';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
@@ -411,12 +412,13 @@ export default function DealPage() {
             Edytuj Deal i powiązania
           </Button>
           {deal.contact?.phone && (
-            <a href={`tel:${deal.contact.phone}`}>
-              <Button size="sm">
+            <>
+              <a className={buttonVariants({ size: 'sm' })} href={`tel:${deal.contact.phone}`}>
                 <Phone className="h-4 w-4" />
                 Zadzwoń
-              </Button>
-            </a>
+              </a>
+              <SmsAction phone={deal.contact.phone} contactName={deal.contact.name} contactId={deal.contact.id} companyId={deal.company_id} dealId={deal.id} />
+            </>
           )}
           {deal.contact?.email && (
             <a href={`mailto:${deal.contact.email}`}>
