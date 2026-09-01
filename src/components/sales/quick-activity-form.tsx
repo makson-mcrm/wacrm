@@ -42,6 +42,7 @@ const RESULT_OPTIONS = [
 ] as const;
 
 type Stage = PipelineStage & { pipeline_id: string };
+type ContactCompanyLink = { contact_id: string; company_id: string; is_primary: boolean };
 
 export function QuickActivityForm() {
   const db = useMemo(() => createClient(), []);
@@ -50,6 +51,7 @@ export function QuickActivityForm() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [contactCompanyLinks, setContactCompanyLinks] = useState<ContactCompanyLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [type, setType] = useState<ActivityType>('TELEFON');
@@ -90,16 +92,18 @@ export function QuickActivityForm() {
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const [contactRows, companyRows, dealRows, stageRows] = await Promise.all([
+    const [contactRows, companyRows, dealRows, stageRows, companyLinkRows] = await Promise.all([
       db.from('contacts').select('*').eq('account_id', accountId).order('name'),
       db.from('companies').select('*').eq('account_id', accountId).order('name'),
       db.from('deals').select('*').eq('account_id', accountId).eq('status', 'open').order('title'),
       db.from('pipeline_stages').select('*').order('position'),
+      db.from('contact_companies').select('contact_id,company_id,is_primary').eq('account_id', accountId),
     ]);
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
     setDeals((dealRows.data ?? []) as Deal[]);
     setStages((stageRows.data ?? []) as Stage[]);
+    setContactCompanyLinks((companyLinkRows.data ?? []) as ContactCompanyLink[]);
     setLoading(false);
   }, [accountId, db]);
 
@@ -127,10 +131,13 @@ export function QuickActivityForm() {
     setPhone(contact.phone ?? phone);
     setFirstName(contact.first_name ?? contact.name?.split(' ')[0] ?? '');
     setLastName(contact.last_name ?? contact.name?.split(' ').slice(1).join(' ') ?? '');
+    const existingCompany = contactCompanyLinks.find((row) => row.contact_id === contact.id && row.is_primary)
+      ?? contactCompanyLinks.find((row) => row.contact_id === contact.id);
+    setCompanyId(existingCompany?.company_id ?? '');
     const relatedDeal = deals.find((row) => row.contact_id === contact.id);
     if (relatedDeal) {
       setDealId(relatedDeal.id);
-      setCompanyId(relatedDeal.company_id ?? '');
+      setCompanyId(relatedDeal.company_id ?? existingCompany?.company_id ?? '');
       setSource(relatedDeal.source ?? source);
       setProductGroup(relatedDeal.product_type ?? productGroup);
     }
@@ -259,6 +266,34 @@ export function QuickActivityForm() {
     }
   }
 
+  async function changeCompany(nextCompanyId: string) {
+    const previousCompanyId = companyId;
+    if (!contactId) {
+      setCompanyId(nextCompanyId);
+      return;
+    }
+    if (!nextCompanyId) {
+      if (!previousCompanyId) return;
+      const { error } = await db.from('contact_companies').delete()
+        .eq('account_id', accountId).eq('contact_id', contactId).eq('company_id', previousCompanyId);
+      if (error) return toast.error(`Nie usunięto powiązania: ${error.message}`);
+      setContactCompanyLinks((rows) => rows.filter((row) =>
+        row.contact_id !== contactId || row.company_id !== previousCompanyId
+      ));
+      setCompanyId(''); setDealId('');
+      toast.success('Powiązanie Kontakt–Firma zostało usunięte.');
+      return;
+    }
+    const relationError = await saveRelations('', nextCompanyId);
+    if (relationError) return toast.error(relationError);
+    setContactCompanyLinks((rows) => {
+      if (rows.some((row) => row.contact_id === contactId && row.company_id === nextCompanyId)) return rows;
+      return [...rows, { contact_id: contactId, company_id: nextCompanyId, is_primary: true }];
+    });
+    setCompanyId(nextCompanyId);
+    toast.success('Firma została trwale powiązana z Kontaktem.');
+  }
+
   async function saveActivity() {
     if (!accountId || saving) return;
     const number = phone.trim() || contacts.find((row) => row.id === contactId)?.phone || '';
@@ -365,7 +400,7 @@ export function QuickActivityForm() {
 
       <button type="button" onClick={() => setDetailsOpen((value) => !value)} className="my-3 flex w-full items-center justify-between rounded-xl border bg-white px-4 py-3 font-bold text-emerald-950"><span>Firma, Deal i szczegóły</span><ChevronDown className={`size-5 transition ${detailsOpen ? 'rotate-180' : ''}`} /></button>
       {detailsOpen && <section className="space-y-3 rounded-2xl border bg-white p-3 shadow-sm">
-        <div><Label>Firma (opcjonalna)</Label><EntitySearchSelect value={companyId} onChange={setCompanyId} options={companies.map((row) => ({ value: row.id, label: `${row.name}${row.nip ? ` · NIP ${row.nip}` : ''}`, keywords: `${row.nip ?? ''} ${row.nip_normalized ?? ''} ${row.phone ?? ''}` }))} placeholder="Wyszukaj firmę po nazwie lub NIP" onAdd={() => setCompanyDialog(true)} addLabel="Dodaj firmę" />{companyId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => { setCompanyId(''); setDealId(''); }}><X className="size-4" /> Usuń powiązanie z firmą</Button>}</div>
+        <div><Label>Firma (opcjonalna)</Label><EntitySearchSelect value={companyId} onChange={(value) => void changeCompany(value)} options={companies.map((row) => ({ value: row.id, label: `${row.name}${row.nip ? ` · NIP ${row.nip}` : ''}`, keywords: `${row.nip ?? ''} ${row.nip_normalized ?? ''} ${row.phone ?? ''}` }))} placeholder="Wyszukaj firmę po nazwie lub NIP" onAdd={() => setCompanyDialog(true)} addLabel="Dodaj firmę" />{companyId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => void changeCompany('')}><X className="size-4" /> Usuń powiązanie z firmą</Button>}</div>
         <div><Label>Deal (opcjonalny)</Label><EntitySearchSelect value={dealId} onChange={setDealId} options={relatedDeals.map((row) => ({ value: row.id, label: row.title }))} placeholder="Wybierz Deal" onAdd={() => setDealDialog(true)} addLabel="Dodaj Deal" />{dealId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => setDealId('')}><X className="size-4" /> Usuń powiązanie z Dealem</Button>}</div>
         <div><Label>Cel aktywności / KPI</Label><select value={objective} onChange={(e) => setObjective(e.target.value as ObjectiveType)} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3">{OBJECTIVE_TYPES.map((item) => <option key={item}>{item}</option>)}</select></div>
         <div><Label>Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="Co dalej?" /></div>
@@ -379,7 +414,7 @@ export function QuickActivityForm() {
       <Link href="/dashboard" className="mt-3 block text-center text-xs text-slate-500">Wróć do Pulpitu</Link>
 
       <InlineDialog open={contactDialog} onOpenChange={setContactDialog} title="Nowa osoba"><form onSubmit={createContact} className="space-y-3"><Input name="first_name" defaultValue={firstName} autoComplete="given-name" placeholder="Imię" /><Input name="last_name" defaultValue={lastName} autoComplete="family-name" placeholder="Nazwisko" /><Input name="phone" defaultValue={phone} inputMode="tel" autoComplete="tel" placeholder="Telefon" /><Button type="submit" className="w-full">Zapisz i wybierz</Button></form></InlineDialog>
-      <InlineDialog open={companyDialog} onOpenChange={(open) => { setCompanyDialog(open); if (!open) setCompanyNip(''); }} title="Dodaj firmę"><form onSubmit={createCompany} className="space-y-3"><Input name="name" placeholder="Nazwa Firmy" required /><div><Label htmlFor="quick-company-nip">NIP (wymagany)</Label><Input id="quick-company-nip" name="nip" inputMode="numeric" placeholder="10 cyfr" required minLength={10} value={companyNip} onChange={(event) => setCompanyNip(event.target.value.replace(/\D/g, '').slice(0, 10))} /></div>{companyNipMatch ? <button type="button" className="w-full rounded-lg border border-amber-300 bg-amber-50 p-3 text-left" onClick={() => { setCompanyId(companyNipMatch.id); setCompanyDialog(false); setCompanyNip(''); }}><span className="block text-xs font-semibold text-amber-900">Ten NIP już istnieje — wybierz Firmę</span><span className="font-bold">{companyNipMatch.name}</span></button> : <p className="text-xs text-slate-500">Po wpisaniu NIP system sprawdzi istniejące Firmy.</p>}<Button type="submit" className="w-full" disabled={Boolean(companyNipMatch)}>Zapisz i wybierz</Button></form></InlineDialog>
+      <InlineDialog open={companyDialog} onOpenChange={(open) => { setCompanyDialog(open); if (!open) setCompanyNip(''); }} title="Dodaj firmę"><form onSubmit={createCompany} className="space-y-3"><Input name="name" placeholder="Nazwa Firmy" required /><div><Label htmlFor="quick-company-nip">NIP (wymagany)</Label><Input id="quick-company-nip" name="nip" inputMode="numeric" placeholder="10 cyfr" required minLength={10} value={companyNip} onChange={(event) => setCompanyNip(event.target.value.replace(/\D/g, '').slice(0, 10))} /></div>{companyNipMatch ? <button type="button" className="w-full rounded-lg border border-amber-300 bg-amber-50 p-3 text-left" onClick={() => { void changeCompany(companyNipMatch.id); setCompanyDialog(false); setCompanyNip(''); }}><span className="block text-xs font-semibold text-amber-900">Ten NIP już istnieje — wybierz Firmę</span><span className="font-bold">{companyNipMatch.name}</span></button> : <p className="text-xs text-slate-500">Po wpisaniu NIP system sprawdzi istniejące Firmy.</p>}<Button type="submit" className="w-full" disabled={Boolean(companyNipMatch)}>Zapisz i wybierz</Button></form></InlineDialog>
       <InlineDialog open={dealDialog} onOpenChange={setDealDialog} title="Nowy Deal"><form onSubmit={createDeal} className="space-y-3"><Input name="title" placeholder="Nazwa Deala" /><p className="text-xs text-slate-500">Deal zostanie powiązany z wybraną osobą i Firmą.</p><Button type="submit" className="w-full">Zapisz i wybierz</Button></form></InlineDialog>
     </div>
   );
