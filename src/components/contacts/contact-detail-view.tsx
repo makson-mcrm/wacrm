@@ -541,10 +541,10 @@ export function ContactDetailView({
                         </span>
                       )}
                       {contactCompanies.map((link) => (
-                        <span key={link.company_id} className="flex items-center gap-1 font-semibold text-emerald-700">
+                        <Link key={link.company_id} href={`/companies?open=${link.company_id}`} target="_blank" rel="noopener noreferrer" className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-700 hover:bg-emerald-50 hover:underline">
                           <Building2 className="size-3" />
                           {link.company?.name}
-                        </span>
+                        </Link>
                       ))}
                     </div>
                   </div>
@@ -891,8 +891,8 @@ export function ContactDetailView({
                           key={link.company_id}
                           className="border-border bg-muted/50 flex items-center justify-between gap-3 rounded-lg border p-3"
                         >
-                          <div className="min-w-0">
-                            <p className="text-foreground truncate text-sm font-medium">
+                          <Link href={`/companies?open=${link.company_id}`} target="_blank" rel="noopener noreferrer" className="min-w-0 rounded px-1 py-1 hover:bg-emerald-50">
+                            <p className="text-foreground truncate text-sm font-medium hover:text-emerald-800 hover:underline">
                               {link.company?.name ?? 'Firma'}
                             </p>
                             {link.role && (
@@ -900,7 +900,7 @@ export function ContactDetailView({
                                 Rola: {link.role}
                               </p>
                             )}
-                          </div>
+                          </Link>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -985,6 +985,8 @@ export function ContactDetailView({
                         <Link
                           key={deal.id}
                           href={`/deals/${deal.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="border-border bg-muted/50 rounded-lg border p-3"
                         >
                           <div className="flex items-start justify-between gap-2">

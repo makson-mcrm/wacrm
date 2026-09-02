@@ -691,8 +691,8 @@ function CompanySheet({
                     key={link.contact_id}
                     className="border-border flex items-center justify-between rounded-lg border p-3 text-sm"
                   >
-                    <div>
-                      <p className="font-medium">
+                    <Link href={`/contacts?open=${link.contact_id}`} target="_blank" rel="noopener noreferrer" className="min-h-10 rounded px-1 py-1 hover:bg-emerald-50">
+                      <p className="font-medium hover:text-emerald-800 hover:underline">
                         {link.contact?.name || link.contact?.phone}
                       </p>
                       {link.role && (
@@ -700,7 +700,7 @@ function CompanySheet({
                           {link.role}
                         </p>
                       )}
-                    </div>
+                    </Link>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -796,6 +796,8 @@ function CompanySheet({
                   <Link
                     key={deal.id}
                     href={`/deals/${deal.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="border-border rounded-lg border p-3 text-sm"
                   >
                     <p className="font-medium">{deal.title}</p>

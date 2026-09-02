@@ -1002,7 +1002,7 @@ function LinkRow({
       <p className="text-sm font-medium">{value}</p>
     </div>
   );
-  return href ? <Link href={href}>{c}</Link> : c;
+  return href ? <Link href={href} target="_blank" rel="noopener noreferrer" className="block min-h-10 rounded px-1 py-1 hover:bg-emerald-50 hover:text-emerald-800 hover:underline">{c}</Link> : c;
 }
 function Template({
   title,
