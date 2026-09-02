@@ -1,14 +1,7 @@
 'use client';
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  CalendarDays,
-  Clock,
-  MapPin,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -21,467 +14,487 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { toast } from 'sonner';
 import type { Company, Contact, Deal } from '@/types';
-import { EntitySearchSelect } from '@/components/ui/entity-search-select';
-
-type CalendarEvent = {
+import {
+  BUSINESS_TIME_ZONE,
+  toWarsawDateTimeInput,
+  warsawDateTimeInputToIso,
+} from '@/lib/date-time';
+type View = 'day' | 'week' | 'month';
+type Source = 'calendar' | 'activity' | 'deal' | 'queue';
+type Item = {
   id: string;
+  source: Source;
+  sourceId: string;
+  sourceField?: string;
   title: string;
-  event_type: string;
-  starts_at: string;
-  ends_at?: string;
-  description?: string;
-  location?: string;
-  deal_id?: string;
-  contact_id?: string;
-  company_id?: string;
-  derived?: boolean;
+  type: string;
+  startsAt: string;
+  description?: string | null;
+  status?: string | null;
+  contactId?: string | null;
+  companyId?: string | null;
+  dealId?: string | null;
 };
-
 export default function CalendarPage() {
-  const db = useMemo(() => createClient(), []);
-  const { accountId } = useAuth();
-  const [events, setEvents] = useState<CalendarEvent[]>([]),
-    [deals, setDeals] = useState<Deal[]>([]),
+  const db = useMemo(() => createClient(), []),
+    { accountId, user } = useAuth();
+  const [items, setItems] = useState<Item[]>([]),
     [contacts, setContacts] = useState<Contact[]>([]),
     [companies, setCompanies] = useState<Company[]>([]),
+    [deals, setDeals] = useState<Deal[]>([]);
+  const [view, setView] = useState<View>('week'),
+    [cursor, setCursor] = useState(new Date()),
     [open, setOpen] = useState(false),
-    [editing, setEditing] = useState<CalendarEvent | null>(null),
-    [syncingGoogle, setSyncingGoogle] = useState(false);
+    [editing, setEditing] = useState<Item | null>(null);
   const [title, setTitle] = useState(''),
     [type, setType] = useState('spotkanie'),
-    [startsAt, setStartsAt] = useState(defaultDateTime()),
-    [description, setDescription] = useState(''),
-    [location, setLocation] = useState(''),
-    [dealId, setDealId] = useState(''),
+    [startsAt, setStartsAt] = useState(defaultInput()),
+    [note, setNote] = useState(''),
     [contactId, setContactId] = useState(''),
-    [companyId, setCompanyId] = useState('');
-
+    [companyId, setCompanyId] = useState(''),
+    [dealId, setDealId] = useState('');
   const load = useCallback(async () => {
-    const [eventRows, dealRows, contactRows, companyRows, followUpRows] =
+    if (!accountId) return;
+    const [events, activities, dealRows, queue, contactRows, companyRows] =
       await Promise.all([
-        db.from('calendar_events').select('*').order('starts_at'),
         db
-          .from('deals')
-          .select(
-            '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*)'
-          )
-          .eq('status', 'open')
-          .order('title'),
-        db.from('contacts').select('*').order('name'),
-        db.from('companies').select('*').order('name'),
+          .from('calendar_events')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('starts_at'),
         db
           .from('sales_activities')
           .select(
-            'id,title,description,activity_type,activity_status,occurred_at,scheduled_at,next_contact_at,next_action_date,deal_id,contact_id,company_id'
+            'id,title,description,activity_type,activity_status,scheduled_at,next_action_date,next_contact_at,contact_id,company_id,deal_id'
           )
-          .or('activity_status.eq.PLANOWANE,completed.eq.false'),
+          .eq('account_id', accountId)
+          .or(
+            'scheduled_at.not.is.null,next_action_date.not.is.null,next_contact_at.not.is.null'
+          ),
+        db
+          .from('deals')
+          .select(
+            '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*)'
+          )
+          .eq('account_id', accountId)
+          .eq('status', 'open')
+          .order('title'),
+        db
+          .from('work_queue_items')
+          .select(
+            'id,source_type,snoozed_until,status,contact_id,company_id,deal_id'
+          )
+          .eq('account_id', accountId)
+          .not('snoozed_until', 'is', null)
+          .neq('status', 'ZALATWIONE'),
+        db
+          .from('contacts')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('name'),
+        db
+          .from('companies')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('name'),
       ]);
-    if (eventRows.error) toast.error('Nie udało się pobrać kalendarza.');
-    const ds = (dealRows.data ?? []) as Deal[];
-    const derived: CalendarEvent[] = [];
-    const dealsWithPlannedCall = new Set(
-      (followUpRows.data ?? [])
-        .map((row) => row.deal_id)
-        .filter((id): id is string => Boolean(id))
-    );
-    for (const deal of ds) {
-      if (deal.meeting_at)
-        derived.push({
-          id: `meeting-${deal.id}`,
-          title: `Spotkanie: ${deal.title}`,
-          event_type: 'spotkanie',
-          starts_at: deal.meeting_at,
-          location: deal.meeting_place,
-          deal_id: deal.id,
-          contact_id: deal.contact_id ?? undefined,
-          derived: true,
-        });
-      if (deal.next_action_at && !dealsWithPlannedCall.has(deal.id))
-        derived.push({
-          id: `action-${deal.id}`,
-          title: deal.next_action || `Działanie: ${deal.title}`,
-          event_type: 'zadanie',
-          starts_at: deal.next_action_at,
-          deal_id: deal.id,
-          contact_id: deal.contact_id ?? undefined,
-          derived: true,
-        });
-      if (deal.follow_up_at && !dealsWithPlannedCall.has(deal.id))
-        derived.push({
-          id: `follow-${deal.id}`,
-          title: `Ponowny kontakt: ${deal.title}`,
-          event_type: 'telefon',
-          starts_at: deal.follow_up_at,
-          deal_id: deal.id,
-          contact_id: deal.contact_id ?? undefined,
-          derived: true,
-        });
-    }
-    for (const followUp of followUpRows.data ?? []) {
-      derived.push({
-        id: `activity-${followUp.id}`,
-        title: followUp.title,
-        event_type: followUp.activity_type || 'zadanie',
-        starts_at:
-          followUp.scheduled_at ||
-          followUp.next_action_date ||
-          followUp.next_contact_at ||
-          followUp.occurred_at,
-        description: followUp.description,
-        deal_id: followUp.deal_id,
-        contact_id: followUp.contact_id,
-        company_id: followUp.company_id,
-        derived: true,
+    const result: Item[] = [];
+    for (const r of events.data ?? [])
+      result.push({
+        id: `calendar-${r.id}`,
+        source: 'calendar',
+        sourceId: r.id,
+        title: r.title,
+        type: r.event_type,
+        startsAt: r.starts_at,
+        description: r.description,
+        status: 'PLANOWANE',
+        contactId: r.contact_id,
+        companyId: r.company_id,
+        dealId: r.deal_id,
       });
+    for (const r of activities.data ?? []) {
+      const date = r.scheduled_at || r.next_action_date || r.next_contact_at;
+      if (date)
+        result.push({
+          id: `activity-${r.id}`,
+          source: 'activity',
+          sourceId: r.id,
+          title: r.title,
+          type: r.activity_type,
+          startsAt: date,
+          description: r.description,
+          status: r.activity_status,
+          contactId: r.contact_id,
+          companyId: r.company_id,
+          dealId: r.deal_id,
+        });
     }
-    setDeals(ds);
+    for (const d of dealRows.data ?? [])
+      for (const [field, label, eventType] of [
+        ['meeting_at', 'Spotkanie', 'spotkanie'],
+        ['next_action_at', d.next_action || 'Następne działanie', 'zadanie'],
+        ['follow_up_at', 'Follow-up', 'follow_up'],
+      ] as const) {
+        const date = d[field];
+        if (date)
+          result.push({
+            id: `deal-${field}-${d.id}`,
+            source: 'deal',
+            sourceId: d.id,
+            sourceField: field,
+            title: `${label}: ${d.title}`,
+            type: eventType,
+            startsAt: date,
+            status: 'PLANOWANE',
+            contactId: d.contact_id,
+            companyId: d.company_id,
+            dealId: d.id,
+          });
+      }
+    for (const r of queue.data ?? [])
+      if (r.snoozed_until)
+        result.push({
+          id: `queue-${r.id}`,
+          source: 'queue',
+          sourceId: r.id,
+          title: `DO OBSŁUGI: ${r.source_type}`,
+          type: 'do_obslugi',
+          startsAt: r.snoozed_until,
+          status: r.status,
+          contactId: r.contact_id,
+          companyId: r.company_id,
+          dealId: r.deal_id,
+        });
+    setItems(
+      result.sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+    );
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
-    setEvents(
-      [...((eventRows.data ?? []) as CalendarEvent[]), ...derived].sort(
-        (a, b) => +new Date(a.starts_at) - +new Date(b.starts_at)
-      )
-    );
-  }, [db]);
-
+    setDeals((dealRows.data ?? []) as Deal[]);
+  }, [accountId, db]);
   useEffect(() => {
     void load();
   }, [load]);
-  const openNew = useCallback(
-    (eventType = 'spotkanie', linkedDeal = '') => {
-      setEditing(null);
-      setTitle('');
-      setType(eventType);
-      setStartsAt(defaultDateTime());
-      setDescription('');
-      setLocation('');
-      setDealId(linkedDeal);
-      const deal = deals.find((row) => row.id === linkedDeal);
-      setContactId(deal?.contact_id ?? '');
-      setCompanyId(deal?.company_id ?? '');
-      setOpen(true);
-    },
-    [deals]
-  );
-
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    if (query.get('new'))
-      openNew(
-        query.get('new') === 'task' ? 'zadanie' : 'spotkanie',
-        query.get('deal') ?? ''
-      );
-  }, [openNew]);
-  function openEdit(event: CalendarEvent) {
-    if (event.derived) {
-      toast.info(
-        'Ten termin pochodzi z karty Deala. Edytuj go bezpośrednio na karcie Deala.'
-      );
-      return;
-    }
-    setEditing(event);
-    setTitle(event.title);
-    setType(event.event_type);
-    setStartsAt(localDateTime(new Date(event.starts_at)));
-    setDescription(event.description ?? '');
-    setLocation(event.location ?? '');
-    setDealId(event.deal_id ?? '');
-    setContactId(event.contact_id ?? '');
-    setCompanyId(event.company_id ?? '');
+    if (window.matchMedia('(max-width: 640px)').matches) setView('day');
+  }, []);
+  const range = useMemo(() => visibleRange(cursor, view), [cursor, view]),
+    days = useMemo(() => daysBetween(range.start, range.end), [range]);
+  const visible = items.filter((x) => {
+    const d = new Date(x.startsAt);
+    return d >= range.start && d < range.end;
+  });
+  const names = {
+    contacts: new Map(contacts.map((x) => [x.id, x.name || x.phone])),
+    companies: new Map(companies.map((x) => [x.id, x.name])),
+    deals: new Map(deals.map((x) => [x.id, x.title])),
+  };
+  function reset(item?: Item, date?: Date) {
+    setEditing(item ?? null);
+    setTitle(item?.title ?? '');
+    setType(item?.type ?? 'spotkanie');
+    setStartsAt(toWarsawDateTimeInput(item?.startsAt ?? date ?? new Date()));
+    setNote(item?.description ?? '');
+    setContactId(item?.contactId ?? '');
+    setCompanyId(item?.companyId ?? '');
+    setDealId(item?.dealId ?? '');
     setOpen(true);
   }
-
   async function save() {
-    if (!title.trim() || !startsAt || !accountId) {
-      toast.error('Uzupełnij nazwę oraz termin.');
-      return;
-    }
-    const {
-      data: { session },
-    } = await db.auth.getSession();
-    if (!session?.user) return;
-    const payload = {
-      title: title.trim(),
-      event_type: type,
-      starts_at: new Date(startsAt).toISOString(),
-      ends_at: null,
-      description: description.trim() || null,
-      location: location.trim() || null,
-      deal_id: dealId || null,
-      contact_id: contactId || null,
-      company_id: companyId || null,
-    };
-    const result = editing
-      ? await db.from('calendar_events').update(payload).eq('id', editing.id)
-      : await db.from('calendar_events').insert({
-          ...payload,
+    if (!accountId || !user || !title.trim() || !startsAt)
+      return toast.error('Uzupełnij tytuł oraz termin.');
+    const iso = warsawDateTimeInputToIso(startsAt);
+    let error = null;
+    if (editing) {
+      if (editing.source === 'calendar')
+        ({ error } = await db
+          .from('calendar_events')
+          .update({
+            title: title.trim(),
+            event_type: type,
+            starts_at: iso,
+            description: note.trim() || null,
+            contact_id: contactId || null,
+            company_id: companyId || null,
+            deal_id: dealId || null,
+          })
+          .eq('id', editing.sourceId));
+      else if (editing.source === 'activity')
+        ({ error } = await db
+          .from('sales_activities')
+          .update({
+            title: title.trim(),
+            description: note.trim() || null,
+            activity_type: type,
+            scheduled_at: iso,
+            contact_id: contactId || null,
+            company_id: companyId || null,
+            deal_id: dealId || null,
+          })
+          .eq('id', editing.sourceId));
+      else if (editing.source === 'deal' && editing.sourceField)
+        ({ error } = await db
+          .from('deals')
+          .update({ [editing.sourceField]: iso })
+          .eq('id', editing.sourceId));
+      else
+        ({ error } = await db
+          .from('work_queue_items')
+          .update({ snoozed_until: iso })
+          .eq('id', editing.sourceId));
+    } else if (type === 'zadanie' || type === 'follow_up')
+      ({ error } = await db
+        .from('sales_activities')
+        .insert({
           account_id: accountId,
-          user_id: session.user.id,
-        });
-    if (result.error)
-      toast.error(`Nie udało się zapisać: ${result.error.message}`);
-    else {
-      toast.success(
-        editing ? 'Termin został zmieniony.' : 'Termin został dodany.'
-      );
-      setOpen(false);
-      await load();
-    }
-  }
-
-  async function remove() {
-    if (!editing) return;
-    const { error } = await db
-      .from('calendar_events')
-      .delete()
-      .eq('id', editing.id);
-    if (error) toast.error('Nie udało się usunąć terminu.');
-    else {
-      setOpen(false);
-      await load();
-    }
-  }
-
-  async function syncGoogle() {
-    setSyncingGoogle(true);
-    const response = await fetch('/api/google-calendar/sync', {
-      method: 'POST',
-    });
-    const result = (await response.json().catch(() => ({}))) as {
-      pushed?: number;
-      pulled?: number;
-      error?: string;
-    };
-    setSyncingGoogle(false);
-    if (!response.ok) {
-      toast.error(result.error || 'Nie udało się zsynchronizować kalendarza.');
-      return;
-    }
-    toast.success(
-      `Kalendarz zsynchronizowany: wysłano ${result.pushed ?? 0}, pobrano ${result.pulled ?? 0}.`
-    );
+          user_id: user.id,
+          activity_type: type,
+          title: title.trim(),
+          description: note.trim() || null,
+          activity_status: 'PLANOWANE',
+          scheduled_at: iso,
+          occurred_at: new Date().toISOString(),
+          completed: false,
+          contact_id: contactId || null,
+          company_id: companyId || null,
+          deal_id: dealId || null,
+        }));
+    else
+      ({ error } = await db
+        .from('calendar_events')
+        .insert({
+          account_id: accountId,
+          user_id: user.id,
+          title: title.trim(),
+          event_type: type,
+          starts_at: iso,
+          description: note.trim() || null,
+          contact_id: contactId || null,
+          company_id: companyId || null,
+          deal_id: dealId || null,
+        }));
+    if (error) return toast.error(error.message);
+    toast.success(editing ? 'Termin zmieniony.' : 'Zdarzenie dodane.');
+    setOpen(false);
     await load();
   }
-
-  const grouped = events.reduce<Record<string, CalendarEvent[]>>(
-    (result, event) => {
-      const key = new Date(event.starts_at).toLocaleDateString('pl-PL', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-      (result[key] ??= []).push(event);
-      return result;
-    },
-    {}
-  );
+  async function complete() {
+    if (!editing || editing.source !== 'activity') return;
+    const { error } = await db
+      .from('sales_activities')
+      .update({
+        activity_status: 'WYKONANE',
+        completed: true,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', editing.sourceId);
+    if (error) return toast.error(error.message);
+    toast.success('Aktywność oznaczona jako wykonana.');
+    setOpen(false);
+    await load();
+  }
+  const shift = (n: number) => {
+    const d = new Date(cursor);
+    if (view === 'month') d.setMonth(d.getMonth() + n);
+    else d.setDate(d.getDate() + n * (view === 'week' ? 7 : 1));
+    setCursor(d);
+  };
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4 p-3 md:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Kalendarz</h1>
           <p className="text-muted-foreground text-sm">
-            Spotkania, telefony, zadania i ponowne kontakty.
+            Spotkania, follow-upy, zadania i terminy sprzedażowe.
           </p>
         </div>
-        <div className="flex gap-2">
+        <Button onClick={() => reset()}>
+          <Plus className="size-4" />
+          Dodaj
+        </Button>
+      </header>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2">
+        <div className="flex">
+          <Button size="sm" variant="ghost" onClick={() => shift(-1)}>
+            <ChevronLeft />
+          </Button>
           <Button
+            size="sm"
             variant="outline"
-            disabled={syncingGoogle}
-            onClick={() => void syncGoogle()}
+            onClick={() => setCursor(new Date())}
           >
-            <CalendarDays className="size-4" />
-            {syncingGoogle ? 'Synchronizuję…' : 'Synchronizuj Google'}
+            Dziś
           </Button>
-          <Button variant="outline" onClick={() => openNew('zadanie')}>
-            <Plus className="size-4" />
-            Zadanie
+          <Button size="sm" variant="ghost" onClick={() => shift(1)}>
+            <ChevronRight />
           </Button>
-          <Button onClick={() => openNew('spotkanie')}>
-            <Plus className="size-4" />
-            Spotkanie
-          </Button>
+        </div>
+        <p className="font-semibold capitalize">{rangeLabel(cursor, view)}</p>
+        <div className="flex">
+          {(['day', 'week', 'month'] as View[]).map((v) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={view === v ? 'default' : 'ghost'}
+              onClick={() => setView(v)}
+            >
+              {v === 'day' ? 'Dzień' : v === 'week' ? 'Tydzień' : 'Miesiąc'}
+            </Button>
+          ))}
         </div>
       </div>
-      {!events.length ? (
-        <div className="text-muted-foreground rounded-xl border border-dashed p-12 text-center">
-          <CalendarDays className="mx-auto mb-3 size-10" />
-          Brak zaplanowanych terminów.
-        </div>
-      ) : (
-        Object.entries(grouped).map(([day, rows]) => (
-          <section key={day} className="bg-card rounded-xl border p-4">
-            <h2 className="mb-3 font-semibold capitalize">{day}</h2>
-            <div className="space-y-2">
-              {rows.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={() => openEdit(event)}
-                  className="hover:bg-muted/60 flex w-full items-start gap-3 rounded-lg border p-3 text-left"
-                >
-                  <div className="bg-primary/10 text-primary rounded-md p-2">
-                    <Clock className="size-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{event.title}</p>
-                      <span className="bg-muted rounded-full px-2 py-0.5 text-xs">
-                        {event.event_type}
-                      </span>
-                      {event.derived && (
-                        <span className="text-muted-foreground text-xs">
-                          z Deala
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground text-sm">
-                      {new Date(event.starts_at).toLocaleTimeString('pl-PL', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {event.ends_at
-                        ? `–${new Date(event.ends_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`
-                        : ''}
-                    </p>
-                    {event.description && (
-                      <p className="mt-1 text-sm whitespace-pre-wrap">
-                        {event.description}
-                      </p>
-                    )}
-                    {event.location && (
-                      <p className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-                        <MapPin className="size-3" />
-                        {event.location}
-                      </p>
-                    )}
-                  </div>
-                  {!event.derived && (
-                    <Pencil className="text-muted-foreground size-4" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </section>
-        ))
-      )}
+      <div
+        className={
+          view === 'month'
+            ? 'bg-border grid grid-cols-7 gap-px overflow-hidden rounded-xl border'
+            : view === 'week'
+              ? 'grid gap-2 md:grid-cols-7'
+              : 'space-y-2'
+        }
+      >
+        {days.map((day) => (
+          <Day
+            key={dateKey(day)}
+            day={day}
+            items={visible.filter(
+              (x) => dateKey(new Date(x.startsAt)) === dateKey(day)
+            )}
+            month={view === 'month'}
+            names={names}
+            onAdd={() => {
+              const d = new Date(day);
+              d.setHours(9, 0, 0, 0);
+              reset(undefined, d);
+            }}
+            onOpen={reset}
+          />
+        ))}
+      </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editing ? 'Edytuj' : 'Nowe'}:{' '}
-              {type === 'spotkanie'
-                ? 'spotkanie'
-                : type === 'telefon'
-                  ? 'telefon'
-                  : 'zadanie'}
+              {editing ? 'Szczegóły i edycja' : 'Nowe zdarzenie'}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <Field label="Nazwa *">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Np. Analiza hipoteczna — Jan Kowalski"
-              />
+          <div className="space-y-3">
+            <Field label="Tytuł *">
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
             </Field>
-            <Field label="Data i godzina *">
-              <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-              />
-            </Field>
-            <Field label="Rodzaj zdarzenia *">
-              <select
-                className="bg-muted h-10 rounded-md border px-3 text-sm"
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-              >
-                <option value="spotkanie">Spotkanie</option>
-                <option value="telefon">Telefon</option>
-                <option value="zadanie">Zadanie</option>
-                <option value="follow_up">Ponowny kontakt</option>
-              </select>
-            </Field>
-            <Field label="Opis">
-              <VoiceTextarea
-                value={description}
-                onChange={setDescription}
-                className="min-h-24"
-                placeholder="Cel spotkania, ustalenia lub zadanie do wykonania"
-              />
-            </Field>
-            {type === 'spotkanie' && (
-              <Field label="Miejsce lub link">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Data i godzina *">
                 <Input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Mielec, Rzeszów, online…"
+                  type="datetime-local"
+                  value={startsAt}
+                  onInput={(e) => setStartsAt(e.currentTarget.value)}
                 />
               </Field>
-            )}
+              <Field label="Typ">
+                <select
+                  className="bg-background h-10 rounded-md border px-3"
+                  value={type}
+                  disabled={
+                    editing?.source === 'deal' || editing?.source === 'queue'
+                  }
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="spotkanie">Spotkanie</option>
+                  <option value="telefon">Telefon</option>
+                  <option value="zadanie">Zadanie</option>
+                  <option value="follow_up">Follow-up</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Krótka notatka">
+              <VoiceTextarea value={note} onChange={setNote} />
+            </Field>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Powiązany Deal">
-                <EntitySearchSelect
-                  value={dealId}
-                  onChange={(value) => {
-                    setDealId(value);
-                    const linked = deals.find((row) => row.id === value);
-                    if (linked?.contact_id) setContactId(linked.contact_id);
-                    if (linked?.company_id) setCompanyId(linked.company_id);
-                  }}
-                  placeholder="Wyszukaj Deal"
-                  options={deals.map((row) => ({
-                    value: row.id,
-                    label: row.title,
-                    keywords: `${row.contact?.name ?? ''} ${row.company?.name ?? ''}`,
-                  }))}
-                  onAdd={() => window.open('/pipelines?new=deal', '_blank')}
-                  addLabel="Dodaj Deal"
-                />
-              </Field>
-              <Field label="Powiązana osoba">
+              <Field label="Kontakt">
                 <EntitySearchSelect
                   value={contactId}
                   onChange={setContactId}
-                  placeholder="Wyszukaj osobę"
-                  options={contacts.map((row) => ({
-                    value: row.id,
-                    label: row.name || row.phone,
-                    keywords: `${row.phone} ${row.email ?? ''}`,
+                  placeholder="Wybierz Kontakt"
+                  options={contacts.map((x) => ({
+                    value: x.id,
+                    label: x.name || x.phone,
+                    keywords: x.phone,
                   }))}
-                  onAdd={() => window.open('/contacts?new=contact', '_blank')}
-                  addLabel="Dodaj osobę"
                 />
               </Field>
-              <Field label="Powiązana firma">
+              <Field label="Firma">
                 <EntitySearchSelect
                   value={companyId}
                   onChange={setCompanyId}
-                  placeholder="Wyszukaj firmę"
-                  options={companies.map((row) => ({
-                    value: row.id,
-                    label: row.name,
-                    keywords: `${row.nip ?? ''} ${row.phone ?? ''}`,
+                  placeholder="Wybierz Firmę"
+                  options={companies.map((x) => ({
+                    value: x.id,
+                    label: x.name,
+                    keywords: x.nip ?? '',
                   }))}
-                  onAdd={() => window.open('/companies?new=company', '_blank')}
-                  addLabel="Dodaj firmę"
+                />
+              </Field>
+              <Field label="Deal">
+                <EntitySearchSelect
+                  value={dealId}
+                  onChange={(v) => {
+                    setDealId(v);
+                    const d = deals.find((x) => x.id === v);
+                    if (d?.contact_id) setContactId(d.contact_id);
+                    if (d?.company_id) setCompanyId(d.company_id);
+                  }}
+                  placeholder="Wybierz Deal"
+                  options={deals.map((x) => ({
+                    value: x.id,
+                    label: x.title,
+                    keywords: `${x.contact?.name ?? ''} ${x.company?.name ?? ''}`,
+                  }))}
                 />
               </Field>
             </div>
+            {editing && (
+              <div className="flex flex-wrap gap-2 text-sm">
+                {contactId && (
+                  <Link
+                    target="_blank"
+                    className="text-primary font-semibold"
+                    href={`/contacts?open=${contactId}`}
+                  >
+                    Otwórz Kontakt
+                  </Link>
+                )}
+                {companyId && (
+                  <Link
+                    target="_blank"
+                    className="text-primary font-semibold"
+                    href={`/companies?open=${companyId}`}
+                  >
+                    Otwórz Firmę
+                  </Link>
+                )}
+                {dealId && (
+                  <Link
+                    target="_blank"
+                    className="text-primary font-semibold"
+                    href={`/deals/${dealId}`}
+                  >
+                    Otwórz Deal
+                  </Link>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
-              {editing && (
-                <Button variant="destructive" onClick={remove}>
-                  <Trash2 className="size-4" />
-                  Usuń
-                </Button>
-              )}
-              <Button className="ml-auto" onClick={save}>
-                Zapisz termin
+              {editing?.source === 'activity' &&
+                editing.status !== 'WYKONANE' && (
+                  <Button variant="outline" onClick={() => void complete()}>
+                    Oznacz wykonane
+                  </Button>
+                )}
+              <Button className="ml-auto" onClick={() => void save()}>
+                Zapisz
               </Button>
             </div>
           </div>
@@ -490,7 +503,82 @@ export default function CalendarPage() {
     </div>
   );
 }
-
+function Day({
+  day,
+  items,
+  month,
+  names,
+  onAdd,
+  onOpen,
+}: {
+  day: Date;
+  items: Item[];
+  month: boolean;
+  names: {
+    contacts: Map<string, string>;
+    companies: Map<string, string>;
+    deals: Map<string, string>;
+  };
+  onAdd: () => void;
+  onOpen: (item: Item) => void;
+}) {
+  return (
+    <section
+      className={
+        month ? 'bg-background min-h-28 p-1.5' : 'bg-card rounded-xl border p-2'
+      }
+    >
+      <div className="mb-1 flex items-center justify-between">
+        <h2 className="text-xs font-bold capitalize">
+          {day.toLocaleDateString('pl-PL', {
+            timeZone: BUSINESS_TIME_ZONE,
+            weekday: month ? undefined : 'short',
+            day: 'numeric',
+            month: month ? 'numeric' : 'short',
+          })}
+        </h2>
+        <button
+          aria-label={`Dodaj ${dateKey(day)}`}
+          className="hover:bg-muted rounded p-1"
+          onClick={onAdd}
+        >
+          <Plus className="size-3" />
+        </button>
+      </div>
+      <div className="space-y-1">
+        {items.map((x) => (
+          <button
+            key={x.id}
+            onClick={() => onOpen(x)}
+            className="w-full rounded border-l-2 border-emerald-700 bg-emerald-50 px-2 py-1 text-left"
+          >
+            <p className="truncate text-xs font-semibold">
+              <Clock className="mr-1 inline size-3" />
+              {new Date(x.startsAt).toLocaleTimeString('pl-PL', {
+                timeZone: BUSINESS_TIME_ZONE,
+                hour: '2-digit',
+                minute: '2-digit',
+              })}{' '}
+              {x.title}
+            </p>
+            {!month && (
+              <p className="text-muted-foreground truncate text-[11px]">
+                {x.dealId
+                  ? names.deals.get(x.dealId)
+                  : x.contactId
+                    ? names.contacts.get(x.contactId)
+                    : x.companyId
+                      ? names.companies.get(x.companyId)
+                      : ''}{' '}
+                · {x.status ?? x.type}
+              </p>
+            )}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 function Field({
   label,
   children,
@@ -499,20 +587,68 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-1">
       <Label>{label}</Label>
       {children}
     </div>
   );
 }
-function defaultDateTime() {
-  const date = new Date();
-  date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15, 0, 0);
-  return localDateTime(date);
+function dateKey(d: Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
 }
-function localDateTime(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+function startOfWeek(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
 }
-
+function visibleRange(c: Date, v: View) {
+  if (v === 'day') {
+    const start = new Date(c);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { start, end };
+  }
+  if (v === 'week') {
+    const start = startOfWeek(c),
+      end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return { start, end };
+  }
+  const start = startOfWeek(new Date(c.getFullYear(), c.getMonth(), 1)),
+    end = new Date(start);
+  end.setDate(end.getDate() + 42);
+  return { start, end };
+}
+function daysBetween(start: Date, end: Date) {
+  const rows: Date[] = [];
+  for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1))
+    rows.push(new Date(d));
+  return rows;
+}
+function rangeLabel(d: Date, v: View) {
+  if (v === 'day')
+    return d.toLocaleDateString('pl-PL', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  if (v === 'month')
+    return d.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  const s = startOfWeek(d),
+    e = new Date(s);
+  e.setDate(e.getDate() + 6);
+  return `${s.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })} – ${e.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+function defaultInput() {
+  const d = new Date();
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+  return toWarsawDateTimeInput(d);
+}
 

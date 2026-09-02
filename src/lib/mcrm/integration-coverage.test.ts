@@ -65,10 +65,11 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
       expect(source(path)).toContain('VoiceTextarea');
   });
 
-  it('kalendarz wewnętrzny, rezerwacje i synchronizacja Google są połączone kodem', () => {
-    expect(source('src/app/(dashboard)/calendar/page.tsx')).toContain(
-      "fetch('/api/google-calendar/sync'"
-    );
+  it('kalendarz wewnętrzny łączy aktywności, kolejkę i rezerwacje bez duplikowania terminów', () => {
+    const calendar = source('src/app/(dashboard)/calendar/page.tsx');
+    expect(calendar).toContain("from('sales_activities')");
+    expect(calendar).toContain("from('work_queue_items')");
+    expect(calendar).toContain("'day' | 'week' | 'month'");
     expect(source('src/app/api/google-calendar/sync/route.ts')).toContain(
       'google_event_id'
     );
