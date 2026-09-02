@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -58,17 +59,36 @@ import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
+import { formatCrmDate } from '@/lib/crm/format';
 
 const PAGE_SIZE = 25;
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
+  companies?: { id: string; name: string; isPrimary: boolean }[];
+  lastActivityAt?: string | null;
+  nextAction?: string | null;
+  nextActionAt?: string | null;
 }
 
 interface ContactCompanyRow {
   contact_id: string;
+  company_id: string;
   is_primary: boolean;
-  company: { name: string } | null;
+  company: { id: string; name: string } | null;
+}
+
+interface ContactActivityRow {
+  contact_id: string;
+  occurred_at: string;
+}
+
+interface ContactDealRow {
+  contact_id: string | null;
+  next_action: string | null;
+  next_action_at: string | null;
+  follow_up_at: string | null;
+  status: string | null;
 }
 
 export default function ContactsPage() {
@@ -196,17 +216,34 @@ export default function ContactsPage() {
     // Fetch tags and the canonical Contact↔Company links for these contacts.
     // The legacy contacts.company text is not a relationship source.
     const contactIds = contactRows.map((c) => c.id);
-    const [{ data: contactTags }, { data: companyLinks }] = await Promise.all([
+    const [
+      { data: contactTags },
+      { data: companyLinks },
+      { data: activityRows },
+      { data: dealRows },
+    ] = await Promise.all([
       supabase
         .from('contact_tags')
         .select('contact_id, tag_id')
         .in('contact_id', contactIds),
       supabase
         .from('contact_companies')
-        .select('contact_id,is_primary,company:companies!contact_companies_company_id_fkey(name)')
+        .select(
+          'contact_id,company_id,is_primary,company:companies!contact_companies_company_id_fkey(id,name)'
+        )
         .in('contact_id', contactIds)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true }),
+      supabase
+        .from('sales_activities')
+        .select('contact_id,occurred_at')
+        .in('contact_id', contactIds)
+        .order('occurred_at', { ascending: false }),
+      supabase
+        .from('deals')
+        .select('contact_id,next_action,next_action_at,follow_up_at,status')
+        .in('contact_id', contactIds)
+        .eq('status', 'open'),
     ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
 
@@ -216,16 +253,55 @@ export default function ContactsPage() {
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
 
-    const companyByContact: Record<string, string> = {};
+    const companiesByContact: Record<
+      string,
+      { id: string; name: string; isPrimary: boolean }[]
+    > = {};
     (companyLinks as unknown as ContactCompanyRow[] | null)?.forEach((link) => {
-      if (!companyByContact[link.contact_id] && link.company?.name) {
-        companyByContact[link.contact_id] = link.company.name;
+      if (!link.company?.name) return;
+      if (!companiesByContact[link.contact_id])
+        companiesByContact[link.contact_id] = [];
+      companiesByContact[link.contact_id].push({
+        id: link.company_id,
+        name: link.company.name,
+        isPrimary: link.is_primary,
+      });
+    });
+
+    const lastActivityByContact: Record<string, string> = {};
+    (activityRows as ContactActivityRow[] | null)?.forEach((activity) => {
+      if (!lastActivityByContact[activity.contact_id])
+        lastActivityByContact[activity.contact_id] = activity.occurred_at;
+    });
+
+    const nextDealByContact: Record<string, ContactDealRow> = {};
+    (dealRows as ContactDealRow[] | null)?.forEach((deal) => {
+      if (!deal.contact_id) return;
+      const current = nextDealByContact[deal.contact_id];
+      const dealDate = deal.next_action_at || deal.follow_up_at;
+      const currentDate = current?.next_action_at || current?.follow_up_at;
+      if (
+        !current ||
+        (!currentDate && dealDate) ||
+        (dealDate &&
+          currentDate &&
+          +new Date(dealDate) < +new Date(currentDate))
+      ) {
+        nextDealByContact[deal.contact_id] = deal;
       }
     });
 
     const enriched: ContactWithTags[] = contactRows.map((c) => ({
       ...c,
-      company: companyByContact[c.id] ?? null,
+      company: companiesByContact[c.id]?.[0]?.name ?? null,
+      companies: companiesByContact[c.id] ?? [],
+      lastActivityAt: lastActivityByContact[c.id] ?? null,
+      nextAction: c.next_step || nextDealByContact[c.id]?.next_action || null,
+      nextActionAt:
+        c.follow_up_at ||
+        nextDealByContact[c.id]?.next_action_at ||
+        nextDealByContact[c.id]?.follow_up_at ||
+        null,
       tags: (tagsByContact[c.id] ?? [])
         .map((tid) => tagsMap[tid])
         .filter(Boolean),
@@ -638,7 +714,7 @@ export default function ContactsPage() {
       )}
 
       {/* Table */}
-      <div className="border-border overflow-hidden rounded-lg border">
+      <div className="border-border overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -661,13 +737,16 @@ export default function ContactsPage() {
                 {t('tableColumns.email')}
               </TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">
-                {t('tableColumns.company')}
+                Firma / Firmy
               </TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">
-                {t('tableColumns.tags')}
+              <TableHead className="text-muted-foreground hidden xl:table-cell">
+                Źródło
               </TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">
-                {t('tableColumns.createdAt')}
+                Ostatnia aktywność
+              </TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">
+                Następne działanie / termin
               </TableHead>
               <TableHead className="text-muted-foreground w-12" />
             </TableRow>
@@ -675,7 +754,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="py-12 text-center">
+                <TableCell colSpan={9} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="text-primary size-6 animate-spin" />
                     <p className="text-muted-foreground text-sm">
@@ -686,7 +765,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="py-12 text-center">
+                <TableCell colSpan={9} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="text-muted-foreground size-8" />
                     <p className="text-muted-foreground text-sm">
@@ -714,8 +793,7 @@ export default function ContactsPage() {
               contacts.map((contact) => (
                 <TableRow
                   key={contact.id}
-                  className="border-border hover:bg-muted/50 cursor-pointer"
-                  onClick={() => openDetail(contact.id)}
+                  className="border-border hover:bg-muted/50 h-14"
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
@@ -724,11 +802,27 @@ export default function ContactsPage() {
                       aria-label={`Select ${contact.name || contact.phone}`}
                     />
                   </TableCell>
-                  <TableCell className="text-foreground font-medium">
-                    {contact.name || (
-                      <span className="text-muted-foreground italic">
-                        {t('unnamed')}
-                      </span>
+                  <TableCell className="min-w-44 py-2">
+                    <Link
+                      href={`/contacts?open=${contact.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground hover:text-primary block min-h-6 truncate text-sm font-semibold hover:underline"
+                    >
+                      {contact.name || t('unnamed')}
+                    </Link>
+                    <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
+                      {contact.email || contact.source || 'Brak e-maila'}
+                    </p>
+                    {contact.companies?.[0] && (
+                      <Link
+                        href={`/companies?open=${contact.companies[0].id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary block max-w-48 truncate text-xs hover:underline lg:hidden"
+                      >
+                        {contact.companies[0].name}
+                      </Link>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
@@ -739,42 +833,42 @@ export default function ContactsPage() {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
-                    {contact.company || (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {contact.tags && contact.tags.length > 0 ? (
-                        contact.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag.id}
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-                            style={{
-                              backgroundColor: tag.color + '20',
-                              color: tag.color,
-                            }}
+                  <TableCell className="hidden min-w-44 py-2 text-sm lg:table-cell">
+                    <div className="flex max-w-56 flex-wrap gap-x-2 gap-y-0.5">
+                      {contact.companies?.length ? (
+                        contact.companies.map((company) => (
+                          <Link
+                            key={company.id}
+                            href={`/companies?open=${company.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary max-w-44 truncate font-medium hover:underline"
                           >
-                            {tag.name}
-                          </span>
+                            {company.name}
+                          </Link>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
-                      {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-muted-foreground text-[10px]">
-                          +{contact.tags.length - 3}
-                        </span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
+                  <TableCell className="text-muted-foreground hidden max-w-40 truncate text-xs xl:table-cell">
+                    {contact.source || '-'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden text-xs whitespace-nowrap lg:table-cell">
+                    {contact.lastActivityAt
+                      ? formatCrmDate(contact.lastActivityAt)
+                      : '-'}
+                  </TableCell>
+                  <TableCell className="hidden min-w-48 py-2 md:table-cell">
+                    <p className="max-w-56 truncate text-xs font-medium">
+                      {contact.nextAction || 'Brak następnego działania'}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {contact.nextActionAt
+                        ? formatCrmDate(contact.nextActionAt)
+                        : '—'}
+                    </p>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -966,4 +1060,3 @@ export default function ContactsPage() {
     </div>
   );
 }
-

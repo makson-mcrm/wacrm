@@ -7,8 +7,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import type { Company, Contact, Deal } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
@@ -24,16 +31,9 @@ import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 import { SmsAction } from '@/components/sales/sms-action';
 import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
+import { formatCrmDate } from '@/lib/crm/format';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Building2,
-  Loader2,
-  Mail,
-  Phone,
-  Plus,
-  Search,
-  Users,
-} from 'lucide-react';
+import { Loader2, Plus, Search, Users } from 'lucide-react';
 
 interface LinkedContactRow {
   contact_id: string;
@@ -42,11 +42,32 @@ interface LinkedContactRow {
   contact: Contact | null;
 }
 
+interface CompanyListRow extends Company {
+  primaryContact?: { id: string; name: string } | null;
+  activeDealCount?: number;
+  nextAction?: string | null;
+  nextActionAt?: string | null;
+}
+
+interface CompanyContactListRow {
+  company_id: string;
+  is_primary: boolean;
+  contact: { id: string; name?: string; phone: string } | null;
+}
+
+interface CompanyDealListRow {
+  company_id: string | null;
+  next_action: string | null;
+  next_action_at: string | null;
+  follow_up_at: string | null;
+  status: string | null;
+}
+
 export default function CompaniesPage() {
   const supabase = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
   const canEdit = useCan('send-messages');
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<CompanyListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -59,8 +80,71 @@ export default function CompaniesPage() {
       .from('companies')
       .select('*')
       .order('name');
-    if (error) toast.error('Nie udało się pobrać firm.');
-    setCompanies((data ?? []) as Company[]);
+    if (error) {
+      toast.error('Nie udało się pobrać firm.');
+      setCompanies([]);
+      setLoading(false);
+      return;
+    }
+    const companyRows = (data ?? []) as Company[];
+    const companyIds = companyRows.map((company) => company.id);
+    if (!companyIds.length) {
+      setCompanies([]);
+      setLoading(false);
+      return;
+    }
+    const [{ data: contactLinks }, { data: dealRows }] = await Promise.all([
+      supabase
+        .from('contact_companies')
+        .select(
+          'company_id,is_primary,contact:contacts!contact_companies_contact_id_fkey(id,name,phone)'
+        )
+        .in('company_id', companyIds)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('deals')
+        .select('company_id,next_action,next_action_at,follow_up_at,status')
+        .in('company_id', companyIds)
+        .eq('status', 'open'),
+    ]);
+    const primaryByCompany: Record<string, { id: string; name: string }> = {};
+    (contactLinks as unknown as CompanyContactListRow[] | null)?.forEach(
+      (link) => {
+        if (!link.contact || primaryByCompany[link.company_id]) return;
+        primaryByCompany[link.company_id] = {
+          id: link.contact.id,
+          name: link.contact.name || link.contact.phone,
+        };
+      }
+    );
+    const dealsByCompany: Record<string, CompanyDealListRow[]> = {};
+    (dealRows as CompanyDealListRow[] | null)?.forEach((deal) => {
+      if (!deal.company_id) return;
+      if (!dealsByCompany[deal.company_id])
+        dealsByCompany[deal.company_id] = [];
+      dealsByCompany[deal.company_id].push(deal);
+    });
+    setCompanies(
+      companyRows.map((company) => {
+        const activeDeals = dealsByCompany[company.id] ?? [];
+        const nextDeal = [...activeDeals].sort((left, right) => {
+          const leftDate = left.next_action_at || left.follow_up_at;
+          const rightDate = right.next_action_at || right.follow_up_at;
+          if (!leftDate) return 1;
+          if (!rightDate) return -1;
+          return +new Date(leftDate) - +new Date(rightDate);
+        })[0];
+        return {
+          ...company,
+          primaryContact: primaryByCompany[company.id] ?? null,
+          activeDealCount: activeDeals.length,
+          nextAction: nextDeal?.next_action ?? null,
+          nextActionAt:
+            nextDeal?.next_action_at || nextDeal?.follow_up_at || null,
+        };
+      })
+    );
     setLoading(false);
   }, [supabase]);
 
@@ -138,55 +222,95 @@ export default function CompaniesPage() {
           <Loader2 className="text-primary size-6 animate-spin" />
         </div>
       ) : visible.length === 0 ? (
-        <Card>
-          <CardContent className="text-muted-foreground py-12 text-center text-sm">
-            Brak firm. Dodaj pierwszą firmę albo zmień wyszukiwanie.
-          </CardContent>
-        </Card>
+        <div className="text-muted-foreground rounded-lg border py-12 text-center text-sm">
+          Brak firm. Dodaj pierwszą firmę albo zmień wyszukiwanie.
+        </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((company) => (
-            <button
-              key={company.id}
-              type="button"
-              onClick={() => openCompany(company)}
-              className="text-left"
-            >
-              <Card className="hover:border-primary/50 h-full transition-colors">
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-primary/10 text-primary rounded-lg p-2">
-                      <Building2 className="size-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-foreground truncate font-medium">
-                        {company.name}
-                      </p>
-                      {company.nip && (
-                        <p className="text-muted-foreground text-xs">
-                          NIP: {company.nip}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-muted-foreground space-y-1 text-xs">
-                    {company.phone && (
-                      <p className="flex items-center gap-2">
-                        <Phone className="size-3" />
-                        {company.phone}
-                      </p>
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Nazwa Firmy</TableHead>
+                <TableHead>NIP</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead className="hidden md:table-cell">E-mail</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Główna osoba kontaktowa
+                </TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Aktywne Deale
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Następne działanie / termin
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((company) => (
+                <TableRow key={company.id} className="hover:bg-muted/50 h-14">
+                  <TableCell className="min-w-44 py-2">
+                    <Link
+                      href={`/companies?open=${company.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground hover:text-primary block min-h-6 max-w-56 truncate text-sm font-semibold hover:underline"
+                    >
+                      {company.name}
+                    </Link>
+                    <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
+                      {company.email || 'Brak e-maila'}
+                    </p>
+                    {company.primaryContact && (
+                      <Link
+                        href={`/contacts?open=${company.primaryContact.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary block max-w-48 truncate text-xs hover:underline lg:hidden"
+                      >
+                        {company.primaryContact.name}
+                      </Link>
                     )}
-                    {company.email && (
-                      <p className="flex items-center gap-2">
-                        <Mail className="size-3" />
-                        {company.email}
-                      </p>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                    {company.nip || 'Do uzupełnienia'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-xs whitespace-nowrap">
+                    {company.phone || '-'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden max-w-48 truncate text-sm md:table-cell">
+                    {company.email || '-'}
+                  </TableCell>
+                  <TableCell className="hidden min-w-44 py-2 lg:table-cell">
+                    {company.primaryContact ? (
+                      <Link
+                        href={`/contacts?open=${company.primaryContact.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary block max-w-48 truncate text-sm font-medium hover:underline"
+                      >
+                        {company.primaryContact.name}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          ))}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden text-sm md:table-cell">
+                    {company.activeDealCount || 0}
+                  </TableCell>
+                  <TableCell className="hidden min-w-48 py-2 lg:table-cell">
+                    <p className="max-w-56 truncate text-xs font-medium">
+                      {company.nextAction || 'Brak następnego działania'}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {company.nextActionAt
+                        ? formatCrmDate(company.nextActionAt)
+                        : '—'}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -527,7 +651,8 @@ function CompanySheet({
     else await loadRelations();
   }
 
-  const smsContact = linkedContacts.find((link) => link.contact?.phone)?.contact ?? null;
+  const smsContact =
+    linkedContacts.find((link) => link.contact?.phone)?.contact ?? null;
   const actionPhone = company?.phone || smsContact?.phone;
 
   return (
@@ -541,282 +666,346 @@ function CompanySheet({
           </SheetTitle>
           {company && actionPhone && (
             <div className="flex flex-wrap gap-2 pt-2">
-              <CallAction phone={actionPhone} contactId={smsContact?.id} companyId={company.id} variant="default" />
-              <SmsAction phone={actionPhone} contactName={smsContact?.name || company.name} contactId={smsContact?.id} companyId={company.id} />
+              <CallAction
+                phone={actionPhone}
+                contactId={smsContact?.id}
+                companyId={company.id}
+                variant="default"
+              />
+              <SmsAction
+                phone={actionPhone}
+                contactName={smsContact?.name || company.name}
+                contactId={smsContact?.id}
+                companyId={company.id}
+              />
             </div>
           )}
         </SheetHeader>
         <Tabs defaultValue="data" className="mt-4">
-          {company && <TabsList className="h-auto"><TabsTrigger value="data">Dane</TabsTrigger><TabsTrigger value="history">Historia</TabsTrigger></TabsList>}
-          <TabsContent value="data">
-        <div className="mt-5 space-y-5">
-          <section className="grid max-w-xl gap-3">
-            <Field label="Nazwa firmy *">
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </Field>
-            <Field label="NIP *">
-              <Input value={nip} onChange={(e) => setNip(e.target.value)} />
-            </Field>
-            <Field label="Telefon">
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
-            <Field label="E-mail">
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-            </Field>
-            <Field label="Strona internetowa">
-              <Input
-                type="url"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </Field>
-            <Field label="Adres">
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-            </Field>
-            <Field label="Miasto">
-              <Input value={city} onChange={(e) => setCity(e.target.value)} />
-            </Field>
-            <Field label="Kod pocztowy">
-              <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-            </Field>
-          </section>
-
-          <details className="max-w-xl rounded-xl border p-4">
-            <summary className="cursor-pointer font-semibold">Dane rejestrowe</summary>
-            <div className="mt-4 grid gap-3">
-            <Field label="REGON">
-              <Input value={regon} onChange={(e) => setRegon(e.target.value)} />
-            </Field>
-            <Field label="KRS">
-              <Input value={krs} onChange={(e) => setKrs(e.target.value)} />
-            </Field>
-            <Field label="Forma prawna">
-              <select
-                value={legalForm}
-                onChange={(e) => setLegalForm(e.target.value)}
-                className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
-              >
-                <option value="">Wybierz</option>
-                <option>Jednoosobowa działalność</option>
-                <option>Spółka cywilna</option>
-                <option>Spółka z o.o.</option>
-                <option>Inna</option>
-              </select>
-            </Field>
-            <Field label="Forma księgowości">
-              <select
-                value={accountingType}
-                onChange={(e) => setAccountingType(e.target.value)}
-                className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
-              >
-                <option value="">Wybierz</option>
-                <option>KPiR</option>
-                <option>Ryczałt</option>
-                <option>Pełna księgowość</option>
-                <option>Karta podatkowa</option>
-              </select>
-            </Field>
-            <Field label="PKD">
-              <Input value={pkd} onChange={(e) => setPkd(e.target.value)} />
-            </Field>
-            <Field label="Data rozpoczęcia działalności">
-              <Input
-                type="date"
-                value={businessStartedOn}
-                onChange={(e) => setBusinessStartedOn(e.target.value)}
-              />
-            </Field>
-            </div>
-          </details>
-          <details className="max-w-xl rounded-xl border p-4">
-            <summary className="cursor-pointer font-semibold">Informacje dodatkowe</summary>
-            <div className="mt-4 space-y-3">
-          <Field label="Opis firmy">
-            <VoiceTextarea
-              value={description}
-              onChange={setDescription}
-              placeholder="Stałe informacje dotyczące firmy"
-            />
-          </Field>
-          <Field label="Notatka">
-            <VoiceTextarea value={notes} onChange={setNotes} />
-          </Field>
-          <Field label="Folder dokumentów na Google Drive">
-            <Input
-              type="url"
-              value={driveFolderUrl}
-              onChange={(e) => setDriveFolderUrl(e.target.value)}
-              placeholder="https://drive.google.com/drive/folders/..."
-            />
-          </Field>
-            </div>
-          </details>
-          <Button
-            onClick={saveCompany}
-            disabled={!canEdit || saving}
-            className="w-full max-w-xl"
-          >
-            {saving && <Loader2 className="size-4 animate-spin" />} Zapisz firmę
-          </Button>
-
-          {company && accountId && (
-            <section className="border-border space-y-3 border-t pt-5">
-              <h3 className="font-medium">Tagi firmy</h3>
-              <EntityTagsEditor
-                accountId={accountId}
-                entityType="company"
-                entityId={company.id}
-              />
-            </section>
-          )}
-
           {company && (
-            <>
-              <section className="border-border space-y-3 border-t pt-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 font-medium">
-                    <Users className="size-4" /> Kontakty w firmie
-                  </h3>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowNewContact((value) => !value)}
-                  >
-                    <Plus className="size-4" />
-                    Nowy Kontakt
-                  </Button>
-                </div>
-                {linkedContacts.map((link) => (
-                  <div
-                    key={link.contact_id}
-                    className="border-border flex items-center justify-between rounded-lg border p-3 text-sm"
-                  >
-                    <Link href={`/contacts?open=${link.contact_id}`} target="_blank" rel="noopener noreferrer" className="min-h-10 rounded px-1 py-1 hover:bg-emerald-50">
-                      <p className="font-medium hover:text-emerald-800 hover:underline">
-                        {link.contact?.name || link.contact?.phone}
-                      </p>
-                      {link.role && (
-                        <p className="text-muted-foreground text-xs">
-                          {link.role}
-                        </p>
-                      )}
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => unlinkContact(link.contact_id)}
-                      disabled={!canEdit}
-                    >
-                      Odłącz
-                    </Button>
-                  </div>
-                ))}
-                {linkedContacts.length === 0 && (
-                  <p className="text-muted-foreground text-sm">
-                    Brak przypisanych Kontaktów.
-                  </p>
-                )}
-                <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                  <EntitySearchSelect
-                    value={contactId}
-                    onChange={setContactId}
-                    placeholder="Wyszukaj Kontakt"
-                    options={contacts
-                      .filter(
-                        (contact) =>
-                          !linkedContacts.some(
-                            (link) => link.contact_id === contact.id
-                          )
-                      )
-                      .map((contact) => ({
-                        value: contact.id,
-                        label: contact.name || contact.phone,
-                        keywords: [contact.phone, contact.email, contact.pesel]
-                          .filter(Boolean)
-                          .join(' '),
-                      }))}
-                    onAdd={() => setShowNewContact((value) => !value)}
-                    addLabel="Dodaj nowy Kontakt"
-                  />
+            <TabsList className="h-auto">
+              <TabsTrigger value="data">Dane</TabsTrigger>
+              <TabsTrigger value="history">Historia</TabsTrigger>
+            </TabsList>
+          )}
+          <TabsContent value="data">
+            <div className="mt-5 space-y-5">
+              <section className="grid max-w-xl gap-3">
+                <Field label="Nazwa firmy *">
                   <Input
-                    value={contactRole}
-                    onChange={(e) => setContactRole(e.target.value)}
-                    placeholder="Rola, np. właściciel"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                   />
-                  <Button
-                    onClick={linkContact}
-                    disabled={!canEdit || !contactId}
-                  >
-                    Przypisz
-                  </Button>
-                </div>
-                {showNewContact && (
-                  <div className="bg-muted/40 grid gap-2 rounded-lg border p-3 sm:grid-cols-3">
-                    <Input
-                      value={newContactFirstName}
-                      onChange={(e) => setNewContactFirstName(e.target.value)}
-                      placeholder="Imię"
-                    />
-                    <Input
-                      value={newContactLastName}
-                      onChange={(e) => setNewContactLastName(e.target.value)}
-                      placeholder="Nazwisko"
-                    />
-                    <Input
-                      value={newContactPhone}
-                      onChange={(e) => setNewContactPhone(e.target.value)}
-                      placeholder="Telefon *"
-                    />
-                    <Button
-                      className="sm:col-span-3"
-                      onClick={createAndLinkContact}
-                    >
-                      Dodaj i powiąż Kontakt
-                    </Button>
-                  </div>
-                )}
+                </Field>
+                <Field label="NIP *">
+                  <Input value={nip} onChange={(e) => setNip(e.target.value)} />
+                </Field>
+                <Field label="Telefon">
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </Field>
+                <Field label="E-mail">
+                  <Input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </Field>
+                <Field label="Strona internetowa">
+                  <Input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
+                </Field>
+                <Field label="Adres">
+                  <Input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                </Field>
+                <Field label="Miasto">
+                  <Input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </Field>
+                <Field label="Kod pocztowy">
+                  <Input
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                  />
+                </Field>
               </section>
 
-              <section className="border-border space-y-3 border-t pt-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Deale firmy</h3>
-                  <Button
-                    size="sm"
-                    render={
-                      <Link
-                        href={`/pipelines?new=deal&company=${company.id}`}
-                      />
-                    }
-                  >
-                    <Plus className="size-4" />
-                    Nowy Deal
-                  </Button>
+              <details className="max-w-xl rounded-xl border p-4">
+                <summary className="cursor-pointer font-semibold">
+                  Dane rejestrowe
+                </summary>
+                <div className="mt-4 grid gap-3">
+                  <Field label="REGON">
+                    <Input
+                      value={regon}
+                      onChange={(e) => setRegon(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="KRS">
+                    <Input
+                      value={krs}
+                      onChange={(e) => setKrs(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Forma prawna">
+                    <select
+                      value={legalForm}
+                      onChange={(e) => setLegalForm(e.target.value)}
+                      className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
+                    >
+                      <option value="">Wybierz</option>
+                      <option>Jednoosobowa działalność</option>
+                      <option>Spółka cywilna</option>
+                      <option>Spółka z o.o.</option>
+                      <option>Inna</option>
+                    </select>
+                  </Field>
+                  <Field label="Forma księgowości">
+                    <select
+                      value={accountingType}
+                      onChange={(e) => setAccountingType(e.target.value)}
+                      className="border-border bg-muted h-9 w-full rounded-md border px-3 text-sm"
+                    >
+                      <option value="">Wybierz</option>
+                      <option>KPiR</option>
+                      <option>Ryczałt</option>
+                      <option>Pełna księgowość</option>
+                      <option>Karta podatkowa</option>
+                    </select>
+                  </Field>
+                  <Field label="PKD">
+                    <Input
+                      value={pkd}
+                      onChange={(e) => setPkd(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Data rozpoczęcia działalności">
+                    <Input
+                      type="date"
+                      value={businessStartedOn}
+                      onChange={(e) => setBusinessStartedOn(e.target.value)}
+                    />
+                  </Field>
                 </div>
-                {deals.map((deal) => (
-                  <Link
-                    key={deal.id}
-                    href={`/deals/${deal.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="border-border rounded-lg border p-3 text-sm"
-                  >
-                    <p className="font-medium">{deal.title}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {deal.stage?.name ?? 'Bez etapu'}
-                    </p>
-                  </Link>
-                ))}
-                {deals.length === 0 && (
-                  <p className="text-muted-foreground text-sm">
-                    Brak Deali powiązanych z firmą.
-                  </p>
-                )}
-              </section>
-            </>
-          )}
-        </div>
+              </details>
+              <details className="max-w-xl rounded-xl border p-4">
+                <summary className="cursor-pointer font-semibold">
+                  Informacje dodatkowe
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <Field label="Opis firmy">
+                    <VoiceTextarea
+                      value={description}
+                      onChange={setDescription}
+                      placeholder="Stałe informacje dotyczące firmy"
+                    />
+                  </Field>
+                  <Field label="Notatka">
+                    <VoiceTextarea value={notes} onChange={setNotes} />
+                  </Field>
+                  <Field label="Folder dokumentów na Google Drive">
+                    <Input
+                      type="url"
+                      value={driveFolderUrl}
+                      onChange={(e) => setDriveFolderUrl(e.target.value)}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                    />
+                  </Field>
+                </div>
+              </details>
+              <Button
+                onClick={saveCompany}
+                disabled={!canEdit || saving}
+                className="w-full max-w-xl"
+              >
+                {saving && <Loader2 className="size-4 animate-spin" />} Zapisz
+                firmę
+              </Button>
+
+              {company && accountId && (
+                <section className="border-border space-y-3 border-t pt-5">
+                  <h3 className="font-medium">Tagi firmy</h3>
+                  <EntityTagsEditor
+                    accountId={accountId}
+                    entityType="company"
+                    entityId={company.id}
+                  />
+                </section>
+              )}
+
+              {company && (
+                <>
+                  <section className="border-border space-y-3 border-t pt-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="flex items-center gap-2 font-medium">
+                        <Users className="size-4" /> Kontakty w firmie
+                      </h3>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowNewContact((value) => !value)}
+                      >
+                        <Plus className="size-4" />
+                        Nowy Kontakt
+                      </Button>
+                    </div>
+                    {linkedContacts.map((link) => (
+                      <div
+                        key={link.contact_id}
+                        className="border-border flex items-center justify-between rounded-lg border p-3 text-sm"
+                      >
+                        <Link
+                          href={`/contacts?open=${link.contact_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-h-10 rounded px-1 py-1 hover:bg-emerald-50"
+                        >
+                          <p className="font-medium hover:text-emerald-800 hover:underline">
+                            {link.contact?.name || link.contact?.phone}
+                          </p>
+                          {link.role && (
+                            <p className="text-muted-foreground text-xs">
+                              {link.role}
+                            </p>
+                          )}
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unlinkContact(link.contact_id)}
+                          disabled={!canEdit}
+                        >
+                          Odłącz
+                        </Button>
+                      </div>
+                    ))}
+                    {linkedContacts.length === 0 && (
+                      <p className="text-muted-foreground text-sm">
+                        Brak przypisanych Kontaktów.
+                      </p>
+                    )}
+                    <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                      <EntitySearchSelect
+                        value={contactId}
+                        onChange={setContactId}
+                        placeholder="Wyszukaj Kontakt"
+                        options={contacts
+                          .filter(
+                            (contact) =>
+                              !linkedContacts.some(
+                                (link) => link.contact_id === contact.id
+                              )
+                          )
+                          .map((contact) => ({
+                            value: contact.id,
+                            label: contact.name || contact.phone,
+                            keywords: [
+                              contact.phone,
+                              contact.email,
+                              contact.pesel,
+                            ]
+                              .filter(Boolean)
+                              .join(' '),
+                          }))}
+                        onAdd={() => setShowNewContact((value) => !value)}
+                        addLabel="Dodaj nowy Kontakt"
+                      />
+                      <Input
+                        value={contactRole}
+                        onChange={(e) => setContactRole(e.target.value)}
+                        placeholder="Rola, np. właściciel"
+                      />
+                      <Button
+                        onClick={linkContact}
+                        disabled={!canEdit || !contactId}
+                      >
+                        Przypisz
+                      </Button>
+                    </div>
+                    {showNewContact && (
+                      <div className="bg-muted/40 grid gap-2 rounded-lg border p-3 sm:grid-cols-3">
+                        <Input
+                          value={newContactFirstName}
+                          onChange={(e) =>
+                            setNewContactFirstName(e.target.value)
+                          }
+                          placeholder="Imię"
+                        />
+                        <Input
+                          value={newContactLastName}
+                          onChange={(e) =>
+                            setNewContactLastName(e.target.value)
+                          }
+                          placeholder="Nazwisko"
+                        />
+                        <Input
+                          value={newContactPhone}
+                          onChange={(e) => setNewContactPhone(e.target.value)}
+                          placeholder="Telefon *"
+                        />
+                        <Button
+                          className="sm:col-span-3"
+                          onClick={createAndLinkContact}
+                        >
+                          Dodaj i powiąż Kontakt
+                        </Button>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="border-border space-y-3 border-t pt-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">Deale firmy</h3>
+                      <Button
+                        size="sm"
+                        render={
+                          <Link
+                            href={`/pipelines?new=deal&company=${company.id}`}
+                          />
+                        }
+                      >
+                        <Plus className="size-4" />
+                        Nowy Deal
+                      </Button>
+                    </div>
+                    {deals.map((deal) => (
+                      <Link
+                        key={deal.id}
+                        href={`/deals/${deal.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="border-border rounded-lg border p-3 text-sm"
+                      >
+                        <p className="font-medium">{deal.title}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {deal.stage?.name ?? 'Bez etapu'}
+                        </p>
+                      </Link>
+                    ))}
+                    {deals.length === 0 && (
+                      <p className="text-muted-foreground text-sm">
+                        Brak Deali powiązanych z firmą.
+                      </p>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
           </TabsContent>
-          {company && <TabsContent value="history"><ActivityHistory companyId={company.id} className="mt-4" /></TabsContent>}
+          {company && (
+            <TabsContent value="history">
+              <ActivityHistory companyId={company.id} className="mt-4" />
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -837,5 +1026,3 @@ function Field({
     </div>
   );
 }
-
-
