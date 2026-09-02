@@ -8,6 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { toast } from 'sonner';
+import {
+  calculateWorkQueuePriority,
+  compareWorkQueuePriority,
+} from '@/lib/work-queue/priority';
 type Status = 'NOWE' | 'W_TOKU' | 'ODLOZONE' | 'ZALATWIONE';
 type Row = {
   id: string;
@@ -25,6 +29,13 @@ type Row = {
   contactName?: string;
   companyName?: string;
   dealName?: string;
+  manual_priority: number;
+  priorityScore: number;
+  priorityReason: string;
+  deadline?: string | null;
+  blocker?: string | null;
+  stagePosition?: number | null;
+  nextActionAt?: string | null;
 };
 const NIL = '00000000-0000-0000-0000-000000000000';
 export default function WorkQueuePage() {
@@ -69,7 +80,7 @@ export default function WorkQueuePage() {
       db
         .from('deals')
         .select(
-          'id,title,contact_id,company_id,next_action_at,blocker,questionnaire_due_at,questionnaire_received_at,document_requirements:deal_document_requirements(status,required),created_at'
+          'id,title,contact_id,company_id,next_action_at,blocker,questionnaire_due_at,questionnaire_received_at,value,stage:pipeline_stages(name,position),document_requirements:deal_document_requirements(status,required),created_at'
         )
         .eq('account_id', accountId)
         .eq('status', 'open')
@@ -100,6 +111,7 @@ export default function WorkQueuePage() {
         title,
         detail,
         created_at: date ?? r.created_at,
+        deadline: date ?? null,
       });
     };
     for (const r of leads.data ?? [])
@@ -137,6 +149,7 @@ export default function WorkQueuePage() {
       );
     const now = Date.now();
     for (const deal of deals.data ?? []) {
+      const stage = Array.isArray(deal.stage) ? deal.stage[0] : deal.stage;
       const missingDocuments = (deal.document_requirements ?? []).filter(
         (item: { status: string; required: boolean }) =>
           item.required && !['zaakceptowany', 'wyslany'].includes(item.status)
@@ -149,12 +162,14 @@ export default function WorkQueuePage() {
         deal.blocker ||
         (deal.next_action_at && +new Date(deal.next_action_at) < now) ||
         questionnaireOverdue ||
-        missingDocuments
+        missingDocuments ||
+        !deal.next_action_at ||
+        (stage?.position ?? -1) >= 4
       )
         add(
           'ALERT_CRM',
           'deals',
-          deal,
+          { ...deal, deal_id: deal.id },
           deal.title,
           [
             deal.blocker,
@@ -162,7 +177,8 @@ export default function WorkQueuePage() {
             missingDocuments ? `Brak dokumentów: ${missingDocuments}` : '',
           ]
             .filter(Boolean)
-            .join(' · ') || 'Zaległe następne działanie'
+            .join(' · ') || 'Zaległe następne działanie',
+          deal.next_action_at ?? undefined
         );
     }
     if (desired.length)
@@ -212,15 +228,34 @@ export default function WorkQueuePage() {
     const cm = map(cs.data, 'name'),
       om = map(co.data, 'name'),
       dm = map(ds.data, 'title');
+    const dealMeta = new Map((deals.data ?? []).map((deal) => [deal.id, deal]));
     setRows(
       active
-        .map((r) => ({
-          ...r,
-          contactName: cm.get(r.contact_id),
-          companyName: om.get(r.company_id),
-          dealName: dm.get(r.deal_id),
-        }))
-        .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+        .map((r) => {
+          const deal = dealMeta.get(r.deal_id ?? r.source_id);
+          const stage = Array.isArray(deal?.stage)
+            ? deal.stage[0]
+            : deal?.stage;
+          const priority = calculateWorkQueuePriority({
+            sourceType: r.source_type,
+            blocker: deal?.blocker,
+            stagePosition: stage?.position,
+            nextActionAt: deal?.next_action_at,
+            deadline: r.deadline,
+          });
+          return {
+            ...r,
+            contactName: cm.get(r.contact_id),
+            companyName: om.get(r.company_id),
+            dealName: dm.get(r.deal_id),
+            blocker: deal?.blocker,
+            stagePosition: stage?.position,
+            nextActionAt: deal?.next_action_at,
+            priorityScore: priority.score,
+            priorityReason: priority.reason,
+          };
+        })
+        .sort(compareWorkQueuePriority)
     );
     setLoading(false);
   }, [accountId, db]);
@@ -262,6 +297,64 @@ export default function WorkQueuePage() {
     });
     await load();
   };
+  const changePriority = async (row: Row, direction: 1 | -1) => {
+    if (!user || !accountId) return;
+    const manualPriority = Math.max(
+      -5,
+      Math.min(5, row.manual_priority + direction)
+    );
+    const { error } = await db
+      .from('work_queue_items')
+      .update({
+        manual_priority: manualPriority,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id);
+    if (error) return toast.error(error.message);
+    await db.from('work_queue_events').insert({
+      account_id: accountId,
+      queue_item_id: row.id,
+      user_id: user.id,
+      event_type:
+        direction > 0 ? 'PRIORYTET_PODNIESIONO' : 'PRIORYTET_OBNIZONO',
+      contact_id: row.contact_id,
+      company_id: row.company_id,
+      deal_id: row.deal_id,
+    });
+    await load();
+  };
+  const renderLinks = (r: Row) => (
+    <>
+      {r.contactName && (
+        <Link
+          target="_blank"
+          className="text-primary font-semibold"
+          href={`/contacts?open=${r.contact_id}`}
+        >
+          {r.contactName}
+        </Link>
+      )}
+      {r.companyName && (
+        <Link
+          target="_blank"
+          className="text-primary font-semibold"
+          href={`/companies?open=${r.company_id}`}
+        >
+          {r.companyName}
+        </Link>
+      )}
+      {r.dealName && (
+        <Link
+          target="_blank"
+          className="text-primary font-semibold"
+          href={`/deals/${r.deal_id}`}
+        >
+          {r.dealName}
+        </Link>
+      )}
+    </>
+  );
+  const firstItems = rows.slice(0, 5);
   return (
     <div className="space-y-4 p-4 md:p-6">
       <header>
@@ -270,6 +363,34 @@ export default function WorkQueuePage() {
           Jedna kolejka spraw wymagających działania lub decyzji.
         </p>
       </header>
+      {!loading && firstItems.length > 0 && (
+        <section className="rounded-xl border border-emerald-800/20 bg-emerald-50/50 p-4">
+          <h2 className="font-bold text-emerald-950">Najpierw zajmij się</h2>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {firstItems.map((r, index) => (
+              <article
+                key={r.id}
+                className="bg-background rounded-lg border p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="font-bold text-emerald-800">
+                    {index + 1}.
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{r.title}</p>
+                    <p className="text-xs font-medium text-emerald-800">
+                      {r.priorityReason}
+                    </p>
+                    <div className="mt-1 space-x-2 text-xs">
+                      {renderLinks(r)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       {loading ? (
         <p>Wczytywanie…</p>
       ) : (
@@ -291,6 +412,12 @@ export default function WorkQueuePage() {
                 <tr key={r.id} className="border-t">
                   <td className="max-w-72 p-3">
                     <p className="font-semibold">{r.title}</p>
+                    <p className="text-xs font-medium text-emerald-800">
+                      {r.priorityReason}
+                      {r.manual_priority !== 0
+                        ? ` · ręcznie ${r.manual_priority > 0 ? 'podniesiono' : 'obniżono'}`
+                        : ''}
+                    </p>
                     <p className="text-muted-foreground truncate text-xs">
                       {r.detail}
                     </p>
@@ -303,41 +430,29 @@ export default function WorkQueuePage() {
                       ? formatWarsawDateTime(r.snoozed_until)
                       : '—'}
                   </td>
-                  <td className="space-x-2">
-                    {r.contactName && (
-                      <Link
-                        target="_blank"
-                        className="text-primary font-semibold"
-                        href={`/contacts?open=${r.contact_id}`}
-                      >
-                        {r.contactName}
-                      </Link>
-                    )}
-                    {r.companyName && (
-                      <Link
-                        target="_blank"
-                        className="text-primary font-semibold"
-                        href={`/companies?open=${r.company_id}`}
-                      >
-                        {r.companyName}
-                      </Link>
-                    )}
-                    {r.dealName && (
-                      <Link
-                        target="_blank"
-                        className="text-primary font-semibold"
-                        href={`/deals/${r.deal_id}`}
-                      >
-                        {r.dealName}
-                      </Link>
-                    )}
-                  </td>
+                  <td className="space-x-2">{renderLinks(r)}</td>
                   <td>
                     <Badge>{r.status.replaceAll('_', ' ')}</Badge>
                   </td>
                   <td>{formatWarsawDateTime(r.created_at)}</td>
                   <td className="p-2">
                     <div className="flex gap-1">
+                      <Button
+                        aria-label={`Podnieś priorytet ${r.title}`}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void changePriority(r, 1)}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        aria-label={`Obniż priorytet ${r.title}`}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void changePriority(r, -1)}
+                      >
+                        ↓
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
