@@ -6,7 +6,9 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
+  Clock3,
   Phone,
+  PhoneMissed,
   Save,
   Target,
 } from 'lucide-react';
@@ -33,7 +35,10 @@ import {
   type PriorityDeal,
 } from '@/lib/sales/priorities';
 import { buildCallRetryQueue } from '@/lib/sales/call-queue';
-import { toLocalDateTimeValue } from '@/lib/sales/quick-activity';
+import {
+  suggestedRetryAt,
+  toLocalDateTimeValue,
+} from '@/lib/sales/quick-activity';
 
 type Priority = {
   position: number;
@@ -73,7 +78,10 @@ export default function DashboardPage() {
     [activities, setActivities] = useState<Activity[]>([]),
     [callHistory, setCallHistory] = useState<CallQueueActivity[]>([]),
     [saving, setSaving] = useState(false),
-    [callOpen, setCallOpen] = useState(false);
+    [callOpen, setCallOpen] = useState(false),
+    [queueSavingId, setQueueSavingId] = useState(''),
+    [rescheduleId, setRescheduleId] = useState(''),
+    [rescheduleValue, setRescheduleValue] = useState('');
   const [callContactId, setCallContactId] = useState(''),
     [callCompanyId, setCallCompanyId] = useState(''),
     [callDealId, setCallDealId] = useState(''),
@@ -351,6 +359,78 @@ export default function DashboardPage() {
         )
       );
       toast.success('Termin został zmieniony bez tworzenia duplikatu.');
+      setRescheduleId('');
+      setRescheduleValue('');
+    }
+  }
+
+  async function recordQueueResult(
+    row: CallQueueActivity,
+    result: 'odebral' | 'nie_odebral'
+  ) {
+    if (!accountId || queueSavingId) return;
+    setQueueSavingId(row.id);
+    try {
+      const {
+        data: { session },
+      } = await db.auth.getSession();
+      if (!session?.user) return;
+      const attemptNumber =
+        Number(row.attempt_number || 0) + (result === 'nie_odebral' ? 1 : 0);
+      const retryAt =
+        result === 'nie_odebral'
+          ? suggestedRetryAt(attemptNumber, new Date())
+          : null;
+      const person =
+        contacts.find((item) => item.id === row.contact_id)?.name ||
+        companies.find((item) => item.id === row.company_id)?.name ||
+        row.phone_number ||
+        'numer bez kartoteki';
+      const resultLabel =
+        result === 'nie_odebral' ? 'Nie odebrał' : 'Zrealizowano';
+      const { error } = await db.from('sales_activities').insert({
+        account_id: accountId,
+        user_id: session.user.id,
+        contact_id: row.contact_id || null,
+        company_id: row.company_id || null,
+        deal_id: row.deal_id || null,
+        activity_type: 'telefon',
+        title: `Telefon: ${person} — ${resultLabel}`,
+        description: `Wynik: ${resultLabel}`,
+        occurred_at: new Date().toISOString(),
+        completed: true,
+        phone_number: row.phone_number || null,
+        call_result: result,
+        call_type: row.call_type || null,
+        source: row.source || null,
+        product_group: row.product_group || null,
+        next_contact_at: retryAt?.toISOString() || null,
+        next_contact_reason:
+          result === 'nie_odebral'
+            ? row.next_contact_reason || 'Ponowić kontakt'
+            : null,
+        scheduled_at: retryAt?.toISOString() || null,
+        attempt_number: Math.min(attemptNumber, 3),
+        expires_at:
+          result === 'nie_odebral' && attemptNumber < 3
+            ? row.expires_at ||
+              new Date(Date.now() + 30 * 86400000).toISOString()
+            : null,
+        parent_activity_id: row.id,
+      });
+      if (error) throw error;
+      toast.success(
+        result === 'nie_odebral'
+          ? 'Zapisano nieodebraną próbę i termin kolejnego kontaktu.'
+          : 'Telefon oznaczono jako zrealizowany.'
+      );
+      await load();
+    } catch (error) {
+      toast.error(
+        `Nie zapisano wyniku: ${error instanceof Error ? error.message : 'nieznany błąd'}`
+      );
+    } finally {
+      setQueueSavingId('');
     }
   }
 
@@ -464,68 +544,161 @@ export default function DashboardPage() {
             Brak telefonów oczekujących na kolejną próbę.
           </p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {callQueue.map((row) => (
-              <div key={row.id} className="rounded-lg border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
-                      {contacts.find((item) => item.id === row.contact_id)
-                        ?.name ||
-                        companies.find((item) => item.id === row.company_id)
-                          ?.name ||
-                        'Numer bez kartoteki'}
-                    </p>
-                    <a
-                      href={`tel:${row.phone_number}`}
-                      className="text-primary text-sm underline-offset-2 hover:underline"
-                    >
-                      {row.phone_number}
-                    </a>
+          <div className="divide-y rounded-lg border">
+            {callQueue.map((row) => {
+              const contact = contacts.find(
+                (item) => item.id === row.contact_id
+              );
+              const company = companies.find(
+                (item) => item.id === row.company_id
+              );
+              const deal = deals.find((item) => item.id === row.deal_id);
+              const reason =
+                row.next_contact_reason || row.description || 'Ponowić kontakt';
+              const isEditingDate = rescheduleId === row.id;
+              const isSaving = queueSavingId === row.id;
+              return (
+                <div key={row.id} className="px-2.5 py-2 sm:px-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <div className="min-w-[11rem] flex-1">
+                      {contact ? (
+                        <Link
+                          href={`/contacts?open=${contact.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary block min-h-6 truncate text-sm font-bold hover:underline"
+                        >
+                          {contact.name}
+                        </Link>
+                      ) : company ? (
+                        <Link
+                          href={`/companies?open=${company.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary block min-h-6 truncate text-sm font-bold hover:underline"
+                        >
+                          {company.name}
+                        </Link>
+                      ) : (
+                        <p className="truncate text-sm font-bold">
+                          Numer bez kartoteki
+                        </p>
+                      )}
+                      <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 text-xs">
+                        <a
+                          href={`tel:${row.phone_number}`}
+                          className="text-primary font-medium hover:underline"
+                        >
+                          {row.phone_number}
+                        </a>
+                        <span className="max-w-[28rem] truncate" title={reason}>
+                          {reason}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground min-w-[8rem] text-xs sm:text-right">
+                      <p className="font-medium">
+                        {row.next_contact_at
+                          ? new Date(row.next_contact_at).toLocaleString('pl-PL')
+                          : `Próba ${row.attempt_number || 1} z 3`}
+                      </p>
+                      <div className="flex flex-wrap gap-x-2 sm:justify-end">
+                        {company && contact && (
+                          <Link
+                            href={`/companies?open=${company.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary max-w-36 truncate hover:underline"
+                          >
+                            {company.name}
+                          </Link>
+                        )}
+                        {deal && (
+                          <Link
+                            href={`/deals/${deal.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary max-w-44 truncate hover:underline"
+                          >
+                            {deal.title}
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <a
+                        href={`tel:${row.phone_number}`}
+                        className="bg-primary text-primary-foreground inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-xs font-semibold"
+                      >
+                        <Phone className="size-3.5" />
+                        Zadzwoń
+                      </a>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs"
+                        disabled={isSaving}
+                        onClick={() => void recordQueueResult(row, 'odebral')}
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                        Zrealizowano
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs"
+                        disabled={isSaving}
+                        onClick={() =>
+                          void recordQueueResult(row, 'nie_odebral')
+                        }
+                      >
+                        <PhoneMissed className="size-3.5" />
+                        Nie odebrał
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2.5 text-xs"
+                        onClick={() => {
+                          setRescheduleId(isEditingDate ? '' : row.id);
+                          setRescheduleValue(
+                            row.next_contact_at
+                              ? toLocalDateTimeValue(
+                                  new Date(row.next_contact_at)
+                                )
+                              : toLocalDateTimeValue(
+                                  new Date(Date.now() + 2 * 60 * 60 * 1000)
+                                )
+                          );
+                        }}
+                      >
+                        <Clock3 className="size-3.5" />
+                        Oddzwonić
+                      </Button>
+                    </div>
                   </div>
-                  <a
-                    href={`tel:${row.phone_number}`}
-                    className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-semibold"
-                  >
-                    Zadzwoń
-                  </a>
-                </div>
-                <div className="text-muted-foreground mt-2 space-y-1 text-xs">
-                  <p>
-                    {row.source || 'Bez źródła'} ·{' '}
-                    {row.product_group || 'Bez grupy produktu'}
-                  </p>
-                  <p>
-                    {row.next_contact_reason ||
-                      row.description ||
-                      'Ponowić kontakt'}
-                  </p>
-                  <p>
-                    {row.next_contact_at
-                      ? new Date(row.next_contact_at).toLocaleString('pl-PL')
-                      : `Próba ${row.attempt_number || 1} z 3`}
-                  </p>
-                  <MobileDateTimeInput
-                    value={
-                      row.next_contact_at
-                        ? toLocalDateTimeValue(new Date(row.next_contact_at))
-                        : ''
-                    }
-                    onChange={(value) => void rescheduleActivity(row.id, value)}
-                  />
-                  {row.deal_id && (
-                    <Link
-                      href={`/deals/${row.deal_id}`}
-                      target="_blank"
-                      className="text-primary inline-block font-medium hover:underline"
-                    >
-                      {deals.find((item) => item.id === row.deal_id)?.title ||
-                        'Otwórz Deal'}
-                    </Link>
+                  {isEditingDate && (
+                    <div className="mt-2 flex max-w-md items-end gap-2">
+                      <div className="flex-1">
+                        <MobileDateTimeInput
+                          value={rescheduleValue}
+                          onChange={setRescheduleValue}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={!rescheduleValue}
+                        onClick={() =>
+                          void rescheduleActivity(row.id, rescheduleValue)
+                        }
+                      >
+                        Zapisz termin
+                      </Button>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -890,5 +1063,4 @@ function Field({
     </div>
   );
 }
-
 
