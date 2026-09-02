@@ -345,22 +345,56 @@ export default function DashboardPage() {
     }
   }
 
-  async function rescheduleActivity(id: string, value: string) {
-    const iso = value ? new Date(value).toISOString() : null;
-    const { error } = await db
-      .from('sales_activities')
-      .update({ next_contact_at: iso, scheduled_at: iso })
-      .eq('id', id);
-    if (error) toast.error(`Nie zmieniono terminu: ${error.message}`);
-    else {
-      setCallHistory((rows) =>
-        rows.map((row) =>
-          row.id === id ? { ...row, next_contact_at: iso } : row
-        )
-      );
-      toast.success('Termin został zmieniony bez tworzenia duplikatu.');
+  async function scheduleQueueCallback(row: CallQueueActivity, value: string) {
+    if (!accountId || !value || queueSavingId) return;
+    setQueueSavingId(row.id);
+    const iso = new Date(value).toISOString();
+    try {
+      const {
+        data: { session },
+      } = await db.auth.getSession();
+      if (!session?.user) return;
+      const person =
+        contacts.find((item) => item.id === row.contact_id)?.name ||
+        companies.find((item) => item.id === row.company_id)?.name ||
+        row.phone_number ||
+        'numer bez kartoteki';
+      const { error } = await db.from('sales_activities').insert({
+        account_id: accountId,
+        user_id: session.user.id,
+        contact_id: row.contact_id || null,
+        company_id: row.company_id || null,
+        deal_id: row.deal_id || null,
+        activity_type: 'telefon',
+        title: `Oddzwonić: ${person}`,
+        description: row.next_contact_reason || 'Oddzwonić',
+        occurred_at: new Date().toISOString(),
+        completed: false,
+        phone_number: row.phone_number || null,
+        call_result: 'oddzwonic',
+        call_type: row.call_type || null,
+        source: row.source || null,
+        product_group: row.product_group || null,
+        next_contact_at: iso,
+        next_contact_reason: row.next_contact_reason || 'Oddzwonić',
+        scheduled_at: iso,
+        attempt_number: row.attempt_number || 0,
+        expires_at:
+          row.expires_at ||
+          new Date(Date.now() + 30 * 86400000).toISOString(),
+        parent_activity_id: row.id,
+      });
+      if (error) throw error;
       setRescheduleId('');
       setRescheduleValue('');
+      toast.success('Nowy termin oddzwonienia został zapisany.');
+      await load();
+    } catch (error) {
+      toast.error(
+        `Nie zapisano terminu: ${error instanceof Error ? error.message : 'nieznany błąd'}`
+      );
+    } finally {
+      setQueueSavingId('');
     }
   }
 
@@ -689,7 +723,7 @@ export default function DashboardPage() {
                         size="sm"
                         disabled={!rescheduleValue}
                         onClick={() =>
-                          void rescheduleActivity(row.id, rescheduleValue)
+                          void scheduleQueueCallback(row, rescheduleValue)
                         }
                       >
                         Zapisz termin
