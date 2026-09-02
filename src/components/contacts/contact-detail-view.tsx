@@ -57,6 +57,7 @@ import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { SmsAction } from '@/components/sales/sms-action';
 import { CallAction } from '@/components/sales/call-action';
+import { ActivityHistory } from '@/components/sales/activity-history';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -110,10 +111,6 @@ export function ContactDetailView({
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
-  const [activityNotes, setActivityNotes] = useState<Array<{
-    id: string; description?: string | null; occurred_at: string; title: string;
-    activity_type: string; activity_status?: string | null; call_result?: string | null;
-  }>>([]);
 
   // Custom fields tab
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -183,16 +180,8 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoadingNotes(true);
 
-    const [notesResult, activitiesResult] = await Promise.all([
-      supabase.from('contact_notes').select('*').eq('contact_id', contactId).order('created_at', { ascending: false }),
-      supabase.from('sales_activities')
-        .select('id,title,description,activity_type,activity_status,call_result,occurred_at')
-        .eq('contact_id', contactId).order('occurred_at', { ascending: false }),
-    ]);
+    const notesResult = await supabase.from('contact_notes').select('*').eq('contact_id', contactId).order('created_at', { ascending: false });
     if (notesResult.data) setNotes(notesResult.data);
-    setActivityNotes((activitiesResult.data ?? []).map((row) => ({
-      ...row, title: row.title ?? 'Aktywność',
-    })));
     setLoadingNotes(false);
   }, [contactId, supabase]);
 
@@ -626,6 +615,12 @@ export function ContactDetailView({
                   >
                     {t('tabs.deals')}
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="history"
+                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  >
+                    Historia
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Details Tab */}
@@ -796,21 +791,12 @@ export function ContactDetailView({
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="text-muted-foreground size-5 animate-spin" />
                       </div>
-                    ) : notes.length === 0 && activityNotes.length === 0 ? (
+                    ) : notes.length === 0 ? (
                       <p className="text-muted-foreground py-8 text-center text-sm">
                         {t('notesTab.noNotes')}
                       </p>
                     ) : (
                       <>
-                      {activityNotes.map((activity) => (
-                        <div key={activity.id} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                          <p className="text-xs font-semibold uppercase text-emerald-900">{activity.activity_type.replaceAll('_', ' ')}</p>
-                          <p className="font-semibold text-slate-900">{activity.title}</p>
-                          <p className="text-xs text-slate-600">{activity.activity_status || 'Status nieustawiony'}{activity.call_result ? ` · ${activity.call_result.replaceAll('_', ' ')}` : ''}</p>
-                          {activity.description && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{activity.description}</p>}
-                          <p className="mt-1.5 text-xs text-slate-500">{formatWarsawDateTime(activity.occurred_at)} · Europe/Warsaw</p>
-                        </div>
-                      ))}
                       {notes.map((note) => (
                         <div
                           key={note.id}
@@ -1041,6 +1027,9 @@ export function ContactDetailView({
                       ))}
                     </div>
                   )}
+                </TabsContent>
+                <TabsContent value="history" className="flex-1 overflow-y-auto px-4 py-3">
+                  <ActivityHistory contactId={contact.id} />
                 </TabsContent>
               </Tabs>
             </div>

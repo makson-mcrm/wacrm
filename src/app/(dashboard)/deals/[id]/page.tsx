@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { SmsAction } from '@/components/sales/sms-action';
 import { CallAction } from '@/components/sales/call-action';
+import { ActivityHistory } from '@/components/sales/activity-history';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -80,11 +81,6 @@ type StageHistory = {
   from_stage?: { name?: string } | null;
   to_stage?: { name?: string } | null;
 };
-type SalesActivity = {
-  id: string; title: string; description?: string | null; activity_type: string;
-  activity_status?: string | null; call_result?: string | null; occurred_at: string;
-};
-
 export default function DealPage() {
   const { id } = useParams<{ id: string }>();
   const { accountId } = useAuth();
@@ -99,7 +95,6 @@ export default function DealPage() {
     [docs, setDocs] = useState<Doc[]>([]),
     [requirements, setRequirements] = useState<Requirement[]>([]),
     [stageHistory, setStageHistory] = useState<StageHistory[]>([]),
-    [salesActivities, setSalesActivities] = useState<SalesActivity[]>([]),
     [missingRequiredDocuments, setMissingRequiredDocuments] = useState(0),
     [requiredDocumentsCount, setRequiredDocumentsCount] = useState(0),
     [stages, setStages] = useState<PipelineStage[]>([]),
@@ -114,7 +109,7 @@ export default function DealPage() {
   const [loadError, setLoadError] = useState('');
   const load = useCallback(async () => {
     setLoadError('');
-    const [d, n, b, f, p, h, activities, requirements, profileRows] = await Promise.all([
+    const [d, n, b, f, p, h, requirements, profileRows] = await Promise.all([
       db
         .from('deals')
         .select(
@@ -145,9 +140,6 @@ export default function DealPage() {
         )
         .eq('deal_id', id)
         .order('changed_at', { ascending: false }),
-      db.from('sales_activities')
-        .select('id,title,description,activity_type,activity_status,call_result,occurred_at')
-        .eq('deal_id', id).order('occurred_at', { ascending: false }),
       db
         .from('deal_document_requirements')
         .select('id,name,status,required')
@@ -182,7 +174,6 @@ export default function DealPage() {
     );
     setDocs((f.data ?? []) as Doc[]);
     setRequirements((requirements.data ?? []) as Requirement[]);
-    setSalesActivities((activities.data ?? []) as SalesActivity[]);
     setStageHistory(
       ((h.data ?? []) as unknown as StageHistory[]).map((row) => ({
         ...row,
@@ -571,7 +562,7 @@ export default function DealPage() {
             <TabsList className="mb-4 flex h-auto flex-wrap">
               <TabsTrigger value="timeline">Oś czasu</TabsTrigger>
               <TabsTrigger value="notes">Komentarze i notatki</TabsTrigger>
-              <TabsTrigger value="activities">Aktywności</TabsTrigger>
+              <TabsTrigger value="activities">Działania</TabsTrigger>
               <TabsTrigger value="case">Dane sprawy</TabsTrigger>
               <TabsTrigger value="analysis">Analiza AI</TabsTrigger>
               <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
@@ -579,8 +570,9 @@ export default function DealPage() {
               <TabsTrigger value="email">Wiadomości e-mail</TabsTrigger>
               <TabsTrigger value="banks">Proces bankowy</TabsTrigger>
               <TabsTrigger value="files">Pliki</TabsTrigger>
-              <TabsTrigger value="history">Historia etapów</TabsTrigger>
+              <TabsTrigger value="history">Etapy</TabsTrigger>
               <TabsTrigger value="settlement">Rozliczenie</TabsTrigger>
+              <TabsTrigger value="activity-history">Historia</TabsTrigger>
             </TabsList>
             <TabsContent value="timeline" className="space-y-3">
               <Section title="Aktualny stan">
@@ -617,20 +609,6 @@ export default function DealPage() {
                 >
                   Dodaj zadanie lub spotkanie
                 </Link>
-              </Section>
-              <Section title="Historia aktywności">
-                {!salesActivities.length && <p className="text-muted-foreground text-sm">Brak zapisanych aktywności.</p>}
-                <div className="space-y-2">
-                  {salesActivities.map((activity) => (
-                    <article key={activity.id} className="rounded-lg border p-3">
-                      <p className="text-xs font-semibold uppercase text-emerald-800">{activity.activity_type.replaceAll('_', ' ')}</p>
-                      <p className="font-semibold">{activity.title}</p>
-                      <p className="text-muted-foreground text-xs">{activity.activity_status || 'Status nieustawiony'}{activity.call_result ? ` · ${activity.call_result.replaceAll('_', ' ')}` : ''}</p>
-                      {activity.description && <p className="mt-1 whitespace-pre-wrap text-sm">{activity.description}</p>}
-                      <p className="text-muted-foreground mt-1.5 text-xs">{formatWarsawDateTime(activity.occurred_at)} · Europe/Warsaw</p>
-                    </article>
-                  ))}
-                </div>
               </Section>
             </TabsContent>
             <TabsContent value="email">
@@ -939,6 +917,9 @@ export default function DealPage() {
                   {deal.settlement_notes || 'Brak uwag'}
                 </p>
               </Section>
+            </TabsContent>
+            <TabsContent value="activity-history">
+              <ActivityHistory dealId={deal.id} />
             </TabsContent>
           </Tabs>
         </main>

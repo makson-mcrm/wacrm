@@ -23,6 +23,8 @@ import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 import { SmsAction } from '@/components/sales/sms-action';
 import { CallAction } from '@/components/sales/call-action';
+import { ActivityHistory } from '@/components/sales/activity-history';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Building2,
   Loader2,
@@ -544,6 +546,9 @@ function CompanySheet({
             </div>
           )}
         </SheetHeader>
+        <Tabs defaultValue="data" className="mt-4">
+          {company && <TabsList className="h-auto"><TabsTrigger value="data">Dane</TabsTrigger><TabsTrigger value="history">Historia</TabsTrigger></TabsList>}
+          <TabsContent value="data">
         <div className="mt-5 space-y-5">
           <section className="grid max-w-xl gap-3">
             <Field label="Nazwa firmy *">
@@ -808,6 +813,9 @@ function CompanySheet({
             </>
           )}
         </div>
+          </TabsContent>
+          {company && <TabsContent value="history"><ActivityHistory companyId={company.id} className="mt-4" /></TabsContent>}
+        </Tabs>
       </SheetContent>
     </Sheet>
   );

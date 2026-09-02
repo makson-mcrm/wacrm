@@ -28,6 +28,7 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [body, setBody] = useState('');
+  const [opening, setOpening] = useState(false);
 
   const selected = useMemo(() => templates.find((item) => item.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -57,15 +58,24 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
     setBody(personalizeSms(template?.content_text ?? '', contactName));
   }
 
-  function recordPreparedSms() {
-    void fetch('/api/sales-activities/prepared-sms', {
+  async function openMessages(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    if (!selected || !body.trim() || opening) return;
+    setOpening(true);
+    try {
+      const response = await fetch('/api/sales-activities/prepared-sms', {
       method: 'POST',
-      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contactId, companyId, dealId, templateId: selected?.id, templateTitle: selected?.title, body }),
-    }).then((response) => {
-      if (!response.ok) toast.error('Wiadomości zostały otwarte, ale nie zapisano aktywności PRZYGOTOWANO_SMS.');
-    }).catch(() => toast.error('Wiadomości zostały otwarte, ale nie zapisano aktywności PRZYGOTOWANO_SMS.'));
+      body: JSON.stringify({ contactId, companyId, dealId, phone, templateId: selected.id, templateTitle: selected.title }),
+      });
+      if (!response.ok) throw new Error('Nie zapisano aktywności PRZYGOTOWANO_SMS.');
+      window.location.href = href;
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nie zapisano aktywności PRZYGOTOWANO_SMS.');
+    } finally {
+      setOpening(false);
+    }
   }
 
   if (!phone) return null;
@@ -100,8 +110,8 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
               href={selected && body.trim() ? href : undefined}
               aria-disabled={!selected || !body.trim()}
               className={cn(buttonVariants(), (!selected || !body.trim()) && 'pointer-events-none opacity-50')}
-              onClick={recordPreparedSms}
-            >Otwórz Wiadomości</a>
+              onClick={openMessages}
+            >{opening ? 'Zapisywanie…' : 'Otwórz Wiadomości'}</a>
           </DialogFooter>
         </DialogContent>
       </Dialog>
