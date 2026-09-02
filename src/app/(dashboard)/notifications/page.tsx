@@ -354,8 +354,11 @@ export default function WorkQueuePage() {
                         type="datetime-local"
                         className="w-40"
                         value={snooze[r.id] ?? ''}
-                        onChange={(e) =>
-                          setSnooze((v) => ({ ...v, [r.id]: e.target.value }))
+                        onInput={(e) =>
+                          setSnooze((v) => ({
+                            ...v,
+                            [r.id]: e.currentTarget.value,
+                          }))
                         }
                       />
                       <Button
