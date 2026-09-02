@@ -41,6 +41,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Block destructive production migrations without a backup marker
+        env:
+          MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: npm run check:migrations
 
       - name: Install the Supabase CLI
         uses: supabase/setup-cli@v1

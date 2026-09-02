@@ -458,15 +458,57 @@ export default function ContactsPage() {
 
   async function exportContactsCsv() {
     if (!canEditSettings) return;
-    const { data, error } = await supabase
-      .from('contacts')
-      .select(
-        'first_name,last_name,phone,phone_secondary,email,company,source,preferred_contact_channel,contact_consent,marketing_consent,created_at'
-      )
-      .order('created_at', { ascending: false });
-    if (error) {
+    const [contactsResult, companiesResult, dealsResult, dealLinksResult] =
+      await Promise.all([
+        supabase
+          .from('contacts')
+          .select(
+            'id,first_name,last_name,phone,phone_secondary,email,source,preferred_contact_channel,contact_consent,marketing_consent,created_at'
+          )
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('contact_companies')
+          .select(
+            'contact_id,company:companies!contact_companies_company_id_fkey(name)'
+          ),
+        supabase.from('deals').select('id,title,contact_id'),
+        supabase.from('deal_contacts').select('deal_id,contact_id'),
+      ]);
+    if (
+      contactsResult.error ||
+      companiesResult.error ||
+      dealsResult.error ||
+      dealLinksResult.error
+    ) {
       toast.error('Nie udało się wyeksportować Kontaktów.');
       return;
+    }
+    const companyNames = new Map<string, Set<string>>();
+    for (const link of companiesResult.data ?? []) {
+      const company = Array.isArray(link.company)
+        ? link.company[0]
+        : link.company;
+      if (!company?.name) continue;
+      const names = companyNames.get(link.contact_id) ?? new Set<string>();
+      names.add(company.name);
+      companyNames.set(link.contact_id, names);
+    }
+    const dealsById = new Map(
+      (dealsResult.data ?? []).map((deal) => [deal.id, deal])
+    );
+    const dealNames = new Map<string, Set<string>>();
+    for (const deal of dealsResult.data ?? []) {
+      if (!deal.contact_id) continue;
+      const names = dealNames.get(deal.contact_id) ?? new Set<string>();
+      names.add(deal.title);
+      dealNames.set(deal.contact_id, names);
+    }
+    for (const link of dealLinksResult.data ?? []) {
+      const deal = dealsById.get(link.deal_id);
+      if (!deal) continue;
+      const names = dealNames.get(link.contact_id) ?? new Set<string>();
+      names.add(deal.title);
+      dealNames.set(link.contact_id, names);
     }
     const headers = [
       'imie',
@@ -474,7 +516,8 @@ export default function ContactsPage() {
       'telefon',
       'telefon_dodatkowy',
       'email',
-      'firma',
+      'firmy',
+      'deale',
       'zrodlo',
       'preferowany_kanal',
       'zgoda_kontakt',
@@ -483,14 +526,15 @@ export default function ContactsPage() {
     ];
     const quote = (value: unknown) =>
       `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const rows = (data ?? []).map((row) =>
+    const rows = (contactsResult.data ?? []).map((row) =>
       [
         row.first_name,
         row.last_name,
         row.phone,
         row.phone_secondary,
         row.email,
-        row.company,
+        [...(companyNames.get(row.id) ?? [])].join(' | '),
+        [...(dealNames.get(row.id) ?? [])].join(' | '),
         row.source,
         row.preferred_contact_channel,
         row.contact_consent ? 'tak' : 'nie',
@@ -510,7 +554,9 @@ export default function ContactsPage() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-    toast.success(`Wyeksportowano Kontaktów: ${data?.length ?? 0}`);
+    toast.success(
+      `Wyeksportowano Kontaktów: ${contactsResult.data?.length ?? 0}`
+    );
   }
 
   return (
