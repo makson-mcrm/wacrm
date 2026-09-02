@@ -65,3 +65,14 @@ export function compareWorkQueuePriority<
   return ad - bd || +new Date(a.created_at) - +new Date(b.created_at);
 }
 
+export function getWorkQueueTarget(row: {
+  deal_id?: string | null;
+  contact_id?: string | null;
+  company_id?: string | null;
+}) {
+  if (row.deal_id) return `/deals/${row.deal_id}`;
+  if (row.contact_id) return `/contacts?open=${row.contact_id}`;
+  if (row.company_id) return `/companies?open=${row.company_id}`;
+  return null;
+}
+

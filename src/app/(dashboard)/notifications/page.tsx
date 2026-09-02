@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import {
   calculateWorkQueuePriority,
   compareWorkQueuePriority,
+  getWorkQueueTarget,
 } from '@/lib/work-queue/priority';
 type Status = 'NOWE' | 'W_TOKU' | 'ODLOZONE' | 'ZALATWIONE';
 type Row = {
@@ -262,12 +263,12 @@ export default function WorkQueuePage() {
   useEffect(() => {
     void load();
   }, [load]);
-  const change = async (row: Row, status: Status) => {
-    if (!user || !accountId) return;
+  const change = async (row: Row, status: Status, reload = true) => {
+    if (!user || !accountId) return false;
     const value = snooze[row.id];
     if (status === 'ODLOZONE' && !value) {
       toast.error('Wybierz termin ponownego pokazania.');
-      return;
+      return false;
     }
     const { error } = await db
       .from('work_queue_items')
@@ -279,9 +280,9 @@ export default function WorkQueuePage() {
       .eq('id', row.id);
     if (error) {
       toast.error(error.message);
-      return;
+      return false;
     }
-    await db.from('work_queue_events').insert({
+    const { error: eventError } = await db.from('work_queue_events').insert({
       account_id: accountId,
       queue_item_id: row.id,
       user_id: user.id,
@@ -295,7 +296,35 @@ export default function WorkQueuePage() {
       company_id: row.company_id,
       deal_id: row.deal_id,
     });
+    if (eventError) {
+      toast.error(
+        'Status zapisano, ale nie udało się zapisać zdarzenia w Historii.'
+      );
+      return false;
+    }
+    if (reload) await load();
+    return true;
+  };
+  const openRelatedRecord = async (row: Row) => {
+    const url = getWorkQueueTarget(row);
+    const target = url ? window.open('about:blank', '_blank') : null;
+    const saved =
+      row.status === 'NOWE' ? await change(row, 'W_TOKU', false) : true;
+    if (!saved) {
+      target?.close();
+      return;
+    }
     await load();
+    if (!url) {
+      toast.info('Ta pozycja nie ma powiązanego Deala, Kontaktu ani Firmy.');
+      return;
+    }
+    if (target) {
+      target.opener = null;
+      target.location.href = url;
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   };
   const changePriority = async (row: Row, direction: 1 | -1) => {
     if (!user || !accountId) return;
@@ -456,11 +485,7 @@ export default function WorkQueuePage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() =>
-                          void (r.status === 'NOWE'
-                            ? change(r, 'W_TOKU')
-                            : Promise.resolve())
-                        }
+                        onClick={() => void openRelatedRecord(r)}
                       >
                         Otwórz
                       </Button>

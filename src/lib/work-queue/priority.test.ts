@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateWorkQueuePriority,
   compareWorkQueuePriority,
+  getWorkQueueTarget,
 } from './priority';
 const now = new Date('2026-09-02T10:00:00Z');
 describe('work queue priority', () => {
@@ -46,6 +47,15 @@ describe('work queue priority', () => {
         { ...base, manual_priority: 0, priorityScore: 700 }
       )
     ).toBeLessThan(0);
+  });
+  it('opens Deal before Contact and Company, then falls back in that order', () => {
+    expect(
+      getWorkQueueTarget({ deal_id: 'd', contact_id: 'c', company_id: 'f' })
+    ).toBe('/deals/d');
+    expect(getWorkQueueTarget({ contact_id: 'c', company_id: 'f' })).toBe(
+      '/contacts?open=c'
+    );
+    expect(getWorkQueueTarget({ company_id: 'f' })).toBe('/companies?open=f');
   });
 });
 
