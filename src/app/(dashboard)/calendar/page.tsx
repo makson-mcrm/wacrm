@@ -37,6 +37,8 @@ type Item = {
   contactId?: string | null;
   companyId?: string | null;
   dealId?: string | null;
+  syncConflict?: boolean;
+  syncConflictReason?: string | null;
 };
 export default function CalendarPage() {
   const db = useMemo(() => createClient(), []),
@@ -64,6 +66,7 @@ export default function CalendarPage() {
           .from('calendar_events')
           .select('*')
           .eq('account_id', accountId)
+          .is('deleted_at', null)
           .order('starts_at'),
         db
           .from('sales_activities')
@@ -115,6 +118,8 @@ export default function CalendarPage() {
         contactId: r.contact_id,
         companyId: r.company_id,
         dealId: r.deal_id,
+        syncConflict: r.sync_conflict,
+        syncConflictReason: r.sync_conflict_reason,
       });
     for (const r of activities.data ?? []) {
       const date = r.scheduled_at || r.next_action_date || r.next_contact_at;
@@ -176,9 +181,16 @@ export default function CalendarPage() {
     setCompanies((companyRows.data ?? []) as Company[]);
     setDeals((dealRows.data ?? []) as Deal[]);
   }, [accountId, db]);
+  const syncAndLoad = useCallback(async () => {
+    if (!accountId) return;
+    await fetch('/api/google-calendar/sync', { method: 'POST' }).catch(() => null);
+    await load();
+  }, [accountId, load]);
   useEffect(() => {
-    void load();
-  }, [load]);
+    void syncAndLoad();
+    const timer = window.setInterval(() => void syncAndLoad(), 2 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [syncAndLoad]);
   useEffect(() => {
     if (window.matchMedia('(max-width: 640px)').matches) setView('day');
   }, []);
@@ -221,6 +233,9 @@ export default function CalendarPage() {
             contact_id: contactId || null,
             company_id: companyId || null,
             deal_id: dealId || null,
+            local_updated_at: new Date().toISOString(),
+            sync_conflict: false,
+            sync_conflict_reason: null,
           })
           .eq('id', editing.sourceId));
       else if (editing.source === 'activity')
@@ -280,7 +295,7 @@ export default function CalendarPage() {
     if (error) return toast.error(error.message);
     toast.success(editing ? 'Termin zmieniony.' : 'Zdarzenie dodane.');
     setOpen(false);
-    await load();
+    await syncAndLoad();
   }
   async function complete() {
     if (!editing || editing.source !== 'activity') return;
@@ -296,6 +311,24 @@ export default function CalendarPage() {
     toast.success('Aktywność oznaczona jako wykonana.');
     setOpen(false);
     await load();
+  }
+  async function cancelEvent() {
+    if (!editing || editing.source !== 'calendar') return;
+    const now = new Date().toISOString();
+    const { error } = await db
+      .from('calendar_events')
+      .update({
+        status: 'anulowane',
+        deleted_at: now,
+        local_updated_at: now,
+        sync_conflict: false,
+        sync_conflict_reason: null,
+      })
+      .eq('id', editing.sourceId);
+    if (error) return toast.error(error.message);
+    setOpen(false);
+    toast.success('Zdarzenie anulowane.');
+    await syncAndLoad();
   }
   const shift = (n: number) => {
     const d = new Date(cursor);
@@ -487,12 +520,23 @@ export default function CalendarPage() {
               </div>
             )}
             <div className="flex gap-2">
+              {editing?.syncConflict && (
+                <p className="mr-auto rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  {editing.syncConflictReason || 'Zdarzenie zmieniono po obu stronach.'}{' '}
+                  Sprawdź dane i kliknij Zapisz, aby wybrać wersję WaCRM.
+                </p>
+              )}
               {editing?.source === 'activity' &&
                 editing.status !== 'WYKONANE' && (
                   <Button variant="outline" onClick={() => void complete()}>
                     Oznacz wykonane
                   </Button>
                 )}
+              {editing?.source === 'calendar' && (
+                <Button variant="outline" onClick={() => void cancelEvent()}>
+                  Anuluj zdarzenie
+                </Button>
+              )}
               <Button className="ml-auto" onClick={() => void save()}>
                 Zapisz
               </Button>

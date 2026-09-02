@@ -1,5 +1,6 @@
 import {
   Coins,
+  CalendarSync,
   FileText,
   KeyRound,
   LayoutGrid,
@@ -27,6 +28,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'calendar',
   'templates',
   'quick-replies',
   'fields',
@@ -71,6 +73,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: PlugZap,
+    group: 'workspace',
+  },
+  calendar: {
+    id: 'calendar',
+    label: 'Google Calendar',
+    icon: CalendarSync,
     group: 'workspace',
   },
   templates: {
@@ -130,3 +138,4 @@ export function resolveSection(raw: string | null): SettingsSection {
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
 }
+

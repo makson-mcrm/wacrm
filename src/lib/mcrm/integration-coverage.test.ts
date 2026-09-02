@@ -70,9 +70,14 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(calendar).toContain("from('sales_activities')");
     expect(calendar).toContain("from('work_queue_items')");
     expect(calendar).toContain("'day' | 'week' | 'month'");
-    expect(source('src/app/api/google-calendar/sync/route.ts')).toContain(
+    expect(source('src/lib/google-calendar/sync.ts')).toContain(
       'google_event_id'
     );
+    expect(source('src/app/api/google-calendar/sync/route.ts')).toContain(
+      'syncGoogleCalendar'
+    );
+    expect(source('src/lib/google-calendar/sync.ts')).toContain('sync_token');
+    expect(source('src/lib/google-calendar/sync.ts')).toContain("method: 'DELETE'");
     expect(
       source('supabase/migrations/050_public_booking_calendar.sql')
     ).toContain('public_booking_submissions');
@@ -105,7 +110,8 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
 
   it('pakiet wdrożeniowy dokumentuje konfigurację Kalendarza i Dysku Google', () => {
     const example = source('.env.local.example');
-    expect(example).toContain('GOOGLE_CALENDAR_ACCESS_TOKEN');
+    expect(example).toContain('GOOGLE_CALENDAR_CLIENT_ID');
+    expect(example).toContain('GOOGLE_CALENDAR_CLIENT_SECRET');
     expect(example).toContain('GOOGLE_DRIVE_ACCESS_TOKEN');
     expect(example).toContain('GOOGLE_DRIVE_ROOT_FOLDER_ID');
   });
