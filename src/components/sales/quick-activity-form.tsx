@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Phone, Plus, Save, Search, X } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { ChevronDown, Plus, Save, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,12 +32,14 @@ import {
   type ObjectiveType,
 } from '@/lib/sales/quick-activity';
 import { parseCrmPhone } from '@/lib/contacts/phone';
+import { CallAction } from '@/components/sales/call-action';
 
 const PRODUCT_GROUPS = ['1_HIPO_OF_ML','2_FIRMA_BC_ML','3_FIRMA_BC_NML','4_GOTÓWKA_OF_NML','5_LEASING_BC_ML'];
 const SOURCES = ['PODAJNIK do mbank','Własny Kontakt','FLASH podajnik','LEAD / DK','WKO mbank CRM','www.makson.space/formularz','TARGI / KONFERENCJE','Pośrednik PRZEKAZAŁ','REKOMENDACJA','Partner','zimna rozmowa','Reklama FB'];
 const RESULT_OPTIONS = [
-  ['odebral', 'Odebrał / wykonano'],
+  ['odebral', 'Odebrano'],
   ['nie_odebral', 'Nie odebrał'],
+  ['oddzwonic', 'Oddzwonić'],
   ['przelozone_dzis', 'Oddzwoń dzisiaj później'],
   ['niezainteresowany', 'Niezainteresowany'],
   ['serwis_zakonczony', 'Serwis zakończony'],
@@ -46,6 +49,8 @@ type Stage = PipelineStage & { pipeline_id: string };
 type ContactCompanyLink = { contact_id: string; company_id: string; is_primary: boolean };
 
 export function QuickActivityForm() {
+  const searchParams = useSearchParams();
+  const restoredCall = useRef(false);
   const db = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -66,7 +71,7 @@ export function QuickActivityForm() {
   const [dealId, setDealId] = useState('');
   const [note, setNote] = useState('');
   const [when, setWhen] = useState('');
-  const [result, setResult] = useState('odebral');
+  const [result, setResult] = useState('');
   const [source, setSource] = useState(SOURCES[0]);
   const [productGroup, setProductGroup] = useState('');
   const [nextAction, setNextAction] = useState('');
@@ -80,7 +85,7 @@ export function QuickActivityForm() {
   function resetForm() {
     setType('TELEFON'); setStatus('WYKONANE'); setObjective('NOWE_POZYSKANIE');
     setPhone(''); setFirstName(''); setLastName(''); setContactId(''); setCompanyId(''); setDealId('');
-    setNote(''); setWhen(''); setResult('odebral'); setSource(SOURCES[0]); setProductGroup('');
+    setNote(''); setWhen(''); setResult(''); setSource(SOURCES[0]); setProductGroup('');
     setNextAction(''); setNextActionDate(''); setDetailsOpen(false); setCompanyNip('');
     setContactDialog(false); setCompanyDialog(false); setDealDialog(false);
   }
@@ -109,6 +114,22 @@ export function QuickActivityForm() {
   }, [accountId, db]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    if (loading || restoredCall.current || searchParams.get('afterCall') !== '1') return;
+    const selectedContact = contacts.find((row) => row.id === searchParams.get('contact'));
+    if (selectedContact) chooseContact(selectedContact);
+    const selectedCompanyId = searchParams.get('company');
+    const selectedDealId = searchParams.get('deal');
+    if (selectedCompanyId) setCompanyId(selectedCompanyId);
+    if (selectedDealId) setDealId(selectedDealId);
+    setType('TELEFON');
+    setStatus('WYKONANE');
+    setResult('');
+    restoredCall.current = true;
+    // chooseContact is stable for the loaded snapshot used by this one-time restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, contacts, searchParams]);
 
   const phoneMatches = useMemo(() => {
     if (phoneSearchStrength(phone) === 'none') return [];
@@ -300,6 +321,7 @@ export function QuickActivityForm() {
     if (!accountId || saving) return;
     const number = phone.trim() || contacts.find((row) => row.id === contactId)?.phone || '';
     if (type === 'TELEFON' && normalizeActivityPhone(number).length < 7) return toast.error('Podaj prawidłowy numer telefonu.');
+    if (type === 'TELEFON' && !result) return toast.error('Wybierz wynik rozmowy. Samo użycie Zadzwoń nie zapisuje rozmowy.');
     if (!contactId) return toast.error('Wybierz istniejący Kontakt albo dodaj nowy.');
     if (status !== 'WYKONANE' && !when) return toast.error('Ustaw datę i godzinę planowanej aktywności.');
     const { data: { session } } = await db.auth.getSession();
@@ -397,7 +419,7 @@ export function QuickActivityForm() {
         <div><Label>Krótka notatka</Label><VoiceTextarea value={note} onChange={setNote} placeholder="Podyktuj lub wpisz pełną notatkę" className="min-h-24" /></div>
         <div><Label>Status</Label><div className="mt-1 grid grid-cols-2 gap-1.5">{ACTIVITY_STATUSES.map((item) => <button key={item} type="button" onClick={() => setStatus(item)} className={`min-h-10 rounded-lg px-2 text-xs font-bold ${status === item ? 'bg-lime-300 text-emerald-950 ring-2 ring-emerald-900' : 'bg-slate-100 text-slate-700'}`}>{item.replaceAll('_', ' ')}</button>)}</div></div>
         {status !== 'WYKONANE' && <div><Label>Data i godzina</Label><MobileDateTimeInput value={when} onChange={setWhen} required /></div>}
-        {type === 'TELEFON' && <div><Label>Wynik telefonu</Label><select value={result} onChange={(e) => setResult(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3">{RESULT_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>}
+        {type === 'TELEFON' && <><div><Label>Wynik rozmowy</Label><select value={result} onChange={(e) => setResult(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3"><option value="">Wybierz wynik rozmowy</option>{RESULT_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div><div><Label>Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="Co dalej?" /></div><div><Label>Data follow-up</Label><MobileDateTimeInput value={nextActionDate} onChange={setNextActionDate} /></div></>}
       </section>
 
       <button type="button" onClick={() => setDetailsOpen((value) => !value)} className="my-3 flex w-full items-center justify-between rounded-xl border bg-white px-4 py-3 font-bold text-emerald-950"><span>Firma, Deal i szczegóły</span><ChevronDown className={`size-5 transition ${detailsOpen ? 'rotate-180' : ''}`} /></button>
@@ -405,12 +427,11 @@ export function QuickActivityForm() {
         <div><Label>Firma (opcjonalna)</Label><EntitySearchSelect value={companyId} onChange={(value) => void changeCompany(value)} options={companies.map((row) => ({ value: row.id, label: `${row.name}${row.nip ? ` · NIP ${row.nip}` : ''}`, keywords: `${row.nip ?? ''} ${row.nip_normalized ?? ''} ${row.phone ?? ''}` }))} placeholder="Wyszukaj firmę po nazwie lub NIP" onAdd={() => setCompanyDialog(true)} addLabel="Dodaj firmę" />{companyId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => void changeCompany('')}><X className="size-4" /> Usuń powiązanie z firmą</Button>}</div>
         <div><Label>Deal (opcjonalny)</Label><EntitySearchSelect value={dealId} onChange={setDealId} options={relatedDeals.map((row) => ({ value: row.id, label: row.title }))} placeholder="Wybierz Deal" onAdd={() => setDealDialog(true)} addLabel="Dodaj Deal" />{dealId && <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={() => setDealId('')}><X className="size-4" /> Usuń powiązanie z Dealem</Button>}</div>
         <div><Label>Cel aktywności / KPI</Label><select value={objective} onChange={(e) => setObjective(e.target.value as ObjectiveType)} className="mt-1 min-h-11 w-full rounded-lg border bg-white px-3">{OBJECTIVE_TYPES.map((item) => <option key={item}>{item}</option>)}</select></div>
-        <div><Label>Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="Co dalej?" /></div>
-        <div><Label>Termin następnego działania</Label><MobileDateTimeInput value={nextActionDate} onChange={setNextActionDate} /></div>
+        {type !== 'TELEFON' && <><div><Label>Następne działanie</Label><Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} placeholder="Co dalej?" /></div><div><Label>Termin następnego działania</Label><MobileDateTimeInput value={nextActionDate} onChange={setNextActionDate} /></div></>}
       </section>}
 
       <div className="sticky bottom-0 mt-3 flex gap-2 rounded-2xl border bg-white/95 p-2 shadow-lg backdrop-blur">
-        {phone && <a href={`tel:${phone}`} className="flex min-h-12 items-center justify-center rounded-xl border border-emerald-900 px-4 font-bold text-emerald-950"><Phone className="mr-2 size-4" /> Zadzwoń</a>}
+        <CallAction phone={phone} contactId={contactId} companyId={companyId} dealId={dealId} className="min-h-12 border-emerald-900 px-4 font-bold text-emerald-950" />
         <Button className="min-h-12 flex-1 bg-[#123d2b] text-lime-300 hover:bg-[#0b2d1f]" disabled={saving || loading} onClick={saveActivity}><Save className="size-4" />{saving ? 'Zapisywanie…' : 'Zapisz aktywność'}</Button>
       </div>
       <Link href="/dashboard" className="mt-3 block text-center text-xs text-slate-500">Wróć do Pulpitu</Link>

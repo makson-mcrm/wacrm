@@ -11,15 +11,15 @@ import {
   FileText,
   Mail,
   Pencil,
-  Phone,
   Trash2,
   Upload,
   UserPlus,
 } from 'lucide-react';
 import { SmsAction } from '@/components/sales/sms-action';
+import { CallAction } from '@/components/sales/call-action';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
@@ -414,10 +414,7 @@ export default function DealPage() {
           </Button>
           {actionContact?.phone && (
             <>
-              <a className={buttonVariants({ size: 'sm' })} href={`tel:${actionContact.phone}`}>
-                <Phone className="h-4 w-4" />
-                Zadzwoń
-              </a>
+              <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} variant="default" />
               <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} />
             </>
           )}

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import type { Company, Contact, Deal } from '@/types';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 import { SmsAction } from '@/components/sales/sms-action';
+import { CallAction } from '@/components/sales/call-action';
 import {
   Building2,
   Loader2,
@@ -538,7 +539,7 @@ function CompanySheet({
           </SheetTitle>
           {company && actionPhone && (
             <div className="flex flex-wrap gap-2 pt-2">
-              <a className={buttonVariants({ size: 'sm' })} href={`tel:${actionPhone}`}><Phone className="size-4" /> Zadzwoń</a>
+              <CallAction phone={actionPhone} contactId={smsContact?.id} companyId={company.id} variant="default" />
               <SmsAction phone={actionPhone} contactName={smsContact?.name || company.name} contactId={smsContact?.id} companyId={company.id} />
             </div>
           )}
