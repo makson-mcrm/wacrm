@@ -1,343 +1,390 @@
 'use client';
-
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import type { Notification } from '@/types';
-import {
-  AlertTriangle,
-  Bell,
-  CheckCheck,
-  Loader2,
-  UserPlus,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { formatWarsawDateTime } from '@/lib/date-time';
 import { toast } from 'sonner';
-
-// Icon per notification type. Only one type exists today
-// (conversation_assigned) but this keeps future types a one-line add.
-const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
-  conversation_assigned: UserPlus,
+type Status = 'NOWE' | 'W_TOKU' | 'ODLOZONE' | 'ZALATWIONE';
+type Row = {
+  id: string;
+  source_type: 'STRONA' | 'SZYBKI_WPIS' | 'FOLLOW_UP' | 'ALERT_CRM';
+  source_table: string;
+  source_id: string;
+  status: Status;
+  snoozed_until: string | null;
+  contact_id: string | null;
+  company_id: string | null;
+  deal_id: string | null;
+  created_at: string;
+  title: string;
+  detail: string;
+  contactName?: string;
+  companyName?: string;
+  dealName?: string;
 };
-
-export default function NotificationsPage() {
-  const router = useRouter();
-  const { accountId } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[] | null>(
-    null
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [markingAll, setMarkingAll] = useState(false);
-  const [processAlerts, setProcessAlerts] = useState<
-    { id: string; title: string; reason: string }[]
-  >([]);
-
+const NIL = '00000000-0000-0000-0000-000000000000';
+export default function WorkQueuePage() {
+  const db = useMemo(() => createClient(), []),
+    { accountId, user } = useAuth();
+  const [rows, setRows] = useState<Row[]>([]),
+    [loading, setLoading] = useState(true),
+    [snooze, setSnooze] = useState<Record<string, string>>({});
   const load = useCallback(async () => {
     if (!accountId) return;
-    const supabase = createClient();
-    const [notificationResult, dealResult] = await Promise.all([
-      supabase
-        .from('notifications')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(100),
-      supabase
-        .from('deals')
+    setLoading(true);
+    const [leads, forms, bookings, activities, deals] = await Promise.all([
+      db
+        .from('public_lead_submissions')
         .select(
-          'id,title,blocker,next_action_at,questionnaire_due_at,questionnaire_received_at,document_requirements:deal_document_requirements(status,required)'
+          'id,contact_id,submitted_name,submitted_phone,message,created_at'
         )
         .eq('account_id', accountId)
-        .eq('status', 'open'),
+        .limit(100),
+      db
+        .from('financial_questionnaire_submissions')
+        .select(
+          'id,contact_id,submitted_name,submitted_phone,preliminary_analysis,created_at'
+        )
+        .eq('account_id', accountId)
+        .limit(100),
+      db
+        .from('public_booking_submissions')
+        .select(
+          'id,contact_id,submitted_name,submitted_phone,topic,starts_at,created_at'
+        )
+        .eq('account_id', accountId)
+        .limit(100),
+      db
+        .from('sales_activities')
+        .select(
+          'id,title,description,activity_type,activity_status,scheduled_at,next_action_date,contact_id,company_id,deal_id,created_at'
+        )
+        .eq('account_id', accountId)
+        .in('activity_status', ['PLANOWANE', 'PRZELOZONE'])
+        .limit(100),
+      db
+        .from('deals')
+        .select(
+          'id,title,contact_id,company_id,next_action_at,blocker,questionnaire_due_at,questionnaire_received_at,document_requirements:deal_document_requirements(status,required),created_at'
+        )
+        .eq('account_id', accountId)
+        .eq('status', 'open')
+        .limit(100),
     ]);
-    const { data, error: fetchErr } = notificationResult;
-    if (fetchErr) {
-      setError(fetchErr.message);
-      return;
-    }
-    setNotifications((data ?? []) as Notification[]);
+    const desired: Record<string, unknown>[] = [],
+      content = new Map<string, Partial<Row>>();
+    const add = (
+      type: Row['source_type'],
+      table: string,
+      // Supabase returns heterogeneous source rows; this adapter reads their common keys.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      r: Record<string, any>,
+      title: string,
+      detail: string,
+      date?: string
+    ) => {
+      desired.push({
+        account_id: accountId,
+        source_type: type,
+        source_table: table,
+        source_id: r.id,
+        contact_id: r.contact_id ?? null,
+        company_id: r.company_id ?? null,
+        deal_id: r.deal_id ?? null,
+      });
+      content.set(`${table}:${r.id}`, {
+        title,
+        detail,
+        created_at: date ?? r.created_at,
+      });
+    };
+    for (const r of leads.data ?? [])
+      add(
+        'STRONA',
+        'public_lead_submissions',
+        r,
+        r.submitted_name,
+        `${r.submitted_phone}${r.message ? ` · ${r.message}` : ''}`
+      );
+    for (const r of forms.data ?? [])
+      add(
+        'STRONA',
+        'financial_questionnaire_submissions',
+        r,
+        r.submitted_name,
+        `${r.submitted_phone}${r.preliminary_analysis ? ` · ${r.preliminary_analysis}` : ''}`
+      );
+    for (const r of bookings.data ?? [])
+      add(
+        'STRONA',
+        'public_booking_submissions',
+        r,
+        r.submitted_name,
+        `${r.topic} · ${formatWarsawDateTime(r.starts_at)}`
+      );
+    for (const r of activities.data ?? [])
+      add(
+        r.activity_type === 'follow_up' ? 'FOLLOW_UP' : 'SZYBKI_WPIS',
+        'sales_activities',
+        r,
+        r.title,
+        r.description ?? '',
+        r.scheduled_at ?? r.next_action_date ?? r.created_at
+      );
     const now = Date.now();
-    const alerts: { id: string; title: string; reason: string }[] = [];
-    for (const deal of dealResult.data ?? []) {
-      const missing = (deal.document_requirements ?? []).filter(
+    for (const deal of deals.data ?? []) {
+      const missingDocuments = (deal.document_requirements ?? []).filter(
         (item: { status: string; required: boolean }) =>
           item.required && !['zaakceptowany', 'wyslany'].includes(item.status)
       ).length;
-      const reasons = [
-        deal.blocker ? `Bloker: ${deal.blocker}` : '',
-        deal.next_action_at && new Date(deal.next_action_at).getTime() < now
-          ? 'Minął termin następnego działania'
-          : '',
-        missing ? `Brakuje ${missing} wymaganych dokumentów` : '',
+      const questionnaireOverdue =
         deal.questionnaire_due_at &&
         !deal.questionnaire_received_at &&
-        new Date(deal.questionnaire_due_at).getTime() < now
-          ? 'Minął termin wypełnienia ankiety przed konsultacją'
-          : '',
-      ].filter(Boolean);
-      if (reasons.length)
-        alerts.push({
-          id: deal.id,
-          title: deal.title,
-          reason: reasons.join(' · '),
-        });
-    }
-    setProcessAlerts(alerts);
-  }, [accountId]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
-
-  // Realtime — new assignments appear without a refresh, and a
-  // "mark all read" fired from another tab/device stays in sync here.
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel('notifications-page')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const row = payload.new as Notification;
-            setNotifications((prev) => {
-              if (!prev) return [row];
-              if (prev.some((n) => n.id === row.id)) return prev;
-              return [row, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const row = payload.new as Notification;
-            setNotifications(
-              (prev) =>
-                prev?.map((n) => (n.id === row.id ? { ...n, ...row } : n)) ??
-                prev
-            );
-          } else if (payload.eventType === 'DELETE') {
-            const oldRow = payload.old as Partial<Notification>;
-            setNotifications(
-              (prev) => prev?.filter((n) => n.id !== oldRow.id) ?? prev
-            );
-          }
-        }
+        +new Date(deal.questionnaire_due_at) < now;
+      if (
+        deal.blocker ||
+        (deal.next_action_at && +new Date(deal.next_action_at) < now) ||
+        questionnaireOverdue ||
+        missingDocuments
       )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const markRead = useCallback(
-    async (id: string) => {
-      // Optimistic — the row is already visually "read" by the time the
-      // request lands, so the UI doesn't wait on the round-trip.
-      setNotifications(
-        (prev) =>
-          prev?.map((n) =>
-            n.id === id && !n.read_at
-              ? { ...n, read_at: new Date().toISOString() }
-              : n
-          ) ?? prev
-      );
-      const supabase = createClient();
-      const { error: updateErr } = await supabase
-        .from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('id', id)
-        .is('read_at', null);
-      if (updateErr) {
-        toast.error('Nie udało się oznaczyć powiadomienia jako przeczytane.');
-        load();
-      }
-    },
-    [load]
-  );
-
-  const handleClick = useCallback(
-    (n: Notification) => {
-      if (!n.read_at) markRead(n.id);
-      if (n.conversation_id) {
-        router.push(`/inbox?c=${n.conversation_id}`);
-      }
-    },
-    [markRead, router]
-  );
-
-  const unreadIds =
-    notifications?.filter((n) => !n.read_at).map((n) => n.id) ?? [];
-
-  const markAllRead = useCallback(async () => {
-    if (unreadIds.length === 0) return;
-    setMarkingAll(true);
-    const now = new Date().toISOString();
-    setNotifications(
-      (prev) =>
-        prev?.map((n) => (n.read_at ? n : { ...n, read_at: now })) ?? prev
-    );
-    const supabase = createClient();
-    const { error: updateErr } = await supabase
-      .from('notifications')
-      .update({ read_at: now })
-      .is('read_at', null);
-    setMarkingAll(false);
-    if (updateErr) {
-      toast.error('Nie udało się oznaczyć wszystkich powiadomień.');
-      load();
+        add(
+          'ALERT_CRM',
+          'deals',
+          deal,
+          deal.title,
+          [
+            deal.blocker,
+            questionnaireOverdue ? 'Zaległa ankieta' : '',
+            missingDocuments ? `Brak dokumentów: ${missingDocuments}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'Zaległe następne działanie'
+        );
     }
-  }, [unreadIds.length, load]);
-
-  if (error) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-destructive text-sm">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Spróbuj ponownie
-        </Button>
-      </div>
+    if (desired.length)
+      await db.from('work_queue_items').upsert(desired, {
+        onConflict: 'account_id,source_table,source_id',
+        ignoreDuplicates: true,
+      });
+    const result = await db
+      .from('work_queue_items')
+      .select('*')
+      .eq('account_id', accountId);
+    const active = (result.data ?? [])
+      .filter(
+        (r) =>
+          r.status !== 'ZALATWIONE' &&
+          !(
+            r.status === 'ODLOZONE' &&
+            r.snoozed_until &&
+            new Date(r.snoozed_until) > new Date()
+          )
+      )
+      .map((r) => ({
+        ...r,
+        ...content.get(`${r.source_table}:${r.source_id}`),
+      }))
+      .filter((r) => r.title) as Row[];
+    const ids = (k: 'contact_id' | 'company_id' | 'deal_id') =>
+      active.map((r) => r[k]).filter(Boolean) as string[];
+    const [cs, co, ds] = await Promise.all([
+      db
+        .from('contacts')
+        .select('id,name')
+        .in('id', ids('contact_id').length ? ids('contact_id') : [NIL]),
+      db
+        .from('companies')
+        .select('id,name')
+        .in('id', ids('company_id').length ? ids('company_id') : [NIL]),
+      db
+        .from('deals')
+        .select('id,title')
+        .in('id', ids('deal_id').length ? ids('deal_id') : [NIL]),
+    ]);
+    // The three compact lookup results have the same id + label shape at runtime.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const map = (d: any[] | null, k: string) =>
+      new Map((d ?? []).map((r) => [r.id, r[k]]));
+    const cm = map(cs.data, 'name'),
+      om = map(co.data, 'name'),
+      dm = map(ds.data, 'title');
+    setRows(
+      active
+        .map((r) => ({
+          ...r,
+          contactName: cm.get(r.contact_id),
+          companyName: om.get(r.company_id),
+          dealName: dm.get(r.deal_id),
+        }))
+        .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
     );
-  }
-
-  if (notifications === null) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="text-primary h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
-
+    setLoading(false);
+  }, [accountId, db]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const change = async (row: Row, status: Status) => {
+    if (!user || !accountId) return;
+    const value = snooze[row.id];
+    if (status === 'ODLOZONE' && !value) {
+      toast.error('Wybierz termin ponownego pokazania.');
+      return;
+    }
+    const { error } = await db
+      .from('work_queue_items')
+      .update({
+        status,
+        snoozed_until: value ? new Date(value).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await db.from('work_queue_events').insert({
+      account_id: accountId,
+      queue_item_id: row.id,
+      user_id: user.id,
+      event_type:
+        status === 'W_TOKU'
+          ? 'OTWARTO'
+          : status === 'ODLOZONE'
+            ? 'ODLOZONO'
+            : 'ZALATWIONO',
+      contact_id: row.contact_id,
+      company_id: row.company_id,
+      deal_id: row.deal_id,
+    });
+    await load();
+  };
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">Powiadomienia</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Tu pojawią się pilne zdarzenia wymagające reakcji: przypisana
-            rozmowa, nowy lead, zaległy termin lub ważna zmiana w Dealu.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={unreadIds.length === 0 || markingAll}
-          onClick={markAllRead}
-        >
-          {markingAll ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCheck className="h-4 w-4" />
-          )}
-          Oznacz wszystkie jako przeczytane
-        </Button>
-      </div>
-
-      <section className="bg-card rounded-xl border p-4">
-        <h2 className="mb-3 flex items-center gap-2 font-semibold">
-          <AlertTriangle className="size-5 text-amber-500" />
-          Pilne sprawy sprzedażowe
-        </h2>
-        {!processAlerts.length ? (
-          <p className="text-muted-foreground text-sm">
-            Brak zaległych terminów, blokerów i braków blokujących.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {processAlerts.map((alert) => (
-              <button
-                key={alert.id}
-                type="button"
-                onClick={() => router.push(`/deals/${alert.id}`)}
-                className="w-full rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-left"
-              >
-                <p className="text-sm font-semibold">{alert.title}</p>
-                <p className="text-muted-foreground text-xs">{alert.reason}</p>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {notifications.length === 0 ? (
-        <div className="border-border bg-muted/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed">
-          <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
-            <Bell className="text-primary h-6 w-6" />
-          </div>
-          <p className="text-foreground mt-3 text-sm font-medium">
-            Brak nowych powiadomień
-          </p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Gdy pojawi się zdarzenie wymagające reakcji, zobaczysz je tutaj.
-          </p>
-        </div>
+    <div className="space-y-4 p-4 md:p-6">
+      <header>
+        <h1 className="text-2xl font-bold">DO OBSŁUGI</h1>
+        <p className="text-muted-foreground text-sm">
+          Jedna kolejka spraw wymagających działania lub decyzji.
+        </p>
+      </header>
+      {loading ? (
+        <p>Wczytywanie…</p>
       ) : (
-        <ul className="space-y-2">
-          {notifications.map((n) => {
-            const Icon = TYPE_ICON[n.type] ?? Bell;
-            const isUnread = !n.read_at;
-            return (
-              <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => handleClick(n)}
-                  className={cn(
-                    'flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors',
-                    isUnread
-                      ? 'border-primary/30 bg-primary/5 hover:border-primary/50'
-                      : 'border-border bg-card hover:border-border/70'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
-                      isUnread ? 'bg-primary/15' : 'bg-muted'
-                    )}
-                    aria-hidden
-                  >
-                    <Icon
-                      className={cn(
-                        'h-5 w-5',
-                        isUnread ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'truncate text-sm font-semibold',
-                          isUnread ? 'text-foreground' : 'text-muted-foreground'
-                        )}
-                      >
-                        {n.title}
-                      </span>
-                      {isUnread && (
-                        <span
-                          aria-label="Nieprzeczytane"
-                          className="bg-primary h-2 w-2 flex-shrink-0 rounded-full"
-                        />
-                      )}
-                    </div>
-                    {n.body && (
-                      <p className="text-muted-foreground mt-0.5 truncate text-xs">
-                        {n.body}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground/70 mt-1 text-[11px]">
-                      {formatDistanceToNow(new Date(n.created_at), {
-                        addSuffix: true,
-                      })}
+        <div className="overflow-x-auto rounded-xl border">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="bg-muted/60 text-left text-xs uppercase">
+              <tr>
+                <th className="p-3">Sprawa</th>
+                <th>Źródło</th>
+                <th>Termin</th>
+                <th>Powiązania</th>
+                <th>Status</th>
+                <th>Utworzono</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t">
+                  <td className="max-w-72 p-3">
+                    <p className="font-semibold">{r.title}</p>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {r.detail}
                     </p>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  </td>
+                  <td>
+                    <Badge variant="outline">{r.source_type}</Badge>
+                  </td>
+                  <td>
+                    {r.snoozed_until
+                      ? formatWarsawDateTime(r.snoozed_until)
+                      : '—'}
+                  </td>
+                  <td className="space-x-2">
+                    {r.contactName && (
+                      <Link
+                        target="_blank"
+                        className="text-primary font-semibold"
+                        href={`/contacts?open=${r.contact_id}`}
+                      >
+                        {r.contactName}
+                      </Link>
+                    )}
+                    {r.companyName && (
+                      <Link
+                        target="_blank"
+                        className="text-primary font-semibold"
+                        href={`/companies?open=${r.company_id}`}
+                      >
+                        {r.companyName}
+                      </Link>
+                    )}
+                    {r.dealName && (
+                      <Link
+                        target="_blank"
+                        className="text-primary font-semibold"
+                        href={`/deals/${r.deal_id}`}
+                      >
+                        {r.dealName}
+                      </Link>
+                    )}
+                  </td>
+                  <td>
+                    <Badge>{r.status.replaceAll('_', ' ')}</Badge>
+                  </td>
+                  <td>{formatWarsawDateTime(r.created_at)}</td>
+                  <td className="p-2">
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void (r.status === 'NOWE'
+                            ? change(r, 'W_TOKU')
+                            : Promise.resolve())
+                        }
+                      >
+                        Otwórz
+                      </Button>
+                      <Input
+                        aria-label="Termin odłożenia"
+                        type="datetime-local"
+                        className="w-40"
+                        value={snooze[r.id] ?? ''}
+                        onChange={(e) =>
+                          setSnooze((v) => ({ ...v, [r.id]: e.target.value }))
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void change(r, 'ODLOZONE')}
+                      >
+                        Odłóż
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => void change(r, 'ZALATWIONE')}
+                      >
+                        Załatwione
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!rows.length && (
+            <p className="text-muted-foreground p-8 text-center">
+              Brak aktywnych spraw.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
 }
+

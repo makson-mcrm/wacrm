@@ -88,12 +88,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
-  { href: '/notifications', labelKey: 'notifications', icon: Bell },
+  { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
   { href: '/contacts', labelKey: 'contacts', icon: Users },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
-  { href: '/submissions', labelKey: 'submissions', icon: ClipboardList },
   { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
@@ -267,8 +266,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       </span>
                     )}
                     {showSubmissionBadge && (
-                      <span className="bg-[#B7D84B] text-[#173A52] min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold">
-                        {unhandledSubmissions > 99 ? '99+' : unhandledSubmissions}
+                      <span className="min-w-5 rounded-full bg-[#B7D84B] px-1.5 py-0.5 text-center text-[10px] font-bold text-[#173A52]">
+                        {unhandledSubmissions > 99
+                          ? '99+'
+                          : unhandledSubmissions}
                       </span>
                     )}
                   </Link>
@@ -367,3 +368,4 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
+

@@ -3,7 +3,7 @@
     "title": "mCRM 4.0",
     "dashboard": "Pulpit",
     "inbox": "Inbox",
-    "notifications": "Powiadomienia",
+    "notifications": "DO OBSŁUGI",
     "contacts": "Kontakty",
     "companies": "Firmy",
     "submissions": "Zgłoszenia ze strony",
@@ -32,7 +32,7 @@
   "Header": {
     "dashboard": "Pulpit",
     "inbox": "Inbox",
-    "notifications": "Powiadomienia",
+    "notifications": "DO OBSŁUGI",
     "contacts": "Kontakty",
     "companies": "Firmy",
     "submissions": "Zgłoszenia ze strony",
@@ -1379,3 +1379,4 @@
     }
   }
 }
+
