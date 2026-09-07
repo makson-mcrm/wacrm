@@ -67,7 +67,15 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
       const response = await fetch('/api/sales-activities/prepared-sms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contactId, companyId, dealId, phone, templateId: selected.id, templateTitle: selected.title }),
+      body: JSON.stringify({
+        contactId,
+        companyId,
+        dealId,
+        phone,
+        note: body,
+        templateId: selected.id,
+        templateTitle: selected.title,
+      }),
       });
       if (!response.ok) throw new Error('Nie zapisano aktywności PRZYGOTOWANO_SMS.');
       window.location.href = href;

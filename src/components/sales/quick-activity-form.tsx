@@ -43,6 +43,11 @@ import {
 import { parseCrmPhone } from '@/lib/contacts/phone';
 import { CallAction } from '@/components/sales/call-action';
 import { SmsAction } from '@/components/sales/sms-action';
+import {
+  buildActivityAnalytics,
+  findMigrationTag,
+  serializeActivityAnalytics,
+} from '@/lib/sales/activity-analytics';
 
 const MINIMUM_SEARCH_LENGTH = 3;
 const PHONE_QUERY = /^\+?[\d\s()-]+$/;
@@ -467,41 +472,85 @@ export function QuickActivityForm() {
         ? warsawDateTimeInputToIso(nextActionDate)
         : null;
       const nowIso = new Date().toISOString();
-      const description = [
-        note.trim(),
-        blocker.trim() && !dealId ? `Bloker: ${blocker.trim()}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n\n');
+      const activityType = activityTypeForDb(type);
+      const channel =
+        type === 'TELEFON'
+          ? 'telefon'
+          : type === 'SPOTKANIE'
+            ? 'spotkanie'
+            : 'dyktat';
+      const productCategory =
+        selectedDeal?.product_type || selectedContact?.product_category || null;
+      const customerSource =
+        selectedContact?.source || selectedDeal?.source || null;
+      const acquiredAt =
+        selectedContact?.created_at ||
+        selectedDeal?.intake_received_at ||
+        selectedDeal?.created_at ||
+        selectedCompany?.created_at ||
+        null;
+      const migrationTag = findMigrationTag(
+        selectedContact?.source,
+        selectedContact?.source_details,
+        selectedDeal?.source,
+        selectedDeal?.source_details,
+        selectedDeal?.intake_source
+      );
+      const analytics = buildActivityAnalytics({
+        recordedAt: nowIso,
+        channel,
+        activityType,
+        contactId,
+        companyId: companyId || null,
+        dealId: dealId || null,
+        originalNote: note,
+        result: type === 'TELEFON' ? result : status,
+        nextAction,
+        nextActionAt: scheduledIso,
+        blocker,
+        previousBlocker: selectedDeal?.blocker,
+        productCategory,
+        customerSource,
+        acquiredAt,
+        migrationTag,
+      });
       const { error } = await db.from('sales_activities').insert({
-        account_id: accountId,
-        user_id: session.user.id,
-        activity_type: activityTypeForDb(type),
-        activity_status: status,
-        objective_type: DEFAULT_OBJECTIVE,
-        contact_id: contactId,
-        company_id: companyId || null,
-        deal_id: dealId || null,
-        phone_number: number || null,
-        title: `${type.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
-        description: description || nextAction.trim() || null,
-        occurred_at: status === 'WYKONANE' ? nowIso : (scheduledIso ?? nowIso),
-        scheduled_at: status === 'PLANOWANE' ? scheduledIso : null,
-        completed_at: status === 'WYKONANE' ? nowIso : null,
-        completed: status === 'WYKONANE',
-        call_result: type === 'TELEFON' ? result : null,
-        call_type: 'nowe_pozyskanie',
-        next_action: nextAction.trim() || null,
-        next_action_date: scheduledIso,
-        next_contact_at: scheduledIso,
-        next_contact_reason: nextAction.trim() || note.trim() || null,
-        attempt_number: type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,
-        expires_at:
-          type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3
-            ? new Date(Date.now() + 30 * 86400000).toISOString()
-            : null,
+          account_id: accountId,
+          user_id: session.user.id,
+          activity_type: activityType,
+          activity_status: status,
+          objective_type: DEFAULT_OBJECTIVE,
+          contact_id: contactId,
+          company_id: companyId || null,
+          deal_id: dealId || null,
+          phone_number: number || null,
+          title: `${type.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
+          description: note.trim() || null,
+          occurred_at:
+            status === 'WYKONANE' ? nowIso : (scheduledIso ?? nowIso),
+          scheduled_at: status === 'PLANOWANE' ? scheduledIso : null,
+          completed_at: status === 'WYKONANE' ? nowIso : null,
+          completed: status === 'WYKONANE',
+          call_result: type === 'TELEFON' ? result : null,
+          call_category: serializeActivityAnalytics(analytics),
+          call_product: productCategory,
+          call_channel: channel,
+          call_type: 'nowe_pozyskanie',
+          source: customerSource,
+          product_group: productCategory,
+          next_action: nextAction.trim() || null,
+          next_action_date: scheduledIso,
+          next_contact_at: scheduledIso,
+          next_contact_reason: nextAction.trim() || note.trim() || null,
+          attempt_number:
+            type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,
+          expires_at:
+            type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3
+              ? new Date(Date.now() + 30 * 86400000).toISOString()
+              : null,
       });
       if (error) throw error;
+      let relationWarning = '';
       if (
         dealId &&
         (nextAction.trim() ||
@@ -519,9 +568,23 @@ export function QuickActivityForm() {
           .from('deals')
           .update(updates)
           .eq('id', dealId);
-        if (dealError) throw dealError;
+        if (dealError) relationWarning = ' Nie zaktualizowano karty Deala.';
       }
-      toast.success('Aktywność zapisana. Wracasz do DZISIAJ.');
+      const { error: contactError } = await db
+        .from('contacts')
+        .update({
+          contact_result: type === 'TELEFON' ? result : status,
+          next_step: nextAction.trim() || null,
+          follow_up_at: scheduledIso,
+        })
+        .eq('id', contactId);
+      if (contactError)
+        relationWarning += ' Nie zaktualizowano karty Kontaktu.';
+      if (relationWarning) {
+        toast.warning(`Aktywność została zapisana.${relationWarning}`);
+      } else {
+        toast.success('Aktywność zapisana. Wracasz do DZISIAJ.');
+      }
       router.replace('/dashboard');
     } catch (error) {
       toast.error(
