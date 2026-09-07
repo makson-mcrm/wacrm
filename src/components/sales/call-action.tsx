@@ -45,7 +45,7 @@ export function CallAction({ phone, contactId, companyId, dealId, className, var
 
   return (
     <a href={buildTelHref(phone)} onClick={armResultForm} className={cn(buttonVariants({ variant, size }), className)}>
-      <Phone className="size-4" /> Zadzwoń
+      <Phone className="size-4" /> ZADZWOŃ
     </a>
   );
 }
