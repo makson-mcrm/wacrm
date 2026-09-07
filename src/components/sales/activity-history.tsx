@@ -8,6 +8,11 @@ import {
   activityHistoryLabel,
   type ActivityHistoryRow,
 } from '@/lib/sales/activity-history';
+import {
+  analyticsFact,
+  parseActivityAnalytics,
+  type SalesMeaning,
+} from '@/lib/sales/activity-analytics';
 
 type ActivityHistoryProps = {
   contactId?: string | null;
@@ -17,6 +22,46 @@ type ActivityHistoryProps = {
 };
 
 type QueueEvent = { id: string; event_type: string; occurred_at: string };
+
+const SALES_MEANING_LABELS: Record<SalesMeaning, string> = {
+  brak_kontaktu: 'Brak kontaktu',
+  kontakt_bez_postepu: 'Kontakt bez postępu',
+  wartosciowa_rozmowa: 'Wartościowa rozmowa',
+  nowy_realny_temat: 'Nowy realny temat',
+  ustalony_next_action: 'Ustalony next action',
+  usuniety_blocker: 'Usunięty blocker',
+  deal_przesuniety: 'Deal przesunięty',
+  krok_do_wniosku: 'Krok do wniosku',
+  krok_do_decyzji: 'Krok do decyzji',
+  krok_do_uruchomienia: 'Krok do uruchomienia',
+};
+
+function AnalyticsSummary({ value }: { value?: string | null }) {
+  const analytics = parseActivityAnalytics(value);
+  if (!analytics) return null;
+  const blocker = analyticsFact(analytics, 'blocker');
+  return (
+    <div className="mt-2 space-y-1">
+      {analytics.sales_meanings.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {analytics.sales_meanings.map((meaning) => (
+            <span
+              key={meaning}
+              className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-900"
+            >
+              {SALES_MEANING_LABELS[meaning]}
+            </span>
+          ))}
+        </div>
+      )}
+      {typeof blocker === 'string' && blocker && (
+        <p className="text-sm">
+          <span className="font-semibold">Blocker:</span> {blocker}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function ActivityHistory({
   contactId,
@@ -47,7 +92,7 @@ export function ActivityHistory({
       db
         .from('sales_activities')
         .select(
-          'id,title,description,activity_type,activity_status,call_result,phone_number,next_action,next_action_date,occurred_at'
+          'id,title,description,activity_type,activity_status,call_result,call_category,phone_number,next_action,next_action_date,occurred_at'
         )
         .eq(relation[0], relation[1])
         .order('occurred_at', { ascending: false }),
@@ -113,6 +158,7 @@ export function ActivityHistory({
                 {activity.description}
               </p>
             )}
+            <AnalyticsSummary value={activity.call_category} />
             {activity.next_action && (
               <p className="mt-2 text-sm">
                 <span className="font-semibold">Następne działanie:</span>{' '}
@@ -142,4 +188,3 @@ export function ActivityHistory({
     </div>
   );
 }
-

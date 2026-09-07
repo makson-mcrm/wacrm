@@ -20,9 +20,10 @@ interface SmsActionProps {
   dealId?: string | null;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  label?: string;
 }
 
-export function SmsAction({ phone, contactName, contactId, companyId, dealId, variant = 'outline', size = 'sm' }: SmsActionProps) {
+export function SmsAction({ phone, contactName, contactId, companyId, dealId, variant = 'outline', size = 'sm', label = 'SMS' }: SmsActionProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
@@ -66,7 +67,15 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
       const response = await fetch('/api/sales-activities/prepared-sms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contactId, companyId, dealId, phone, templateId: selected.id, templateTitle: selected.title }),
+      body: JSON.stringify({
+        contactId,
+        companyId,
+        dealId,
+        phone,
+        note: body,
+        templateId: selected.id,
+        templateTitle: selected.title,
+      }),
       });
       if (!response.ok) throw new Error('Nie zapisano aktywności PRZYGOTOWANO_SMS.');
       window.location.href = href;
@@ -84,7 +93,7 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
   return (
     <>
       <Button type="button" variant={variant} size={size} onClick={() => setOpen(true)}>
-        <MessageSquare className="h-4 w-4" /> SMS
+        <MessageSquare className="h-4 w-4" /> {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
