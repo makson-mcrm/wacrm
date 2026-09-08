@@ -183,7 +183,9 @@ export default function CalendarPage() {
   }, [accountId, db]);
   const syncAndLoad = useCallback(async () => {
     if (!accountId) return;
-    await fetch('/api/google-calendar/sync', { method: 'POST' }).catch(() => null);
+    await fetch('/api/google-calendar/sync', { method: 'POST' }).catch(
+      () => null
+    );
     await load();
   }, [accountId, load]);
   useEffect(() => {
@@ -192,6 +194,17 @@ export default function CalendarPage() {
     return () => window.clearInterval(timer);
   }, [syncAndLoad]);
   useEffect(() => {
+    const requestedView = new URLSearchParams(window.location.search).get(
+      'view'
+    );
+    if (
+      requestedView === 'day' ||
+      requestedView === 'week' ||
+      requestedView === 'month'
+    ) {
+      setView(requestedView);
+      return;
+    }
     if (window.matchMedia('(max-width: 640px)').matches) setView('day');
   }, []);
   const range = useMemo(() => visibleRange(cursor, view), [cursor, view]),
@@ -262,36 +275,32 @@ export default function CalendarPage() {
           .update({ snoozed_until: iso })
           .eq('id', editing.sourceId));
     } else if (type === 'zadanie' || type === 'follow_up')
-      ({ error } = await db
-        .from('sales_activities')
-        .insert({
-          account_id: accountId,
-          user_id: user.id,
-          activity_type: type,
-          title: title.trim(),
-          description: note.trim() || null,
-          activity_status: 'PLANOWANE',
-          scheduled_at: iso,
-          occurred_at: new Date().toISOString(),
-          completed: false,
-          contact_id: contactId || null,
-          company_id: companyId || null,
-          deal_id: dealId || null,
-        }));
+      ({ error } = await db.from('sales_activities').insert({
+        account_id: accountId,
+        user_id: user.id,
+        activity_type: type,
+        title: title.trim(),
+        description: note.trim() || null,
+        activity_status: 'PLANOWANE',
+        scheduled_at: iso,
+        occurred_at: new Date().toISOString(),
+        completed: false,
+        contact_id: contactId || null,
+        company_id: companyId || null,
+        deal_id: dealId || null,
+      }));
     else
-      ({ error } = await db
-        .from('calendar_events')
-        .insert({
-          account_id: accountId,
-          user_id: user.id,
-          title: title.trim(),
-          event_type: type,
-          starts_at: iso,
-          description: note.trim() || null,
-          contact_id: contactId || null,
-          company_id: companyId || null,
-          deal_id: dealId || null,
-        }));
+      ({ error } = await db.from('calendar_events').insert({
+        account_id: accountId,
+        user_id: user.id,
+        title: title.trim(),
+        event_type: type,
+        starts_at: iso,
+        description: note.trim() || null,
+        contact_id: contactId || null,
+        company_id: companyId || null,
+        deal_id: dealId || null,
+      }));
     if (error) return toast.error(error.message);
     toast.success(editing ? 'Termin zmieniony.' : 'Zdarzenie dodane.');
     setOpen(false);
@@ -337,7 +346,7 @@ export default function CalendarPage() {
     setCursor(d);
   };
   return (
-    <div className="space-y-4 p-3 md:p-6">
+    <div className="mx-auto w-full max-w-[1800px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Kalendarz</h1>
@@ -493,6 +502,7 @@ export default function CalendarPage() {
                 {contactId && (
                   <Link
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-primary font-semibold"
                     href={`/contacts?open=${contactId}`}
                   >
@@ -502,6 +512,7 @@ export default function CalendarPage() {
                 {companyId && (
                   <Link
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-primary font-semibold"
                     href={`/companies?open=${companyId}`}
                   >
@@ -511,6 +522,7 @@ export default function CalendarPage() {
                 {dealId && (
                   <Link
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-primary font-semibold"
                     href={`/deals/${dealId}`}
                   >
@@ -522,7 +534,8 @@ export default function CalendarPage() {
             <div className="flex gap-2">
               {editing?.syncConflict && (
                 <p className="mr-auto rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  {editing.syncConflictReason || 'Zdarzenie zmieniono po obu stronach.'}{' '}
+                  {editing.syncConflictReason ||
+                    'Zdarzenie zmieniono po obu stronach.'}{' '}
                   Sprawdź dane i kliknij Zapisz, aby wybrać wersję WaCRM.
                 </p>
               )}

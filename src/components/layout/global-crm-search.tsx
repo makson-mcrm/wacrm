@@ -39,7 +39,9 @@ export function GlobalCrmSearch() {
       const [deals, contacts, companies] = await Promise.all([
         db
           .from('deals')
-          .select('id,user_id,title,value,currency,contact_id,company_id,pipeline_id,stage_id,status,created_at,account_id')
+          .select(
+            'id,user_id,title,value,currency,contact_id,company_id,pipeline_id,stage_id,status,created_at,account_id'
+          )
           .eq('account_id', accountId)
           .ilike('title', like)
           .limit(8),
@@ -47,13 +49,17 @@ export function GlobalCrmSearch() {
           .from('contacts')
           .select('*')
           .eq('account_id', accountId)
-          .or(`name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
+          .or(
+            `name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+          )
           .limit(8),
         db
           .from('companies')
           .select('*')
           .eq('account_id', accountId)
-          .or(`name.ilike.${like},nip.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
+          .or(
+            `name.ilike.${like},nip.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+          )
           .limit(8),
       ]);
 
@@ -83,7 +89,7 @@ export function GlobalCrmSearch() {
           onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
           placeholder="Szukaj Deal / Kontakt / Firma"
           aria-label="Globalna wyszukiwarka CRM"
-          className="border-border bg-muted/40 h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none focus:border-primary"
+          className="border-border bg-muted/40 focus:border-primary h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none"
         />
       </div>
 
@@ -100,6 +106,9 @@ export function GlobalCrmSearch() {
                   <Link
                     key={deal.id}
                     href={`/deals/${deal.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Otwórz Deal w nowej karcie"
                     onClick={() => setOpen(false)}
                     className="hover:bg-muted block rounded-lg px-3 py-2"
                   >
@@ -114,6 +123,9 @@ export function GlobalCrmSearch() {
                   <Link
                     key={contact.id}
                     href={`/contacts?open=${contact.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Otwórz Kontakt w nowej karcie"
                     onClick={() => setOpen(false)}
                     className="hover:bg-muted block rounded-lg px-3 py-2"
                   >
@@ -171,3 +183,4 @@ function Group({
     </section>
   );
 }
+

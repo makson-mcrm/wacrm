@@ -587,7 +587,7 @@ export default function DashboardPage() {
     toast.success('Agent zaproponował priorytety. Sprawdź kolejność i zapisz.');
   }
   return (
-    <div className="space-y-5 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">DZISIAJ</h1>
@@ -595,12 +595,31 @@ export default function DashboardPage() {
             Co jest najlepsze do zrobienia teraz — i dlaczego.
           </p>
         </div>
-        <Button render={<Link href="/quick-call" />}>
-          <Phone className="size-4" />
-          Szybka Aktywność
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden items-center rounded-lg border p-0.5 md:flex">
+            <Button
+              size="sm"
+              variant="ghost"
+              render={<Link href="/calendar?view=day" />}
+            >
+              <CalendarDays className="size-4" />
+              Dzień
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              render={<Link href="/calendar?view=week" />}
+            >
+              Tydzień
+            </Button>
+          </div>
+          <Button render={<Link href="/quick-call" />}>
+            <Phone className="size-4" />
+            Szybka Aktywność
+          </Button>
+        </div>
       </div>
-      <div className="grid gap-3 xl:grid-cols-[1.15fr_1fr_1fr]">
+      <div className="grid items-start gap-3 xl:grid-cols-[1.2fr_1fr_1fr] xl:gap-4">
         <TodaySectionPanel
           title="TERAZ"
           items={todayPlan.now}
