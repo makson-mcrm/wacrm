@@ -7,7 +7,7 @@ import {
   type KnowledgeDocumentMetadata,
 } from '@/lib/banking-knowledge/foundation';
 
-const RELEASE = 'm4-knowledge-v2';
+const RELEASE = 'm4-knowledge-v3-drive';
 
 export async function GET(request: Request) {
   try {
@@ -84,3 +84,4 @@ export async function GET(request: Request) {
     return response;
   }
 }
+

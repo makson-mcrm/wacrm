@@ -20,7 +20,13 @@ Fundament nie przeszukuje Dysku i nie udostępnia prywatnych linków. Źródło 
 2. metadane dokumentu mają `source_name` w formacie `gdrive://<folder-id>/<file-id>`,
 3. dokument ma przypisany bank `mBank` i pasujący produkt.
 
-Do przeglądarki trafiają tylko metadane potrzebne do wskazania źródła. Treść dokumentu, identyfikator pliku i prywatny URL nie są zwracane. Późniejsze pobieranie i indeksowanie Drive wymaga wskazania konkretnych folderów oraz połączenia z minimalnym zakresem uprawnień; brak tych identyfikatorów nie blokuje źródeł publicznych mBanku.
+Do przeglądarki trafiają tylko metadane potrzebne do wskazania źródła. Treść dokumentu, identyfikator pliku i prywatny URL nie są zwracane.
+
+Synchronizator używa dedykowanego konta usługi, któremu folder jest udostępniony jako `Wyświetlający`, i zakresu OAuth `drive.readonly`. Nie korzysta z ogólnego `GOOGLE_DRIVE_ACCESS_TOKEN`, nie wykonuje wyszukiwania globalnego, nie przechodzi rekurencyjnie do podfolderów i pobiera maksymalnie 50 bezpośrednich plików w jednym uruchomieniu. Podfolder trzeba dodać do allowlisty osobno. Pliki publiczne, nieobsługiwane oraz większe niż 1 MB są pomijane. Obsługiwane są Google Docs, Google Sheets, TXT, Markdown i CSV.
+
+`GET /api/ai/banking-knowledge/drive` zwraca wyłącznie bezpieczny status konfiguracji. `POST` jest tylko dla administratora i domyślnie wykonuje dry-run. Zapis wymaga jawnego `dry_run: false` oraz mapowania `folder_id`, `bank: "mbank"`, `product`. Brakujące pliki nigdy nie są automatycznie kasowane z bazy.
+
+Jedyny krok konfiguracyjny: ustaw na serwerze `BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS`, `BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_EMAIL` i `BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, a następnie udostępnij dokładnie wskazany folder temu kontu jako `Wyświetlający`.
 
 ## Brak migracji
 
@@ -29,3 +35,4 @@ Wersja używa istniejących tabel `deals`, `bank_processes` i `ai_knowledge_docu
 ## Kolejne banki
 
 Rejestr banków przechowuje aliasy, produkty i źródła publiczne. Dodanie ING lub kolejnego banku polega na dodaniu nowej definicji do rejestru; endpoint, routing, UI i zabezpieczenia Drive pozostają wspólne.
+
