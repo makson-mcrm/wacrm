@@ -7,6 +7,8 @@ import {
   type KnowledgeDocumentMetadata,
 } from '@/lib/banking-knowledge/foundation';
 
+const RELEASE = 'm4-knowledge-v2';
+
 export async function GET(request: Request) {
   try {
     const { supabase, accountId } = await requireRole('agent');
@@ -71,9 +73,14 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(answer, {
-      headers: { 'Cache-Control': 'private, no-store' },
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'X-mCRM-Knowledge-Version': RELEASE,
+      },
     });
   } catch (error) {
-    return toErrorResponse(error);
+    const response = toErrorResponse(error);
+    response.headers.set('X-mCRM-Knowledge-Version', RELEASE);
+    return response;
   }
 }
