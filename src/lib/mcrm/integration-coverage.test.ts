@@ -53,9 +53,14 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
 
   it('działa dyktowanie opisów z transkrypcją zapasową nagrania', () => {
     const voice = source('src/components/ui/voice-textarea.tsx');
+    const transcription = source('src/app/api/ai/transcribe/route.ts');
     expect(voice).toContain('SpeechRecognition');
+    expect(voice).toContain("instance.lang = 'pl-PL'");
     expect(voice).toContain('MediaRecorder');
     expect(voice).toContain("fetch('/api/ai/transcribe'");
+    expect(voice).toContain('onChange={(event) => onChange(event.target.value)}');
+    expect(transcription).toContain("body.append('language', 'pl')");
+    expect(transcription).toContain("requireRole('agent')");
     for (const path of [
       'src/components/pipelines/deal-form.tsx',
       'src/components/pipelines/deal-process-control.tsx',
@@ -63,6 +68,23 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
       'src/app/(dashboard)/calendar/page.tsx',
     ])
       expect(source(path)).toContain('VoiceTextarea');
+  });
+
+  it('security gate utrzymuje prywatne endpointy i funkcje konta poza anonem', () => {
+    const middleware = source('src/middleware.ts');
+    const banking = source('src/app/api/ai/banking-knowledge/route.ts');
+    const drive = source('src/app/api/ai/banking-knowledge/drive/route.ts');
+    const hardening = source(
+      'supabase/migrations/068_security_gate_hardening.sql'
+    );
+    expect(middleware).toContain('supabase.auth.getUser()');
+    expect(middleware).toContain("'/deals'");
+    expect(banking).toContain("requireRole('agent')");
+    expect(drive).toContain("requireRole('agent')");
+    expect(drive).toContain("requireRole('admin')");
+    expect(hardening).toContain('FROM PUBLIC, anon');
+    expect(hardening).toContain('TO authenticated, service_role');
+    expect(hardening).toContain('SET search_path = public');
   });
 
   it('kalendarz wewnętrzny łączy aktywności, kolejkę i rezerwacje bez duplikowania terminów', () => {
@@ -131,4 +153,5 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 });
+
 
