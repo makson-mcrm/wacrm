@@ -28,13 +28,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DealForm } from '@/components/pipelines/deal-form';
 import { DealProcessControl } from '@/components/pipelines/deal-process-control';
 import { DealAiAnalysis } from '@/components/pipelines/deal-ai-analysis';
+import { DealBankingKnowledge } from '@/components/banking-knowledge/deal-banking-knowledge';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { toast } from 'sonner';
 import type { Deal, PipelineStage } from '@/types';
 import { buildClientJourneyChecks } from '@/lib/mcrm/client-journey';
 import { formatWarsawDateTime } from '@/lib/date-time';
 
-type Note = { id: string; user_id: string; note_text: string; created_at: string; author_name?: string };
+type Note = {
+  id: string;
+  user_id: string;
+  note_text: string;
+  created_at: string;
+  author_name?: string;
+};
 type Bank = {
   id?: string;
   position: number;
@@ -66,7 +73,12 @@ type Doc = {
   requirement_id?: string;
   created_at: string;
 };
-type Requirement = { id: string; name: string; status: string; required: boolean };
+type Requirement = {
+  id: string;
+  name: string;
+  status: string;
+  required: boolean;
+};
 type DealPerson = {
   contact_id: string;
   role?: string;
@@ -103,7 +115,9 @@ export default function DealPage() {
     [documentName, setDocumentName] = useState(''),
     [documentType, setDocumentType] = useState('Dokument klienta'),
     [documentStatus, setDocumentStatus] = useState('otrzymany'),
-    [documentDate, setDocumentDate] = useState(new Date().toISOString().slice(0, 10)),
+    [documentDate, setDocumentDate] = useState(
+      new Date().toISOString().slice(0, 10)
+    ),
     [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -146,7 +160,10 @@ export default function DealPage() {
         .eq('deal_id', id)
         .eq('required', true),
       accountId
-        ? db.from('profiles').select('user_id,full_name').eq('account_id', accountId)
+        ? db
+            .from('profiles')
+            .select('user_id,full_name')
+            .eq('account_id', accountId)
         : Promise.resolve({ data: [] }),
     ]);
     if (d.error) {
@@ -157,7 +174,10 @@ export default function DealPage() {
     setDeal(d.data as Deal | null);
     setPeople((p.data ?? []) as unknown as DealPerson[]);
     const authorByUser = new Map(
-      (profileRows.data ?? []).map((row) => [row.user_id, row.full_name || 'Użytkownik'])
+      (profileRows.data ?? []).map((row) => [
+        row.user_id,
+        row.full_name || 'Użytkownik',
+      ])
     );
     setNotes(
       ((n.data ?? []) as Note[]).map((row) => ({
@@ -183,8 +203,8 @@ export default function DealPage() {
       }))
     );
     setMissingRequiredDocuments(
-      (requirements.data ?? []).filter(
-        (row) => ['brak', 'poproszono', 'do_poprawy'].includes(row.status)
+      (requirements.data ?? []).filter((row) =>
+        ['brak', 'poproszono', 'do_poprawy'].includes(row.status)
       ).length
     );
     setRequiredDocumentsCount((requirements.data ?? []).length);
@@ -263,7 +283,10 @@ export default function DealPage() {
         if (documentRequirementId && documentStatus === 'otrzymany') {
           await db
             .from('deal_document_requirements')
-            .update({ status: 'otrzymany', received_at: new Date().toISOString() })
+            .update({
+              status: 'otrzymany',
+              received_at: new Date().toISOString(),
+            })
             .eq('id', documentRequirementId);
         }
         setDocumentName('');
@@ -335,7 +358,9 @@ export default function DealPage() {
       </div>
     );
   if (!deal) return <div className="p-8">Wczytywanie karty Deal…</div>;
-  const actionContact = deal.contact?.phone ? deal.contact : people.find((person) => person.contact?.phone)?.contact;
+  const actionContact = deal.contact?.phone
+    ? deal.contact
+    : people.find((person) => person.contact?.phone)?.contact;
   const first = deal.contact?.name?.split(' ')[0] || 'Dzień dobry',
     meeting = deal.meeting_at ? dt(deal.meeting_at) : '[DATA SPOTKANIA]',
     link = deal.drive_folder_url || '[LINK DO DOKUMENTÓW]',
@@ -405,8 +430,20 @@ export default function DealPage() {
           </Button>
           {actionContact?.phone && (
             <>
-              <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} variant="default" />
-              <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} />
+              <CallAction
+                phone={actionContact.phone}
+                contactId={actionContact.id}
+                companyId={deal.company_id}
+                dealId={deal.id}
+                variant="default"
+              />
+              <SmsAction
+                phone={actionContact.phone}
+                contactName={actionContact.name}
+                contactId={actionContact.id}
+                companyId={deal.company_id}
+                dealId={deal.id}
+              />
             </>
           )}
           {deal.contact?.email && (
@@ -565,6 +602,9 @@ export default function DealPage() {
               <TabsTrigger value="activities">Działania</TabsTrigger>
               <TabsTrigger value="case">Dane sprawy</TabsTrigger>
               <TabsTrigger value="analysis">Analiza AI</TabsTrigger>
+              <TabsTrigger value="banking-knowledge">
+                Wiedza Bankowa
+              </TabsTrigger>
               <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
               <TabsTrigger value="comm">Komunikacja</TabsTrigger>
               <TabsTrigger value="email">Wiadomości e-mail</TabsTrigger>
@@ -641,7 +681,8 @@ export default function DealPage() {
                         {entry.to_stage?.name || 'Nieznany etap'}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {dt(entry.changed_at)} · {entry.author_name || 'Użytkownik'}
+                        {dt(entry.changed_at)} ·{' '}
+                        {entry.author_name || 'Użytkownik'}
                       </p>
                     </div>
                   ))}
@@ -730,6 +771,9 @@ export default function DealPage() {
             <TabsContent value="analysis">
               <DealAiAnalysis deal={deal} />
             </TabsContent>
+            <TabsContent value="banking-knowledge">
+              <DealBankingKnowledge dealId={deal.id} />
+            </TabsContent>
             <TabsContent value="control">
               {accountId && (
                 <DealProcessControl
@@ -773,17 +817,41 @@ export default function DealPage() {
             <TabsContent value="files" className="space-y-4">
               <Section title="Prywatna teczka dokumentów">
                 <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                  <Input value={documentName} onChange={(e) => setDocumentName(e.target.value)} placeholder="Nazwa dokumentu (domyślnie nazwa pliku)" />
-                  <Input value={documentType} onChange={(e) => setDocumentType(e.target.value)} placeholder="Typ dokumentu" />
-                  <select className="bg-muted h-10 rounded-md border px-3 text-sm" value={documentStatus} onChange={(e) => setDocumentStatus(e.target.value)}>
+                  <Input
+                    value={documentName}
+                    onChange={(e) => setDocumentName(e.target.value)}
+                    placeholder="Nazwa dokumentu (domyślnie nazwa pliku)"
+                  />
+                  <Input
+                    value={documentType}
+                    onChange={(e) => setDocumentType(e.target.value)}
+                    placeholder="Typ dokumentu"
+                  />
+                  <select
+                    className="bg-muted h-10 rounded-md border px-3 text-sm"
+                    value={documentStatus}
+                    onChange={(e) => setDocumentStatus(e.target.value)}
+                  >
                     <option value="otrzymany">Otrzymany</option>
                     <option value="do_weryfikacji">Do weryfikacji</option>
                     <option value="zaakceptowany">Zaakceptowany</option>
                   </select>
-                  <Input type="date" value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
-                  <select className="bg-muted h-10 rounded-md border px-3 text-sm md:col-span-2" value={documentRequirementId} onChange={(e) => setDocumentRequirementId(e.target.value)}>
+                  <Input
+                    type="date"
+                    value={documentDate}
+                    onChange={(e) => setDocumentDate(e.target.value)}
+                  />
+                  <select
+                    className="bg-muted h-10 rounded-md border px-3 text-sm md:col-span-2"
+                    value={documentRequirementId}
+                    onChange={(e) => setDocumentRequirementId(e.target.value)}
+                  >
                     <option value="">Bez powiązania z wymaganiem</option>
-                    {requirements.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                    {requirements.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <label className="bg-primary text-primary-foreground inline-flex cursor-pointer items-center gap-2 rounded-md px-4 py-2 text-sm">
@@ -809,7 +877,8 @@ export default function DealPage() {
                       <div>
                         <p className="text-sm font-medium">{d.name}</p>
                         <p className="text-muted-foreground text-xs">
-                          {d.document_type || 'Dokument'} · {d.status} · {dt(d.received_at || d.created_at)}
+                          {d.document_type || 'Dokument'} · {d.status} ·{' '}
+                          {dt(d.received_at || d.created_at)}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -1002,7 +1071,18 @@ function LinkRow({
       <p className="text-sm font-medium">{value}</p>
     </div>
   );
-  return href ? <Link href={href} target="_blank" rel="noopener noreferrer" className="block min-h-10 rounded px-1 py-1 hover:bg-emerald-50 hover:text-emerald-800 hover:underline">{c}</Link> : c;
+  return href ? (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block min-h-10 rounded px-1 py-1 hover:bg-emerald-50 hover:text-emerald-800 hover:underline"
+    >
+      {c}
+    </Link>
+  ) : (
+    c
+  );
 }
 function Template({
   title,
@@ -1185,5 +1265,3 @@ function D({
     </label>
   );
 }
-
-

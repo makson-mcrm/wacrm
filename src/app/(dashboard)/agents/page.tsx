@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, Sparkles, Settings2, BarChart3 } from 'lucide-react';
+import { Bot, Sparkles, Settings2, BarChart3, Landmark } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
 import { AiUsageCard } from '@/components/agents/ai-usage';
@@ -39,14 +41,31 @@ export default function AgentsPage() {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <Bot className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <Bot className="text-primary h-6 w-6" />
+        <h1 className="text-foreground text-2xl font-bold tracking-tight">
           Agenci AI
         </h1>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tutaj podłączysz agenta sprzedaży, sprawdzisz jego odpowiedzi i ustawisz zakres danych, które może analizować.
+      <p className="text-muted-foreground mt-1 text-sm">
+        Tutaj podłączysz agenta sprzedaży, sprawdzisz jego odpowiedzi i ustawisz
+        zakres danych, które może analizować.
       </p>
+
+      <div className="border-primary/20 bg-primary/5 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+        <div className="flex items-start gap-3">
+          <Landmark className="text-primary mt-0.5 size-5" />
+          <div>
+            <p className="font-semibold">Wiedza Bankowa · mBank</p>
+            <p className="text-muted-foreground text-sm">
+              Otwórz aktywny Deal, aby zapytać o następny krok w jego
+              kontekście.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" render={<Link href="/pipelines" />}>
+          Wybierz Deal
+        </Button>
+      </div>
 
       {decided && (
         <Tabs
