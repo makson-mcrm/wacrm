@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   buildActivityAnalytics,
   findMigrationTag,
@@ -36,10 +35,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = supabaseAdmin();
+    const db = ctx.supabase;
     const [contactResult, companyResult, dealResult] = await Promise.all([
       contactId
-        ? admin
+        ? db
             .from('contacts')
             .select('id,source,source_details,product_category,created_at')
             .eq('account_id', ctx.accountId)
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       companyId
-        ? admin
+        ? db
             .from('companies')
             .select('id,created_at')
             .eq('account_id', ctx.accountId)
@@ -55,7 +54,7 @@ export async function POST(request: Request) {
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       dealId
-        ? admin
+        ? db
             .from('deals')
             .select(
               'id,source,source_details,product_type,created_at,intake_source,intake_received_at,blocker'
@@ -125,7 +124,7 @@ export async function POST(request: Request) {
         dealUpdates.product_type = providedProductCategory;
       if (!deal.source && providedCustomerSource)
         dealUpdates.source = providedCustomerSource;
-      const { error: dealUpdateError } = await admin
+      const { error: dealUpdateError } = await db
         .from('deals')
         .update(dealUpdates)
         .eq('account_id', ctx.accountId)
@@ -133,7 +132,7 @@ export async function POST(request: Request) {
       if (dealUpdateError) throw dealUpdateError;
     }
 
-    const { data, error } = await admin
+    const { data, error } = await db
       .from('sales_activities')
       .insert({
         account_id: ctx.accountId,
