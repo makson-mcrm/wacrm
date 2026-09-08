@@ -39,6 +39,12 @@ import {
   suggestedRetryAt,
   toLocalDateTimeValue,
 } from '@/lib/sales/quick-activity';
+import { buildTodayPlan, type RankedTodayItem } from '@/lib/today/ranking';
+import {
+  buildTodayInputs,
+  currentWorkContext,
+  type ExistingCalendarRow,
+} from '@/lib/today/existing-data';
 
 type Priority = {
   position: number;
@@ -65,6 +71,33 @@ type CallQueueActivity = Activity & {
   next_contact_reason?: string | null;
   completed?: boolean | null;
 };
+type PlannedActivity = {
+  id: string;
+  title: string;
+  activity_type?: string | null;
+  objective_type?: string | null;
+  call_type?: string | null;
+  call_result?: string | null;
+  scheduled_at?: string | null;
+  next_action_date?: string | null;
+  next_contact_at?: string | null;
+  contact_id?: string | null;
+  company_id?: string | null;
+  deal_id?: string | null;
+  created_at?: string | null;
+  completed?: boolean | null;
+};
+type WorkQueueRow = {
+  id: string;
+  source_type: 'STRONA' | 'SZYBKI_WPIS' | 'FOLLOW_UP' | 'ALERT_CRM';
+  status: string;
+  snoozed_until?: string | null;
+  contact_id?: string | null;
+  company_id?: string | null;
+  deal_id?: string | null;
+  manual_priority?: number | null;
+  created_at?: string | null;
+};
 
 export default function DashboardPage() {
   const db = useMemo(() => createClient(), []),
@@ -77,6 +110,9 @@ export default function DashboardPage() {
     [priorities, setPriorities] = useState<Priority[]>(blankPriorities()),
     [activities, setActivities] = useState<Activity[]>([]),
     [callHistory, setCallHistory] = useState<CallQueueActivity[]>([]),
+    [plannedActivities, setPlannedActivities] = useState<PlannedActivity[]>([]),
+    [calendarEvents, setCalendarEvents] = useState<ExistingCalendarRow[]>([]),
+    [workQueue, setWorkQueue] = useState<WorkQueueRow[]>([]),
     [saving, setSaving] = useState(false),
     [callOpen, setCallOpen] = useState(false),
     [queueSavingId, setQueueSavingId] = useState(''),
@@ -112,6 +148,9 @@ export default function DashboardPage() {
       priorityRows,
       activityRows,
       callRows,
+      plannedRows,
+      calendarRows,
+      queueRows,
     ] = await Promise.all([
       db
         .from('deals')
@@ -141,12 +180,45 @@ export default function DashboardPage() {
         .eq('activity_type', 'telefon')
         .gte('occurred_at', queueStart)
         .order('occurred_at', { ascending: false }),
+      db
+        .from('sales_activities')
+        .select(
+          'id,title,activity_type,objective_type,call_type,call_result,scheduled_at,next_action_date,next_contact_at,contact_id,company_id,deal_id,created_at,completed'
+        )
+        .eq('account_id', accountId)
+        .eq('completed', false)
+        .or(
+          `scheduled_at.lte.${end},next_action_date.lte.${end},next_contact_at.lte.${end}`
+        )
+        .limit(200),
+      db
+        .from('calendar_events')
+        .select(
+          'id,title,event_type,starts_at,ends_at,location,description,deal_id'
+        )
+        .eq('account_id', accountId)
+        .is('deleted_at', null)
+        .gte('starts_at', start)
+        .lte('starts_at', end)
+        .order('starts_at'),
+      db
+        .from('work_queue_items')
+        .select(
+          'id,source_type,status,snoozed_until,contact_id,company_id,deal_id,manual_priority,created_at'
+        )
+        .eq('account_id', accountId)
+        .neq('status', 'ZALATWIONE')
+        .or(`snoozed_until.is.null,snoozed_until.lte.${end}`)
+        .limit(200),
     ]);
     setDeals((dealRows.data ?? []) as Deal[]);
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
     setActivities((activityRows.data ?? []) as Activity[]);
     setCallHistory((callRows.data ?? []) as CallQueueActivity[]);
+    setPlannedActivities((plannedRows.data ?? []) as PlannedActivity[]);
+    setCalendarEvents((calendarRows.data ?? []) as ExistingCalendarRow[]);
+    setWorkQueue((queueRows.data ?? []) as WorkQueueRow[]);
     const rows = (priorityRows.data ?? []) as Priority[];
     setPriorities(
       [1, 2, 3, 4, 5, 6].map(
@@ -159,7 +231,7 @@ export default function DashboardPage() {
           }
       )
     );
-  }, [db, date]);
+  }, [accountId, db, date]);
 
   const matchNumber = useCallback(
     (number: string) => {
@@ -380,8 +452,7 @@ export default function DashboardPage() {
         scheduled_at: iso,
         attempt_number: row.attempt_number || 0,
         expires_at:
-          row.expires_at ||
-          new Date(Date.now() + 30 * 86400000).toISOString(),
+          row.expires_at || new Date(Date.now() + 30 * 86400000).toISOString(),
         parent_activity_id: row.id,
       });
       if (error) throw error;
@@ -477,13 +548,28 @@ export default function DashboardPage() {
     meetings = deals.filter((deal) => deal.meeting_at?.slice(0, 10) === date),
     withoutAction = deals.filter(
       (deal) => !deal.next_action_at || !deal.next_action
-    ),
-    priorityDeal =
-      overdue[0] ?? todayActions[0] ?? withoutAction[0] ?? deals[0];
+    );
   const calls = activities.filter(
     (row) => row.activity_type === 'telefon'
   ).length;
   const callQueue = buildCallRetryQueue(callHistory, now);
+  const todayInputs = buildTodayInputs({
+    deals: deals as unknown as Parameters<typeof buildTodayInputs>[0]['deals'],
+    activities: plannedActivities,
+    queue: workQueue,
+    priorities,
+    calendar: calendarEvents,
+    now: new Date(now),
+  });
+  const todayPlan = buildTodayPlan({
+    candidates: todayInputs.candidates,
+    calendarBlocks: todayInputs.calendarBlocks,
+    now: new Date(now),
+    currentContext: currentWorkContext(
+      todayInputs.calendarBlocks,
+      new Date(now)
+    ),
+  });
   function proposePriorities() {
     const proposed = buildPrioritySuggestions(
       deals as unknown as PriorityDeal[],
@@ -504,9 +590,9 @@ export default function DashboardPage() {
     <div className="space-y-5 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Pulpit — Mój dzień</h1>
+          <h1 className="text-2xl font-bold">DZISIAJ</h1>
           <p className="text-muted-foreground text-sm">
-            Najważniejsze działania sprzedażowe na dziś.
+            Co jest najlepsze do zrobienia teraz — i dlaczego.
           </p>
         </div>
         <Button render={<Link href="/quick-call" />}>
@@ -514,37 +600,35 @@ export default function DashboardPage() {
           Szybka Aktywność
         </Button>
       </div>
-      <section className="border-primary/40 bg-primary/5 rounded-2xl border-2 p-5">
-        <div className="text-primary mb-2 flex items-center gap-2 text-xs font-bold uppercase">
-          <Target className="size-4" />
-          Co masz zrobić teraz
-        </div>
-        {priorityDeal ? (
-          <>
-            <h2 className="text-xl font-bold">
-              {priorityDeal.next_action ||
-                `Ustal następne działanie: ${priorityDeal.title}`}
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              {priorityDeal.contact?.name ||
-                priorityDeal.company?.name ||
-                priorityDeal.title}
-              {priorityDeal.next_action_at
-                ? ` · ${new Date(priorityDeal.next_action_at).toLocaleString('pl-PL')}`
-                : ' · brak terminu'}
-            </p>
-            <Link
-              href={`/deals/${priorityDeal.id}`}
-              className="bg-primary text-primary-foreground mt-4 inline-flex rounded-lg px-4 py-2 text-sm font-semibold"
-            >
-              Otwórz Deal
-            </Link>
-          </>
-        ) : (
-          <p>Brak otwartych Deali.</p>
-        )}
-      </section>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 xl:grid-cols-[1.15fr_1fr_1fr]">
+        <TodaySectionPanel
+          title="TERAZ"
+          items={todayPlan.now}
+          empty="Brak pilnej sprawy w tym bloku."
+          emphasis
+        />
+        <TodaySectionPanel
+          title="NASTĘPNY BLOK"
+          items={todayPlan.nextBlock}
+          empty="Następny blok jest wolny."
+        />
+        <TodaySectionPanel
+          title="PÓŹNIEJ DZISIAJ"
+          items={todayPlan.laterToday}
+          empty="Brak dalszych spraw na dziś."
+        />
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Ivy Lee: {todayPlan.mainCount}/6 głównych spraw · kontekst:{' '}
+        {currentWorkContext(todayInputs.calendarBlocks, new Date(now)) ===
+        'RZESZOW_BIURO'
+          ? 'Rzeszów / biuro'
+          : currentWorkContext(todayInputs.calendarBlocks, new Date(now)) ===
+              'DOM_KOMPUTER'
+            ? 'dom / komputer'
+            : 'dowolny'}
+      </p>
+      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-6">
         <Metric
           label="Telefony"
           value={calls}
@@ -560,7 +644,7 @@ export default function DashboardPage() {
         <Metric label="Zaległe" value={overdue.length} />
         <Metric label="Bez następnego kroku" value={withoutAction.length} />
       </div>
-      <section className="bg-card rounded-xl border p-4">
+      <section className="bg-card hidden rounded-xl border p-4 md:block">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="font-semibold">Telefony do ponowienia</h2>
@@ -633,7 +717,9 @@ export default function DashboardPage() {
                     <div className="text-muted-foreground min-w-[8rem] text-xs sm:text-right">
                       <p className="font-medium">
                         {row.next_contact_at
-                          ? new Date(row.next_contact_at).toLocaleString('pl-PL')
+                          ? new Date(row.next_contact_at).toLocaleString(
+                              'pl-PL'
+                            )
                           : `Próba ${row.attempt_number || 1} z 3`}
                       </p>
                       <div className="flex flex-wrap gap-x-2 sm:justify-end">
@@ -736,7 +822,7 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+      <div className="hidden gap-4 md:grid xl:grid-cols-[1.3fr_1fr]">
         <section className="bg-card rounded-xl border p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -1041,6 +1127,95 @@ function blankPriorities(): Priority[] {
     completed: false,
     deal_id: null,
   }));
+}
+function TodaySectionPanel({
+  title,
+  items,
+  empty,
+  emphasis = false,
+}: {
+  title: string;
+  items: RankedTodayItem[];
+  empty: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <section
+      className={
+        emphasis
+          ? 'border-primary/50 bg-primary/5 rounded-2xl border-2 p-4'
+          : 'bg-card rounded-2xl border p-4'
+      }
+    >
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-black tracking-wide">
+        <Target className={emphasis ? 'text-primary size-4' : 'size-4'} />
+        {title}
+      </h2>
+      {!items.length ? (
+        <p className="text-muted-foreground text-sm">{empty}</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item, index) => {
+            const content = (
+              <div
+                className={
+                  item.main
+                    ? 'bg-background rounded-xl border p-3'
+                    : 'bg-muted/60 rounded-xl border border-dashed p-3'
+                }
+              >
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  {item.main && (
+                    <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                      {item.lane === 'PRZYCHOD_TERAZ'
+                        ? 'PRZYCHÓD TERAZ'
+                        : item.lane === 'PRZYCHOD_POZNIEJ'
+                          ? 'PRZYCHÓD PÓŹNIEJ'
+                          : 'T12'}
+                    </span>
+                  )}
+                  {!item.main && (
+                    <span className="text-muted-foreground text-[10px] font-bold">
+                      RYTM DNIA
+                    </span>
+                  )}
+                  {index === 0 && emphasis && item.main && (
+                    <span className="text-[10px] font-bold">
+                      NAJLEPSZY KROK
+                    </span>
+                  )}
+                </div>
+                <p className="font-bold">{item.action || item.title}</p>
+                {item.action && item.action !== item.title && (
+                  <p className="text-muted-foreground truncate text-xs">
+                    {item.title}
+                  </p>
+                )}
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Dlaczego: {item.reason}
+                  {item.dueAt
+                    ? ` · ${new Date(item.dueAt).toLocaleString('pl-PL', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`
+                    : ''}
+                </p>
+              </div>
+            );
+            return item.href ? (
+              <Link key={item.id} href={item.href} className="block">
+                {content}
+              </Link>
+            ) : (
+              <div key={item.id}>{content}</div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
 }
 function Metric({
   label,
