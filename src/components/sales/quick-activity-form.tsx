@@ -277,26 +277,25 @@ export function QuickActivityForm() {
   }
 
   useEffect(() => {
-    if (
-      loading ||
-      restoredCall.current ||
-      searchParams.get('afterCall') !== '1'
-    )
-      return;
-    const contact = contacts.find(
-      (row) => row.id === searchParams.get('contact')
-    );
-    if (contact) chooseContact(contact);
-    const restoredCompany = searchParams.get('company');
+    if (loading || restoredCall.current) return;
+    const afterCall = searchParams.get('afterCall') === '1';
     const restoredDeal = searchParams.get('deal');
+    const restoredContact = searchParams.get('contact');
+    const restoredCompany = searchParams.get('company');
+    if (!afterCall && !restoredDeal && !restoredContact && !restoredCompany)
+      return;
+    const contact = contacts.find((row) => row.id === restoredContact);
+    if (contact) chooseContact(contact);
     if (restoredCompany) setCompanyId(restoredCompany);
     if (restoredDeal) {
-      setDealId(restoredDeal);
-      setBlocker(deals.find((row) => row.id === restoredDeal)?.blocker ?? '');
+      const deal = deals.find((row) => row.id === restoredDeal);
+      if (deal) applyDealContext(deal, contact);
     }
-    setType('TELEFON');
-    setStatus('WYKONANE');
-    setFlowStep('result');
+    if (afterCall) {
+      setType('TELEFON');
+      setStatus('WYKONANE');
+      setFlowStep('result');
+    }
     restoredCall.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, contacts, deals, searchParams]);
