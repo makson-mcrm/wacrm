@@ -73,6 +73,24 @@ describe('M3 Today existing data adapter', () => {
     );
   });
 
+  it('keeps Contact and Firma selected when DZISIAJ opens an activity without a Deal', () => {
+    const result = buildTodayInputs({
+      deals: [],
+      activities: [
+        {
+          id: 'a-contact',
+          title: 'Telefon do klienta',
+          contact_id: 'contact-1',
+          company_id: 'company-1',
+        },
+      ],
+    });
+
+    expect(result.candidates[0].href).toBe(
+      '/quick-call?contact=contact-1&company=company-1'
+    );
+  });
+
   it('turns calendar text into work context and keeps private rhythm visible', () => {
     const result = buildTodayInputs({
       deals: [],

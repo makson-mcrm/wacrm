@@ -95,6 +95,19 @@ function isPrivateRhythm(row: ExistingCalendarRow) {
   );
 }
 
+function quickActivityHref(context: {
+  dealId?: string | null;
+  contactId?: string | null;
+  companyId?: string | null;
+}) {
+  const params = new URLSearchParams();
+  if (context.dealId) params.set('deal', context.dealId);
+  if (context.contactId) params.set('contact', context.contactId);
+  if (context.companyId) params.set('company', context.companyId);
+  const query = params.toString();
+  return query ? `/quick-call?${query}` : '/quick-call';
+}
+
 export function buildTodayInputs(input: {
   deals: DealRow[];
   activities?: ActivityRow[];
@@ -116,7 +129,11 @@ export function buildTodayInputs(input: {
       source: 'deal',
       title: deal.title,
       action: deal.next_action?.trim() || `Ustal następny krok: ${deal.title}`,
-      href: `/quick-call?deal=${deal.id}`,
+      href: quickActivityHref({
+        dealId: deal.id,
+        contactId: deal.contact_id,
+        companyId: deal.company_id,
+      }),
       dealId: deal.id,
       contactId: deal.contact_id,
       companyId: deal.company_id,
@@ -184,7 +201,11 @@ export function buildTodayInputs(input: {
       source: 'activity',
       title: row.title,
       action: row.title,
-      href: row.deal_id ? `/quick-call?deal=${row.deal_id}` : '/quick-call',
+      href: quickActivityHref({
+        dealId: row.deal_id,
+        contactId: row.contact_id,
+        companyId: row.company_id,
+      }),
       dealId: row.deal_id,
       contactId: row.contact_id,
       companyId: row.company_id,
@@ -218,7 +239,7 @@ export function buildTodayInputs(input: {
       source: 'priority',
       title: row.title,
       action: row.title.replace(/^(T12|PRYWATNE)\b[:\s-]*/i, ''),
-      href: row.deal_id ? `/quick-call?deal=${row.deal_id}` : null,
+      href: row.deal_id ? quickActivityHref({ dealId: row.deal_id }) : null,
       dealId: row.deal_id,
       manualPriority: 7 - row.position,
       relatedKey: row.deal_id,
