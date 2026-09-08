@@ -18,10 +18,11 @@ export function MobileDateTimeInput({
       <Input
         type="datetime-local"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onInput={(event) => onChange(event.currentTarget.value)}
         required={required}
         className="min-h-11 pl-10 [color-scheme:light] dark:[color-scheme:dark]"
       />
     </div>
   );
 }
+
