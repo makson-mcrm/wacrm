@@ -18,6 +18,12 @@ export async function POST(request: Request) {
       typeof body.templateTitle === 'string' ? body.templateTitle.trim() : '';
     const phoneNumber = typeof body.phone === 'string' ? body.phone.trim() : '';
     const originalNote = typeof body.note === 'string' ? body.note.trim() : '';
+    const providedProductCategory =
+      typeof body.productCategory === 'string'
+        ? body.productCategory.trim()
+        : '';
+    const providedCustomerSource =
+      typeof body.customerSource === 'string' ? body.customerSource.trim() : '';
     const contactId =
       typeof body.contactId === 'string' ? body.contactId : null;
     const companyId =
@@ -76,8 +82,12 @@ export async function POST(request: Request) {
     const contact = contactResult.data;
     const company = companyResult.data;
     const deal = dealResult.data;
-    const productCategory = deal?.product_type || contact?.product_category;
-    const customerSource = contact?.source || deal?.source;
+    const productCategory = deal
+      ? deal.product_type || providedProductCategory || null
+      : contact?.product_category || providedProductCategory || null;
+    const customerSource = deal
+      ? deal.source || providedCustomerSource || null
+      : contact?.source || providedCustomerSource || null;
     const nowIso = new Date().toISOString();
     const analytics = buildActivityAnalytics({
       recordedAt: nowIso,
@@ -105,6 +115,24 @@ export async function POST(request: Request) {
       ),
     });
 
+    if (
+      deal &&
+      ((!deal.product_type && providedProductCategory) ||
+        (!deal.source && providedCustomerSource))
+    ) {
+      const dealUpdates: Record<string, string> = {};
+      if (!deal.product_type && providedProductCategory)
+        dealUpdates.product_type = providedProductCategory;
+      if (!deal.source && providedCustomerSource)
+        dealUpdates.source = providedCustomerSource;
+      const { error: dealUpdateError } = await admin
+        .from('deals')
+        .update(dealUpdates)
+        .eq('account_id', ctx.accountId)
+        .eq('id', deal.id);
+      if (dealUpdateError) throw dealUpdateError;
+    }
+
     const { data, error } = await admin
       .from('sales_activities')
       .insert({
@@ -120,7 +148,7 @@ export async function POST(request: Request) {
         description: originalNote || templateTitle,
         occurred_at: nowIso,
         completed: true,
-        call_result: 'przygotowano_sms',
+        call_result: null,
         call_category: serializeActivityAnalytics(analytics),
         call_product: productCategory || null,
         call_channel: 'wiadomosc',
@@ -138,3 +166,4 @@ export async function POST(request: Request) {
     return toErrorResponse(error);
   }
 }
+

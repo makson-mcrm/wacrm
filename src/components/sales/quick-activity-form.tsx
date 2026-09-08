@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  ArrowLeft,
+  ArrowRight,
+  BriefcaseBusiness,
   CalendarPlus,
   Check,
   FilePlus2,
@@ -29,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Company, Contact, Deal } from '@/types';
+import type { Company, Contact, Deal, PipelineStage } from '@/types';
 import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import {
   activityTypeForDb,
@@ -84,6 +87,7 @@ type SearchMatch =
       company: Company;
     }
   | { kind: 'deal'; id: string; title: string; subtitle: string; deal: Deal };
+type FlowStep = 'selection' | 'action' | 'result' | 'confirmation';
 
 function contactName(contact: Contact | undefined) {
   if (!contact) return '';
@@ -95,12 +99,6 @@ function contactName(contact: Contact | undefined) {
   );
 }
 
-function scrollToSection(id: string) {
-  document
-    .getElementById(id)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 export function QuickActivityForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -110,6 +108,7 @@ export function QuickActivityForm() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
   const [contactCompanyLinks, setContactCompanyLinks] = useState<
     ContactCompanyLink[]
   >([]);
@@ -130,42 +129,49 @@ export function QuickActivityForm() {
   const [nextAction, setNextAction] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
   const [blocker, setBlocker] = useState('');
+  const [dealProductDraft, setDealProductDraft] = useState('');
+  const [dealSourceDraft, setDealSourceDraft] = useState('');
+  const [flowStep, setFlowStep] = useState<FlowStep>('selection');
   const [contactDialog, setContactDialog] = useState(false);
 
   const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const [contactRows, companyRows, dealRows, companyLinkRows, dealLinkRows] =
-      await Promise.all([
-        db
-          .from('contacts')
-          .select('*')
-          .eq('account_id', accountId)
-          .order('name'),
-        db
-          .from('companies')
-          .select('*')
-          .eq('account_id', accountId)
-          .order('name'),
-        db
-          .from('deals')
-          .select('*')
-          .eq('account_id', accountId)
-          .eq('status', 'open')
-          .order('title'),
-        db
-          .from('contact_companies')
-          .select('contact_id,company_id,is_primary')
-          .eq('account_id', accountId),
-        db
-          .from('deal_contacts')
-          .select('deal_id,contact_id,is_primary')
-          .eq('account_id', accountId),
-      ]);
+    const [
+      contactRows,
+      companyRows,
+      dealRows,
+      stageRows,
+      companyLinkRows,
+      dealLinkRows,
+    ] = await Promise.all([
+      db.from('contacts').select('*').eq('account_id', accountId).order('name'),
+      db
+        .from('companies')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('name'),
+      db
+        .from('deals')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('status', 'open')
+        .order('title'),
+      db.from('pipeline_stages').select('*'),
+      db
+        .from('contact_companies')
+        .select('contact_id,company_id,is_primary')
+        .eq('account_id', accountId),
+      db
+        .from('deal_contacts')
+        .select('deal_id,contact_id,is_primary')
+        .eq('account_id', accountId),
+    ]);
     const firstError = [
       contactRows,
       companyRows,
       dealRows,
+      stageRows,
       companyLinkRows,
       dealLinkRows,
     ].find((response) => response.error)?.error;
@@ -174,6 +180,7 @@ export function QuickActivityForm() {
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
     setDeals((dealRows.data ?? []) as Deal[]);
+    setStages((stageRows.data ?? []) as PipelineStage[]);
     setContactCompanyLinks(
       (companyLinkRows.data ?? []) as ContactCompanyLink[]
     );
@@ -183,6 +190,38 @@ export function QuickActivityForm() {
 
   useEffect(() => void load(), [load]);
 
+  function dealsForContact(contact: Contact) {
+    const linkedDealIds = new Set(
+      dealContactLinks
+        .filter((row) => row.contact_id === contact.id)
+        .map((row) => row.deal_id)
+    );
+    return deals.filter(
+      (deal) => deal.contact_id === contact.id || linkedDealIds.has(deal.id)
+    );
+  }
+
+  function applyDealContext(deal: Deal, contact?: Contact) {
+    const dealLink =
+      dealContactLinks.find(
+        (row) => row.deal_id === deal.id && row.is_primary
+      ) ?? dealContactLinks.find((row) => row.deal_id === deal.id);
+    const resolvedContact =
+      contact ??
+      contacts.find(
+        (row) => row.id === (deal.contact_id || dealLink?.contact_id)
+      );
+    setDealId(deal.id);
+    setCompanyId(deal.company_id ?? '');
+    setBlocker(deal.blocker ?? '');
+    setDealProductDraft('');
+    setDealSourceDraft('');
+    setContactId(resolvedContact?.id ?? '');
+    setPhone(resolvedContact?.phone ?? '');
+    setQuery('');
+    setFlowStep(resolvedContact ? 'action' : 'selection');
+  }
+
   function chooseContact(contact: Contact) {
     setContactId(contact.id);
     setPhone(contact.phone ?? '');
@@ -191,16 +230,17 @@ export function QuickActivityForm() {
       contactCompanyLinks.find(
         (row) => row.contact_id === contact.id && row.is_primary
       ) ?? contactCompanyLinks.find((row) => row.contact_id === contact.id);
-    const directDeal = deals.find((row) => row.contact_id === contact.id);
-    const dealLink =
-      dealContactLinks.find(
-        (row) => row.contact_id === contact.id && row.is_primary
-      ) ?? dealContactLinks.find((row) => row.contact_id === contact.id);
-    const linkedDeal =
-      directDeal ?? deals.find((row) => row.id === dealLink?.deal_id);
-    setCompanyId(linkedDeal?.company_id ?? companyLink?.company_id ?? '');
-    setDealId(linkedDeal?.id ?? '');
-    setBlocker(linkedDeal?.blocker ?? '');
+    const linkedDeals = dealsForContact(contact);
+    if (linkedDeals.length === 1) {
+      applyDealContext(linkedDeals[0], contact);
+      return;
+    }
+    setCompanyId(companyLink?.company_id ?? '');
+    setDealId('');
+    setBlocker('');
+    setDealProductDraft('');
+    setDealSourceDraft('');
+    setFlowStep(linkedDeals.length > 1 ? 'selection' : 'action');
   }
 
   function chooseCompany(company: Company) {
@@ -212,33 +252,28 @@ export function QuickActivityForm() {
     const contact = contacts.find(
       (row) => row.id === preferredLink?.contact_id
     );
-    const deal = deals.find(
+    const linkedDeals = deals.filter(
       (row) =>
         row.company_id === company.id &&
         (!contact || row.contact_id === contact.id)
     );
     setCompanyId(company.id);
-    setDealId(deal?.id ?? '');
-    setBlocker(deal?.blocker ?? '');
     setContactId(contact?.id ?? '');
     setPhone(contact?.phone ?? company.phone ?? '');
     setQuery('');
+    if (linkedDeals.length === 1 && contact) {
+      applyDealContext(linkedDeals[0], contact);
+      return;
+    }
+    setDealId('');
+    setBlocker('');
+    setDealProductDraft('');
+    setDealSourceDraft('');
+    setFlowStep(linkedDeals.length > 1 || !contact ? 'selection' : 'action');
   }
 
   function chooseDeal(deal: Deal) {
-    const dealLink =
-      dealContactLinks.find(
-        (row) => row.deal_id === deal.id && row.is_primary
-      ) ?? dealContactLinks.find((row) => row.deal_id === deal.id);
-    const contact = contacts.find(
-      (row) => row.id === (deal.contact_id || dealLink?.contact_id)
-    );
-    setDealId(deal.id);
-    setCompanyId(deal.company_id ?? '');
-    setBlocker(deal.blocker ?? '');
-    setContactId(contact?.id ?? '');
-    setPhone(contact?.phone ?? '');
-    setQuery('');
+    applyDealContext(deal);
   }
 
   useEffect(() => {
@@ -261,6 +296,7 @@ export function QuickActivityForm() {
     }
     setType('TELEFON');
     setStatus('WYKONANE');
+    setFlowStep('result');
     restoredCall.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, contacts, deals, searchParams]);
@@ -268,6 +304,16 @@ export function QuickActivityForm() {
   const selectedContact = contacts.find((row) => row.id === contactId);
   const selectedCompany = companies.find((row) => row.id === companyId);
   const selectedDeal = deals.find((row) => row.id === dealId);
+  const selectedStage = stages.find((row) => row.id === selectedDeal?.stage_id);
+  const selectedContactDeals = selectedContact
+    ? dealsForContact(selectedContact)
+    : [];
+  const activityProductCategory = selectedDeal
+    ? selectedDeal.product_type || dealProductDraft.trim() || null
+    : selectedContact?.product_category || null;
+  const activityCustomerSource = selectedDeal
+    ? selectedDeal.source || dealSourceDraft.trim() || null
+    : selectedContact?.source || null;
 
   const searchMatches = useMemo<SearchMatch[]>(() => {
     const trimmed = query.trim();
@@ -319,7 +365,9 @@ export function QuickActivityForm() {
         kind: 'deal' as const,
         id: deal.id,
         title: deal.title,
-        subtitle: 'Deal',
+        subtitle:
+          [deal.product_type, deal.source].filter(Boolean).join(' · ') ||
+          'Deal',
         deal,
       }));
     return [...contactMatches, ...companyMatches, ...dealMatches].slice(0, 8);
@@ -337,7 +385,10 @@ export function QuickActivityForm() {
     setDealId('');
     setPhone('');
     setBlocker('');
+    setDealProductDraft('');
+    setDealSourceDraft('');
     setQuery('');
+    setFlowStep('selection');
   }
 
   function selectOutcome(value: (typeof OUTCOMES)[number]['value']) {
@@ -358,7 +409,6 @@ export function QuickActivityForm() {
         return toLocalDateTimeValue(new Date(Date.now() + 2 * 60 * 60 * 1000));
       });
     }
-    window.setTimeout(() => scrollToSection('mcrm-dictation'), 0);
   }
 
   function prepareMeeting() {
@@ -366,13 +416,13 @@ export function QuickActivityForm() {
     setStatus('PLANOWANE');
     setResult('');
     setNextAction((current) => current || 'Spotkanie');
-    scrollToSection('mcrm-confirmation');
+    setFlowStep('confirmation');
   }
 
   function prepareDictation() {
     if (!result) setType('INNY_KONTAKT');
     setStatus('WYKONANE');
-    scrollToSection('mcrm-dictation');
+    setFlowStep('result');
   }
 
   function openDocuments() {
@@ -479,10 +529,8 @@ export function QuickActivityForm() {
           : type === 'SPOTKANIE'
             ? 'spotkanie'
             : 'dyktat';
-      const productCategory =
-        selectedDeal?.product_type || selectedContact?.product_category || null;
-      const customerSource =
-        selectedContact?.source || selectedDeal?.source || null;
+      const productCategory = activityProductCategory;
+      const customerSource = activityCustomerSource;
       const acquiredAt =
         selectedContact?.created_at ||
         selectedDeal?.intake_received_at ||
@@ -515,39 +563,37 @@ export function QuickActivityForm() {
         migrationTag,
       });
       const { error } = await db.from('sales_activities').insert({
-          account_id: accountId,
-          user_id: session.user.id,
-          activity_type: activityType,
-          activity_status: status,
-          objective_type: DEFAULT_OBJECTIVE,
-          contact_id: contactId,
-          company_id: companyId || null,
-          deal_id: dealId || null,
-          phone_number: number || null,
-          title: `${type.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
-          description: note.trim() || null,
-          occurred_at:
-            status === 'WYKONANE' ? nowIso : (scheduledIso ?? nowIso),
-          scheduled_at: status === 'PLANOWANE' ? scheduledIso : null,
-          completed_at: status === 'WYKONANE' ? nowIso : null,
-          completed: status === 'WYKONANE',
-          call_result: type === 'TELEFON' ? result : null,
-          call_category: serializeActivityAnalytics(analytics),
-          call_product: productCategory,
-          call_channel: channel,
-          call_type: 'nowe_pozyskanie',
-          source: customerSource,
-          product_group: productCategory,
-          next_action: nextAction.trim() || null,
-          next_action_date: scheduledIso,
-          next_contact_at: scheduledIso,
-          next_contact_reason: nextAction.trim() || note.trim() || null,
-          attempt_number:
-            type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,
-          expires_at:
-            type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3
-              ? new Date(Date.now() + 30 * 86400000).toISOString()
-              : null,
+        account_id: accountId,
+        user_id: session.user.id,
+        activity_type: activityType,
+        activity_status: status,
+        objective_type: DEFAULT_OBJECTIVE,
+        contact_id: contactId,
+        company_id: companyId || null,
+        deal_id: dealId || null,
+        phone_number: number || null,
+        title: `${type.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
+        description: note.trim() || null,
+        occurred_at: status === 'WYKONANE' ? nowIso : (scheduledIso ?? nowIso),
+        scheduled_at: status === 'PLANOWANE' ? scheduledIso : null,
+        completed_at: status === 'WYKONANE' ? nowIso : null,
+        completed: status === 'WYKONANE',
+        call_result: type === 'TELEFON' ? result : null,
+        call_category: serializeActivityAnalytics(analytics),
+        call_product: productCategory,
+        call_channel: channel,
+        call_type: 'nowe_pozyskanie',
+        source: customerSource,
+        product_group: productCategory,
+        next_action: nextAction.trim() || null,
+        next_action_date: scheduledIso,
+        next_contact_at: scheduledIso,
+        next_contact_reason: nextAction.trim() || note.trim() || null,
+        attempt_number: type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,
+        expires_at:
+          type === 'TELEFON' && result === 'nie_odebral' && attemptNumber < 3
+            ? new Date(Date.now() + 30 * 86400000).toISOString()
+            : null,
       });
       if (error) throw error;
       let relationWarning = '';
@@ -555,11 +601,17 @@ export function QuickActivityForm() {
         dealId &&
         (nextAction.trim() ||
           scheduledIso ||
+          (!selectedDeal?.product_type && dealProductDraft.trim()) ||
+          (!selectedDeal?.source && dealSourceDraft.trim()) ||
           blocker.trim() !== (selectedDeal?.blocker ?? ''))
       ) {
         const updates: Record<string, string | null> = {};
         if (nextAction.trim()) updates.next_action = nextAction.trim();
         if (scheduledIso) updates.next_action_at = scheduledIso;
+        if (!selectedDeal?.product_type && dealProductDraft.trim())
+          updates.product_type = dealProductDraft.trim();
+        if (!selectedDeal?.source && dealSourceDraft.trim())
+          updates.source = dealSourceDraft.trim();
         updates.blocker = blocker.trim() || null;
         updates.blocker_since = blocker.trim()
           ? selectedDeal?.blocker_since || nowIso
@@ -567,6 +619,7 @@ export function QuickActivityForm() {
         const { error: dealError } = await db
           .from('deals')
           .update(updates)
+          .eq('account_id', accountId)
           .eq('id', dealId);
         if (dealError) relationWarning = ' Nie zaktualizowano karty Deala.';
       }
@@ -577,6 +630,7 @@ export function QuickActivityForm() {
           next_step: nextAction.trim() || null,
           follow_up_at: scheduledIso,
         })
+        .eq('account_id', accountId)
         .eq('id', contactId);
       if (contactError)
         relationWarning += ' Nie zaktualizowano karty Kontaktu.';
@@ -612,185 +666,289 @@ export function QuickActivityForm() {
         </p>
       </header>
 
-      <section className="rounded-[1.5rem] border border-emerald-950/10 bg-white p-3 shadow-sm">
-        <Label htmlFor="mcrm-search" className="sr-only">
-          Kontakt, telefon, Firma lub Deal
-        </Label>
-        <div className="relative">
-          {loading ? (
-            <Loader2 className="absolute top-4 left-4 size-6 animate-spin text-emerald-800" />
-          ) : (
-            <Search className="absolute top-4 left-4 size-6 text-emerald-900" />
+      <p className="px-1 text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
+        {flowStep === 'selection' && 'Krok 1 · Klient i Deal'}
+        {flowStep === 'action' && 'Krok 2 · Akcja'}
+        {flowStep === 'result' && 'Krok 3 · Wynik i notatka'}
+        {flowStep === 'confirmation' && 'Krok 4 · Potwierdzenie'}
+      </p>
+
+      {flowStep === 'selection' && (
+        <section className="rounded-[1.5rem] border border-emerald-950/10 bg-white p-3 shadow-sm">
+          <Label htmlFor="mcrm-search" className="sr-only">
+            Kontakt, telefon, Firma lub Deal
+          </Label>
+          <div className="relative">
+            {loading ? (
+              <Loader2 className="absolute top-4 left-4 size-6 animate-spin text-emerald-800" />
+            ) : (
+              <Search className="absolute top-4 left-4 size-6 text-emerald-900" />
+            )}
+            <Input
+              id="mcrm-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-14 rounded-2xl border-0 bg-[#f2f6f1] pr-11 pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-emerald-800"
+              placeholder="Kontakt / telefon / Firma / Deal"
+              autoComplete="off"
+              inputMode="search"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Wyczyść wyszukiwanie"
+                className="absolute top-2.5 right-2.5 flex size-9 items-center justify-center rounded-full text-slate-500"
+              >
+                <X className="size-5" />
+              </button>
+            )}
+          </div>
+          {!canSearch && query && (
+            <p className="px-2 pt-2 text-xs text-slate-500">
+              Wpisz minimum 3 znaki lub cyfry.
+            </p>
           )}
-          <Input
-            id="mcrm-search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="h-14 rounded-2xl border-0 bg-[#f2f6f1] pr-11 pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-emerald-800"
-            placeholder="Kontakt / telefon / Firma / Deal"
-            autoComplete="off"
-            inputMode="search"
-          />
-          {query && (
+          {canSearch && query && (
+            <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200">
+              {searchMatches.map((match) => (
+                <button
+                  type="button"
+                  key={`${match.kind}-${match.id}`}
+                  onClick={() => chooseMatch(match)}
+                  className="flex min-h-14 w-full items-center gap-3 border-b border-slate-100 px-3 text-left last:border-0 hover:bg-emerald-50"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-950">
+                    {match.kind === 'deal' ? (
+                      <BriefcaseBusiness className="size-4" />
+                    ) : (
+                      <UserRound className="size-4" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold">
+                      {match.title}
+                    </span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {match.subtitle}
+                    </span>
+                  </span>
+                </button>
+              ))}
+              {searchMatches.length === 0 && (
+                <p className="px-4 py-3 text-sm text-slate-500">
+                  Brak pasujących klientów.
+                </p>
+              )}
+            </div>
+          )}
+          {!contactId && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setContactDialog(true)}
+              className="mt-2 h-12 w-full justify-start rounded-xl text-emerald-950"
+            >
+              <Plus className="size-5" /> Rozpocznij nowy Kontakt
+            </Button>
+          )}
+        </section>
+      )}
+
+      {selectedContact ? (
+        <section className="space-y-3 rounded-[1.5rem] bg-emerald-50 p-4 ring-1 ring-emerald-900/10">
+          <div className="flex items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#123d2b] text-lime-300">
+              <Check className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold tracking-wider text-emerald-800 uppercase">
+                Wybrany klient
+              </p>
+              <p className="truncate text-lg font-black">
+                {contactName(selectedContact)}
+              </p>
+              <p className="truncate text-sm text-slate-600">
+                {[selectedContact.phone, selectedCompany?.name]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() => setQuery('')}
-              aria-label="Wyczyść wyszukiwanie"
-              className="absolute top-2.5 right-2.5 flex size-9 items-center justify-center rounded-full text-slate-500"
+              onClick={clearSelection}
+              aria-label="Wybierz innego klienta lub Deala"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500"
             >
               <X className="size-5" />
             </button>
-          )}
-        </div>
-        {!canSearch && query && (
-          <p className="px-2 pt-2 text-xs text-slate-500">
-            Wpisz minimum 3 znaki lub cyfry.
-          </p>
-        )}
-        {canSearch && query && (
-          <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200">
-            {searchMatches.map((match) => (
-              <button
-                type="button"
-                key={`${match.kind}-${match.id}`}
-                onClick={() => chooseMatch(match)}
-                className="flex min-h-14 w-full items-center gap-3 border-b border-slate-100 px-3 text-left last:border-0 hover:bg-emerald-50"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-950">
-                  <UserRound className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold">
-                    {match.title}
-                  </span>
-                  <span className="block truncate text-xs text-slate-500">
-                    {match.subtitle}
-                  </span>
-                </span>
-              </button>
-            ))}
-            {searchMatches.length === 0 && (
-              <p className="px-4 py-3 text-sm text-slate-500">
-                Brak pasujących klientów.
+          </div>
+          {selectedDeal ? (
+            <div className="rounded-2xl bg-white p-3 ring-1 ring-emerald-900/10">
+              <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
+                Ta konkretna sprawa
               </p>
-            )}
-          </div>
-        )}
-        {!contactId && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setContactDialog(true)}
-            className="mt-2 h-12 w-full justify-start rounded-xl text-emerald-950"
-          >
-            <Plus className="size-5" /> Rozpocznij nowy Kontakt
-          </Button>
-        )}
-      </section>
-
-      {selectedContact ? (
-        <section className="flex items-start gap-3 rounded-[1.5rem] bg-emerald-50 p-4 ring-1 ring-emerald-900/10">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#123d2b] text-lime-300">
-            <Check className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold tracking-wider text-emerald-800 uppercase">
-              Wybrany klient
+              <p className="mt-1 font-black">{selectedDeal.title}</p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                <dt className="text-slate-500">Produkt</dt>
+                <dd className="font-semibold">
+                  {selectedDeal.product_type ||
+                    dealProductDraft ||
+                    'Do uzupełnienia'}
+                </dd>
+                <dt className="text-slate-500">Źródło</dt>
+                <dd className="font-semibold">
+                  {selectedDeal.source || dealSourceDraft || 'Do uzupełnienia'}
+                </dd>
+                {selectedStage && (
+                  <>
+                    <dt className="text-slate-500">Etap</dt>
+                    <dd className="font-semibold">{selectedStage.name}</dd>
+                  </>
+                )}
+              </dl>
+              {(!selectedDeal.product_type || !selectedDeal.source) && (
+                <div className="mt-3 grid gap-2 border-t border-emerald-900/10 pt-3">
+                  <p className="text-xs font-semibold text-slate-500">
+                    Uzupełnij raz na tym Dealu
+                  </p>
+                  {!selectedDeal.product_type && (
+                    <Input
+                      value={dealProductDraft}
+                      onChange={(event) =>
+                        setDealProductDraft(event.target.value)
+                      }
+                      placeholder="Produkt / kategoria"
+                      aria-label="Produkt lub kategoria Deala"
+                      className="h-10 rounded-xl bg-white"
+                    />
+                  )}
+                  {!selectedDeal.source && (
+                    <Input
+                      value={dealSourceDraft}
+                      onChange={(event) =>
+                        setDealSourceDraft(event.target.value)
+                      }
+                      placeholder="Źródło klienta"
+                      aria-label="Źródło klienta z Deala"
+                      className="h-10 rounded-xl bg-white"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          ) : selectedContactDeals.length === 0 ? (
+            <p className="rounded-xl bg-white px-3 py-2 text-sm text-slate-600">
+              Brak aktywnego Deala — aktywność zostanie przypięta do Kontaktu.
             </p>
-            <p className="truncate text-lg font-black">
-              {contactName(selectedContact)}
-            </p>
-            <p className="truncate text-sm text-slate-600">
-              {[
-                selectedContact.phone,
-                selectedCompany?.name,
-                selectedDeal?.title,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={clearSelection}
-            aria-label="Wybierz innego klienta"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full text-slate-500"
-          >
-            <X className="size-5" />
-          </button>
+          ) : null}
         </section>
       ) : (
         <p className="px-2 text-center text-sm text-slate-500">
-          Najpierw wybierz klienta.
+          Najpierw wybierz klienta lub konkretny Deal.
         </p>
       )}
 
-      <section aria-label="Szybkie akcje" className="grid grid-cols-2 gap-2">
-        {phone && contactId ? (
-          <CallAction
-            phone={phone}
-            contactId={contactId}
-            companyId={companyId}
-            dealId={dealId}
-            size="lg"
-            className="h-16 rounded-2xl border-0 bg-[#123d2b] text-base font-black text-lime-300 hover:bg-[#0b2d1f]"
-          />
-        ) : (
-          <Button disabled className="h-16 rounded-2xl text-base font-black">
-            <Phone className="size-5" /> ZADZWOŃ
-          </Button>
+      {flowStep === 'selection' &&
+        selectedContact &&
+        selectedContactDeals.length > 1 &&
+        !selectedDeal && (
+          <section className="rounded-[1.5rem] border border-amber-300 bg-amber-50 p-4 shadow-sm">
+            <p className="font-black">Wybierz konkretny Deal</p>
+            <p className="mt-1 text-sm text-slate-600">
+              Ten Kontakt ma kilka aktywnych spraw. Zapis trafi wyłącznie do
+              wybranego Deala.
+            </p>
+            <div className="mt-3 space-y-2">
+              {selectedContactDeals.map((deal) => (
+                <button
+                  key={deal.id}
+                  type="button"
+                  onClick={() => applyDealContext(deal, selectedContact)}
+                  className="w-full rounded-2xl bg-white p-3 text-left ring-1 ring-amber-300 transition hover:bg-amber-100"
+                >
+                  <span className="block font-black">{deal.title}</span>
+                  <span className="block text-xs text-slate-600">
+                    {[deal.product_type, deal.source]
+                      .filter(Boolean)
+                      .join(' · ') || 'Brak produktu i źródła'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!contactId}
-          onClick={prepareDictation}
-          className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
-        >
-          <Mic className="size-5" /> DYKTUJ
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!contactId}
-          onClick={prepareMeeting}
-          className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
-        >
-          <CalendarPlus className="size-5" /> UMÓW
-        </Button>
-        <div className="[&>button]:h-16 [&>button]:w-full [&>button]:rounded-2xl [&>button]:border-emerald-900/20 [&>button]:bg-white [&>button]:text-base [&>button]:font-black [&>button]:text-emerald-950">
+
+      {flowStep === 'action' && (
+        <section aria-label="Szybkie akcje" className="grid grid-cols-2 gap-2">
           {phone && contactId ? (
-            <SmsAction
+            <CallAction
               phone={phone}
-              contactName={contactName(selectedContact)}
               contactId={contactId}
               companyId={companyId}
               dealId={dealId}
               size="lg"
-              label="WIADOMOŚĆ"
+              className="h-16 rounded-2xl border-0 bg-[#123d2b] text-base font-black text-lime-300 hover:bg-[#0b2d1f]"
             />
           ) : (
-            <Button
-              disabled
-              variant="outline"
-              className="h-16 w-full rounded-2xl"
-            >
-              WIADOMOŚĆ
+            <Button disabled className="h-16 rounded-2xl text-base font-black">
+              <Phone className="size-5" /> ZADZWOŃ
             </Button>
           )}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!contactId}
-          onClick={openDocuments}
-          className="col-span-2 h-14 rounded-2xl border-emerald-900/20 bg-white text-sm font-black text-emerald-950"
-        >
-          <FilePlus2 className="size-5" /> DODAJ DOKUMENT
-        </Button>
-      </section>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!contactId}
+            onClick={prepareDictation}
+            className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
+          >
+            <Mic className="size-5" /> DYKTUJ
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!contactId}
+            onClick={prepareMeeting}
+            className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
+          >
+            <CalendarPlus className="size-5" /> UMÓW
+          </Button>
+          <div className="[&>button]:h-16 [&>button]:w-full [&>button]:rounded-2xl [&>button]:border-emerald-900/20 [&>button]:bg-white [&>button]:text-base [&>button]:font-black [&>button]:text-emerald-950">
+            {phone && contactId ? (
+              <SmsAction
+                phone={phone}
+                contactName={contactName(selectedContact)}
+                contactId={contactId}
+                companyId={companyId}
+                dealId={dealId}
+                productCategory={activityProductCategory}
+                customerSource={activityCustomerSource}
+                size="lg"
+                label="WIADOMOŚĆ"
+              />
+            ) : (
+              <Button
+                disabled
+                variant="outline"
+                className="h-16 w-full rounded-2xl"
+              >
+                WIADOMOŚĆ
+              </Button>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!contactId}
+            onClick={openDocuments}
+            className="col-span-2 h-14 rounded-2xl border-emerald-900/20 bg-white text-sm font-black text-emerald-950"
+          >
+            <FilePlus2 className="size-5" /> DODAJ DOKUMENT
+          </Button>
+        </section>
+      )}
 
-      {contactId && (
+      {flowStep === 'result' && type === 'TELEFON' && (
         <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black tracking-[0.16em] text-slate-500 uppercase">
             Wynik rozmowy
@@ -810,78 +968,114 @@ export function QuickActivityForm() {
         </section>
       )}
 
-      <section
-        id="mcrm-dictation"
-        className="rounded-[1.5rem] bg-[#123d2b] p-4 text-white shadow-sm"
-      >
-        <Label className="text-xs font-black tracking-[0.16em] text-lime-300 uppercase">
-          Notatka
-        </Label>
-        <div className="mt-2 [&_button]:h-14 [&_button]:w-full [&_button]:rounded-2xl [&_button]:border-0 [&_button]:bg-lime-300 [&_button]:text-base [&_button]:font-black [&_button]:text-emerald-950 [&_textarea]:min-h-32 [&_textarea]:rounded-2xl [&_textarea]:border-0 [&_textarea]:bg-white [&_textarea]:text-base [&_textarea]:text-slate-950">
-          <VoiceTextarea
-            value={note}
-            onChange={setNote}
-            placeholder="Powiedz lub wpisz, co ustaliliście…"
-          />
-        </div>
-      </section>
-
-      <section
-        id="mcrm-confirmation"
-        className="space-y-4 rounded-[1.5rem] border border-emerald-950/10 bg-white p-4 shadow-sm"
-      >
-        <div>
-          <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
-            Minimum do potwierdzenia
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            Tylko trzy rzeczy przed zapisem.
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="mcrm-next-action">Next action</Label>
-          <Input
-            id="mcrm-next-action"
-            value={nextAction}
-            onChange={(event) => setNextAction(event.target.value)}
-            placeholder="Co jest następnym krokiem?"
-            className="mt-1 h-12 rounded-xl"
-          />
-        </div>
-        <div>
-          <Label>Termin</Label>
-          <div className="mt-1">
-            <MobileDateTimeInput
-              value={nextActionDate}
-              onChange={setNextActionDate}
+      {flowStep === 'result' && (
+        <section
+          id="mcrm-dictation"
+          className="space-y-4 rounded-[1.5rem] bg-[#123d2b] p-4 text-white shadow-sm"
+        >
+          <Label className="text-xs font-black tracking-[0.16em] text-lime-300 uppercase">
+            Notatka
+          </Label>
+          <div className="mt-2 [&_button]:h-14 [&_button]:w-full [&_button]:rounded-2xl [&_button]:border-0 [&_button]:bg-lime-300 [&_button]:text-base [&_button]:font-black [&_button]:text-emerald-950 [&_textarea]:min-h-32 [&_textarea]:rounded-2xl [&_textarea]:border-0 [&_textarea]:bg-white [&_textarea]:text-base [&_textarea]:text-slate-950">
+            <VoiceTextarea
+              value={note}
+              onChange={setNote}
+              placeholder="Powiedz lub wpisz, co ustaliliście…"
             />
           </div>
-        </div>
-        <div>
-          <Label htmlFor="mcrm-blocker">Blocker</Label>
-          <Input
-            id="mcrm-blocker"
-            value={blocker}
-            onChange={(event) => setBlocker(event.target.value)}
-            placeholder="Brak lub krótka przeszkoda"
-            className="mt-1 h-12 rounded-xl"
-          />
-        </div>
-      </section>
+          <div className="grid grid-cols-[auto_1fr] gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFlowStep('action')}
+              className="h-12 rounded-xl border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            >
+              <ArrowLeft className="size-4" /> Wróć
+            </Button>
+            <Button
+              type="button"
+              disabled={type === 'TELEFON' && !result}
+              onClick={() => setFlowStep('confirmation')}
+              className="h-12 rounded-xl bg-lime-300 font-black text-emerald-950 hover:bg-lime-200"
+            >
+              Dalej <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        </section>
+      )}
 
-      <Button
-        type="button"
-        onClick={saveActivity}
-        disabled={saving || loading || !contactId}
-        className="h-16 w-full rounded-2xl bg-[#123d2b] text-lg font-black text-lime-300 shadow-lg hover:bg-[#0b2d1f]"
-      >
-        {saving ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <Save className="size-5" />
-        )}
-        {saving ? 'ZAPISUJĘ…' : 'ZAPIS'}
-      </Button>
+      {flowStep === 'confirmation' && (
+        <>
+          <section
+            id="mcrm-confirmation"
+            className="space-y-4 rounded-[1.5rem] border border-emerald-950/10 bg-white p-4 shadow-sm"
+          >
+            <div>
+              <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
+                Minimum do potwierdzenia
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Tylko trzy rzeczy przed zapisem.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="mcrm-next-action">Next action</Label>
+              <Input
+                id="mcrm-next-action"
+                value={nextAction}
+                onChange={(event) => setNextAction(event.target.value)}
+                placeholder="Co jest następnym krokiem?"
+                className="mt-1 h-12 rounded-xl"
+              />
+            </div>
+            <div>
+              <Label>Termin</Label>
+              <div className="mt-1">
+                <MobileDateTimeInput
+                  value={nextActionDate}
+                  onChange={setNextActionDate}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="mcrm-blocker">Blocker</Label>
+              <Input
+                id="mcrm-blocker"
+                value={blocker}
+                onChange={(event) => setBlocker(event.target.value)}
+                placeholder="Brak lub krótka przeszkoda"
+                className="mt-1 h-12 rounded-xl"
+              />
+            </div>
+          </section>
+
+          <div className="grid grid-cols-[auto_1fr] gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setFlowStep(type === 'SPOTKANIE' ? 'action' : 'result')
+              }
+              className="h-14 rounded-2xl"
+            >
+              <ArrowLeft className="size-4" /> Wróć
+            </Button>
+            <Button
+              type="button"
+              onClick={saveActivity}
+              disabled={saving || loading || !contactId}
+              className="h-14 rounded-2xl bg-[#123d2b] text-base font-black text-lime-300 shadow-lg hover:bg-[#0b2d1f]"
+            >
+              {saving ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Save className="size-5" />
+              )}
+              {saving ? 'ZAPISUJĘ…' : 'ZAPIS'}
+            </Button>
+          </div>
+        </>
+      )}
 
       <Dialog open={contactDialog} onOpenChange={setContactDialog}>
         <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-[1.5rem]">
@@ -922,3 +1116,4 @@ export function QuickActivityForm() {
     </div>
   );
 }
+

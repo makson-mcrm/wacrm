@@ -5,12 +5,23 @@ import { MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { buildSmsHref, personalizeSms, SMS_TEMPLATE_PREFIX } from '@/lib/sales/sms';
+import {
+  buildSmsHref,
+  personalizeSms,
+  SMS_TEMPLATE_PREFIX,
+} from '@/lib/sales/sms';
 
 type SmsTemplate = { id: string; title: string; content_text: string | null };
+const CUSTOM_SMS_ID = 'custom';
 
 interface SmsActionProps {
   phone?: string | null;
@@ -18,12 +29,25 @@ interface SmsActionProps {
   contactId?: string | null;
   companyId?: string | null;
   dealId?: string | null;
+  productCategory?: string | null;
+  customerSource?: string | null;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   label?: string;
 }
 
-export function SmsAction({ phone, contactName, contactId, companyId, dealId, variant = 'outline', size = 'sm', label = 'SMS' }: SmsActionProps) {
+export function SmsAction({
+  phone,
+  contactName,
+  contactId,
+  companyId,
+  dealId,
+  productCategory,
+  customerSource,
+  variant = 'outline',
+  size = 'sm',
+  label = 'SMS',
+}: SmsActionProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
@@ -31,18 +55,27 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
   const [body, setBody] = useState('');
   const [opening, setOpening] = useState(false);
 
-  const selected = useMemo(() => templates.find((item) => item.id === selectedId) ?? null, [templates, selectedId]);
+  const selected = useMemo(
+    () => templates.find((item) => item.id === selectedId) ?? null,
+    [templates, selectedId]
+  );
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/quick-replies', { cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
-      const rows = ((payload.quick_replies ?? []) as SmsTemplate[]).filter((item) => item.title.startsWith(SMS_TEMPLATE_PREFIX) && item.content_text);
+      const rows = ((payload.quick_replies ?? []) as SmsTemplate[]).filter(
+        (item) =>
+          item.title.startsWith(SMS_TEMPLATE_PREFIX) && item.content_text
+      );
       setTemplates(rows);
       if (rows[0]) {
         setSelectedId(rows[0].id);
         setBody(personalizeSms(rows[0].content_text ?? '', contactName));
+      } else {
+        setSelectedId(CUSTOM_SMS_ID);
+        setBody('');
       }
     } finally {
       setLoading(false);
@@ -55,33 +88,50 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
 
   function chooseTemplate(id: string) {
     setSelectedId(id);
+    if (id === CUSTOM_SMS_ID) {
+      setBody('');
+      return;
+    }
     const template = templates.find((item) => item.id === id);
     setBody(personalizeSms(template?.content_text ?? '', contactName));
   }
 
   async function openMessages(event: React.MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    if (!selected || !body.trim() || opening) return;
+    if (!body.trim() || opening) return;
     setOpening(true);
     try {
       const response = await fetch('/api/sales-activities/prepared-sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contactId,
-        companyId,
-        dealId,
-        phone,
-        note: body,
-        templateId: selected.id,
-        templateTitle: selected.title,
-      }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId,
+          companyId,
+          dealId,
+          productCategory,
+          customerSource,
+          phone,
+          note: body,
+          templateId: selected?.id ?? null,
+          templateTitle: selected?.title ?? 'WŁASNA TREŚĆ',
+        }),
       });
-      if (!response.ok) throw new Error('Nie zapisano aktywności PRZYGOTOWANO_SMS.');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          typeof payload.error === 'string'
+            ? payload.error
+            : 'Nie zapisano aktywności PRZYGOTOWANO_SMS.'
+        );
+      }
       window.location.href = href;
       setOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Nie zapisano aktywności PRZYGOTOWANO_SMS.');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Nie zapisano aktywności PRZYGOTOWANO_SMS.'
+      );
     } finally {
       setOpening(false);
     }
@@ -92,35 +142,73 @@ export function SmsAction({ phone, contactName, contactId, companyId, dealId, va
 
   return (
     <>
-      <Button type="button" variant={variant} size={size} onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant={variant}
+        size={size}
+        onClick={() => setOpen(true)}
+      >
         <MessageSquare className="h-4 w-4" /> {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Przygotuj SMS</DialogTitle></DialogHeader>
-          {loading ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : (
+          <DialogHeader>
+            <DialogTitle>Przygotuj SMS</DialogTitle>
+          </DialogHeader>
+          {loading ? (
+            <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+          ) : (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Szablon</Label>
-                <select className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm" value={selectedId} onChange={(event) => chooseTemplate(event.target.value)}>
-                  {templates.map((template) => <option key={template.id} value={template.id}>{template.title.slice(SMS_TEMPLATE_PREFIX.length)}</option>)}
+                <select
+                  className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                  value={selectedId}
+                  onChange={(event) => chooseTemplate(event.target.value)}
+                >
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.title.slice(SMS_TEMPLATE_PREFIX.length)}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_SMS_ID}>WŁASNA TREŚĆ</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Treść — możesz poprawić przed otwarciem Wiadomości</Label>
-                <Textarea value={body} onChange={(event) => setBody(event.target.value)} className="min-h-40" />
+                <Label>
+                  Treść — możesz poprawić przed otwarciem Wiadomości
+                </Label>
+                <Textarea
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  className="min-h-40"
+                />
               </div>
-              <p className="text-muted-foreground text-xs">CRM nie wysyła SMS-a. Otworzy aplikację Wiadomości; wysyłkę potwierdzasz samodzielnie na iPhonie.</p>
+              <p className="text-muted-foreground text-xs">
+                CRM nie wysyła SMS-a. Otworzy aplikację Wiadomości; wysyłkę
+                potwierdzasz samodzielnie na iPhonie.
+              </p>
             </div>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Anuluj</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Anuluj
+            </Button>
             <a
-              href={selected && body.trim() ? href : undefined}
-              aria-disabled={!selected || !body.trim()}
-              className={cn(buttonVariants(), (!selected || !body.trim()) && 'pointer-events-none opacity-50')}
+              href={body.trim() ? href : undefined}
+              aria-disabled={!body.trim()}
+              className={cn(
+                buttonVariants(),
+                !body.trim() && 'pointer-events-none opacity-50'
+              )}
               onClick={openMessages}
-            >{opening ? 'Zapisywanie…' : 'Otwórz Wiadomości'}</a>
+            >
+              {opening ? 'Zapisywanie…' : 'Otwórz Wiadomości'}
+            </a>
           </DialogFooter>
         </DialogContent>
       </Dialog>
