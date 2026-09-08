@@ -18,7 +18,7 @@ const SOURCE_LABELS: Record<BankingKnowledgeSourceType, string> = {
 };
 
 const QUALITY_STYLES: Record<BankingKnowledgeQuality, string> = {
-  POTWIERDZONE: 'bg-emerald-100 text-emerald-800',
+  'POTWIERDZONE ZE ŹRÓDŁA': 'bg-emerald-100 text-emerald-800',
   CZĘŚCIOWE: 'bg-amber-100 text-amber-800',
   'WNIOSEK AI': 'bg-sky-100 text-sky-800',
   'WYMAGA WERYFIKACJI': 'bg-rose-100 text-rose-800',
@@ -85,7 +85,8 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-primary flex items-center gap-2 text-sm font-semibold">
-              <Landmark className="size-4" /> Wiedza Bankowa · mBank
+              <Landmark className="size-4" /> Wiedza Bankowa ·{' '}
+              {context.bank || 'bank do wskazania'}
             </div>
             <h2 className="mt-2 text-lg font-bold">{context.title}</h2>
             <p className="text-muted-foreground mt-1 text-sm">
@@ -107,6 +108,7 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         <Button
           size="lg"
           variant={mode === 'answer' ? 'default' : 'outline'}
+          className="h-auto min-h-11 py-3 text-center whitespace-normal"
           onClick={() => setMode('answer')}
         >
           <ShieldCheck className="size-4" /> JAK WYKONAĆ NASTĘPNY KROK?
@@ -114,6 +116,7 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         <Button
           size="lg"
           variant={mode === 'guide' ? 'default' : 'outline'}
+          className="h-auto min-h-11 py-3 text-center whitespace-normal"
           onClick={() => setMode('guide')}
         >
           <ListChecks className="size-4" /> PROWADŹ MNIE KROK PO KROKU
@@ -151,6 +154,13 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
           <p className="text-muted-foreground text-xs">
             Routing: BANK → PRODUKT → TYP ŹRÓDŁA → WERSJA/DATA
           </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(Object.keys(QUALITY_STYLES) as BankingKnowledgeQuality[]).map(
+              (quality) => (
+                <Quality key={quality} value={quality} />
+              )
+            )}
+          </div>
         </div>
         {(['internal_drive', 'official_bank', 'ai_inference'] as const).map(
           (type) => {
@@ -192,6 +202,13 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
                               <p className="text-muted-foreground mt-1 text-xs">
                                 {source.note}
                               </p>
+                            ) : null}
+                            {source.facts?.length ? (
+                              <ul className="mt-2 space-y-1 text-xs">
+                                {source.facts.map((fact) => (
+                                  <li key={fact}>• {fact}</li>
+                                ))}
+                              </ul>
                             ) : null}
                           </div>
                           <Quality value={source.quality} />

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
-  buildMbankKnowledgeAnswer,
+  buildBankingKnowledgeAnswer,
   parseAllowedDriveFolderIds,
   type DealKnowledgeRow,
   type KnowledgeDocumentMetadata,
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       throw processesResult.error || documentsResult.error;
     }
 
-    const answer = buildMbankKnowledgeAnswer({
+    const answer = buildBankingKnowledgeAnswer({
       deal: {
         ...dealResult.data,
         contact: Array.isArray(dealResult.data.contact)

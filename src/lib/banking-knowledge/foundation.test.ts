@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildMbankKnowledgeAnswer,
+  buildBankingKnowledgeAnswer,
   parseAllowedDriveFolderIds,
 } from './foundation';
 
@@ -16,7 +16,7 @@ const deal = {
 
 describe('Wiedza Bankowa — fundament mBank', () => {
   it('nie zgaduje banku bez przypisania w Dealu', () => {
-    const answer = buildMbankKnowledgeAnswer({
+    const answer = buildBankingKnowledgeAnswer({
       deal,
       bankProcesses: [],
       documents: [],
@@ -27,7 +27,7 @@ describe('Wiedza Bankowa — fundament mBank', () => {
   });
 
   it('prowadzi po następnym kroku i zachowuje kontekst Deala', () => {
-    const answer = buildMbankKnowledgeAnswer({
+    const answer = buildBankingKnowledgeAnswer({
       deal,
       bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
       documents: [],
@@ -46,7 +46,28 @@ describe('Wiedza Bankowa — fundament mBank', () => {
     expect(
       answer.sources.some((source) => source.type === 'official_bank')
     ).toBe(true);
+    const official = answer.sources.find(
+      (source) => source.type === 'official_bank'
+    );
+    expect(official).toMatchObject({
+      quality: 'POTWIERDZONE ZE ŹRÓDŁA',
+      bank: 'mBank',
+    });
+    expect(official?.publicUrl).toMatch(/^https:\/\/www\.mbank\.pl\//);
+    expect(official?.facts?.length).toBeGreaterThan(0);
     expect(answer.quality).toBe('CZĘŚCIOWE');
+  });
+
+  it('nie podstawia wiedzy mBanku do nieobsługiwanego banku', () => {
+    const answer = buildBankingKnowledgeAnswer({
+      deal,
+      bankProcesses: [{ bank_name: 'ING', status: 'analiza' }],
+      documents: [],
+      allowedDriveFolderIds: new Set(),
+    });
+    expect(answer.supported).toBe(false);
+    expect(answer.sources).toEqual([]);
+    expect(answer.quality).toBe('WYMAGA WERYFIKACJI');
   });
 
   it('dopuszcza prywatne źródło Drive wyłącznie z allowlisty folderów', () => {
@@ -59,7 +80,7 @@ describe('Wiedza Bankowa — fundament mBank', () => {
       source_name: 'gdrive://allowed-folder/file-1',
       source_version: '2026-09',
     };
-    const blocked = buildMbankKnowledgeAnswer({
+    const blocked = buildBankingKnowledgeAnswer({
       deal,
       bankProcesses: [{ bank_name: 'mBank' }],
       documents: [document],
@@ -69,7 +90,7 @@ describe('Wiedza Bankowa — fundament mBank', () => {
       blocked.sources.some((source) => source.type === 'internal_drive')
     ).toBe(false);
 
-    const allowed = buildMbankKnowledgeAnswer({
+    const allowed = buildBankingKnowledgeAnswer({
       deal,
       bankProcesses: [{ bank_name: 'mBank' }],
       documents: [document],
@@ -78,9 +99,11 @@ describe('Wiedza Bankowa — fundament mBank', () => {
     const internal = allowed.sources.find(
       (source) => source.type === 'internal_drive'
     );
-    expect(internal).toMatchObject({ quality: 'POTWIERDZONE' });
+    expect(internal).toMatchObject({
+      quality: 'POTWIERDZONE ZE ŹRÓDŁA',
+    });
     expect(internal).not.toHaveProperty('publicUrl');
-    expect(allowed.quality).toBe('POTWIERDZONE');
+    expect(allowed.quality).toBe('POTWIERDZONE ZE ŹRÓDŁA');
   });
 
   it('czyści pustą konfigurację folderów i rozdziela przecinki', () => {
