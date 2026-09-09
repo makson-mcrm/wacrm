@@ -181,7 +181,7 @@ function findSupportedBank(value: string | null | undefined) {
 
 function productRoute(product: string | null | undefined): ProductRoute {
   const key = normalize(product);
-  if (/hipotec|mieszkan|nieruchom/.test(key)) return 'mortgage';
+  if (/hipote|mieszkan|nieruchom/.test(key)) return 'mortgage';
   if (/firm|obrot|dzialal|biznes|rachunku biezac/.test(key)) return 'business';
   return 'generic';
 }
@@ -365,7 +365,13 @@ export function buildBankingKnowledgeAnswer(args: {
     quality: 'WNIOSEK AI',
     note: 'To wskazówka operacyjna, nie oficjalna reguła banku.',
   };
-  const nextAction = context.nextAction || 'ustal i zapisz jeden następny krok';
+  const nextAction =
+    context.nextAction ||
+    (route === 'mortgage'
+      ? /wniosk|decyzj/.test(normalize(context.stage))
+        ? 'zweryfikuj komplet dokumentów do wniosku mBank i zapisz brakujące pozycje'
+        : 'sprawdź oficjalną listę dokumentów mBank i zapisz brakujące pozycje'
+      : 'ustal i zapisz jeden następny krok');
   const steps = [
     `Potwierdź kontekst: ${context.stage || 'etap nieustalony'} → ${nextAction}.`,
     internalSources.length
@@ -377,9 +383,8 @@ export function buildBankingKnowledgeAnswer(args: {
     `Wykonaj krok: ${nextAction}.`,
     'Zapisz wynik, jeden kolejny krok, termin oraz blocker w tym samym Dealu.',
   ];
-  const quality: BankingKnowledgeQuality = missing.length
-    ? 'WYMAGA WERYFIKACJI'
-    : internalSources.length && officialSources.length
+  const quality: BankingKnowledgeQuality =
+    internalSources.length && officialSources.length
       ? 'POTWIERDZONE'
       : officialSources.length
         ? 'CZĘŚCIOWE'

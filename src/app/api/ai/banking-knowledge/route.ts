@@ -7,7 +7,7 @@ import {
   type KnowledgeDocumentMetadata,
 } from '@/lib/banking-knowledge/foundation';
 
-const RELEASE = 'm4-knowledge-v4-first-e2e';
+const RELEASE = 'm4-knowledge-v5-mortgage-routing';
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
   'X-mCRM-Knowledge-Version': RELEASE,

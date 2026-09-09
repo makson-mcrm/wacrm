@@ -130,6 +130,28 @@ describe('Wiedza Bankowa — fundament mBank', () => {
     ).toBe('WNIOSEK AI');
   });
 
+  it('rozpoznaje produkcyjną etykietę ML — HIPOTEKA i rekomenduje krok do wniosku', () => {
+    const answer = buildBankingKnowledgeAnswer({
+      deal: {
+        ...deal,
+        product_type: 'ML — HIPOTEKA',
+        next_action: null,
+        next_action_at: null,
+        stage: { name: '5. WNIOSKI / DECYZJA' },
+      },
+      bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
+      documents: [],
+      allowedDriveFolderIds: new Set(),
+    });
+
+    expect(answer.quality).toBe('CZĘŚCIOWE');
+    expect(answer.primarySourceIds).toContain('mbank-mortgage-documents');
+    expect(answer.recommendedNextAction).toContain(
+      'zweryfikuj komplet dokumentów do wniosku mBank'
+    );
+    expect(answer.missing).toContain('następny krok');
+  });
+
   it('czyści pustą konfigurację folderów i rozdziela przecinki', () => {
     expect([...parseAllowedDriveFolderIds(' folder-a,folder-b, ,')]).toEqual([
       'folder-a',
