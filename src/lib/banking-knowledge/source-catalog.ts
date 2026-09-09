@@ -1,9 +1,16 @@
 export type BankingKnowledgeProblem =
-  'documents' | 'application' | 'decision' | 'activation';
+  | 'documents'
+  | 'application'
+  | 'decision'
+  | 'activation'
+  | 'commission'
+  | 'invoice'
+  | 'cashflow';
 
 export type KnowledgeSourceConfidentiality = 'public' | 'internal';
 export type KnowledgeSourceFreshness = 'current' | 'requires_review';
-export type BankingKnowledgeProductRoute = 'mortgage' | 'business';
+export type BankingKnowledgeProductRoute =
+  'mortgage' | 'business' | 'settlements';
 
 export type CatalogClaim = {
   id: string;

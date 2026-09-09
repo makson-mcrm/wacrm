@@ -14,10 +14,11 @@ import {
   driveKnowledgeStatus,
   listAllowlistedDriveFiles,
   loadDriveKnowledgeConfig,
+  minimizeDriveKnowledgeContent,
 } from '@/lib/banking-knowledge/google-drive';
 
 export const runtime = 'nodejs';
-const RELEASE = 'm4-knowledge-v5-controlled-index';
+const RELEASE = 'm4-knowledge-v7-approved-drive-roots';
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
   'X-mCRM-Knowledge-Version': RELEASE,
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       roots.map(async (root) => ({
         root,
         plan: await listAllowlistedDriveFiles({
-          folderId: root.folderId,
+          root,
           config,
         }),
       }))
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
         tooLarge: 0,
         publiclyShared: 0,
         outsideFolder: 0,
+        outOfScope: 0,
       }
     );
     const report = {
@@ -163,17 +165,19 @@ export async function POST(request: Request) {
       supabase,
       accountId
     );
-    for (const { root, file } of candidates) {
+    for (const { file } of candidates) {
       const previous = bySource.get(file.sourceName);
       if (previous?.source_version === file.sourceVersion) continue;
       try {
         const content = await downloadDriveKnowledgeFile({ file, config });
+        const minimizedContent = minimizeDriveKnowledgeContent(content, file);
+        if (!minimizedContent) throw new Error('NO_RELEVANT_CONTENT');
         const values = {
           title: file.name,
-          content,
-          bank: 'mBank',
-          product: root.product,
-          document_type: driveDocumentType(root),
+          content: minimizedContent,
+          bank: file.bank,
+          product: file.product,
+          document_type: driveDocumentType(file),
           source_name: file.sourceName,
           source_version: file.sourceVersion,
           effective_date: file.effectiveDate,
@@ -198,7 +202,7 @@ export async function POST(request: Request) {
           accountId,
           { embeddingsApiKey },
           saved.data.id,
-          content
+          minimizedContent
         );
         report.saved += 1;
       } catch {

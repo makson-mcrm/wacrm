@@ -39,6 +39,9 @@ describe('M4 — routing problemu', () => {
     ['Jak złożyć wniosek?', 'application'],
     ['Co z decyzją kredytową?', 'decision'],
     ['Jak uruchomić wypłatę?', 'activation'],
+    ['Jak rozliczyć prowizję?', 'commission'],
+    ['Jak wystawić fakturę?', 'invoice'],
+    ['Kiedy będzie wpływ cash flow?', 'cashflow'],
   ] as const)('rozpoznaje %s jako %s', (question, expected) => {
     expect(routeBankingKnowledgeProblem({ question })).toBe(expected);
   });
@@ -223,6 +226,39 @@ describe('M4 — Zero Trust Google Drive', () => {
       result.sources.find((source) => source.type === 'internal_drive')
         ?.freshness
     ).toBe('requires_review');
+  });
+
+  it('pytanie o prowizję korzysta wyłącznie z drugiego korzenia', () => {
+    const settlementDocument = {
+      ...document,
+      id: 'settlement-doc',
+      bank: 'mFinanse',
+      product: 'Prowizje i rozliczenia',
+      document_type:
+        'google_drive_internal:settlements:commission+invoice+cashflow:agreement',
+      source_name: 'gdrive://1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN/settlement-file',
+    };
+    const result = answer({
+      documents: [document, settlementDocument],
+      indexedChunks: [
+        ...indexedChunks,
+        {
+          document_id: 'settlement-doc',
+          chunk_index: 0,
+          content: 'Prowizja i termin rozliczenia wynikają z aktualnej umowy.',
+        },
+      ],
+      allowedDriveFolderIds: new Set([
+        'allowed-folder',
+        '1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN',
+      ]),
+      question: 'Jak rozliczyć prowizję?',
+    });
+    expect(result.problem).toBe('commission');
+    expect(result.primarySourceIds).toEqual(['settlement-doc']);
+    expect(
+      result.sources.find((source) => source.id === 'settlement-doc')?.bank
+    ).toBe('mFinanse');
   });
 
   it('czyści konfigurację allowlisty', () => {

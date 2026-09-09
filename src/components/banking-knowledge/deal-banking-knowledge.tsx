@@ -491,6 +491,9 @@ function problemLabel(value: BankingKnowledgeAnswer['problem']) {
     application: 'Wniosek',
     decision: 'Decyzja',
     activation: 'Uruchomienie',
+    commission: 'Prowizja',
+    invoice: 'Faktura',
+    cashflow: 'Cash flow',
   }[value];
 }
 

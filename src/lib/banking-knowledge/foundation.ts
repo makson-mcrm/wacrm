@@ -107,7 +107,7 @@ type BankProcessRow = {
   position?: number | null;
 };
 
-type ProductRoute = 'mortgage' | 'business' | 'generic';
+type ProductRoute = 'mortgage' | 'business' | 'settlements' | 'generic';
 
 type BankDefinition = {
   key: string;
@@ -117,7 +117,7 @@ type BankDefinition = {
 
 const DRIVE_SOURCE_PATTERN = /^gdrive:\/\/([^/]+)\/([^/]+)$/i;
 const DRIVE_DOCUMENT_TYPE_PATTERN =
-  /^google_drive_internal:(mortgage|business):([a-z+]+)$/i;
+  /^google_drive_internal:(mortgage|business|settlements):([a-z+]+)(?::[a-z_]+)?$/i;
 
 const BANK_REGISTRY: BankDefinition[] = [
   {
@@ -132,6 +132,9 @@ const PROBLEM_PATTERNS: Record<BankingKnowledgeProblem, RegExp> = {
   application: /wnios|formularz|zloz|aplikac/,
   decision: /decyz|analiz|ocen|scoring|akcept/,
   activation: /uruchom|wyplat|transz|podpis|umow/,
+  commission: /prowiz|wynagrodz|rozlicz/,
+  invoice: /faktur|rachun|vat/,
+  cashflow: /cash.?flow|przeplyw|termin plat|kiedy.*wyplat/,
 };
 
 function normalize(value: string | null | undefined) {
@@ -186,7 +189,10 @@ function routedDriveDomains(documentType: string | null | undefined) {
         domain === 'documents' ||
         domain === 'application' ||
         domain === 'decision' ||
-        domain === 'activation'
+        domain === 'activation' ||
+        domain === 'commission' ||
+        domain === 'invoice' ||
+        domain === 'cashflow'
     );
   return {
     product: match[1] as Exclude<ProductRoute, 'generic'>,
@@ -203,6 +209,9 @@ export function routeBankingKnowledgeProblem(args: {
     const normalized = normalize(value);
     if (!normalized) continue;
     for (const problem of [
+      'commission',
+      'invoice',
+      'cashflow',
       'documents',
       'application',
       'decision',
@@ -242,13 +251,21 @@ function buildInternalDriveSources(args: {
 
   return args.documents.flatMap<BankingKnowledgeSource>((document) => {
     const routedMetadata = routedDriveDomains(document.document_type);
+    const settlementProblem =
+      args.problem === 'commission' ||
+      args.problem === 'invoice' ||
+      args.problem === 'cashflow';
+    const matchesRoute = settlementProblem
+      ? normalize(document.bank) === 'mfinanse' &&
+        routedMetadata?.product === 'settlements'
+      : findSupportedBank(document.bank)?.key === args.bank.key &&
+        productMatches(document.product, args.dealProduct) &&
+        (!routedMetadata ||
+          routedMetadata.product === productRoute(args.dealProduct));
     if (
-      findSupportedBank(document.bank)?.key !== args.bank.key ||
-      !productMatches(document.product, args.dealProduct) ||
+      !matchesRoute ||
       !/(drive|wewn|internal)/.test(normalize(document.document_type)) ||
-      (routedMetadata &&
-        (!routedMetadata.domains.includes(args.problem) ||
-          routedMetadata.product !== productRoute(args.dealProduct)))
+      (routedMetadata && !routedMetadata.domains.includes(args.problem))
     ) {
       return [];
     }
@@ -287,7 +304,7 @@ function buildInternalDriveSources(args: {
         id: document.id,
         type: 'internal_drive',
         label: document.title || 'Wewnętrzny dokument Google Drive',
-        bank: args.bank.displayName,
+        bank: document.bank || args.bank.displayName,
         product:
           document.product || args.dealProduct || 'Produkt do potwierdzenia',
         domains: [args.problem],
@@ -425,6 +442,12 @@ function fallbackNextAction(
       return 'Sprawdź status decyzji i brakujące warunki bezpośrednio w systemie bankowym.';
     case 'activation':
       return 'Zweryfikuj warunki uruchomienia bezpośrednio w systemie bankowym przed wykonaniem kroku.';
+    case 'commission':
+      return 'Zweryfikuj zasady naliczenia prowizji w aktualnej umowie rozliczeniowej.';
+    case 'invoice':
+      return 'Zweryfikuj podstawę i termin wystawienia FV w aktualnej umowie rozliczeniowej.';
+    case 'cashflow':
+      return 'Zweryfikuj termin rozliczenia i spodziewanego wpływu w aktualnej umowie.';
     default:
       return route === 'business'
         ? 'Otwórz oficjalną listę dokumentów kredytów firmowych mBanku, ustal braki i zapisz je w Dealu.'

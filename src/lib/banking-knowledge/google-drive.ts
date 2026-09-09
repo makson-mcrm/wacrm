@@ -8,7 +8,22 @@ import type {
 export const DRIVE_READONLY_SCOPE =
   'https://www.googleapis.com/auth/drive.readonly';
 export const DRIVE_SYNC_LIMIT = 50;
+export const DRIVE_TREE_LIMIT = 300;
+export const DRIVE_MAX_DEPTH = 4;
 export const DRIVE_FILE_MAX_BYTES = 1_000_000;
+
+export const APPROVED_DRIVE_ROOTS = [
+  {
+    folderId: '1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g',
+    label: '01_BAZA_BANKOW_I_AI',
+    kind: 'bank_catalog',
+  },
+  {
+    folderId: '1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN',
+    label: 'UMOWA prowizje z aneksy mfinanse za posrednictwo',
+    kind: 'settlements',
+  },
+] as const;
 
 const GOOGLE_DOC = 'application/vnd.google-apps.document';
 const GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
@@ -28,10 +43,8 @@ export type DriveKnowledgeConfig = {
 
 export type DriveKnowledgeRoot = {
   folderId: string;
-  bank: 'mbank';
-  product: string;
-  productRoute: BankingKnowledgeProductRoute;
-  domains: readonly BankingKnowledgeProblem[];
+  label: string;
+  kind: 'bank_catalog' | 'settlements';
 };
 
 export type DriveKnowledgeFile = {
@@ -49,6 +62,13 @@ export type DriveKnowledgeCandidate = DriveKnowledgeFile & {
   sourceName: string;
   sourceVersion: string;
   effectiveDate: string | null;
+  rootId: string;
+  path: string[];
+  bank: 'mBank' | 'mFinanse';
+  product: string;
+  productRoute: BankingKnowledgeProductRoute;
+  domains: readonly BankingKnowledgeProblem[];
+  sourceType: 'instruction' | 'form' | 'promotion' | 'agreement';
 };
 
 export type DriveKnowledgePlan = {
@@ -59,6 +79,7 @@ export type DriveKnowledgePlan = {
     tooLarge: number;
     publiclyShared: number;
     outsideFolder: number;
+    outOfScope: number;
   };
   truncated: boolean;
 };
@@ -97,13 +118,6 @@ function isSupportedMimeType(mimeType: string) {
   );
 }
 
-const KNOWLEDGE_PROBLEMS = new Set<BankingKnowledgeProblem>([
-  'documents',
-  'application',
-  'decision',
-  'activation',
-]);
-
 export function parseApprovedDriveRoots(
   value: string | undefined,
   allowedFolderIds: ReadonlySet<string>
@@ -124,50 +138,41 @@ export function parseApprovedDriveRoots(
     const candidate = item as Record<string, unknown>;
     const folderId =
       typeof candidate.folderId === 'string' ? candidate.folderId.trim() : '';
-    const bank =
-      typeof candidate.bank === 'string'
-        ? candidate.bank.trim().toLocaleLowerCase('pl-PL')
-        : '';
-    const product =
-      typeof candidate.product === 'string' ? candidate.product.trim() : '';
-    const productRoute = candidate.productRoute;
-    const domains = Array.isArray(candidate.domains)
-      ? candidate.domains.filter(
-          (domain): domain is BankingKnowledgeProblem =>
-            typeof domain === 'string' &&
-            KNOWLEDGE_PROBLEMS.has(domain as BankingKnowledgeProblem)
-        )
-      : [];
+    const approved = APPROVED_DRIVE_ROOTS.find(
+      (root) => root.folderId === folderId
+    );
     if (
       !isValidDriveId(folderId) ||
       !allowedFolderIds.has(folderId) ||
-      bank !== 'mbank' ||
-      !product ||
-      product.length > 160 ||
-      (productRoute !== 'mortgage' && productRoute !== 'business') ||
-      domains.length === 0 ||
-      domains.length !== (candidate.domains as unknown[])?.length ||
+      !approved ||
       seen.has(folderId)
     ) {
       throw new Error('INVALID_ROOT_CONFIG');
     }
     seen.add(folderId);
-    return { folderId, bank, product, productRoute, domains };
+    return { ...approved };
   });
 }
 
 export function loadDriveKnowledgeConfig(
   env: NodeJS.ProcessEnv = process.env
 ): DriveKnowledgeConfig {
-  const allowedFolderIds = parseAllowedDriveFolderIds(
+  const configuredIds = parseAllowedDriveFolderIds(
     env.BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS
   );
+  const allowedFolderIds = new Set(
+    APPROVED_DRIVE_ROOTS.map((root) => root.folderId).filter(
+      (id) => configuredIds.size === 0 || configuredIds.has(id)
+    )
+  );
+  const configuredRoots = env.BANKING_KNOWLEDGE_DRIVE_ROOTS_JSON?.trim();
   return {
     allowedFolderIds,
-    approvedRoots: parseApprovedDriveRoots(
-      env.BANKING_KNOWLEDGE_DRIVE_ROOTS_JSON,
-      allowedFolderIds
-    ),
+    approvedRoots: configuredRoots
+      ? parseApprovedDriveRoots(configuredRoots, allowedFolderIds)
+      : APPROVED_DRIVE_ROOTS.filter((root) =>
+          allowedFolderIds.has(root.folderId)
+        ),
     serviceAccountEmail:
       env.BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() || null,
     serviceAccountPrivateKey:
@@ -187,6 +192,7 @@ export function driveKnowledgeStatus(config: DriveKnowledgeConfig) {
     accessModel: 'service-account-viewer' as const,
     scope: DRIVE_READONLY_SCOPE,
     fileLimitPerRun: DRIVE_SYNC_LIMIT,
+    treeLimitPerRun: DRIVE_TREE_LIMIT,
     supportedBanks: supportedBankKeys,
     supportedFileTypes: [
       'Google Docs',
@@ -220,13 +226,13 @@ export function assertDriveSyncInput(args: {
   return roots;
 }
 
-export function driveDocumentType(root: DriveKnowledgeRoot) {
-  return `google_drive_internal:${root.productRoute}:${root.domains.join('+')}`;
+export function driveDocumentType(file: DriveKnowledgeCandidate) {
+  return `google_drive_internal:${file.productRoute}:${file.domains.join('+')}:${file.sourceType}`;
 }
 
 export function buildDriveKnowledgePlan(
-  folderId: string,
-  files: DriveKnowledgeFile[],
+  root: DriveKnowledgeRoot,
+  files: Array<DriveKnowledgeFile & { path?: string[] }>,
   truncated = false
 ): DriveKnowledgePlan {
   const skipped = {
@@ -235,10 +241,13 @@ export function buildDriveKnowledgePlan(
     tooLarge: 0,
     publiclyShared: 0,
     outsideFolder: 0,
+    outOfScope: 0,
   };
   const candidates: DriveKnowledgeCandidate[] = [];
   for (const file of files) {
-    if (!file.parents.includes(folderId)) {
+    const path = file.path ?? [];
+    const route = classifyDriveFile(root, path, file.name);
+    if (!file.parents.length) {
       skipped.outsideFolder += 1;
     } else if (file.mimeType === GOOGLE_FOLDER) {
       skipped.folder += 1;
@@ -248,17 +257,75 @@ export function buildDriveKnowledgePlan(
       skipped.tooLarge += 1;
     } else if (file.publiclyShared) {
       skipped.publiclyShared += 1;
+    } else if (!route) {
+      skipped.outOfScope += 1;
     } else {
       const effectiveDate = file.modifiedTime?.slice(0, 10) || null;
       candidates.push({
         ...file,
-        sourceName: `gdrive://${folderId}/${file.id}`,
+        sourceName: `gdrive://${root.folderId}/${file.id}`,
         sourceVersion: file.version || file.modifiedTime || 'brak wersji',
         effectiveDate,
+        rootId: root.folderId,
+        path,
+        ...route,
       });
     }
   }
   return { candidates, skipped, truncated };
+}
+
+function normalizePath(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pl-PL');
+}
+
+export function classifyDriveFile(
+  root: DriveKnowledgeRoot,
+  path: string[],
+  fileName: string
+): Pick<
+  DriveKnowledgeCandidate,
+  'bank' | 'product' | 'productRoute' | 'domains' | 'sourceType'
+> | null {
+  const fullPath = normalizePath([...path, fileName].join('/'));
+  if (root.kind === 'settlements') {
+    if (!/(umow|aneks|prowiz|rozlicz|faktur|wynagrodz)/.test(fullPath)) {
+      return null;
+    }
+    return {
+      bank: 'mFinanse',
+      product: 'Prowizje i rozliczenia',
+      productRoute: 'settlements',
+      domains: ['commission', 'invoice', 'cashflow'],
+      sourceType: 'agreement',
+    };
+  }
+
+  if (!/(^|\/)mbank(\/|$)/.test(fullPath)) return null;
+  const mortgage = /1_hipo|hipote|\bml\b/.test(fullPath);
+  const business = /2_firma|3_firma|firma|biznes|\bbc\b/.test(fullPath);
+  if (!mortgage && !business) return null;
+  const sourceType = /b_wzor|wniosk|formularz/.test(fullPath)
+    ? 'form'
+    : /c_regulamin|promoc/.test(fullPath)
+      ? 'promotion'
+      : 'instruction';
+  const domains: BankingKnowledgeProblem[] =
+    sourceType === 'form'
+      ? ['documents', 'application']
+      : sourceType === 'promotion'
+        ? ['documents', 'decision']
+        : ['documents', 'application', 'decision', 'activation'];
+  return {
+    bank: 'mBank',
+    product: mortgage ? 'Kredyt hipoteczny' : 'Kredyt firmowy',
+    productRoute: mortgage ? 'mortgage' : 'business',
+    domains,
+    sourceType,
+  };
 }
 
 async function getServiceAccountAccessToken(
@@ -312,39 +379,44 @@ async function getServiceAccountAccessToken(
 }
 
 export async function listAllowlistedDriveFiles(args: {
-  folderId: string;
+  root: DriveKnowledgeRoot;
   config: DriveKnowledgeConfig;
   fetcher?: typeof fetch;
 }) {
-  if (!args.config.allowedFolderIds.has(args.folderId)) {
+  if (!args.config.allowedFolderIds.has(args.root.folderId)) {
     throw new Error('FOLDER_NOT_ALLOWLISTED');
   }
   const fetcher = args.fetcher || fetch;
   const token = await getServiceAccountAccessToken(args.config, fetcher);
-  const params = new URLSearchParams({
-    q: `'${args.folderId.replace(/'/g, "\\'")}' in parents and trashed = false`,
-    pageSize: String(DRIVE_SYNC_LIMIT),
-    spaces: 'drive',
-    fields:
-      'nextPageToken,files(id,name,mimeType,modifiedTime,version,size,parents,permissions(type))',
-  });
-  const response = await fetcher(
-    `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(20_000),
-    }
-  );
-  const body = (await response.json().catch(() => null)) as {
-    files?: GoogleFile[];
-    nextPageToken?: string;
-  } | null;
-  if (!response.ok || !body) throw new Error('DRIVE_LIST_FAILED');
-  const files = (body.files || []).flatMap<DriveKnowledgeFile>((file) => {
-    if (!file.id || !file.name || !file.mimeType) return [];
-    return [
+  const files: Array<DriveKnowledgeFile & { path: string[] }> = [];
+  const queue = [{ id: args.root.folderId, path: [] as string[], depth: 0 }];
+  let truncated = false;
+  while (queue.length && files.length < DRIVE_TREE_LIMIT) {
+    const folder = queue.shift()!;
+    const params = new URLSearchParams({
+      q: `'${folder.id.replace(/'/g, "\\'")}' in parents and trashed = false`,
+      pageSize: String(DRIVE_SYNC_LIMIT),
+      spaces: 'drive',
+      fields:
+        'nextPageToken,files(id,name,mimeType,modifiedTime,version,size,parents,permissions(type))',
+    });
+    const response = await fetcher(
+      `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
       {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20_000),
+      }
+    );
+    const body = (await response.json().catch(() => null)) as {
+      files?: GoogleFile[];
+      nextPageToken?: string;
+    } | null;
+    if (!response.ok || !body) throw new Error('DRIVE_LIST_FAILED');
+    if (body.nextPageToken) truncated = true;
+    for (const file of body.files || []) {
+      if (!file.id || !file.name || !file.mimeType) continue;
+      const item = {
         id: file.id,
         name: file.name,
         mimeType: file.mimeType,
@@ -355,14 +427,56 @@ export async function listAllowlistedDriveFiles(args: {
         publiclyShared: Boolean(
           file.permissions?.some((permission) => permission.type === 'anyone')
         ),
-      },
-    ];
-  });
-  return buildDriveKnowledgePlan(
-    args.folderId,
-    files,
-    Boolean(body.nextPageToken)
-  );
+        path: folder.path,
+      };
+      files.push(item);
+      if (
+        item.mimeType === GOOGLE_FOLDER &&
+        !item.publiclyShared &&
+        folder.depth < DRIVE_MAX_DEPTH &&
+        (args.root.kind === 'settlements' ||
+          folder.depth > 0 ||
+          normalizePath(item.name) === 'mbank')
+      ) {
+        queue.push({
+          id: item.id,
+          path: [...folder.path, item.name],
+          depth: folder.depth + 1,
+        });
+      }
+      if (files.length >= DRIVE_TREE_LIMIT) {
+        truncated = true;
+        break;
+      }
+    }
+  }
+  return buildDriveKnowledgePlan(args.root, files, truncated);
+}
+
+export function minimizeDriveKnowledgeContent(
+  content: string,
+  file: DriveKnowledgeCandidate
+) {
+  const patterns: Record<BankingKnowledgeProblem, RegExp> = {
+    documents: /dokument|zaświadc|wyciąg|formularz|wniosk/i,
+    application: /wniosk|złoż|proces|system|formularz/i,
+    decision: /decyz|analiz|warunk|ocen/i,
+    activation: /uruchom|wypłat|transz|podpis/i,
+    commission: /prowiz|wynagrodz|rozlicz/i,
+    invoice: /faktur|rachun|vat/i,
+    cashflow: /płatn|wypłat|termin|cash.?flow/i,
+  };
+  const relevant = content
+    .split(/\n\s*\n|\r?\n/)
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter(
+      (part) =>
+        part.length >= 30 &&
+        file.domains.some((domain) => patterns[domain].test(part))
+    )
+    .slice(0, 8)
+    .map((part) => part.slice(0, 700));
+  return relevant.join('\n\n').slice(0, 4_000);
 }
 
 async function readTextWithLimit(response: Response) {

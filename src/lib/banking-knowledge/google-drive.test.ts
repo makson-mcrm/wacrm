@@ -3,6 +3,7 @@ import {
   __resetDriveTokenForTests,
   assertDriveSyncInput,
   buildDriveKnowledgePlan,
+  classifyDriveFile,
   driveKnowledgeStatus,
   listAllowlistedDriveFiles,
   loadDriveKnowledgeConfig,
@@ -11,15 +12,13 @@ import {
 
 const config = loadDriveKnowledgeConfig({
   NODE_ENV: 'test',
-  BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS: 'folder_mbank_12345',
+  BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS:
+    '1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g,1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN',
   BANKING_KNOWLEDGE_DRIVE_ROOTS_JSON: JSON.stringify([
     {
-      folderId: 'folder_mbank_12345',
-      bank: 'mbank',
-      product: 'Kredyt hipoteczny',
-      productRoute: 'mortgage',
-      domains: ['documents', 'application'],
+      folderId: '1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g',
     },
+    { folderId: '1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN' },
   ]),
   BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_EMAIL:
     'reader@example.iam.gserviceaccount.com',
@@ -35,7 +34,8 @@ describe('banking knowledge Google Drive Zero Trust', () => {
       loadDriveKnowledgeConfig({} as NodeJS.ProcessEnv)
     );
     expect(status.configured).toBe(false);
-    expect(status.allowedFolderCount).toBe(0);
+    expect(status.allowedFolderCount).toBe(2);
+    expect(status.approvedRootCount).toBe(2);
     expect(status.scope).toContain('drive.readonly');
   });
 
@@ -54,10 +54,6 @@ describe('banking knowledge Google Drive Zero Trust', () => {
         JSON.stringify([
           {
             folderId: 'folder_other_12345',
-            bank: 'mbank',
-            product: 'Kredyt firmowy',
-            productRoute: 'business',
-            domains: ['documents'],
           },
         ]),
         new Set(['folder_mbank_12345'])
@@ -66,7 +62,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
   });
 
   it('pusty dozwolony folder jest prawidłowym planem bez alarmu', () => {
-    expect(buildDriveKnowledgePlan('folder_mbank_12345', [])).toEqual({
+    expect(buildDriveKnowledgePlan(config.approvedRoots[0], [])).toEqual({
       candidates: [],
       skipped: {
         folder: 0,
@@ -74,6 +70,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
         tooLarge: 0,
         publiclyShared: 0,
         outsideFolder: 0,
+        outOfScope: 0,
       },
       truncated: false,
     });
@@ -83,7 +80,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
     const fetcher = vi.fn();
     await expect(
       listAllowlistedDriveFiles({
-        folderId: 'folder_other_12345',
+        root: { ...config.approvedRoots[0], folderId: 'folder_other_12345' },
         config,
         fetcher: fetcher as unknown as typeof fetch,
       })
@@ -92,7 +89,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
   });
 
   it('accepts only private supported direct children and exposes no private URL', () => {
-    const plan = buildDriveKnowledgePlan('folder_mbank_12345', [
+    const plan = buildDriveKnowledgePlan(config.approvedRoots[0], [
       {
         id: 'private_doc_12345',
         name: 'Procedura mBank',
@@ -102,6 +99,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
         size: null,
         parents: ['folder_mbank_12345'],
         publiclyShared: false,
+        path: ['mBank', '1_HIPO_OF_ML', 'A_INSTRUKCJE_I_WYTYCZNE'],
       },
       {
         id: 'public_doc_12345',
@@ -112,6 +110,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
         size: 100,
         parents: ['folder_mbank_12345'],
         publiclyShared: true,
+        path: ['mBank', '1_HIPO_OF_ML'],
       },
       {
         id: 'nested_doc_12345',
@@ -120,17 +119,38 @@ describe('banking knowledge Google Drive Zero Trust', () => {
         modifiedTime: null,
         version: null,
         size: 100,
-        parents: ['nested_folder_12345'],
+        parents: [],
         publiclyShared: false,
+        path: ['mBank', '1_HIPO_OF_ML'],
       },
     ]);
     expect(plan.candidates).toHaveLength(1);
     expect(plan.candidates[0].sourceName).toBe(
-      'gdrive://folder_mbank_12345/private_doc_12345'
+      'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/private_doc_12345'
     );
     expect(plan.candidates[0]).not.toHaveProperty('publicUrl');
     expect(plan.skipped.publiclyShared).toBe(1);
     expect(plan.skipped.outsideFolder).toBe(1);
+  });
+
+  it('routes only mBank products and settlement agreements under approved roots', () => {
+    expect(
+      classifyDriveFile(
+        config.approvedRoots[0],
+        ['mBank', '1_HIPO_OF_ML', 'B_WZORY_WNIOSKOW'],
+        'wniosek.txt'
+      )?.productRoute
+    ).toBe('mortgage');
+    expect(
+      classifyDriveFile(config.approvedRoots[0], ['ING'], 'procedura.txt')
+    ).toBeNull();
+    expect(
+      classifyDriveFile(
+        config.approvedRoots[1],
+        [],
+        'Umowa rozliczeniowa mFinanse.txt'
+      )?.domains
+    ).toContain('commission');
   });
 });
 

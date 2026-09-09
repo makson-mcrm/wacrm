@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   buildBankingKnowledgeAnswer,
-  parseAllowedDriveFolderIds,
   type DealKnowledgeRow,
   type IndexedKnowledgeChunk,
   type KnowledgeDocumentMetadata,
 } from '@/lib/banking-knowledge/foundation';
+import { loadDriveKnowledgeConfig } from '@/lib/banking-knowledge/google-drive';
 
 const RELEASE = 'm4-knowledge-v6-source-first';
 const PRIVATE_HEADERS = {
@@ -90,9 +90,7 @@ async function loadAnswer(
     bankProcesses: processesResult.data ?? [],
     documents,
     indexedChunks: (chunksResult.data ?? []) as IndexedKnowledgeChunk[],
-    allowedDriveFolderIds: parseAllowedDriveFolderIds(
-      process.env.BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS
-    ),
+    allowedDriveFolderIds: loadDriveKnowledgeConfig().allowedFolderIds,
     question,
   });
 }
