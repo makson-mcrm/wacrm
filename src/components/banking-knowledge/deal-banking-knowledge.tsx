@@ -15,6 +15,7 @@ import type {
 type Mode = 'answer' | 'guide';
 
 const SOURCE_LABELS: Record<BankingKnowledgeSourceType, string> = {
+  deal_context: 'KONTEKST TEGO DEALA',
   internal_drive: 'MOJE ŹRÓDŁA — GOOGLE DRIVE',
   official_bank: 'OFICJALNE ŹRÓDŁA BANKU',
   ai_inference: 'WNIOSEK AI',
@@ -249,6 +250,10 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
           <dl className="grid gap-3 text-sm">
             <AnswerRow label="CO ZROBIĆ" value={answer.summary} />
             <AnswerRow
+              label="ROZPOZNANY PROBLEM"
+              value={problemLabel(answer.problem)}
+            />
+            <AnswerRow
               label="CZEGO BRAKUJE"
               value={
                 answer.missing.length
@@ -341,73 +346,102 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
             )}
           </div>
         </div>
-        {(['internal_drive', 'official_bank', 'ai_inference'] as const).map(
-          (type) => {
-            const sources = answer.sources.filter(
-              (source) => source.type === type
-            );
-            return (
-              <div key={type}>
-                <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide">
-                  {SOURCE_LABELS[type]}
+        {answer.claims.length ? (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-[11px] font-semibold tracking-wide">
+              TWIERDZENIA I POCHODZENIE
+            </p>
+            {answer.claims.map((claim) => (
+              <div key={claim.id} className="rounded-lg border p-3 text-xs">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="max-w-2xl">{claim.text}</p>
+                  <Quality value={claim.quality} />
+                </div>
+                <p className="text-muted-foreground mt-2">
+                  Źródło:{' '}
+                  {claim.sourceIds
+                    .map(
+                      (sourceId) =>
+                        answer.sources.find((source) => source.id === sourceId)
+                          ?.label
+                    )
+                    .filter(Boolean)
+                    .join(' · ') || 'brak — wymaga weryfikacji'}
                 </p>
-                {sources.length > 0 ? (
-                  <div className="space-y-2">
-                    {sources.map((source) => (
-                      <article
-                        key={source.id}
-                        className={`rounded-lg border p-3 text-sm ${
-                          answer.primarySourceIds.includes(source.id)
-                            ? 'border-primary/40 bg-primary/5'
-                            : ''
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            {source.publicUrl ? (
-                              <a
-                                href={source.publicUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary inline-flex items-center gap-1 font-semibold"
-                              >
-                                {source.label}{' '}
-                                <ExternalLink className="size-3" />
-                              </a>
-                            ) : (
-                              <p className="font-semibold">{source.label}</p>
-                            )}
-                            <p className="text-muted-foreground mt-1 text-xs">
-                              {source.bank} → {source.product} →{' '}
-                              {source.version}
-                            </p>
-                            {source.note ? (
-                              <p className="text-muted-foreground mt-1 text-xs">
-                                {source.note}
-                              </p>
-                            ) : null}
-                            {source.facts?.length ? (
-                              <ul className="mt-2 space-y-1 text-xs">
-                                {source.facts.map((fact) => (
-                                  <li key={fact}>• {fact}</li>
-                                ))}
-                              </ul>
-                            ) : null}
-                          </div>
-                          <Quality value={source.quality} />
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed p-3 text-xs text-amber-800">
-                    Brak źródła dopuszczonego dla tego Deala.
-                  </p>
-                )}
               </div>
-            );
-          }
-        )}
+            ))}
+          </div>
+        ) : null}
+        {(
+          [
+            'deal_context',
+            'internal_drive',
+            'official_bank',
+            'ai_inference',
+          ] as const
+        ).map((type) => {
+          const sources = answer.sources.filter(
+            (source) => source.type === type
+          );
+          return (
+            <div key={type}>
+              <p className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-wide">
+                {SOURCE_LABELS[type]}
+              </p>
+              {sources.length > 0 ? (
+                <div className="space-y-2">
+                  {sources.map((source) => (
+                    <article
+                      key={source.id}
+                      className={`rounded-lg border p-3 text-sm ${
+                        answer.primarySourceIds.includes(source.id)
+                          ? 'border-primary/40 bg-primary/5'
+                          : ''
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          {source.publicUrl ? (
+                            <a
+                              href={source.publicUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary inline-flex items-center gap-1 font-semibold"
+                            >
+                              {source.label} <ExternalLink className="size-3" />
+                            </a>
+                          ) : (
+                            <p className="font-semibold">{source.label}</p>
+                          )}
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {source.bank} → {source.product} → {source.version}
+                          </p>
+                          {source.note ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              {source.note}
+                            </p>
+                          ) : null}
+                          {source.facts?.length ? (
+                            <ul className="mt-2 space-y-1 text-xs">
+                              {source.facts.map((fact) => (
+                                <li key={fact}>• {fact}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                        <Quality value={source.quality} />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed p-3 text-xs text-amber-800">
+                  Brak źródła dopuszczonego dla tego Deala.
+                </p>
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
   );
@@ -449,5 +483,14 @@ function toLocalDateTime(value: string | null | undefined) {
   if (Number.isNaN(date.getTime())) return '';
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+function problemLabel(value: BankingKnowledgeAnswer['problem']) {
+  return {
+    documents: 'Dokumenty',
+    application: 'Wniosek',
+    decision: 'Decyzja',
+    activation: 'Uruchomienie',
+  }[value];
 }
 

@@ -1,8 +1,17 @@
+import {
+  MBANK_SOURCE_CATALOG,
+  sourceFreshness,
+  type BankingKnowledgeProblem,
+  type BankSourceDefinition,
+  type KnowledgeSourceConfidentiality,
+  type KnowledgeSourceFreshness,
+} from './source-catalog';
+
 export type BankingKnowledgeQuality =
   'POTWIERDZONE' | 'CZĘŚCIOWE' | 'WNIOSEK AI' | 'WYMAGA WERYFIKACJI';
 
 export type BankingKnowledgeSourceType =
-  'internal_drive' | 'official_bank' | 'ai_inference';
+  'deal_context' | 'internal_drive' | 'official_bank' | 'ai_inference';
 
 export type KnowledgeDocumentMetadata = {
   id: string;
@@ -14,6 +23,12 @@ export type KnowledgeDocumentMetadata = {
   source_version?: string | null;
   effective_date?: string | null;
   updated_at?: string | null;
+};
+
+export type IndexedKnowledgeChunk = {
+  document_id: string;
+  content: string;
+  chunk_index?: number | null;
 };
 
 export type DealKnowledgeContext = {
@@ -35,21 +50,35 @@ export type BankingKnowledgeSource = {
   label: string;
   bank: string;
   product: string;
+  domains: BankingKnowledgeProblem[];
   version: string;
+  effectiveDate: string | null;
+  verifiedAt: string | null;
+  confidentiality: KnowledgeSourceConfidentiality;
+  freshness: KnowledgeSourceFreshness;
   quality: BankingKnowledgeQuality;
   publicUrl?: string;
   note?: string;
   facts?: string[];
 };
 
+export type BankingKnowledgeClaim = {
+  id: string;
+  text: string;
+  quality: BankingKnowledgeQuality;
+  sourceIds: string[];
+};
+
 export type BankingKnowledgeAnswer = {
   supported: boolean;
   question: string;
+  problem: BankingKnowledgeProblem;
   context: DealKnowledgeContext;
   quality: BankingKnowledgeQuality;
   summary: string;
   why: string;
   steps: string[];
+  claims: BankingKnowledgeClaim[];
   sources: BankingKnowledgeSource[];
   primarySourceIds: string[];
   internalSourceAvailable: boolean;
@@ -78,90 +107,30 @@ type BankProcessRow = {
   position?: number | null;
 };
 
-type OfficialSource = Omit<BankingKnowledgeSource, 'quality'> & {
-  route: ProductRoute;
-};
-
 type ProductRoute = 'mortgage' | 'business' | 'generic';
 
 type BankDefinition = {
   key: string;
   displayName: string;
   aliases: string[];
-  publicSources: OfficialSource[];
 };
 
 const DRIVE_SOURCE_PATTERN = /^gdrive:\/\/([^/]+)\/([^/]+)$/i;
-
-const MBANK_PUBLIC_SOURCES: OfficialSource[] = [
-  {
-    id: 'mbank-mortgage-documents',
-    type: 'official_bank',
-    label: 'mBank — kredyt hipoteczny: regulaminy i dokumenty',
-    bank: 'mBank',
-    product: 'Kredyt hipoteczny',
-    version: 'obowiązuje od 28.05.2025; sprawdzono 08.09.2026',
-    publicUrl:
-      'https://www.mbank.pl/pomoc/dokumenty/oferta-indywidualna/kredyty/kredyt-hipoteczny/',
-    facts: [
-      'mBank publikuje tu aktualny regulamin kredytu hipotecznego, formularze zmian oraz dokumenty do ubezpieczeń.',
-      'Wskazany na stronie regulamin kredytów i pożyczek hipotecznych dla osób fizycznych obowiązuje od 28.05.2025 r.',
-    ],
-    route: 'mortgage',
-  },
-  {
-    id: 'mbank-mortgage-guide',
-    type: 'official_bank',
-    label: 'mBank — poradnik kredytu hipotecznego',
-    bank: 'mBank',
-    product: 'Kredyt hipoteczny',
-    version: 'strona bieżąca; sprawdzono 08.09.2026',
-    publicUrl:
-      'https://www.mbank.pl/indywidualny/kredyty/kredyty-hipoteczne/poradnik/',
-    facts: [
-      'Oficjalny poradnik prowadzi do listy dokumentów dobieranej do sytuacji konkretnego klienta.',
-      'Lista dokumentów jest przeznaczona do ustalenia materiałów potrzebnych do wydania decyzji kredytowej.',
-    ],
-    route: 'mortgage',
-  },
-  {
-    id: 'mbank-business-documents',
-    type: 'official_bank',
-    label: 'mBank — kredyty firmowe: regulaminy i dokumenty',
-    bank: 'mBank',
-    product: 'Finansowanie firmy',
-    version: 'strona bieżąca; sprawdzono 08.09.2026',
-    publicUrl: 'https://www.mbank.pl/pomoc/dokumenty/firmy/kredyty/',
-    facts: [
-      'Oficjalna strona rozdziela dokumenty według konkretnego produktu firmowego, m.in. kredytu obrotowego, inwestycyjnego i mPlanu hipotecznego dla firm.',
-      'Przed użyciem dokumentu trzeba wybrać produkt zgodny z produktem zapisanym w Dealu.',
-    ],
-    route: 'business',
-  },
-  {
-    id: 'mbank-public-entry',
-    type: 'official_bank',
-    label: 'mBank — oficjalne dokumenty banku',
-    bank: 'mBank',
-    product: 'Produkt do potwierdzenia',
-    version: 'strona bieżąca; sprawdzono 08.09.2026',
-    publicUrl: 'https://www.mbank.pl/pomoc/dokumenty/',
-    facts: [
-      'To oficjalny punkt wejścia do aktualnych regulaminów i dokumentów mBanku.',
-      'Bez określonego produktu źródło nie potwierdza wymagań konkretnej sprawy.',
-    ],
-    route: 'generic',
-  },
-];
 
 const BANK_REGISTRY: BankDefinition[] = [
   {
     key: 'mbank',
     displayName: 'mBank',
-    aliases: ['mbank', 'mbank sa', 'mbank s a'],
-    publicSources: MBANK_PUBLIC_SOURCES,
+    aliases: ['mbank', 'mbank sa', 'mbank s a', 'mbank hipoteczny'],
   },
 ];
+
+const PROBLEM_PATTERNS: Record<BankingKnowledgeProblem, RegExp> = {
+  documents: /dokument|wyciag|zaswiadc|komplet|brakuj|pit|kpir/,
+  application: /wnios|formularz|zloz|aplikac/,
+  decision: /decyz|analiz|ocen|scoring|akcept/,
+  activation: /uruchom|wyplat|transz|podpis|umow/,
+};
 
 function normalize(value: string | null | undefined) {
   return (value ?? '')
@@ -181,7 +150,7 @@ function findSupportedBank(value: string | null | undefined) {
 
 function productRoute(product: string | null | undefined): ProductRoute {
   const key = normalize(product);
-  if (/hipote|mieszkan|nieruchom/.test(key)) return 'mortgage';
+  if (/hipote|mieszkan|nieruchom|^ml\b/.test(key)) return 'mortgage';
   if (/firm|obrot|dzialal|biznes|rachunku biezac/.test(key)) return 'business';
   return 'generic';
 }
@@ -205,6 +174,26 @@ function productMatches(
   );
 }
 
+export function routeBankingKnowledgeProblem(args: {
+  question?: string | null;
+  nextAction?: string | null;
+  stage?: string | null;
+}): BankingKnowledgeProblem {
+  for (const value of [args.question, args.nextAction, args.stage]) {
+    const normalized = normalize(value);
+    if (!normalized) continue;
+    for (const problem of [
+      'documents',
+      'application',
+      'decision',
+      'activation',
+    ] as const) {
+      if (PROBLEM_PATTERNS[problem].test(normalized)) return problem;
+    }
+  }
+  return 'documents';
+}
+
 export function parseAllowedDriveFolderIds(value: string | undefined) {
   return new Set(
     (value ?? '')
@@ -214,42 +203,72 @@ export function parseAllowedDriveFolderIds(value: string | undefined) {
   );
 }
 
-function internalDriveSources(
-  documents: KnowledgeDocumentMetadata[],
-  dealProduct: string | null,
-  bank: BankDefinition,
-  allowedDriveFolderIds: ReadonlySet<string>
-) {
-  return documents.flatMap<BankingKnowledgeSource>((document) => {
+function buildInternalDriveSources(args: {
+  documents: KnowledgeDocumentMetadata[];
+  indexedChunks: IndexedKnowledgeChunk[];
+  dealProduct: string | null;
+  bank: BankDefinition;
+  problem: BankingKnowledgeProblem;
+  allowedDriveFolderIds: ReadonlySet<string>;
+}) {
+  const chunksByDocument = new Map<string, IndexedKnowledgeChunk[]>();
+  for (const chunk of args.indexedChunks) {
+    if (!chunk.content?.trim()) continue;
+    const current = chunksByDocument.get(chunk.document_id) ?? [];
+    current.push(chunk);
+    chunksByDocument.set(chunk.document_id, current);
+  }
+
+  return args.documents.flatMap<BankingKnowledgeSource>((document) => {
     if (
-      findSupportedBank(document.bank)?.key !== bank.key ||
-      !productMatches(document.product, dealProduct)
+      findSupportedBank(document.bank)?.key !== args.bank.key ||
+      !productMatches(document.product, args.dealProduct) ||
+      !/(drive|wewn|internal)/.test(normalize(document.document_type))
     ) {
       return [];
     }
-    if (!/(drive|wewn|internal)/.test(normalize(document.document_type))) {
+
+    const driveRoute = document.source_name?.match(DRIVE_SOURCE_PATTERN);
+    if (!driveRoute || !args.allowedDriveFolderIds.has(driveRoute[1]))
       return [];
-    }
-    const route = document.source_name?.match(DRIVE_SOURCE_PATTERN);
-    if (!route || !allowedDriveFolderIds.has(route[1])) return [];
+
+    const chunks = chunksByDocument.get(document.id) ?? [];
+    const relevantChunk = chunks.find((chunk) =>
+      PROBLEM_PATTERNS[args.problem].test(
+        normalize(
+          `${document.title} ${document.document_type} ${chunk.content}`
+        )
+      )
+    );
+    if (!relevantChunk) return [];
+
     const version =
       document.source_version ||
       document.effective_date ||
       document.updated_at?.slice(0, 10) ||
-      'brak daty';
+      'brak wersji';
+    const hasDatedVersion = Boolean(
+      document.source_version || document.effective_date
+    );
+    const excerpt = relevantChunk.content.trim().slice(0, 320);
+
     return [
       {
         id: document.id,
         type: 'internal_drive',
         label: document.title || 'Wewnętrzny dokument Google Drive',
-        bank: bank.displayName,
-        product: document.product || dealProduct || 'Produkt do potwierdzenia',
+        bank: args.bank.displayName,
+        product:
+          document.product || args.dealProduct || 'Produkt do potwierdzenia',
+        domains: [args.problem],
         version,
-        quality:
-          document.source_version || document.effective_date
-            ? 'POTWIERDZONE'
-            : 'CZĘŚCIOWE',
-        note: 'Prywatne źródło z dozwolonego folderu; bez publicznego linku.',
+        effectiveDate: document.effective_date || null,
+        verifiedAt: document.updated_at?.slice(0, 10) || null,
+        confidentiality: 'internal',
+        freshness: hasDatedVersion ? 'current' : 'requires_review',
+        quality: hasDatedVersion ? 'POTWIERDZONE' : 'CZĘŚCIOWE',
+        note: 'Prywatne źródło z dozwolonego folderu, faktycznie obecne w indeksie; bez publicznego linku.',
+        facts: [excerpt],
       },
     ];
   });
@@ -259,52 +278,156 @@ function chooseSupportedBankProcess(
   deal: DealKnowledgeRow,
   bankProcesses: BankProcessRow[]
 ) {
-  for (const process of bankProcesses) {
-    const bank = findSupportedBank(process.bank_name);
-    if (bank) return { process, bank };
+  const supported = bankProcesses
+    .filter((process) => findSupportedBank(process.bank_name))
+    .filter(
+      (process) => !/odrzu|zamkn|anul|rezygn/.test(normalize(process.status))
+    )
+    .sort((left, right) => {
+      const leftProduct = productMatches(
+        left.product_variant,
+        deal.product_type
+      )
+        ? 1
+        : 0;
+      const rightProduct = productMatches(
+        right.product_variant,
+        deal.product_type
+      )
+        ? 1
+        : 0;
+      return (
+        rightProduct - leftProduct ||
+        (left.position ?? Number.MAX_SAFE_INTEGER) -
+          (right.position ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+
+  if (supported[0]) {
+    return {
+      process: supported[0],
+      bank: findSupportedBank(supported[0].bank_name)!,
+    };
   }
+
   const configured = findSupportedBank(
     deal.mandatory_bank || deal.preferred_bank
   );
-  if (configured) {
-    return {
-      bank: configured,
-      process: {
-        bank_name: configured.displayName,
-        status: null,
-        product_variant: null,
-      },
-    };
+  if (!configured) return null;
+  return {
+    bank: configured,
+    process: {
+      bank_name: configured.displayName,
+      status: null,
+      product_variant: deal.product_type || null,
+    },
+  };
+}
+
+function officialSource(
+  definition: BankSourceDefinition,
+  problem: BankingKnowledgeProblem,
+  now: Date
+): BankingKnowledgeSource {
+  const freshness = sourceFreshness(definition, now);
+  const claims = definition.claims.filter((claim) =>
+    claim.problems.includes(problem)
+  );
+  return {
+    id: definition.id,
+    type: definition.type,
+    label: definition.label,
+    bank: definition.bank,
+    product: definition.product,
+    domains: [...definition.domains],
+    version: definition.version,
+    effectiveDate: definition.effectiveDate,
+    verifiedAt: definition.verifiedAt,
+    confidentiality: definition.confidentiality,
+    freshness,
+    quality:
+      freshness === 'requires_review'
+        ? 'WYMAGA WERYFIKACJI'
+        : claims.every((claim) => claim.quality === 'POTWIERDZONE')
+          ? 'POTWIERDZONE'
+          : 'CZĘŚCIOWE',
+    publicUrl: definition.url,
+    facts: claims.map((claim) => claim.text),
+  };
+}
+
+function failClosedAnswer(args: {
+  question: string;
+  problem: BankingKnowledgeProblem;
+  context: DealKnowledgeContext;
+  missing: string[];
+  summary: string;
+  why: string;
+}): BankingKnowledgeAnswer {
+  return {
+    supported: false,
+    question: args.question,
+    problem: args.problem,
+    context: args.context,
+    quality: 'WYMAGA WERYFIKACJI',
+    summary: args.summary,
+    why: args.why,
+    steps: ['Uzupełnij wskazany kontekst i ponów pytanie.'],
+    claims: [],
+    sources: [],
+    primarySourceIds: [],
+    internalSourceAvailable: false,
+    recommendedNextAction:
+      args.context.nextAction || 'Ustal i zapisz jeden następny krok.',
+    recommendedNextActionAt: args.context.nextActionAt,
+    missing: args.missing,
+  };
+}
+
+function fallbackNextAction(problem: BankingKnowledgeProblem) {
+  switch (problem) {
+    case 'application':
+      return 'Zweryfikuj komplet dokumentów i status przygotowania wniosku w systemie bankowym.';
+    case 'decision':
+      return 'Sprawdź status decyzji i brakujące warunki bezpośrednio w systemie bankowym.';
+    case 'activation':
+      return 'Zweryfikuj warunki uruchomienia bezpośrednio w systemie bankowym przed wykonaniem kroku.';
+    default:
+      return 'Otwórz oficjalną listę dokumentów mBanku, ustal braki dla klienta i zapisz je w Dealu.';
   }
-  return null;
 }
 
 export function buildBankingKnowledgeAnswer(args: {
   deal: DealKnowledgeRow;
   bankProcesses: BankProcessRow[];
   documents: KnowledgeDocumentMetadata[];
+  indexedChunks?: IndexedKnowledgeChunk[];
   allowedDriveFolderIds: ReadonlySet<string>;
   question?: string | null;
+  now?: Date;
 }): BankingKnowledgeAnswer {
-  const { deal, bankProcesses, documents, allowedDriveFolderIds } = args;
   const question =
     args.question?.trim().slice(0, 500) || 'Co mam zrobić dalej?';
-  const selected = chooseSupportedBankProcess(deal, bankProcesses);
+  const selected = chooseSupportedBankProcess(args.deal, args.bankProcesses);
   const process = selected?.process;
   const bank = selected?.bank;
-  const product = process?.product_variant || deal.product_type || null;
-  const route = productRoute(product);
+  const product = process?.product_variant || args.deal.product_type || null;
+  const problem = routeBankingKnowledgeProblem({
+    question,
+    nextAction: args.deal.next_action,
+    stage: args.deal.stage?.name,
+  });
   const context: DealKnowledgeContext = {
-    id: deal.id,
-    title: deal.title,
+    id: args.deal.id,
+    title: args.deal.title,
     product,
     bank: bank?.displayName || null,
     bankStatus: process?.status || null,
-    stage: deal.stage?.name || null,
-    nextAction: deal.next_action || null,
-    nextActionAt: deal.next_action_at || null,
-    contact: deal.contact?.name || null,
-    company: deal.company?.name || null,
+    stage: args.deal.stage?.name || null,
+    nextAction: args.deal.next_action || null,
+    nextActionAt: args.deal.next_action_at || null,
+    contact: args.deal.contact?.name || null,
+    company: args.deal.company?.name || null,
   };
   const missing = [
     !context.bank && 'bank',
@@ -313,104 +436,156 @@ export function buildBankingKnowledgeAnswer(args: {
   ].filter((item): item is string => Boolean(item));
 
   if (!process || !bank) {
-    return {
-      supported: false,
+    return failClosedAnswer({
       question,
+      problem,
       context,
-      quality: 'WYMAGA WERYFIKACJI',
-      summary: 'Najpierw wskaż mBank w procesie bankowym tego Deala.',
-      why: 'Wiedza nie może zostać dobrana bez jednoznacznego banku w konkretnej sprawie.',
-      steps: [
-        'Otwórz zakładkę Proces bankowy.',
-        'Wybierz mBank przy właściwej pozycji procesu.',
-        'Uzupełnij produkt oraz następny krok i wróć do Wiedzy Bankowej.',
-      ],
-      sources: [],
-      primarySourceIds: [],
-      internalSourceAvailable: false,
-      recommendedNextAction:
-        context.nextAction || 'Ustal i zapisz jeden następny krok.',
-      recommendedNextActionAt: context.nextActionAt,
       missing,
-    };
+      summary: 'Brak obsługiwanego banku w aktywnym procesie tego Deala.',
+      why: 'Silnik nie dobiera źródeł bez jednoznacznego, obsługiwanego banku.',
+    });
   }
 
-  const officialSources = bank.publicSources
-    .filter((source) => source.route === route)
-    .map<BankingKnowledgeSource>((source) => ({
-      id: source.id,
-      type: source.type,
-      label: source.label,
-      bank: source.bank,
-      product: source.product,
-      version: source.version,
-      publicUrl: source.publicUrl,
-      note: source.note,
-      quality: 'POTWIERDZONE',
-      facts: source.facts,
-    }));
-  const internalSources = internalDriveSources(
-    documents,
-    product,
+  if (productRoute(product) !== 'mortgage') {
+    return failClosedAnswer({
+      question,
+      problem,
+      context,
+      missing,
+      summary: 'Pierwszy pakiet M4 obsługuje wyłącznie mBank ML/HIPOTEKA.',
+      why: 'Dla innego produktu katalog źródeł nie został jeszcze zatwierdzony.',
+    });
+  }
+
+  const now = args.now ?? new Date();
+  const officialSources = MBANK_SOURCE_CATALOG.filter(
+    (source) =>
+      source.productRoute === 'mortgage' &&
+      (source.domains as readonly BankingKnowledgeProblem[]).includes(problem)
+  ).map((source) => officialSource(source, problem, now));
+  const internalSources = buildInternalDriveSources({
+    documents: args.documents,
+    indexedChunks: args.indexedChunks ?? [],
+    dealProduct: product,
     bank,
-    allowedDriveFolderIds
-  );
-  const inference: BankingKnowledgeSource = {
-    id: `ai-${deal.id}`,
-    type: 'ai_inference',
-    label: 'Wniosek z kontekstu Deala',
+    problem,
+    allowedDriveFolderIds: args.allowedDriveFolderIds,
+  });
+
+  const contextSource: BankingKnowledgeSource = {
+    id: `deal-${args.deal.id}`,
+    type: 'deal_context',
+    label: 'Bieżący kontekst Deala',
     bank: bank.displayName,
     product: product || 'Produkt do potwierdzenia',
-    version: 'bieżący stan Deala',
-    quality: 'WNIOSEK AI',
-    note: 'To wskazówka operacyjna, nie oficjalna reguła banku.',
+    domains: [problem],
+    version: 'bieżący rekord',
+    effectiveDate: null,
+    verifiedAt: now.toISOString().slice(0, 10),
+    confidentiality: 'internal',
+    freshness: 'current',
+    quality: 'POTWIERDZONE',
+    note: 'Potwierdza wyłącznie dane zapisane w tym Dealu, nie reguły banku.',
   };
-  const nextAction =
-    context.nextAction ||
-    (route === 'mortgage'
-      ? /wniosk|decyzj/.test(normalize(context.stage))
-        ? 'zweryfikuj komplet dokumentów do wniosku mBank i zapisz brakujące pozycje'
-        : 'sprawdź oficjalną listę dokumentów mBank i zapisz brakujące pozycje'
-      : 'ustal i zapisz jeden następny krok');
-  const steps = [
-    `Potwierdź kontekst: ${context.stage || 'etap nieustalony'} → ${nextAction}.`,
-    internalSources.length
-      ? 'Sprawdź właściwą instrukcję wewnętrzną z dozwolonego folderu Drive.'
-      : 'Brak podłączonej instrukcji wewnętrznej — oprzyj się wyłącznie na oficjalnym źródle i oznacz wątpliwości.',
-    officialSources.length
-      ? 'Zweryfikuj aktualne wymagania w oficjalnym źródle mBanku wskazanym poniżej.'
-      : 'Produkt nie ma jeszcze przypisanego oficjalnego źródła — wymaga ręcznej weryfikacji.',
-    `Wykonaj krok: ${nextAction}.`,
-    'Zapisz wynik, jeden kolejny krok, termin oraz blocker w tym samym Dealu.',
+
+  const recommendedNextAction =
+    context.nextAction || fallbackNextAction(problem);
+  const inferenceSource: BankingKnowledgeSource | null = context.nextAction
+    ? null
+    : {
+        id: `ai-${args.deal.id}-${problem}`,
+        type: 'ai_inference',
+        label: 'Wniosek operacyjny z kontekstu Deala',
+        bank: bank.displayName,
+        product: product || 'Produkt do potwierdzenia',
+        domains: [problem],
+        version: 'bieżący kontekst',
+        effectiveDate: null,
+        verifiedAt: null,
+        confidentiality: 'internal',
+        freshness: 'current',
+        quality: 'WNIOSEK AI',
+        note: 'Rekomendacja operacyjna; nie jest faktem ani regułą banku.',
+      };
+
+  const sourceClaims: BankingKnowledgeClaim[] = [
+    ...internalSources.flatMap((source) =>
+      (source.facts ?? []).map((fact, index) => ({
+        id: `${source.id}-${index}`,
+        text: fact,
+        quality: source.quality,
+        sourceIds: [source.id],
+      }))
+    ),
+    ...officialSources.flatMap((source) =>
+      (source.facts ?? []).map((fact, index) => ({
+        id: `${source.id}-${index}`,
+        text: fact,
+        quality: source.quality,
+        sourceIds: [source.id],
+      }))
+    ),
   ];
-  const quality: BankingKnowledgeQuality =
-    internalSources.length && officialSources.length
+  const actionClaim: BankingKnowledgeClaim = {
+    id: `recommended-action-${args.deal.id}`,
+    text: recommendedNextAction,
+    quality: context.nextAction ? 'POTWIERDZONE' : 'WNIOSEK AI',
+    sourceIds: context.nextAction ? [contextSource.id] : [inferenceSource!.id],
+  };
+  const usableSourceClaims = sourceClaims.filter(
+    (claim) => claim.quality !== 'WYMAGA WERYFIKACJI'
+  );
+  const primarySources = internalSources.length
+    ? internalSources
+    : officialSources.filter((source) => (source.facts?.length ?? 0) > 0);
+  const quality: BankingKnowledgeQuality = !usableSourceClaims.length
+    ? 'WYMAGA WERYFIKACJI'
+    : internalSources.length &&
+        context.nextAction &&
+        usableSourceClaims.every((claim) => claim.quality === 'POTWIERDZONE')
       ? 'POTWIERDZONE'
-      : officialSources.length
-        ? 'CZĘŚCIOWE'
-        : 'WNIOSEK AI';
+      : 'CZĘŚCIOWE';
+
+  const steps = [
+    `Potwierdź kontekst: ${context.stage || 'etap nieustalony'} → ${recommendedNextAction}.`,
+    internalSources.length
+      ? 'Najpierw sprawdź zatwierdzone źródło wewnętrzne z dozwolonego folderu.'
+      : 'Źródło wewnętrzne nie jest dostępne — korzystaj tylko z oficjalnych źródeł wskazanych poniżej.',
+    usableSourceClaims.length
+      ? 'Zweryfikuj szczegół w źródle przed działaniem na realnej sprawie.'
+      : 'Brak źródła potwierdzającego ten problem — zatrzymaj wykonanie i zweryfikuj ręcznie.',
+    `Rekomendowany następny krok: ${recommendedNextAction}`,
+  ];
 
   return {
     supported: true,
     question,
+    problem,
     context,
     quality,
-    summary: `Następny krok: ${nextAction}.`,
-    why: `Wynika z aktualnego etapu „${context.stage || 'nieustalony'}” i następnego działania zapisanego w tym Dealu.`,
+    summary:
+      quality === 'WYMAGA WERYFIKACJI'
+        ? 'Brak źródła potwierdzającego odpowiedź. Nie wykonuj kroku bez ręcznej weryfikacji.'
+        : `Następny krok: ${recommendedNextAction}`,
+    why: context.nextAction
+      ? 'Następny krok pochodzi bezpośrednio z bieżącego Deala.'
+      : 'Następny krok jest wyraźnie oznaczoną rekomendacją operacyjną, a nie faktem ze źródła.',
     steps,
-    sources: [...internalSources, ...officialSources, inference],
-    primarySourceIds: (internalSources.length
-      ? internalSources
-      : officialSources.length
-        ? officialSources
-        : [inference]
-    ).map((source) => source.id),
+    claims: [...sourceClaims, actionClaim],
+    sources: [
+      contextSource,
+      ...internalSources,
+      ...officialSources,
+      ...(inferenceSource ? [inferenceSource] : []),
+    ],
+    primarySourceIds: primarySources.map((source) => source.id),
     internalSourceAvailable: internalSources.length > 0,
-    recommendedNextAction: nextAction,
+    recommendedNextAction,
     recommendedNextActionAt: context.nextActionAt,
     missing,
   };
 }
 
 export const supportedBankKeys = BANK_REGISTRY.map((bank) => bank.key);
+export type { BankingKnowledgeProblem };
 

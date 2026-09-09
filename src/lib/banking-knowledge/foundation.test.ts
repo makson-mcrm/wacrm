@@ -2,157 +2,160 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBankingKnowledgeAnswer,
   parseAllowedDriveFolderIds,
+  routeBankingKnowledgeProblem,
 } from './foundation';
 
 const deal = {
   id: 'deal-1',
   title: 'Zakup mieszkania',
-  product_type: 'Kredyt hipoteczny',
+  product_type: 'ML — HIPOTEKA',
   next_action: 'Skompletować dokumenty dochodowe',
   next_action_at: '2026-09-10T08:00:00.000Z',
   contact: { name: 'Jan Kowalski' },
   company: null,
-  stage: { name: 'Kompletowanie dokumentów' },
+  stage: { name: '5. WNIOSKI / DECYZJA' },
 };
 
-describe('Wiedza Bankowa — fundament mBank', () => {
-  it('nie zgaduje banku bez przypisania w Dealu', () => {
-    const answer = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [],
-      documents: [],
-      allowedDriveFolderIds: new Set(),
-    });
-    expect(answer.supported).toBe(false);
-    expect(answer.quality).toBe('WYMAGA WERYFIKACJI');
+const process = [{ bank_name: 'mBank', status: 'analiza', position: 1 }];
+const currentDate = new Date('2026-09-09T10:00:00.000Z');
+
+function answer(
+  overrides: Partial<Parameters<typeof buildBankingKnowledgeAnswer>[0]> = {}
+) {
+  return buildBankingKnowledgeAnswer({
+    deal,
+    bankProcesses: process,
+    documents: [],
+    indexedChunks: [],
+    allowedDriveFolderIds: new Set(),
+    now: currentDate,
+    ...overrides,
+  });
+}
+
+describe('M4 — routing problemu', () => {
+  it.each([
+    ['Jakich dokumentów brakuje?', 'documents'],
+    ['Jak złożyć wniosek?', 'application'],
+    ['Co z decyzją kredytową?', 'decision'],
+    ['Jak uruchomić wypłatę?', 'activation'],
+  ] as const)('rozpoznaje %s jako %s', (question, expected) => {
+    expect(routeBankingKnowledgeProblem({ question })).toBe(expected);
   });
 
-  it('prowadzi po następnym kroku i zachowuje kontekst Deala', () => {
-    const answer = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
-      documents: [],
-      allowedDriveFolderIds: new Set(),
-    });
-    expect(answer.context).toMatchObject({
-      id: 'deal-1',
-      bank: 'mBank',
-      product: 'Kredyt hipoteczny',
-      stage: 'Kompletowanie dokumentów',
-      nextAction: 'Skompletować dokumenty dochodowe',
-    });
-    expect(answer.steps.join(' ')).toContain(
-      'Skompletować dokumenty dochodowe'
+  it('traktuje pytanie jako ważniejsze od etapu Deala', () => {
+    expect(answer({ question: 'Jak uruchomić kredyt?' }).problem).toBe(
+      'activation'
     );
+  });
+});
+
+describe('M4 — źródła i pewność', () => {
+  it('każde ważne twierdzenie wiąże z istniejącym źródłem', () => {
+    const result = answer({ question: 'Jakich dokumentów brakuje?' });
+    const sourceIds = new Set(result.sources.map((source) => source.id));
+    expect(result.claims.length).toBeGreaterThan(0);
     expect(
-      answer.sources.some((source) => source.type === 'official_bank')
+      result.claims.every(
+        (claim) =>
+          claim.sourceIds.length > 0 &&
+          claim.sourceIds.every((sourceId) => sourceIds.has(sourceId))
+      )
     ).toBe(true);
-    const official = answer.sources.find(
-      (source) => source.type === 'official_bank'
-    );
-    expect(official).toMatchObject({
-      quality: 'POTWIERDZONE',
-      bank: 'mBank',
+    expect(result.primarySourceIds).not.toContain('ai-deal-1-documents');
+    expect(result.quality).toBe('CZĘŚCIOWE');
+  });
+
+  it('fail-closed: brak źródła dla uruchomienia wymaga weryfikacji', () => {
+    const result = answer({
+      deal: { ...deal, next_action: null },
+      question: 'Jak uruchomić kredyt?',
     });
-    expect(official?.publicUrl).toMatch(/^https:\/\/www\.mbank\.pl\//);
-    expect(official?.facts?.length).toBeGreaterThan(0);
-    expect(answer.quality).toBe('CZĘŚCIOWE');
-    expect(answer.recommendedNextAction).toBe(
-      'Skompletować dokumenty dochodowe'
-    );
-    expect(answer.recommendedNextActionAt).toBe('2026-09-10T08:00:00.000Z');
-    expect(answer.internalSourceAvailable).toBe(false);
-    expect(answer.primarySourceIds).toContain('mbank-mortgage-documents');
+    expect(result.problem).toBe('activation');
+    expect(result.quality).toBe('WYMAGA WERYFIKACJI');
+    expect(result.primarySourceIds).toEqual([]);
+    expect(result.summary).toContain('Nie wykonuj kroku');
+    expect(
+      result.claims.find((claim) => claim.id.startsWith('recommended-action'))
+        ?.quality
+    ).toBe('WNIOSEK AI');
   });
 
   it('nie podstawia wiedzy mBanku do nieobsługiwanego banku', () => {
-    const answer = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [{ bank_name: 'ING', status: 'analiza' }],
-      documents: [],
-      allowedDriveFolderIds: new Set(),
-    });
-    expect(answer.supported).toBe(false);
-    expect(answer.sources).toEqual([]);
-    expect(answer.quality).toBe('WYMAGA WERYFIKACJI');
+    const result = answer({ bankProcesses: [{ bank_name: 'ING' }] });
+    expect(result.supported).toBe(false);
+    expect(result.sources).toEqual([]);
+    expect(result.quality).toBe('WYMAGA WERYFIKACJI');
   });
 
-  it('dopuszcza prywatne źródło Drive wyłącznie z allowlisty folderów', () => {
-    const document = {
-      id: 'doc-1',
-      title: 'Instrukcja mBank hipoteczny',
-      bank: 'mBank',
-      product: 'Kredyt hipoteczny',
-      document_type: 'google_drive_internal',
-      source_name: 'gdrive://allowed-folder/file-1',
-      source_version: '2026-09',
-    };
-    const blocked = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [{ bank_name: 'mBank' }],
+  it('nie obsługuje niezdefiniowanego produktu', () => {
+    const result = answer({
+      deal: { ...deal, product_type: 'Kredyt firmowy' },
+      bankProcesses: [
+        { bank_name: 'mBank', product_variant: 'Kredyt firmowy' },
+      ],
+    });
+    expect(result.supported).toBe(false);
+    expect(result.quality).toBe('WYMAGA WERYFIKACJI');
+  });
+});
+
+describe('M4 — Zero Trust Google Drive', () => {
+  const document = {
+    id: 'doc-1',
+    title: 'Instrukcja dokumentów mBank hipoteczny',
+    bank: 'mBank',
+    product: 'ML — HIPOTEKA',
+    document_type: 'google_drive_internal',
+    source_name: 'gdrive://allowed-folder/file-1',
+    source_version: '2026-09',
+  };
+  const indexedChunks = [
+    {
+      document_id: 'doc-1',
+      chunk_index: 0,
+      content: 'Dokumenty do wniosku: sprawdź listę wymaganą dla klienta.',
+    },
+  ];
+
+  it('odrzuca próbę wyjścia poza allowlistę', () => {
+    const result = answer({
       documents: [document],
+      indexedChunks,
       allowedDriveFolderIds: new Set(['other-folder']),
     });
-    expect(
-      blocked.sources.some((source) => source.type === 'internal_drive')
-    ).toBe(false);
+    expect(result.internalSourceAvailable).toBe(false);
+  });
 
-    const allowed = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [{ bank_name: 'mBank' }],
+  it('nie ufa samej metadanej dokumentu bez indeksu', () => {
+    const result = answer({
       documents: [document],
+      indexedChunks: [],
       allowedDriveFolderIds: new Set(['allowed-folder']),
     });
-    const internal = allowed.sources.find(
+    expect(result.internalSourceAvailable).toBe(false);
+  });
+
+  it('używa źródła tylko z allowlisty, indeksu i właściwej dziedziny', () => {
+    const result = answer({
+      documents: [document],
+      indexedChunks,
+      allowedDriveFolderIds: new Set(['allowed-folder']),
+      question: 'Jakich dokumentów brakuje?',
+    });
+    const internal = result.sources.find(
       (source) => source.type === 'internal_drive'
     );
     expect(internal).toMatchObject({
       quality: 'POTWIERDZONE',
+      confidentiality: 'internal',
     });
     expect(internal).not.toHaveProperty('publicUrl');
-    expect(allowed.quality).toBe('POTWIERDZONE');
-    expect(allowed.internalSourceAvailable).toBe(true);
-    expect(allowed.primarySourceIds).toEqual(['doc-1']);
+    expect(result.internalSourceAvailable).toBe(true);
+    expect(result.primarySourceIds).toEqual(['doc-1']);
   });
 
-  it('zachowuje pytanie użytkownika bez przedstawiania wniosku AI jako źródła', () => {
-    const answer = buildBankingKnowledgeAnswer({
-      deal,
-      bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
-      documents: [],
-      allowedDriveFolderIds: new Set(),
-      question: 'Co mam zrobić dalej z dokumentami?',
-    });
-    expect(answer.question).toBe('Co mam zrobić dalej z dokumentami?');
-    expect(answer.primarySourceIds).not.toContain('ai-deal-1');
-    expect(
-      answer.sources.find((source) => source.type === 'ai_inference')?.quality
-    ).toBe('WNIOSEK AI');
-  });
-
-  it('rozpoznaje produkcyjną etykietę ML — HIPOTEKA i rekomenduje krok do wniosku', () => {
-    const answer = buildBankingKnowledgeAnswer({
-      deal: {
-        ...deal,
-        product_type: 'ML — HIPOTEKA',
-        next_action: null,
-        next_action_at: null,
-        stage: { name: '5. WNIOSKI / DECYZJA' },
-      },
-      bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
-      documents: [],
-      allowedDriveFolderIds: new Set(),
-    });
-
-    expect(answer.quality).toBe('CZĘŚCIOWE');
-    expect(answer.primarySourceIds).toContain('mbank-mortgage-documents');
-    expect(answer.recommendedNextAction).toContain(
-      'zweryfikuj komplet dokumentów do wniosku mBank'
-    );
-    expect(answer.missing).toContain('następny krok');
-  });
-
-  it('czyści pustą konfigurację folderów i rozdziela przecinki', () => {
+  it('czyści konfigurację allowlisty', () => {
     expect([...parseAllowedDriveFolderIds(' folder-a,folder-b, ,')]).toEqual([
       'folder-a',
       'folder-b',

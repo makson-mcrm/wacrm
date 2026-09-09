@@ -4,10 +4,11 @@ import {
   buildBankingKnowledgeAnswer,
   parseAllowedDriveFolderIds,
   type DealKnowledgeRow,
+  type IndexedKnowledgeChunk,
   type KnowledgeDocumentMetadata,
 } from '@/lib/banking-knowledge/foundation';
 
-const RELEASE = 'm4-knowledge-v5-mortgage-routing';
+const RELEASE = 'm4-knowledge-v6-source-first';
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
   'X-mCRM-Knowledge-Version': RELEASE,
@@ -59,6 +60,19 @@ async function loadAnswer(
     throw processesResult.error || documentsResult.error;
   }
 
+  const documents = (documentsResult.data ?? []) as KnowledgeDocumentMetadata[];
+  const documentIds = documents.map((document) => document.id);
+  const chunksResult = documentIds.length
+    ? await supabase
+        .from('ai_knowledge_chunks')
+        .select('document_id,content,chunk_index')
+        .eq('account_id', accountId)
+        .in('document_id', documentIds)
+        .order('chunk_index', { ascending: true })
+        .limit(100)
+    : { data: [], error: null };
+  if (chunksResult.error) throw chunksResult.error;
+
   return buildBankingKnowledgeAnswer({
     deal: {
       ...dealResult.data,
@@ -73,7 +87,8 @@ async function loadAnswer(
         : dealResult.data.stage,
     } as DealKnowledgeRow,
     bankProcesses: processesResult.data ?? [],
-    documents: (documentsResult.data ?? []) as KnowledgeDocumentMetadata[],
+    documents,
+    indexedChunks: (chunksResult.data ?? []) as IndexedKnowledgeChunk[],
     allowedDriveFolderIds: parseAllowedDriveFolderIds(
       process.env.BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS
     ),
