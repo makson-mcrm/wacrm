@@ -8,7 +8,7 @@ const diff = execFileSync(
 );
 
 const destructive =
-  /\b(drop\s+table|drop\s+schema|truncate|delete\s+from|alter\s+table\b[^;]*\bdrop\s+column)\b/i;
+  /\b(drop\s+table|drop\s+schema|truncate\s+(?:table\s+)?["a-z_]|delete\s+from|alter\s+table\b[^;]*\bdrop\s+column)\b/i;
 const approval = /DATA-SAFETY:\s*BACKUP-VERIFIED/i;
 const added = diff
   .split('\n')

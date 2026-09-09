@@ -16,6 +16,7 @@
 
 import { NextResponse } from 'next/server';
 import type { RateLimitResult } from '@/lib/rate-limit';
+import { safeErrorTelemetry } from '@/lib/security/safe-error';
 
 export type ApiErrorCode =
   | 'unauthorized' // missing / malformed / unknown / revoked / expired key
@@ -125,7 +126,7 @@ export function toApiErrorResponse(err: unknown): NextResponse {
       { status: err.status, headers: err.headers }
     );
   }
-  console.error('[api/v1] uncategorized error:', err);
+  console.error('[api/v1] uncategorized error', safeErrorTelemetry(err));
   return NextResponse.json(
     { error: { code: 'internal', message: 'Internal server error' } },
     { status: 500 }
