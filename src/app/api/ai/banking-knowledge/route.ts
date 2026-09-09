@@ -8,7 +8,7 @@ import {
 } from '@/lib/banking-knowledge/foundation';
 import { loadDriveKnowledgeConfig } from '@/lib/banking-knowledge/google-drive';
 
-const RELEASE = 'm4-knowledge-v6-source-first';
+const RELEASE = 'm4-knowledge-v8-source-first-e2e';
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
   'X-mCRM-Knowledge-Version': RELEASE,
