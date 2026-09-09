@@ -17,7 +17,7 @@ import {
 } from '@/lib/banking-knowledge/google-drive';
 
 export const runtime = 'nodejs';
-const RELEASE = 'm4-knowledge-v3-drive';
+const RELEASE = 'm4-knowledge-v4-controlled-index';
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store',
   'X-mCRM-Knowledge-Version': RELEASE,
