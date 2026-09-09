@@ -1,5 +1,5 @@
 export type BankingKnowledgeQuality =
-  'POTWIERDZONE ZE ŹRÓDŁA' | 'CZĘŚCIOWE' | 'WNIOSEK AI' | 'WYMAGA WERYFIKACJI';
+  'POTWIERDZONE' | 'CZĘŚCIOWE' | 'WNIOSEK AI' | 'WYMAGA WERYFIKACJI';
 
 export type BankingKnowledgeSourceType =
   'internal_drive' | 'official_bank' | 'ai_inference';
@@ -24,6 +24,7 @@ export type DealKnowledgeContext = {
   bankStatus: string | null;
   stage: string | null;
   nextAction: string | null;
+  nextActionAt: string | null;
   contact: string | null;
   company: string | null;
 };
@@ -43,12 +44,17 @@ export type BankingKnowledgeSource = {
 
 export type BankingKnowledgeAnswer = {
   supported: boolean;
+  question: string;
   context: DealKnowledgeContext;
   quality: BankingKnowledgeQuality;
   summary: string;
   why: string;
   steps: string[];
   sources: BankingKnowledgeSource[];
+  primarySourceIds: string[];
+  internalSourceAvailable: boolean;
+  recommendedNextAction: string;
+  recommendedNextActionAt: string | null;
   missing: string[];
 };
 
@@ -57,6 +63,7 @@ export type DealKnowledgeRow = {
   title: string;
   product_type?: string | null;
   next_action?: string | null;
+  next_action_at?: string | null;
   mandatory_bank?: string | null;
   preferred_bank?: string | null;
   contact?: { name?: string | null } | null;
@@ -240,7 +247,7 @@ function internalDriveSources(
         version,
         quality:
           document.source_version || document.effective_date
-            ? 'POTWIERDZONE ZE ŹRÓDŁA'
+            ? 'POTWIERDZONE'
             : 'CZĘŚCIOWE',
         note: 'Prywatne źródło z dozwolonego folderu; bez publicznego linku.',
       },
@@ -277,8 +284,11 @@ export function buildBankingKnowledgeAnswer(args: {
   bankProcesses: BankProcessRow[];
   documents: KnowledgeDocumentMetadata[];
   allowedDriveFolderIds: ReadonlySet<string>;
+  question?: string | null;
 }): BankingKnowledgeAnswer {
   const { deal, bankProcesses, documents, allowedDriveFolderIds } = args;
+  const question =
+    args.question?.trim().slice(0, 500) || 'Co mam zrobić dalej?';
   const selected = chooseSupportedBankProcess(deal, bankProcesses);
   const process = selected?.process;
   const bank = selected?.bank;
@@ -292,6 +302,7 @@ export function buildBankingKnowledgeAnswer(args: {
     bankStatus: process?.status || null,
     stage: deal.stage?.name || null,
     nextAction: deal.next_action || null,
+    nextActionAt: deal.next_action_at || null,
     contact: deal.contact?.name || null,
     company: deal.company?.name || null,
   };
@@ -304,6 +315,7 @@ export function buildBankingKnowledgeAnswer(args: {
   if (!process || !bank) {
     return {
       supported: false,
+      question,
       context,
       quality: 'WYMAGA WERYFIKACJI',
       summary: 'Najpierw wskaż mBank w procesie bankowym tego Deala.',
@@ -314,6 +326,11 @@ export function buildBankingKnowledgeAnswer(args: {
         'Uzupełnij produkt oraz następny krok i wróć do Wiedzy Bankowej.',
       ],
       sources: [],
+      primarySourceIds: [],
+      internalSourceAvailable: false,
+      recommendedNextAction:
+        context.nextAction || 'Ustal i zapisz jeden następny krok.',
+      recommendedNextActionAt: context.nextActionAt,
       missing,
     };
   }
@@ -329,7 +346,7 @@ export function buildBankingKnowledgeAnswer(args: {
       version: source.version,
       publicUrl: source.publicUrl,
       note: source.note,
-      quality: 'POTWIERDZONE ZE ŹRÓDŁA',
+      quality: 'POTWIERDZONE',
       facts: source.facts,
     }));
   const internalSources = internalDriveSources(
@@ -363,21 +380,32 @@ export function buildBankingKnowledgeAnswer(args: {
   const quality: BankingKnowledgeQuality = missing.length
     ? 'WYMAGA WERYFIKACJI'
     : internalSources.length && officialSources.length
-      ? 'POTWIERDZONE ZE ŹRÓDŁA'
+      ? 'POTWIERDZONE'
       : officialSources.length
         ? 'CZĘŚCIOWE'
         : 'WNIOSEK AI';
 
   return {
     supported: true,
+    question,
     context,
     quality,
     summary: `Następny krok: ${nextAction}.`,
     why: `Wynika z aktualnego etapu „${context.stage || 'nieustalony'}” i następnego działania zapisanego w tym Dealu.`,
     steps,
     sources: [...internalSources, ...officialSources, inference],
+    primarySourceIds: (internalSources.length
+      ? internalSources
+      : officialSources.length
+        ? officialSources
+        : [inference]
+    ).map((source) => source.id),
+    internalSourceAvailable: internalSources.length > 0,
+    recommendedNextAction: nextAction,
+    recommendedNextActionAt: context.nextActionAt,
     missing,
   };
 }
 
 export const supportedBankKeys = BANK_REGISTRY.map((bank) => bank.key);
+

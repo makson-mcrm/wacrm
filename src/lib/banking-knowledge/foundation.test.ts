@@ -9,6 +9,7 @@ const deal = {
   title: 'Zakup mieszkania',
   product_type: 'Kredyt hipoteczny',
   next_action: 'Skompletować dokumenty dochodowe',
+  next_action_at: '2026-09-10T08:00:00.000Z',
   contact: { name: 'Jan Kowalski' },
   company: null,
   stage: { name: 'Kompletowanie dokumentów' },
@@ -50,12 +51,18 @@ describe('Wiedza Bankowa — fundament mBank', () => {
       (source) => source.type === 'official_bank'
     );
     expect(official).toMatchObject({
-      quality: 'POTWIERDZONE ZE ŹRÓDŁA',
+      quality: 'POTWIERDZONE',
       bank: 'mBank',
     });
     expect(official?.publicUrl).toMatch(/^https:\/\/www\.mbank\.pl\//);
     expect(official?.facts?.length).toBeGreaterThan(0);
     expect(answer.quality).toBe('CZĘŚCIOWE');
+    expect(answer.recommendedNextAction).toBe(
+      'Skompletować dokumenty dochodowe'
+    );
+    expect(answer.recommendedNextActionAt).toBe('2026-09-10T08:00:00.000Z');
+    expect(answer.internalSourceAvailable).toBe(false);
+    expect(answer.primarySourceIds).toContain('mbank-mortgage-documents');
   });
 
   it('nie podstawia wiedzy mBanku do nieobsługiwanego banku', () => {
@@ -100,10 +107,27 @@ describe('Wiedza Bankowa — fundament mBank', () => {
       (source) => source.type === 'internal_drive'
     );
     expect(internal).toMatchObject({
-      quality: 'POTWIERDZONE ZE ŹRÓDŁA',
+      quality: 'POTWIERDZONE',
     });
     expect(internal).not.toHaveProperty('publicUrl');
-    expect(allowed.quality).toBe('POTWIERDZONE ZE ŹRÓDŁA');
+    expect(allowed.quality).toBe('POTWIERDZONE');
+    expect(allowed.internalSourceAvailable).toBe(true);
+    expect(allowed.primarySourceIds).toEqual(['doc-1']);
+  });
+
+  it('zachowuje pytanie użytkownika bez przedstawiania wniosku AI jako źródła', () => {
+    const answer = buildBankingKnowledgeAnswer({
+      deal,
+      bankProcesses: [{ bank_name: 'mBank', status: 'analiza' }],
+      documents: [],
+      allowedDriveFolderIds: new Set(),
+      question: 'Co mam zrobić dalej z dokumentami?',
+    });
+    expect(answer.question).toBe('Co mam zrobić dalej z dokumentami?');
+    expect(answer.primarySourceIds).not.toContain('ai-deal-1');
+    expect(
+      answer.sources.find((source) => source.type === 'ai_inference')?.quality
+    ).toBe('WNIOSEK AI');
   });
 
   it('czyści pustą konfigurację folderów i rozdziela przecinki', () => {
@@ -113,3 +137,4 @@ describe('Wiedza Bankowa — fundament mBank', () => {
     ]);
   });
 });
+

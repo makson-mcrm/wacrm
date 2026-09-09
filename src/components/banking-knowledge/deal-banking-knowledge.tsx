@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ExternalLink, Landmark, ListChecks, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import type {
   BankingKnowledgeAnswer,
   BankingKnowledgeQuality,
@@ -18,17 +21,29 @@ const SOURCE_LABELS: Record<BankingKnowledgeSourceType, string> = {
 };
 
 const QUALITY_STYLES: Record<BankingKnowledgeQuality, string> = {
-  'POTWIERDZONE ZE ŹRÓDŁA': 'bg-emerald-100 text-emerald-800',
+  POTWIERDZONE: 'bg-emerald-100 text-emerald-800',
   CZĘŚCIOWE: 'bg-amber-100 text-amber-800',
   'WNIOSEK AI': 'bg-sky-100 text-sky-800',
   'WYMAGA WERYFIKACJI': 'bg-rose-100 text-rose-800',
 };
 
 export function DealBankingKnowledge({ dealId }: { dealId: string }) {
+  const router = useRouter();
   const [answer, setAnswer] = useState<BankingKnowledgeAnswer | null>(null);
   const [mode, setMode] = useState<Mode>('answer');
+  const [question, setQuestion] = useState('Co mam zrobić dalej?');
+  const [nextAction, setNextAction] = useState('');
+  const [nextActionAt, setNextActionAt] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [savedMessage, setSavedMessage] = useState('');
+
+  function applyAnswer(value: BankingKnowledgeAnswer) {
+    setAnswer(value);
+    setNextAction(value.recommendedNextAction);
+    setNextActionAt(toLocalDateTime(value.recommendedNextActionAt));
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -50,6 +65,8 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
           );
         }
         setAnswer(body);
+        setNextAction(body.recommendedNextAction);
+        setNextActionAt(toLocalDateTime(body.recommendedNextActionAt));
       } catch (loadError) {
         if (controller.signal.aborted) return;
         setError(
@@ -65,12 +82,96 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
     return () => controller.abort();
   }, [dealId]);
 
+  async function ask() {
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    setError('');
+    setSavedMessage('');
+    try {
+      const response = await fetch('/api/ai/banking-knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deal_id: dealId, question: trimmed }),
+      });
+      const body = (await response.json().catch(() => ({}))) as
+        BankingKnowledgeAnswer | { error?: string };
+      if (!response.ok || !('context' in body)) {
+        throw new Error(
+          'error' in body && body.error
+            ? body.error
+            : 'Nie udało się przygotować odpowiedzi.'
+        );
+      }
+      applyAnswer(body);
+      setMode('answer');
+    } catch (askError) {
+      setError(
+        askError instanceof Error
+          ? askError.message
+          : 'Nie udało się przygotować odpowiedzi.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveNextAction() {
+    if (!answer || !nextAction.trim()) return;
+    setSaving(true);
+    setError('');
+    setSavedMessage('');
+    try {
+      const response = await fetch('/api/ai/banking-knowledge', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deal_id: dealId,
+          next_action: nextAction.trim(),
+          next_action_at: nextActionAt
+            ? new Date(nextActionAt).toISOString()
+            : null,
+          expected_next_action: answer.context.nextAction,
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        next_action?: string | null;
+        next_action_at?: string | null;
+      };
+      if (!response.ok || !body.next_action) {
+        throw new Error(body.error || 'Nie udało się zapisać next action.');
+      }
+      setAnswer({
+        ...answer,
+        context: {
+          ...answer.context,
+          nextAction: body.next_action,
+          nextActionAt: body.next_action_at || null,
+        },
+        recommendedNextAction: body.next_action,
+        recommendedNextActionAt: body.next_action_at || null,
+      });
+      setNextActionAt(toLocalDateTime(body.next_action_at));
+      setSavedMessage('Next action i termin zapisane w tym Dealu.');
+      router.refresh();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Nie udało się zapisać next action.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <p className="text-muted-foreground text-sm">Dobieram wiedzę do Deala…</p>
     );
   }
-  if (error || !answer) {
+  if (!answer) {
     return (
       <div className="border-destructive/30 bg-destructive/5 rounded-lg border p-4 text-sm">
         {error || 'Brak odpowiedzi.'}
@@ -104,12 +205,26 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         </div>
       </section>
 
+      <section className="space-y-2 rounded-xl border p-4">
+        <label htmlFor="banking-question" className="text-sm font-semibold">
+          Pytanie w kontekście tego Deala
+        </label>
+        <Textarea
+          id="banking-question"
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder="Np. co mam zrobić dalej?"
+        />
+      </section>
+
       <div className="grid gap-2 sm:grid-cols-2">
         <Button
           size="lg"
           variant={mode === 'answer' ? 'default' : 'outline'}
           className="h-auto min-h-11 py-3 text-center whitespace-normal"
-          onClick={() => setMode('answer')}
+          onClick={() => void ask()}
         >
           <ShieldCheck className="size-4" /> JAK WYKONAĆ NASTĘPNY KROK?
         </Button>
@@ -123,17 +238,47 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         </Button>
       </div>
 
+      {error ? (
+        <p className="border-destructive/30 bg-destructive/5 rounded-lg border p-3 text-sm text-rose-700">
+          {error}
+        </p>
+      ) : null}
+
       <section className="rounded-xl border p-4">
         {mode === 'answer' ? (
-          <>
-            <p className="font-semibold">{answer.summary}</p>
-            <p className="text-muted-foreground mt-2 text-sm">{answer.why}</p>
-            {answer.missing.length > 0 ? (
-              <p className="mt-3 text-sm text-rose-700">
-                Do uzupełnienia: {answer.missing.join(', ')}.
+          <dl className="grid gap-3 text-sm">
+            <AnswerRow label="CO ZROBIĆ" value={answer.summary} />
+            <AnswerRow
+              label="CZEGO BRAKUJE"
+              value={
+                answer.missing.length
+                  ? answer.missing.join(', ')
+                  : 'Brak krytycznych braków w kontekście Deala.'
+              }
+            />
+            <AnswerRow
+              label="ŹRÓDŁO"
+              value={answer.sources
+                .filter((source) => answer.primarySourceIds.includes(source.id))
+                .map((source) => source.label)
+                .join(' · ')}
+            />
+            <div>
+              <dt className="text-muted-foreground text-[10px] font-semibold">
+                POZIOM PEWNOŚCI
+              </dt>
+              <dd className="mt-1">
+                <Quality value={answer.quality} />
+              </dd>
+            </div>
+            {!answer.internalSourceAvailable ? (
+              <p className="rounded-lg border border-dashed p-3 text-xs text-amber-800">
+                Zatwierdzone źródło wewnętrzne Drive nie było dostępne.
+                Odpowiedź korzysta wyłącznie z oficjalnych źródeł mBanku i
+                wyraźnie oznaczonego wniosku operacyjnego.
               </p>
             ) : null}
-          </>
+          </dl>
         ) : (
           <ol className="space-y-3">
             {answer.steps.map((step, index) => (
@@ -146,6 +291,40 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
             ))}
           </ol>
         )}
+      </section>
+
+      <section className="border-primary/20 space-y-3 rounded-xl border p-4">
+        <div>
+          <h3 className="font-semibold">Sugerowany następny krok</h3>
+          <p className="text-muted-foreground text-xs">
+            Zapis aktualizuje istniejące pola Deala — nie tworzy drugiej listy
+            zadań.
+          </p>
+        </div>
+        <Textarea
+          value={nextAction}
+          onChange={(event) => setNextAction(event.target.value)}
+          maxLength={500}
+          rows={2}
+          aria-label="Sugerowany następny krok"
+        />
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="datetime-local"
+            value={nextActionAt}
+            onChange={(event) => setNextActionAt(event.target.value)}
+            aria-label="Termin następnego kroku"
+          />
+          <Button
+            onClick={() => void saveNextAction()}
+            disabled={saving || !nextAction.trim()}
+          >
+            {saving ? 'Zapisuję…' : 'ZAPISZ NEXT ACTION'}
+          </Button>
+        </div>
+        {savedMessage ? (
+          <p className="text-sm font-medium text-emerald-700">{savedMessage}</p>
+        ) : null}
       </section>
 
       <section className="space-y-3 rounded-xl border p-4">
@@ -177,7 +356,11 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
                     {sources.map((source) => (
                       <article
                         key={source.id}
-                        className="rounded-lg border p-3 text-sm"
+                        className={`rounded-lg border p-3 text-sm ${
+                          answer.primarySourceIds.includes(source.id)
+                            ? 'border-primary/40 bg-primary/5'
+                            : ''
+                        }`}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
@@ -248,3 +431,23 @@ function Context({ label, value }: { label: string; value: string | null }) {
     </div>
   );
 }
+
+function AnswerRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground text-[10px] font-semibold">
+        {label}
+      </dt>
+      <dd className="mt-1 font-medium">{value || '—'}</dd>
+    </div>
+  );
+}
+
+function toLocalDateTime(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+

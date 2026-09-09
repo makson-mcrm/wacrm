@@ -58,7 +58,9 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(voice).toContain("instance.lang = 'pl-PL'");
     expect(voice).toContain('MediaRecorder');
     expect(voice).toContain("fetch('/api/ai/transcribe'");
-    expect(voice).toContain('onChange={(event) => onChange(event.target.value)}');
+    expect(voice).toContain(
+      'onChange={(event) => onChange(event.target.value)}'
+    );
     expect(transcription).toContain("body.append('language', 'pl')");
     expect(transcription).toContain("requireRole('agent')");
     for (const path of [
@@ -87,6 +89,21 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(hardening).toContain('SET search_path = public');
   });
 
+  it('M4 zapisuje zaakceptowany krok w istniejących polach Deala', () => {
+    const route = source('src/app/api/ai/banking-knowledge/route.ts');
+    const view = source(
+      'src/components/banking-knowledge/deal-banking-knowledge.tsx'
+    );
+    expect(route).toContain('export async function POST');
+    expect(route).toContain('export async function PATCH');
+    expect(route).toContain(
+      '.update({ next_action: nextAction, next_action_at: nextActionAt })'
+    );
+    expect(route).toContain(".eq('account_id', accountId)");
+    expect(view).toContain('Co mam zrobić dalej?');
+    expect(view).toContain('ZAPISZ NEXT ACTION');
+  });
+
   it('kalendarz wewnętrzny łączy aktywności, kolejkę i rezerwacje bez duplikowania terminów', () => {
     const calendar = source('src/app/(dashboard)/calendar/page.tsx');
     expect(calendar).toContain("from('sales_activities')");
@@ -99,7 +116,9 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
       'syncGoogleCalendar'
     );
     expect(source('src/lib/google-calendar/sync.ts')).toContain('sync_token');
-    expect(source('src/lib/google-calendar/sync.ts')).toContain("method: 'DELETE'");
+    expect(source('src/lib/google-calendar/sync.ts')).toContain(
+      "method: 'DELETE'"
+    );
     expect(
       source('supabase/migrations/050_public_booking_calendar.sql')
     ).toContain('public_booking_submissions');
@@ -153,5 +172,4 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 });
-
 
