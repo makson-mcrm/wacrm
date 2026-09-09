@@ -81,6 +81,25 @@ describe('M4 — źródła i pewność', () => {
     ).toBe('WNIOSEK AI');
   });
 
+  it('po terminie przeglądu nie oznacza źródła jako aktualnego ani potwierdzonego', () => {
+    const result = answer({
+      question: 'Jakich dokumentów brakuje?',
+      now: new Date('2027-01-01T10:00:00.000Z'),
+    });
+    const official = result.sources.filter(
+      (source) => source.type === 'official_bank'
+    );
+    expect(official.length).toBeGreaterThan(0);
+    expect(
+      official.every(
+        (source) =>
+          source.freshness === 'requires_review' &&
+          source.quality === 'WYMAGA WERYFIKACJI'
+      )
+    ).toBe(true);
+    expect(result.quality).toBe('WYMAGA WERYFIKACJI');
+  });
+
   it('nie podstawia wiedzy mBanku do nieobsługiwanego banku', () => {
     const result = answer({ bankProcesses: [{ bank_name: 'ING' }] });
     expect(result.supported).toBe(false);
@@ -90,13 +109,35 @@ describe('M4 — źródła i pewność', () => {
 
   it('nie obsługuje niezdefiniowanego produktu', () => {
     const result = answer({
-      deal: { ...deal, product_type: 'Kredyt firmowy' },
+      deal: { ...deal, product_type: 'Leasing konsumencki' },
       bankProcesses: [
-        { bank_name: 'mBank', product_variant: 'Kredyt firmowy' },
+        { bank_name: 'mBank', product_variant: 'Leasing konsumencki' },
       ],
     });
     expect(result.supported).toBe(false);
     expect(result.quality).toBe('WYMAGA WERYFIKACJI');
+  });
+
+  it('obsługuje mBank FIRMA na zatwierdzonym źródle publicznym', () => {
+    const result = answer({
+      deal: { ...deal, product_type: 'Kredyt firmowy' },
+      bankProcesses: [
+        { bank_name: 'mBank', product_variant: 'Kredyt firmowy' },
+      ],
+      question: 'Jakich dokumentów brakuje do kredytu firmy?',
+    });
+    expect(result.supported).toBe(true);
+    expect(result.problem).toBe('documents');
+    expect(result.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'mbank-business-credit-documents',
+          product: 'Kredyt firmowy',
+          quality: 'POTWIERDZONE',
+        }),
+      ])
+    );
+    expect(result.quality).toBe('CZĘŚCIOWE');
   });
 });
 
@@ -106,7 +147,7 @@ describe('M4 — Zero Trust Google Drive', () => {
     title: 'Instrukcja dokumentów mBank hipoteczny',
     bank: 'mBank',
     product: 'ML — HIPOTEKA',
-    document_type: 'google_drive_internal',
+    document_type: 'google_drive_internal:mortgage:documents',
     source_name: 'gdrive://allowed-folder/file-1',
     source_version: '2026-09',
   };
@@ -147,12 +188,28 @@ describe('M4 — Zero Trust Google Drive', () => {
       (source) => source.type === 'internal_drive'
     );
     expect(internal).toMatchObject({
-      quality: 'POTWIERDZONE',
+      quality: 'CZĘŚCIOWE',
       confidentiality: 'internal',
     });
     expect(internal).not.toHaveProperty('publicUrl');
     expect(result.internalSourceAvailable).toBe(true);
     expect(result.primarySourceIds).toEqual(['doc-1']);
+  });
+
+  it('nie używa fragmentu poza dziedziną zatwierdzoną dla korzenia', () => {
+    const result = answer({
+      documents: [document],
+      indexedChunks: [
+        {
+          document_id: 'doc-1',
+          chunk_index: 0,
+          content: 'Uruchomienie kredytu wymaga dodatkowej kontroli.',
+        },
+      ],
+      allowedDriveFolderIds: new Set(['allowed-folder']),
+      question: 'Jak uruchomić kredyt?',
+    });
+    expect(result.internalSourceAvailable).toBe(false);
   });
 
   it('czyści konfigurację allowlisty', () => {

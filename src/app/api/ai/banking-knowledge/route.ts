@@ -50,7 +50,8 @@ async function loadAnswer(
       .select(
         'id,title,bank,product,document_type,source_name,source_version,effective_date,updated_at'
       )
-      .eq('account_id', accountId),
+      .eq('account_id', accountId)
+      .like('document_type', 'google_drive_internal%'),
   ]);
 
   if (dealResult.error || !dealResult.data) {

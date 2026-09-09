@@ -116,6 +116,8 @@ type BankDefinition = {
 };
 
 const DRIVE_SOURCE_PATTERN = /^gdrive:\/\/([^/]+)\/([^/]+)$/i;
+const DRIVE_DOCUMENT_TYPE_PATTERN =
+  /^google_drive_internal:(mortgage|business):([a-z+]+)$/i;
 
 const BANK_REGISTRY: BankDefinition[] = [
   {
@@ -174,6 +176,24 @@ function productMatches(
   );
 }
 
+function routedDriveDomains(documentType: string | null | undefined) {
+  const match = documentType?.match(DRIVE_DOCUMENT_TYPE_PATTERN);
+  if (!match) return null;
+  const domains = match[2]
+    .split('+')
+    .filter(
+      (domain): domain is BankingKnowledgeProblem =>
+        domain === 'documents' ||
+        domain === 'application' ||
+        domain === 'decision' ||
+        domain === 'activation'
+    );
+  return {
+    product: match[1] as Exclude<ProductRoute, 'generic'>,
+    domains,
+  };
+}
+
 export function routeBankingKnowledgeProblem(args: {
   question?: string | null;
   nextAction?: string | null;
@@ -220,10 +240,14 @@ function buildInternalDriveSources(args: {
   }
 
   return args.documents.flatMap<BankingKnowledgeSource>((document) => {
+    const routedMetadata = routedDriveDomains(document.document_type);
     if (
       findSupportedBank(document.bank)?.key !== args.bank.key ||
       !productMatches(document.product, args.dealProduct) ||
-      !/(drive|wewn|internal)/.test(normalize(document.document_type))
+      !/(drive|wewn|internal)/.test(normalize(document.document_type)) ||
+      (routedMetadata &&
+        (!routedMetadata.domains.includes(args.problem) ||
+          routedMetadata.product !== productRoute(args.dealProduct)))
     ) {
       return [];
     }
@@ -247,9 +271,6 @@ function buildInternalDriveSources(args: {
       document.effective_date ||
       document.updated_at?.slice(0, 10) ||
       'brak wersji';
-    const hasDatedVersion = Boolean(
-      document.source_version || document.effective_date
-    );
     const excerpt = relevantChunk.content.trim().slice(0, 320);
 
     return [
@@ -265,9 +286,9 @@ function buildInternalDriveSources(args: {
         effectiveDate: document.effective_date || null,
         verifiedAt: document.updated_at?.slice(0, 10) || null,
         confidentiality: 'internal',
-        freshness: hasDatedVersion ? 'current' : 'requires_review',
-        quality: hasDatedVersion ? 'POTWIERDZONE' : 'CZĘŚCIOWE',
-        note: 'Prywatne źródło z dozwolonego folderu, faktycznie obecne w indeksie; bez publicznego linku.',
+        freshness: document.effective_date ? 'current' : 'requires_review',
+        quality: 'CZĘŚCIOWE',
+        note: 'Prywatne źródło z zatwierdzonego korzenia, faktycznie obecne w izolowanym indeksie; fragment wymaga oceny doradcy.',
         facts: [excerpt],
       },
     ];
@@ -346,7 +367,7 @@ function officialSource(
     confidentiality: definition.confidentiality,
     freshness,
     quality:
-      freshness === 'requires_review'
+      freshness === 'requires_review' || claims.length === 0
         ? 'WYMAGA WERYFIKACJI'
         : claims.every((claim) => claim.quality === 'POTWIERDZONE')
           ? 'POTWIERDZONE'
@@ -384,7 +405,10 @@ function failClosedAnswer(args: {
   };
 }
 
-function fallbackNextAction(problem: BankingKnowledgeProblem) {
+function fallbackNextAction(
+  problem: BankingKnowledgeProblem,
+  route: Exclude<ProductRoute, 'generic'>
+) {
   switch (problem) {
     case 'application':
       return 'Zweryfikuj komplet dokumentów i status przygotowania wniosku w systemie bankowym.';
@@ -393,7 +417,9 @@ function fallbackNextAction(problem: BankingKnowledgeProblem) {
     case 'activation':
       return 'Zweryfikuj warunki uruchomienia bezpośrednio w systemie bankowym przed wykonaniem kroku.';
     default:
-      return 'Otwórz oficjalną listę dokumentów mBanku, ustal braki dla klienta i zapisz je w Dealu.';
+      return route === 'business'
+        ? 'Otwórz oficjalną listę dokumentów kredytów firmowych mBanku, ustal braki i zapisz je w Dealu.'
+        : 'Otwórz oficjalną listę dokumentów mBanku, ustal braki dla klienta i zapisz je w Dealu.';
   }
 }
 
@@ -446,21 +472,22 @@ export function buildBankingKnowledgeAnswer(args: {
     });
   }
 
-  if (productRoute(product) !== 'mortgage') {
+  const selectedProductRoute = productRoute(product);
+  if (selectedProductRoute === 'generic') {
     return failClosedAnswer({
       question,
       problem,
       context,
       missing,
-      summary: 'Pierwszy pakiet M4 obsługuje wyłącznie mBank ML/HIPOTEKA.',
-      why: 'Dla innego produktu katalog źródeł nie został jeszcze zatwierdzony.',
+      summary: 'Ten produkt nie ma jeszcze zatwierdzonego katalog źródeł M4.',
+      why: 'Silnik działa tylko dla jawnie obsługiwanych produktów.',
     });
   }
 
   const now = args.now ?? new Date();
   const officialSources = MBANK_SOURCE_CATALOG.filter(
     (source) =>
-      source.productRoute === 'mortgage' &&
+      source.productRoute === selectedProductRoute &&
       (source.domains as readonly BankingKnowledgeProblem[]).includes(problem)
   ).map((source) => officialSource(source, problem, now));
   const internalSources = buildInternalDriveSources({
@@ -489,7 +516,7 @@ export function buildBankingKnowledgeAnswer(args: {
   };
 
   const recommendedNextAction =
-    context.nextAction || fallbackNextAction(problem);
+    context.nextAction || fallbackNextAction(problem, selectedProductRoute);
   const inferenceSource: BankingKnowledgeSource | null = context.nextAction
     ? null
     : {

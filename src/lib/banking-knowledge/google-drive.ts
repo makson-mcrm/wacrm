@@ -1,5 +1,9 @@
 import { createSign } from 'node:crypto';
 import { parseAllowedDriveFolderIds, supportedBankKeys } from './foundation';
+import type {
+  BankingKnowledgeProblem,
+  BankingKnowledgeProductRoute,
+} from './source-catalog';
 
 export const DRIVE_READONLY_SCOPE =
   'https://www.googleapis.com/auth/drive.readonly';
@@ -17,8 +21,17 @@ const DOWNLOADABLE_MIME_TYPES = new Set([
 
 export type DriveKnowledgeConfig = {
   allowedFolderIds: ReadonlySet<string>;
+  approvedRoots: readonly DriveKnowledgeRoot[];
   serviceAccountEmail: string | null;
   serviceAccountPrivateKey: string | null;
+};
+
+export type DriveKnowledgeRoot = {
+  folderId: string;
+  bank: 'mbank';
+  product: string;
+  productRoute: BankingKnowledgeProductRoute;
+  domains: readonly BankingKnowledgeProblem[];
 };
 
 export type DriveKnowledgeFile = {
@@ -84,12 +97,76 @@ function isSupportedMimeType(mimeType: string) {
   );
 }
 
+const KNOWLEDGE_PROBLEMS = new Set<BankingKnowledgeProblem>([
+  'documents',
+  'application',
+  'decision',
+  'activation',
+]);
+
+export function parseApprovedDriveRoots(
+  value: string | undefined,
+  allowedFolderIds: ReadonlySet<string>
+): DriveKnowledgeRoot[] {
+  if (!value?.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('INVALID_ROOT_CONFIG');
+  }
+  if (!Array.isArray(parsed)) throw new Error('INVALID_ROOT_CONFIG');
+
+  const seen = new Set<string>();
+  return parsed.map((item) => {
+    if (!item || typeof item !== 'object')
+      throw new Error('INVALID_ROOT_CONFIG');
+    const candidate = item as Record<string, unknown>;
+    const folderId =
+      typeof candidate.folderId === 'string' ? candidate.folderId.trim() : '';
+    const bank =
+      typeof candidate.bank === 'string'
+        ? candidate.bank.trim().toLocaleLowerCase('pl-PL')
+        : '';
+    const product =
+      typeof candidate.product === 'string' ? candidate.product.trim() : '';
+    const productRoute = candidate.productRoute;
+    const domains = Array.isArray(candidate.domains)
+      ? candidate.domains.filter(
+          (domain): domain is BankingKnowledgeProblem =>
+            typeof domain === 'string' &&
+            KNOWLEDGE_PROBLEMS.has(domain as BankingKnowledgeProblem)
+        )
+      : [];
+    if (
+      !isValidDriveId(folderId) ||
+      !allowedFolderIds.has(folderId) ||
+      bank !== 'mbank' ||
+      !product ||
+      product.length > 160 ||
+      (productRoute !== 'mortgage' && productRoute !== 'business') ||
+      domains.length === 0 ||
+      domains.length !== (candidate.domains as unknown[])?.length ||
+      seen.has(folderId)
+    ) {
+      throw new Error('INVALID_ROOT_CONFIG');
+    }
+    seen.add(folderId);
+    return { folderId, bank, product, productRoute, domains };
+  });
+}
+
 export function loadDriveKnowledgeConfig(
   env: NodeJS.ProcessEnv = process.env
 ): DriveKnowledgeConfig {
+  const allowedFolderIds = parseAllowedDriveFolderIds(
+    env.BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS
+  );
   return {
-    allowedFolderIds: parseAllowedDriveFolderIds(
-      env.BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS
+    allowedFolderIds,
+    approvedRoots: parseApprovedDriveRoots(
+      env.BANKING_KNOWLEDGE_DRIVE_ROOTS_JSON,
+      allowedFolderIds
     ),
     serviceAccountEmail:
       env.BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() || null,
@@ -103,9 +180,10 @@ export function driveKnowledgeStatus(config: DriveKnowledgeConfig) {
     config.serviceAccountEmail && config.serviceAccountPrivateKey
   );
   return {
-    configured: credentialsConfigured && config.allowedFolderIds.size > 0,
+    configured: credentialsConfigured && config.approvedRoots.length > 0,
     credentialsConfigured,
     allowedFolderCount: config.allowedFolderIds.size,
+    approvedRootCount: config.approvedRoots.length,
     accessModel: 'service-account-viewer' as const,
     scope: DRIVE_READONLY_SCOPE,
     fileLimitPerRun: DRIVE_SYNC_LIMIT,
@@ -121,27 +199,29 @@ export function driveKnowledgeStatus(config: DriveKnowledgeConfig) {
 }
 
 export function assertDriveSyncInput(args: {
-  folderId: string;
-  bank: string;
-  product: string;
+  folderId?: string | null;
   config: DriveKnowledgeConfig;
 }) {
-  const folderId = args.folderId.trim();
-  const bank = args.bank.trim().toLocaleLowerCase('pl-PL');
-  const product = args.product.trim();
-  if (!isValidDriveId(folderId)) throw new Error('INVALID_FOLDER');
-  if (!args.config.allowedFolderIds.has(folderId)) {
+  const folderId = args.folderId?.trim() || null;
+  if (folderId && !isValidDriveId(folderId)) throw new Error('INVALID_FOLDER');
+  if (folderId && !args.config.allowedFolderIds.has(folderId))
     throw new Error('FOLDER_NOT_ALLOWLISTED');
-  }
-  if (!supportedBankKeys.includes(bank)) throw new Error('UNSUPPORTED_BANK');
-  if (!product || product.length > 160) throw new Error('INVALID_PRODUCT');
+  const roots = folderId
+    ? args.config.approvedRoots.filter((root) => root.folderId === folderId)
+    : [...args.config.approvedRoots];
+  if (folderId && roots.length === 0) throw new Error('ROOT_NOT_APPROVED');
+  if (roots.length === 0) return [];
   if (
     !args.config.serviceAccountEmail ||
     !args.config.serviceAccountPrivateKey
   ) {
     throw new Error('DRIVE_NOT_CONFIGURED');
   }
-  return { folderId, bank, product };
+  return roots;
+}
+
+export function driveDocumentType(root: DriveKnowledgeRoot) {
+  return `google_drive_internal:${root.productRoute}:${root.domains.join('+')}`;
 }
 
 export function buildDriveKnowledgePlan(

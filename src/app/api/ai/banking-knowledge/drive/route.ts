@@ -10,6 +10,7 @@ import { ingestDocument } from '@/lib/ai/knowledge';
 import {
   assertDriveSyncInput,
   downloadDriveKnowledgeFile,
+  driveDocumentType,
   driveKnowledgeStatus,
   listAllowlistedDriveFiles,
   loadDriveKnowledgeConfig,
@@ -33,11 +34,14 @@ function safeError(error: unknown) {
       status: 403,
       error: 'Folder nie jest na allowliście.',
     },
-    UNSUPPORTED_BANK: {
-      status: 400,
-      error: 'Bank nie jest jeszcze obsługiwany.',
+    ROOT_NOT_APPROVED: {
+      status: 403,
+      error: 'Folder nie ma zatwierdzonego routingu wiedzy.',
     },
-    INVALID_PRODUCT: { status: 400, error: 'Podaj produkt dla tego folderu.' },
+    INVALID_ROOT_CONFIG: {
+      status: 500,
+      error: 'Konfiguracja zatwierdzonych korzeni jest nieprawidłowa.',
+    },
     DRIVE_NOT_CONFIGURED: {
       status: 409,
       error: 'Prywatne źródła Drive nie są jeszcze skonfigurowane.',
@@ -83,18 +87,24 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
     const body = await request.json().catch(() => null);
     const config = loadDriveKnowledgeConfig();
-    const input = assertDriveSyncInput({
-      folderId: typeof body?.folder_id === 'string' ? body.folder_id : '',
-      bank: typeof body?.bank === 'string' ? body.bank : '',
-      product: typeof body?.product === 'string' ? body.product : '',
+    const roots = assertDriveSyncInput({
+      folderId: typeof body?.folder_id === 'string' ? body.folder_id : null,
       config,
     });
     const dryRun = body?.dry_run !== false;
-    const plan = await listAllowlistedDriveFiles({
-      folderId: input.folderId,
-      config,
-    });
-    const sourceNames = plan.candidates.map((file) => file.sourceName);
+    const plans = await Promise.all(
+      roots.map(async (root) => ({
+        root,
+        plan: await listAllowlistedDriveFiles({
+          folderId: root.folderId,
+          config,
+        }),
+      }))
+    );
+    const candidates = plans.flatMap(({ root, plan }) =>
+      plan.candidates.map((file) => ({ root, file }))
+    );
+    const sourceNames = candidates.map(({ file }) => file.sourceName);
     const existing = sourceNames.length
       ? await supabase
           .from('ai_knowledge_documents')
@@ -106,25 +116,42 @@ export async function POST(request: Request) {
     const bySource = new Map(
       (existing.data || []).map((row) => [row.source_name, row] as const)
     );
-    const unchanged = plan.candidates.filter(
-      (file) =>
+    const unchanged = candidates.filter(
+      ({ file }) =>
         bySource.get(file.sourceName)?.source_version === file.sourceVersion
     ).length;
+    const skipped = plans.reduce(
+      (total, { plan }) => {
+        for (const key of Object.keys(total) as Array<keyof typeof total>) {
+          total[key] += plan.skipped[key];
+        }
+        return total;
+      },
+      {
+        folder: 0,
+        unsupportedType: 0,
+        tooLarge: 0,
+        publiclyShared: 0,
+        outsideFolder: 0,
+      }
+    );
     const report = {
       dryRun,
-      examined:
-        plan.candidates.length +
-        Object.values(plan.skipped).reduce((a, b) => a + b, 0),
-      eligible: plan.candidates.length,
-      create: plan.candidates.filter((file) => !bySource.has(file.sourceName))
+      approvedRoots: roots.length,
+      emptyRoots: plans.filter(({ plan }) => plan.candidates.length === 0)
         .length,
-      update: plan.candidates.filter((file) => {
+      examined:
+        candidates.length + Object.values(skipped).reduce((a, b) => a + b, 0),
+      eligible: candidates.length,
+      create: candidates.filter(({ file }) => !bySource.has(file.sourceName))
+        .length,
+      update: candidates.filter(({ file }) => {
         const row = bySource.get(file.sourceName);
         return Boolean(row && row.source_version !== file.sourceVersion);
       }).length,
       unchanged,
-      skipped: plan.skipped,
-      truncated: plan.truncated,
+      skipped,
+      truncatedRoots: plans.filter(({ plan }) => plan.truncated).length,
       saved: 0,
       failed: 0,
     };
@@ -136,7 +163,7 @@ export async function POST(request: Request) {
       supabase,
       accountId
     );
-    for (const file of plan.candidates) {
+    for (const { root, file } of candidates) {
       const previous = bySource.get(file.sourceName);
       if (previous?.source_version === file.sourceVersion) continue;
       try {
@@ -145,8 +172,8 @@ export async function POST(request: Request) {
           title: file.name,
           content,
           bank: 'mBank',
-          product: input.product,
-          document_type: 'google_drive_internal',
+          product: root.product,
+          document_type: driveDocumentType(root),
           source_name: file.sourceName,
           source_version: file.sourceVersion,
           effective_date: file.effectiveDate,

@@ -3,6 +3,7 @@ export type BankingKnowledgeProblem =
 
 export type KnowledgeSourceConfidentiality = 'public' | 'internal';
 export type KnowledgeSourceFreshness = 'current' | 'requires_review';
+export type BankingKnowledgeProductRoute = 'mortgage' | 'business';
 
 export type CatalogClaim = {
   id: string;
@@ -15,8 +16,8 @@ export type BankSourceDefinition = {
   id: string;
   type: 'official_bank';
   bank: 'mBank';
-  product: 'Kredyt hipoteczny';
-  productRoute: 'mortgage';
+  product: string;
+  productRoute: BankingKnowledgeProductRoute;
   domains: readonly BankingKnowledgeProblem[];
   label: string;
   url: string;
@@ -84,6 +85,54 @@ export const MBANK_SOURCE_CATALOG = [
         id: 'mbank-mortgage-application-support',
         text: 'Poradnik może pomóc przygotować dokumenty do wniosku, ale nie potwierdza statusu ani następnego kroku konkretnej sprawy.',
         problems: ['application', 'decision'],
+        quality: 'CZĘŚCIOWE',
+      },
+    ],
+  },
+  {
+    id: 'mbank-business-credit-documents',
+    type: 'official_bank',
+    bank: 'mBank',
+    product: 'Kredyt firmowy',
+    productRoute: 'business',
+    domains: ['documents'],
+    label: 'mBank — kredyty i pożyczki dla firm: regulaminy i dokumenty',
+    url: 'https://www.mbank.pl/pomoc/dokumenty/firmy/kredyty/',
+    version: 'strona bieżąca',
+    effectiveDate: null,
+    verifiedAt: '2026-09-09',
+    reviewAfter: '2026-10-09',
+    confidentiality: 'public',
+    freshness: 'current',
+    claims: [
+      {
+        id: 'mbank-business-credit-document-categories',
+        text: 'Oficjalny katalog mBanku rozdziela regulaminy i dokumenty według rodzaju kredytu lub pożyczki firmowej.',
+        problems: ['documents'],
+        quality: 'POTWIERDZONE',
+      },
+    ],
+  },
+  {
+    id: 'mbank-business-credit-required-documents',
+    type: 'official_bank',
+    bank: 'mBank',
+    product: 'Kredyt firmowy',
+    productRoute: 'business',
+    domains: ['documents', 'decision'],
+    label: 'mBank — lista dokumentów do decyzji kredytowej dla firmy',
+    url: 'https://www.mbank.pl/pdf/firmy/kredyty/lista-dokumentow-potrzebnych-do-wydania-decyzji-kredytowej.pdf',
+    version: 'dokument publiczny zweryfikowany 09.09.2026',
+    effectiveDate: null,
+    verifiedAt: '2026-09-09',
+    reviewAfter: '2026-10-09',
+    confidentiality: 'public',
+    freshness: 'current',
+    claims: [
+      {
+        id: 'mbank-business-credit-required-documents-conditional',
+        text: 'Zakres dokumentów do decyzji kredytowej zależy od sytuacji firmy, między innymi formy rozliczeń, innych rachunków i celu finansowania.',
+        problems: ['documents', 'decision'],
         quality: 'CZĘŚCIOWE',
       },
     ],

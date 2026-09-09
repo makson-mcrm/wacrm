@@ -6,11 +6,21 @@ import {
   driveKnowledgeStatus,
   listAllowlistedDriveFiles,
   loadDriveKnowledgeConfig,
+  parseApprovedDriveRoots,
 } from './google-drive';
 
 const config = loadDriveKnowledgeConfig({
   NODE_ENV: 'test',
   BANKING_KNOWLEDGE_DRIVE_FOLDER_IDS: 'folder_mbank_12345',
+  BANKING_KNOWLEDGE_DRIVE_ROOTS_JSON: JSON.stringify([
+    {
+      folderId: 'folder_mbank_12345',
+      bank: 'mbank',
+      product: 'Kredyt hipoteczny',
+      productRoute: 'mortgage',
+      domains: ['documents', 'application'],
+    },
+  ]),
   BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_EMAIL:
     'reader@example.iam.gserviceaccount.com',
   BANKING_KNOWLEDGE_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:
@@ -33,11 +43,40 @@ describe('banking knowledge Google Drive Zero Trust', () => {
     expect(() =>
       assertDriveSyncInput({
         folderId: 'folder_other_12345',
-        bank: 'mbank',
-        product: 'Kredyt hipoteczny',
         config,
       })
     ).toThrow('FOLDER_NOT_ALLOWLISTED');
+  });
+
+  it('odrzuca korzeń bez drugiej zgody w allowliście', () => {
+    expect(() =>
+      parseApprovedDriveRoots(
+        JSON.stringify([
+          {
+            folderId: 'folder_other_12345',
+            bank: 'mbank',
+            product: 'Kredyt firmowy',
+            productRoute: 'business',
+            domains: ['documents'],
+          },
+        ]),
+        new Set(['folder_mbank_12345'])
+      )
+    ).toThrow('INVALID_ROOT_CONFIG');
+  });
+
+  it('pusty dozwolony folder jest prawidłowym planem bez alarmu', () => {
+    expect(buildDriveKnowledgePlan('folder_mbank_12345', [])).toEqual({
+      candidates: [],
+      skipped: {
+        folder: 0,
+        unsupportedType: 0,
+        tooLarge: 0,
+        publiclyShared: 0,
+        outsideFolder: 0,
+      },
+      truncated: false,
+    });
   });
 
   it('does not call Google before an allowlist check succeeds', async () => {
