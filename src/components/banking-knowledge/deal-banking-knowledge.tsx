@@ -261,6 +261,12 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
                   : 'Brak krytycznych braków w kontekście Deala.'
               }
             />
+            {answer.warnings.length ? (
+              <AnswerRow
+                label="OSTRZEŻENIA ŹRÓDEŁ"
+                value={answer.warnings.join(' ')}
+              />
+            ) : null}
             <AnswerRow
               label="ŹRÓDŁO"
               value={answer.sources

@@ -153,6 +153,7 @@ describe('M4 — Zero Trust Google Drive', () => {
     document_type: 'google_drive_internal:mortgage:documents',
     source_name: 'gdrive://allowed-folder/file-1',
     source_version: '2026-09',
+    effective_date: '2026-09-01',
   };
   const indexedChunks = [
     {
@@ -226,6 +227,42 @@ describe('M4 — Zero Trust Google Drive', () => {
       result.sources.find((source) => source.type === 'internal_drive')
         ?.freshness
     ).toBe('requires_review');
+    expect(
+      result.sources.find((source) => source.type === 'internal_drive')?.quality
+    ).toBe('WYMAGA WERYFIKACJI');
+    expect(result.warnings).not.toEqual([]);
+  });
+
+  it('mBank FIRMA wybiera aktualny, pasujący fragment Drive przed publicznym', () => {
+    const businessDocument = {
+      ...document,
+      id: 'business-doc',
+      title: 'Instrukcja dokumentów mBank firma',
+      product: 'Kredyt firmowy',
+      document_type:
+        'google_drive_internal:business:documents+application:instruction',
+      source_name: 'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/business-file',
+      effective_date: '2026-07-20',
+    };
+    const result = answer({
+      deal: { ...deal, product_type: 'Kredyt firmowy' },
+      bankProcesses: [
+        { bank_name: 'mBank', product_variant: 'Kredyt firmowy' },
+      ],
+      documents: [businessDocument],
+      indexedChunks: [
+        {
+          document_id: 'business-doc',
+          chunk_index: 0,
+          content: 'Dokumenty do wniosku firmy należy sprawdzić przed analizą.',
+        },
+      ],
+      allowedDriveFolderIds: new Set(['1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g']),
+      question: 'Jakich dokumentów brakuje do wniosku firmy?',
+    });
+    expect(result.internalSourceAvailable).toBe(true);
+    expect(result.primarySourceIds).toEqual(['business-doc']);
+    expect(result.quality).not.toBe('POTWIERDZONE');
   });
 
   it('pytanie o prowizję korzysta wyłącznie z drugiego korzenia', () => {
@@ -237,6 +274,7 @@ describe('M4 — Zero Trust Google Drive', () => {
       document_type:
         'google_drive_internal:settlements:commission+invoice+cashflow:agreement',
       source_name: 'gdrive://1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN/settlement-file',
+      effective_date: '2026-07-02',
     };
     const result = answer({
       documents: [document, settlementDocument],

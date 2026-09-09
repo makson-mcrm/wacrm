@@ -85,6 +85,7 @@ export type BankingKnowledgeAnswer = {
   recommendedNextAction: string;
   recommendedNextActionAt: string | null;
   missing: string[];
+  warnings: string[];
 };
 
 export type DealKnowledgeRow = {
@@ -313,7 +314,7 @@ function buildInternalDriveSources(args: {
         verifiedAt: document.updated_at?.slice(0, 10) || null,
         confidentiality: 'internal',
         freshness: isCurrent ? 'current' : 'requires_review',
-        quality: 'CZĘŚCIOWE',
+        quality: isCurrent ? 'CZĘŚCIOWE' : 'WYMAGA WERYFIKACJI',
         note: 'Prywatne źródło z zatwierdzonego korzenia, faktycznie obecne w izolowanym indeksie; fragment wymaga oceny doradcy.',
         facts: [excerpt],
       },
@@ -428,6 +429,7 @@ function failClosedAnswer(args: {
       args.context.nextAction || 'Ustal i zapisz jeden następny krok.',
     recommendedNextActionAt: args.context.nextActionAt,
     missing: args.missing,
+    warnings: [],
   };
 }
 
@@ -531,6 +533,20 @@ export function buildBankingKnowledgeAnswer(args: {
     allowedDriveFolderIds: args.allowedDriveFolderIds,
     now,
   });
+  const currentInternalSources = internalSources.filter(
+    (source) => source.freshness === 'current'
+  );
+  const sourceVersions = new Set(
+    internalSources.map((source) => `${source.label}:${source.version}`)
+  );
+  const warnings = [
+    internalSources.some((source) => source.freshness === 'requires_review')
+      ? 'Co najmniej jedno pasujące źródło wewnętrzne jest nieaktualne i wymaga ręcznej weryfikacji.'
+      : null,
+    sourceVersions.size > 1
+      ? 'Wykryto kilka pasujących źródeł lub wersji. Silnik pokazuje ich pochodzenie osobno; ewentualny konflikt rozstrzyga doradca.'
+      : null,
+  ].filter((warning): warning is string => Boolean(warning));
 
   const contextSource: BankingKnowledgeSource = {
     id: `deal-${args.deal.id}`,
@@ -595,8 +611,8 @@ export function buildBankingKnowledgeAnswer(args: {
   const usableSourceClaims = sourceClaims.filter(
     (claim) => claim.quality !== 'WYMAGA WERYFIKACJI'
   );
-  const primarySources = internalSources.length
-    ? internalSources
+  const primarySources = currentInternalSources.length
+    ? currentInternalSources
     : officialSources.filter((source) => (source.facts?.length ?? 0) > 0);
   const quality: BankingKnowledgeQuality = !usableSourceClaims.length
     ? 'WYMAGA WERYFIKACJI'
@@ -643,6 +659,7 @@ export function buildBankingKnowledgeAnswer(args: {
     recommendedNextAction,
     recommendedNextActionAt: context.nextActionAt,
     missing,
+    warnings,
   };
 }
 
