@@ -212,6 +212,19 @@ describe('M4 — Zero Trust Google Drive', () => {
     expect(result.internalSourceAvailable).toBe(false);
   });
 
+  it('oznacza stary fragment Drive jako wymagający przeglądu', () => {
+    const result = answer({
+      documents: [{ ...document, effective_date: '2025-01-01' }],
+      indexedChunks,
+      allowedDriveFolderIds: new Set(['allowed-folder']),
+      question: 'Jakich dokumentów brakuje?',
+    });
+    expect(
+      result.sources.find((source) => source.type === 'internal_drive')
+        ?.freshness
+    ).toBe('requires_review');
+  });
+
   it('czyści konfigurację allowlisty', () => {
     expect([...parseAllowedDriveFolderIds(' folder-a,folder-b, ,')]).toEqual([
       'folder-a',

@@ -230,6 +230,7 @@ function buildInternalDriveSources(args: {
   bank: BankDefinition;
   problem: BankingKnowledgeProblem;
   allowedDriveFolderIds: ReadonlySet<string>;
+  now: Date;
 }) {
   const chunksByDocument = new Map<string, IndexedKnowledgeChunk[]>();
   for (const chunk of args.indexedChunks) {
@@ -272,6 +273,14 @@ function buildInternalDriveSources(args: {
       document.updated_at?.slice(0, 10) ||
       'brak wersji';
     const excerpt = relevantChunk.content.trim().slice(0, 320);
+    const effectiveTime = document.effective_date
+      ? new Date(`${document.effective_date}T00:00:00Z`).getTime()
+      : Number.NaN;
+    const ageMs = args.now.getTime() - effectiveTime;
+    const isCurrent =
+      Number.isFinite(effectiveTime) &&
+      ageMs >= -24 * 60 * 60 * 1000 &&
+      ageMs <= 90 * 24 * 60 * 60 * 1000;
 
     return [
       {
@@ -286,7 +295,7 @@ function buildInternalDriveSources(args: {
         effectiveDate: document.effective_date || null,
         verifiedAt: document.updated_at?.slice(0, 10) || null,
         confidentiality: 'internal',
-        freshness: document.effective_date ? 'current' : 'requires_review',
+        freshness: isCurrent ? 'current' : 'requires_review',
         quality: 'CZĘŚCIOWE',
         note: 'Prywatne źródło z zatwierdzonego korzenia, faktycznie obecne w izolowanym indeksie; fragment wymaga oceny doradcy.',
         facts: [excerpt],
@@ -497,6 +506,7 @@ export function buildBankingKnowledgeAnswer(args: {
     bank,
     problem,
     allowedDriveFolderIds: args.allowedDriveFolderIds,
+    now,
   });
 
   const contextSource: BankingKnowledgeSource = {
