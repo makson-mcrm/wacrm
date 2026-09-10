@@ -1469,7 +1469,7 @@ export function QuickActivityForm() {
               onSubmit={createDealForSelectedContact}
               className="space-y-3"
             >
-              <p className="text-sm-sm text-slate-600">
+              <p className="text-sm text-slate-600">
                 Deal zostanie powiązany z Kontaktem{' '}
                 <strong>{contactName(selectedContact)}</strong>. Jego
                 wcześniejsza historia pozostaje na Kontakcie.
