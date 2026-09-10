@@ -74,6 +74,7 @@ export function ContactDetailView({
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('deals');
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Send template — lets the business initiate (or re-open) a conversation
@@ -124,6 +125,10 @@ export function ContactDetailView({
     []
   );
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
+
+  useEffect(() => {
+    if (open && contactId) setActiveTab('deals');
+  }, [contactId, open]);
   const [companyRole, setCompanyRole] = useState('');
   const [savingCompanyLink, setSavingCompanyLink] = useState(false);
 
@@ -672,7 +677,8 @@ export function ContactDetailView({
 
               {/* Tabs */}
               <Tabs
-                defaultValue="deals"
+                value={activeTab}
+                onValueChange={setActiveTab}
                 className="flex min-h-0 flex-1 flex-col"
               >
                 <TabsList className="mx-4 mt-3 grid h-auto grid-cols-2 rounded-xl bg-emerald-50 p-1">
