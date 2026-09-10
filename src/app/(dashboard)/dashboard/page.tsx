@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
+  Bot,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -11,7 +12,9 @@ import {
   Phone,
   PhoneMissed,
   Save,
+  Sparkles,
   Target,
+  UserRound,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -40,7 +43,11 @@ import {
   suggestedRetryAt,
   toLocalDateTimeValue,
 } from '@/lib/sales/quick-activity';
-import { buildTodayPlan, type RankedTodayItem } from '@/lib/today/ranking';
+import {
+  buildTodayPlan,
+  type RankedTodayItem,
+  type TodayPlan,
+} from '@/lib/today/ranking';
 import {
   buildTodayInputs,
   currentWorkContext,
@@ -571,6 +578,15 @@ export default function DashboardPage() {
       new Date(now)
     ),
   });
+  const workspaceItem =
+    todayPlan.now.find((item) => item.main) ??
+    todayPlan.nextBlock.find((item) => item.main) ??
+    todayPlan.laterToday.find((item) => item.main);
+  const workspaceDeal =
+    deals.find((deal) => deal.id === workspaceItem?.dealId) ?? deals[0];
+  const workspaceContact =
+    contacts.find((contact) => contact.id === workspaceDeal?.contact_id) ??
+    contacts.find((contact) => contact.id === workspaceItem?.contactId);
   function proposePriorities() {
     const proposed = buildPrioritySuggestions(
       deals as unknown as PriorityDeal[],
@@ -589,7 +605,7 @@ export default function DashboardPage() {
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 lg:hidden">
         <div>
           <h1 className="text-2xl font-bold">DZISIAJ</h1>
           <p className="text-muted-foreground text-sm">
@@ -624,7 +640,7 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
-      <div className="grid items-start gap-3 xl:grid-cols-[1.2fr_1fr_1fr] xl:gap-4">
+      <div className="grid items-start gap-3 lg:hidden">
         <TodaySectionPanel
           title="TERAZ"
           items={todayPlan.now}
@@ -642,7 +658,7 @@ export default function DashboardPage() {
           empty="Brak dalszych spraw na dziś."
         />
       </div>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-muted-foreground text-xs lg:hidden">
         Ivy Lee: {todayPlan.mainCount}/6 głównych spraw · kontekst:{' '}
         {currentWorkContext(todayInputs.calendarBlocks, new Date(now)) ===
         'RZESZOW_BIURO'
@@ -652,7 +668,13 @@ export default function DashboardPage() {
             ? 'dom / komputer'
             : 'dowolny'}
       </p>
-      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-6">
+      <DesktopWorkspaces
+        todayPlan={todayPlan}
+        deals={deals}
+        activeDeal={workspaceDeal}
+        activeContact={workspaceContact}
+      />
+      <div className="hidden">
         <Metric
           label="Telefony"
           value={calls}
@@ -668,7 +690,7 @@ export default function DashboardPage() {
         <Metric label="Zaległe" value={overdue.length} />
         <Metric label="Bez następnego kroku" value={withoutAction.length} />
       </div>
-      <section className="bg-card hidden rounded-xl border p-4 md:block">
+      <section className="hidden">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="font-semibold">Telefony do ponowienia</h2>
@@ -846,7 +868,7 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-      <div className="hidden gap-4 md:grid xl:grid-cols-[1.3fr_1fr]">
+      <div className="hidden">
         <section className="bg-card rounded-xl border p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -1144,6 +1166,186 @@ export default function DashboardPage() {
   );
 }
 
+function DesktopWorkspaces({
+  todayPlan,
+  deals,
+  activeDeal,
+  activeContact,
+}: {
+  todayPlan: TodayPlan;
+  deals: Deal[];
+  activeDeal?: Deal;
+  activeContact?: Contact;
+}) {
+  const dayLabel = new Intl.DateTimeFormat('pl-PL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
+  const sections = [
+    ['TERAZ', todayPlan.now],
+    ['NASTĘPNY BLOK', todayPlan.nextBlock],
+    ['PÓŹNIEJ DZISIAJ', todayPlan.laterToday],
+  ] as const;
+  const visibleDeals = deals.slice(0, 6);
+  const relatedDeals = activeContact
+    ? deals.filter((deal) => deal.contact_id === activeContact.id).slice(0, 3)
+    : [];
+
+  return (
+    <section
+      aria-label="Pięć paneli roboczych mCRM AI"
+      className="hidden min-h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-emerald-950/15 bg-[#f8faf7] shadow-sm lg:grid lg:grid-cols-[1.05fr_1.15fr_1fr_1.05fr_1fr]"
+    >
+      <WorkspacePanel title="Dziś" subtitle={dayLabel}>
+        <div className="space-y-4">
+          {sections.map(([title, items]) => (
+            <div key={title}>
+              <p className="mb-1.5 text-[10px] font-black tracking-wide text-emerald-800 uppercase">
+                {title}
+              </p>
+              {items[0] ? (
+                <MiniTodayRow item={items[0]} primary={title === 'TERAZ'} />
+              ) : (
+                <p className="text-xs text-slate-400">Brak zaplanowanej sprawy</p>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-auto grid grid-cols-2 gap-1.5 border-t pt-3">
+          <Link href="/calendar?view=day" className="rounded-lg border px-2 py-2 text-center text-[11px] font-semibold">Kalendarz</Link>
+          <Link href="/tasks" className="rounded-lg border px-2 py-2 text-center text-[11px] font-semibold">Wszystkie zadania</Link>
+        </div>
+      </WorkspacePanel>
+
+      <WorkspacePanel title="Lejek sprzedaży" subtitle="Aktywne sprawy">
+        <div className="grid grid-cols-3 gap-1 border-b pb-2 text-center text-[9px] font-black uppercase text-slate-500">
+          <span className="rounded bg-emerald-50 py-1">Kontakt</span>
+          <span className="rounded bg-lime-50 py-1">Spotkanie</span>
+          <span className="rounded bg-amber-50 py-1">Analiza</span>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {visibleDeals.map((deal) => (
+            <Link
+              key={deal.id}
+              href={`/deals/${deal.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-lg border bg-white p-2 hover:border-emerald-600"
+            >
+              <span className="block truncate text-xs font-bold">{deal.title}</span>
+              <span className="mt-0.5 block truncate text-[10px] text-slate-500">
+                {deal.stage?.name || deal.product_type || 'Etap nieustalony'}
+              </span>
+            </Link>
+          ))}
+        </div>
+        <Link href="/pipelines?new=deal" className="mt-auto rounded-lg bg-emerald-50 px-2 py-2 text-center text-[11px] font-black text-emerald-900">+ Nowy Deal</Link>
+      </WorkspacePanel>
+
+      <WorkspacePanel title="Klient" subtitle="Najważniejsze informacje">
+        {activeContact ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-black text-slate-600">
+                <UserRound className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <Link href={`/contacts?open=${activeContact.id}`} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-black hover:text-emerald-800">{activeContact.name || activeContact.phone}</Link>
+                <p className="truncate text-[10px] text-slate-500">{activeContact.phone}</p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] font-bold">
+              <a href={`tel:${activeContact.phone}`} className="rounded-lg border px-1 py-2">Zadzwoń</a>
+              <Link href={`/quick-call?contact=${activeContact.id}&action=message`} className="rounded-lg border px-1 py-2">Wiadomość</Link>
+              <Link href={`/quick-call?contact=${activeContact.id}&action=dictate`} className="rounded-lg border px-1 py-2">Dyktuj</Link>
+            </div>
+            <div className="mt-4 border-t pt-3">
+              <p className="mb-2 text-[10px] font-black uppercase text-emerald-800">Deale ({relatedDeals.length})</p>
+              <div className="space-y-1.5">
+                {relatedDeals.map((deal) => (
+                  <Link key={deal.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener noreferrer" className="block rounded-lg bg-emerald-50 p-2">
+                    <span className="block truncate text-xs font-bold">{deal.title}</span>
+                    <span className="text-[10px] text-slate-500">{deal.stage?.name || 'Etap nieustalony'}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <Link href={`/quick-call?contact=${activeContact.id}&newDeal=1`} className="mt-auto rounded-lg bg-[#123d2b] px-2 py-2 text-center text-[11px] font-black text-lime-300">+ Nowy Deal</Link>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">Wybierz klienta lub sprawę z DZISIAJ.</p>
+        )}
+      </WorkspacePanel>
+
+      <WorkspacePanel title="Deal" subtitle="Konkretna sprawa">
+        {activeDeal ? (
+          <>
+            <Link href={`/deals/${activeDeal.id}`} target="_blank" rel="noopener noreferrer" className="text-sm font-black hover:text-emerald-800">{activeDeal.title}</Link>
+            <dl className="mt-3 space-y-2 text-xs">
+              <WorkspaceField label="Etap" value={activeDeal.stage?.name} />
+              <WorkspaceField label="Produkt" value={activeDeal.product_type} />
+              <WorkspaceField label="Następny krok" value={activeDeal.next_action} />
+              <WorkspaceField label="Termin" value={activeDeal.next_action_at ? new Date(activeDeal.next_action_at).toLocaleDateString('pl-PL') : undefined} />
+              <WorkspaceField label="Blocker" value={activeDeal.blocker} />
+            </dl>
+            <div className="mt-3 grid grid-cols-2 gap-1 text-center text-[10px] font-bold">
+              <Link href={`/quick-call?deal=${activeDeal.id}&action=call`} className="rounded-lg border px-1 py-2">Zadzwoń</Link>
+              <Link href={`/quick-call?deal=${activeDeal.id}&action=message`} className="rounded-lg border px-1 py-2">Wiadomość</Link>
+              <Link href={`/quick-call?deal=${activeDeal.id}&action=dictate`} className="rounded-lg border px-1 py-2">Dyktuj</Link>
+              <Link href={`/quick-call?deal=${activeDeal.id}&action=document`} className="rounded-lg border px-1 py-2">Dodaj dokument</Link>
+            </div>
+            <Link href={`/assistant?deal=${activeDeal.id}`} className="mt-auto flex items-center justify-center gap-1 rounded-lg bg-[#123d2b] px-2 py-2.5 text-[11px] font-black text-lime-300"><Sparkles className="size-3" /> Asystent AI</Link>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">Brak aktywnego Deala.</p>
+        )}
+      </WorkspacePanel>
+
+      <WorkspacePanel title="Asystent AI" subtitle="Twoje wsparcie AI" last>
+        <div className="flex size-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-900"><Bot className="size-5" /></div>
+        <h3 className="mt-3 text-sm font-black">Jak mogę Ci dziś pomóc?</h3>
+        <p className="mt-1 text-[11px] leading-4 text-slate-500">Jestem tu, aby przyspieszyć Twoją pracę.</p>
+        <div className="mt-4 space-y-1.5 text-[11px]">
+          {['Przygotuj mnie do rozmowy', 'Sprawdź wiedzę bankową', 'Kto dziś wymaga działania?', 'Co teraz?'].map((label) => (
+            <Link key={label} href={activeDeal ? `/assistant?deal=${activeDeal.id}` : '/assistant'} className="flex items-center gap-2 rounded-lg border bg-white px-2 py-2 hover:border-lime-400">
+              <Sparkles className="size-3 text-lime-600" /> {label}
+            </Link>
+          ))}
+        </div>
+        <Link href={activeDeal ? `/assistant?deal=${activeDeal.id}` : '/assistant'} className="mt-auto rounded-lg border border-lime-400 bg-lime-100 px-2 py-2 text-center text-[11px] font-black text-emerald-950">Napisz pytanie…</Link>
+      </WorkspacePanel>
+    </section>
+  );
+}
+
+function WorkspacePanel({ title, subtitle, children, last = false }: { title: string; subtitle: string; children: React.ReactNode; last?: boolean }) {
+  return (
+    <section className={`flex min-w-0 flex-col p-3 ${last ? '' : 'border-r border-emerald-950/10'}`}>
+      <div className="mb-3 border-b pb-2">
+        <h2 className="text-sm font-black">{title}</h2>
+        <p className="truncate text-[10px] text-slate-500">{subtitle}</p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    </section>
+  );
+}
+
+function MiniTodayRow({ item, primary }: { item: RankedTodayItem; primary?: boolean }) {
+  const content = (
+    <div className={`rounded-lg border-l-4 p-2 ${primary ? 'border-l-emerald-700 bg-emerald-50' : 'border-l-slate-300 bg-white'}`}>
+      <p className="line-clamp-2 text-xs font-black">{item.action || item.title}</p>
+      {item.action && item.action !== item.title ? <p className="mt-0.5 truncate text-[10px] text-slate-500">{item.title}</p> : null}
+      {primary ? <span className="mt-2 inline-block rounded-md bg-emerald-700 px-2 py-1 text-[10px] font-black text-white">Rozpocznij</span> : null}
+    </div>
+  );
+  return item.href ? <Link href={item.href}>{content}</Link> : content;
+}
+
+function WorkspaceField({ label, value }: { label: string; value?: string | null }) {
+  return <div><dt className="text-[9px] font-black uppercase text-slate-400">{label}</dt><dd className="line-clamp-2 font-semibold">{value || '—'}</dd></div>;
+}
+
 function blankPriorities(): Priority[] {
   return [1, 2, 3, 4, 5, 6].map((position) => ({
     position,
@@ -1296,3 +1498,4 @@ function Field({
     </div>
   );
 }
+
