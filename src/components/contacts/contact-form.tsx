@@ -31,6 +31,10 @@ import { useTranslations } from 'next-intl';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
+import {
+  LEAD_SOURCE_OPTIONS,
+  PRODUCT_CATEGORY_OPTIONS,
+} from '@/lib/deals/financial-fields';
 
 interface ContactFormProps {
   open: boolean;
@@ -236,10 +240,15 @@ export function ContactForm({
     setCheckingDup(true);
     try {
       const existing = await findExistingContact(supabase, accountId, value);
-      const possible = existing ? null : await findPossibleContactDuplicate(supabase, accountId, value);
+      const possible = existing
+        ? null
+        : await findPossibleContactDuplicate(supabase, accountId, value);
       setDupMatch(
         existing || possible
-          ? { contact: (existing ?? possible)!, exact: existing ? isExactMatch(existing, value) : false }
+          ? {
+              contact: (existing ?? possible)!,
+              exact: existing ? isExactMatch(existing, value) : false,
+            }
           : null
       );
     } finally {
@@ -274,7 +283,11 @@ export function ContactForm({
     const submittedPhone = String(form.get('phone') ?? phone).trim();
     const parsedPhone = parseCrmPhone(submittedPhone);
     if (!submittedFirstName || !submittedLastName || !parsedPhone.valid) {
-      toast.error(!parsedPhone.valid ? parsedPhone.reason : 'Imię, nazwisko i numer telefonu są wymagane.');
+      toast.error(
+        !parsedPhone.valid
+          ? parsedPhone.reason
+          : 'Imię, nazwisko i numer telefonu są wymagane.'
+      );
       return;
     }
 
@@ -547,12 +560,9 @@ export function ContactForm({
                 className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
               >
                 <option value="">Wybierz</option>
-                <option>ML — HIPOTEKA</option>
-                <option>ML — FIRMA</option>
-                <option>BC — FIRMA</option>
-                <option>NML — OFF</option>
-                <option>LEASING</option>
-                <option>INNY</option>
+                {PRODUCT_CATEGORY_OPTIONS.map((category) => (
+                  <option key={category}>{category}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
@@ -688,11 +698,9 @@ export function ContactForm({
                   className="bg-muted border-border h-9 w-full rounded-md border px-3 text-sm"
                 >
                   <option value="">Wybierz</option>
-                  <option>Podajnik mBank</option>
-                  <option>Lead mFinanse</option>
-                  <option>Własny kontakt</option>
-                  <option>Polecenie</option>
-                  <option>Strona makson.space</option>
+                  {LEAD_SOURCE_OPTIONS.map((leadSource) => (
+                    <option key={leadSource}>{leadSource}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">
@@ -850,5 +858,4 @@ function toLocalDateTime(value?: string | null): string {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
-
 

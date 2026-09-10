@@ -23,6 +23,10 @@ import { Label } from '@/components/ui/label';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { EntitySearchSelect } from '@/components/ui/entity-search-select';
 import { MobileDateTimeInput } from '@/components/ui/mobile-date-time-input';
+import {
+  LEAD_SOURCE_OPTIONS,
+  PRODUCT_CATEGORY_OPTIONS,
+} from '@/lib/deals/financial-fields';
 import { Banknote, Check, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
@@ -694,27 +698,13 @@ export function DealForm({
                   label="Źródło *"
                   value={source}
                   set={setSource}
-                  values={[
-                    'Podajnik mBank',
-                    'Lead mFinanse',
-                    'Własny kontakt',
-                    'Polecenie',
-                    'Strona makson.space',
-                    'Inne',
-                  ]}
+                  values={[...LEAD_SOURCE_OPTIONS]}
                 />
                 <Select
                   label="Typ Deala *"
                   value={productType}
                   set={changeProductType}
-                  values={[
-                    'ML — HIPOTEKA',
-                    'ML — FIRMA',
-                    'BC — FIRMA',
-                    'NML — OFF',
-                    'LEASING',
-                    'INNY',
-                  ]}
+                  values={[...PRODUCT_CATEGORY_OPTIONS]}
                 />
                 <Field label="Etap *">
                   <select
@@ -810,7 +800,10 @@ export function DealForm({
               </Field>
               <div className="grid gap-3">
                 <Field label="Termin następnego działania">
-                  <MobileDateTimeInput value={nextActionAt} onChange={setNextActionAt} />
+                  <MobileDateTimeInput
+                    value={nextActionAt}
+                    onChange={setNextActionAt}
+                  />
                 </Field>
                 <Field label="Miejsce lub link">
                   <Input
@@ -823,7 +816,11 @@ export function DealForm({
                   .find((row) => row.id === stageId)
                   ?.name.includes('POCZEKALNIA') && (
                   <Field label="Termin ponownego kontaktu *">
-                    <MobileDateTimeInput value={followUpAt} onChange={setFollowUpAt} required />
+                    <MobileDateTimeInput
+                      value={followUpAt}
+                      onChange={setFollowUpAt}
+                      required
+                    />
                   </Field>
                 )}
               </div>
@@ -834,7 +831,10 @@ export function DealForm({
               </summary>
               <div className="mt-4 grid gap-3">
                 <Field label="Spotkanie zapisane na Dealu">
-                  <MobileDateTimeInput value={meetingAt} onChange={setMeetingAt} />
+                  <MobileDateTimeInput
+                    value={meetingAt}
+                    onChange={setMeetingAt}
+                  />
                 </Field>
                 <Field label="Planowane zamknięcie">
                   <Input
@@ -858,7 +858,10 @@ export function DealForm({
                   />
                 </Field>
                 <Field label="Ankieta wymagana do">
-                  <MobileDateTimeInput value={questionnaireDueAt} onChange={setQuestionnaireDueAt} />
+                  <MobileDateTimeInput
+                    value={questionnaireDueAt}
+                    onChange={setQuestionnaireDueAt}
+                  />
                   <p className="text-muted-foreground text-xs">
                     Dla płatnej konsultacji ustaw termin co najmniej 2 dni przed
                     spotkaniem.

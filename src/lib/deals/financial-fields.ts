@@ -2,8 +2,10 @@ export const LEAD_SOURCE_OPTIONS = [
   'Własny kontakt',
   'Polecenie',
   'Podajnik mBank',
+  'Lead mFinanse',
   'Formularz mFinanse',
   'makson.space',
+  'Strona makson.space',
   'Meta Ads',
   'Google Ads',
   'Partner',
@@ -65,6 +67,15 @@ export const PRODUCT_OPTIONS = [
   '3_FIRMA_BC_NML',
   '4_GOTOWKA_OF_NML',
   '5_LEASING_BC_ML',
+] as const;
+
+export const PRODUCT_CATEGORY_OPTIONS = [
+  'ML — HIPOTEKA',
+  'ML — FIRMA',
+  'BC — FIRMA',
+  'NML — OFF',
+  'LEASING',
+  'INNY',
 ] as const;
 
 export const MISSING_ITEM_OPTIONS = [
@@ -145,3 +156,4 @@ export function questionnaireStatusLabel(status: QuestionnaireStatus): string {
     submitted: 'Przesłana',
   }[status];
 }
+
