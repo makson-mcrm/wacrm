@@ -83,8 +83,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-  { href: '/quick-call', labelKey: 'activity', label: 'AKTYWNOŚĆ', icon: Activity },
   { href: '/contacts', labelKey: 'contacts', icon: Users },
+  { href: '/deals', labelKey: 'deals', label: 'DEALE', icon: Activity },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
   { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
@@ -92,6 +92,7 @@ const navItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
+  { href: '/quick-call', labelKey: 'activity', label: 'AKTYWNOŚĆ', icon: Activity },
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
