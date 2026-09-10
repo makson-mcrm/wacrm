@@ -123,6 +123,11 @@ export default function DealPage() {
     [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [activeTab, setActiveTab] = useState('notes');
+
+  useEffect(() => {
+    setActiveTab('notes');
+  }, [id]);
   const load = useCallback(async () => {
     setLoadError('');
     const [d, n, b, f, p, h, requirements, profileRows] = await Promise.all([
@@ -644,7 +649,7 @@ export default function DealPage() {
           </Panel>
         </aside>
         <main className="bg-card rounded-xl border p-4">
-          <Tabs defaultValue="notes">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-3 grid h-auto w-full grid-cols-3 rounded-xl bg-emerald-50 p-1">
               <TabsTrigger value="notes">Szczegóły</TabsTrigger>
               <TabsTrigger value="activity-history">Historia</TabsTrigger>
