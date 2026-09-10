@@ -41,6 +41,17 @@ const pageTitles: Record<string, string> = {
   '/settings': 'settings',
 };
 
+const mcrmSectionTitles: Record<string, string> = {
+  '/dashboard': 'DZISIAJ',
+  '/quick-call': 'AKTYWNOŚĆ',
+  '/contacts': 'KLIENCI',
+  '/deals': 'DEALE',
+  '/pipelines': 'LEJEK',
+  '/calendar': 'KALENDARZ',
+  '/tasks': 'ZADANIA',
+  '/assistant': 'ASYSTENT',
+};
+
 function getPageTitleKey(pathname: string): string {
   if (pageTitles[pathname]) return pageTitles[pathname];
   const match = Object.entries(pageTitles).find(([path]) =>
@@ -62,6 +73,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const titleKey = getPageTitleKey(pathname);
+  const sectionTitle =
+    Object.entries(mcrmSectionTitles).find(([path]) =>
+      pathname.startsWith(path)
+    )?.[1] ?? t(titleKey as string);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -81,7 +96,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-foreground truncate text-base font-semibold sm:text-lg">
-          {pathname === '/dashboard' ? 'DZISIAJ' : t(titleKey as string)}
+          {sectionTitle}
         </h1>
       </div>
 
