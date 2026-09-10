@@ -11,6 +11,7 @@ import { useUnhandledSubmissions } from '@/hooks/use-unhandled-submissions';
 import {
   Activity,
   Bot,
+  BriefcaseBusiness,
   Building2,
   ClipboardList,
   CalendarDays,
@@ -84,7 +85,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
   { href: '/contacts', labelKey: 'contacts', icon: Users },
-  { href: '/deals', labelKey: 'deals', label: 'DEALE', icon: Activity },
+  { href: '/deals', labelKey: 'deals', label: 'DEALE', icon: BriefcaseBusiness },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
   { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
