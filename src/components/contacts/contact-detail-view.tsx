@@ -12,10 +12,8 @@ import type {
   Contact,
   ContactCompany,
   Tag,
-  ContactTag,
   ContactNote,
   CustomField,
-  ContactCustomValue,
   Deal,
   MessageTemplate,
 } from '@/types';
@@ -36,8 +34,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
   Mail,
@@ -48,7 +44,6 @@ import {
   Plus,
   Trash2,
   Save,
-  X,
   DollarSign,
   LayoutTemplate,
   Mic,
@@ -619,6 +614,24 @@ export function ContactDetailView({
                     {t('sendTemplateBtn')}
                   </Button>
                 </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4">
+                  <div>
+                    <dt className="font-black uppercase text-slate-400">Źródło</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.source || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-black uppercase text-slate-400">Kategoria</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.product_category || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-black uppercase text-slate-400">Następny krok</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.next_step || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-black uppercase text-slate-400">Termin</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.follow_up_at ? new Date(contact.follow_up_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</dd>
+                  </div>
+                </dl>
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
@@ -659,10 +672,18 @@ export function ContactDetailView({
 
               {/* Tabs */}
               <Tabs
-                defaultValue="details"
+                defaultValue="deals"
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="bg-muted/50 border-border mx-4 mt-3 flex-wrap border-b">
+                <TabsList className="mx-4 mt-3 grid h-auto grid-cols-2 rounded-xl bg-emerald-50 p-1">
+                  <TabsTrigger value="deals">Deale ({deals.length})</TabsTrigger>
+                  <TabsTrigger value="history">Historia i dokumenty</TabsTrigger>
+                </TabsList>
+                <details className="mx-4 mt-2 rounded-xl border bg-slate-50">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-500">
+                    WIĘCEJ DANYCH KLIENTA
+                  </summary>
+                  <TabsList className="flex h-auto flex-wrap justify-start border-t bg-transparent p-2">
                   <TabsTrigger
                     value="details"
                     className="data-active:bg-muted data-active:text-primary text-muted-foreground"
@@ -693,19 +714,8 @@ export function ContactDetailView({
                   >
                     Firmy
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="deals"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    {t('tabs.deals')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="history"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    Historia
-                  </TabsTrigger>
-                </TabsList>
+                  </TabsList>
+                </details>
 
                 {/* Details Tab */}
                 <TabsContent
@@ -1202,3 +1212,4 @@ export function ContactDetailView({
     </>
   );
 }
+
