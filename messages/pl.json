@@ -1,7 +1,7 @@
 {
   "Sidebar": {
     "title": "mCRM AI",
-    "dashboard": "Pulpit",
+    "dashboard": "DZISIAJ",
     "inbox": "Inbox",
     "notifications": "DO OBSŁUGI",
     "contacts": "Kontakty",
@@ -14,6 +14,8 @@
     "automations": "Automatyzacje",
     "flows": "Przepływy",
     "aiAgents": "Agenci AI",
+    "tasks": "ZADANIA",
+    "assistant": "ASYSTENT",
     "settings": "Ustawienia",
     "beta": "Beta",
     "unreadConversations": "{count} nieprzeczytanych rozmów",

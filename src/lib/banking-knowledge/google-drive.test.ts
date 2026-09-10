@@ -5,6 +5,7 @@ import {
   buildDriveKnowledgePlan,
   classifyDriveFile,
   driveKnowledgeStatus,
+  isClientShareableDriveSource,
   listAllowlistedDriveFiles,
   loadDriveKnowledgeConfig,
   parseApprovedDriveRoots,
@@ -28,6 +29,29 @@ const config = loadDriveKnowledgeConfig({
 
 describe('banking knowledge Google Drive Zero Trust', () => {
   beforeEach(() => __resetDriveTokenForTests());
+  it('allows client sharing only for forms from the approved bank root', () => {
+    expect(
+      isClientShareableDriveSource({
+        sourceName: 'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/approved-file',
+        documentType:
+          'google_drive_internal:mortgage:documents+application:form',
+      })
+    ).toBe(true);
+    expect(
+      isClientShareableDriveSource({
+        sourceName: 'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/internal-file',
+        documentType:
+          'google_drive_internal:mortgage:documents+application:instruction',
+      })
+    ).toBe(false);
+    expect(
+      isClientShareableDriveSource({
+        sourceName:
+          'gdrive://1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN/settlement-file',
+        documentType: 'google_drive_internal:settlements:commission:form',
+      })
+    ).toBe(false);
+  });
 
   it('reports disabled until both allowlist and dedicated credentials exist', () => {
     const status = driveKnowledgeStatus(
@@ -64,6 +88,7 @@ describe('banking knowledge Google Drive Zero Trust', () => {
   it('pusty dozwolony folder jest prawidłowym planem bez alarmu', () => {
     expect(buildDriveKnowledgePlan(config.approvedRoots[0], [])).toEqual({
       candidates: [],
+      clientFiles: [],
       skipped: {
         folder: 0,
         unsupportedType: 0,
@@ -152,5 +177,44 @@ describe('banking knowledge Google Drive Zero Trust', () => {
       )?.domains
     ).toContain('commission');
   });
-});
 
+  it('fails closed for client sharing outside B_WZORY_WNIOSKOW forms', () => {
+    expect(
+      isClientShareableDriveSource({
+        sourceName: 'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/client-form-id',
+        documentType: 'google_drive_internal:mortgage:documents:form',
+      })
+    ).toBe(true);
+    expect(
+      isClientShareableDriveSource({
+        sourceName: 'gdrive://1pVZ3blIyFLgR94zidRDsBz4PtYktDe5g/internal-id',
+        documentType: 'google_drive_internal:mortgage:documents:instruction',
+      })
+    ).toBe(false);
+    expect(
+      isClientShareableDriveSource({
+        sourceName: 'gdrive://1s_BT0HC0MZKIT4xZsesC3NcT-bJxEobN/commission-id',
+        documentType: 'google_drive_internal:settlements:commission:form',
+      })
+    ).toBe(false);
+  });
+
+  it('keeps a private PDF from B_WZORY_WNIOSKOW available only for client sharing', () => {
+    const plan = buildDriveKnowledgePlan(config.approvedRoots[0], [
+      {
+        id: 'client_pdf_12345',
+        name: 'Zaświadczenie do umowy zlecenia.pdf',
+        mimeType: 'application/pdf',
+        modifiedTime: '2026-09-10T08:00:00.000Z',
+        version: '9',
+        size: 250_000,
+        parents: ['folder_wzory_12345'],
+        publiclyShared: false,
+        path: ['mBank', '1_HIPO_OF_ML', 'B_WZORY_WNIOSKOW'],
+      },
+    ]);
+    expect(plan.candidates).toHaveLength(0);
+    expect(plan.clientFiles).toHaveLength(1);
+    expect(plan.clientFiles[0].sourceType).toBe('form');
+  });
+});

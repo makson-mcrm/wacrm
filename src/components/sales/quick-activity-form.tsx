@@ -6,9 +6,11 @@ import {
   ArrowLeft,
   ArrowRight,
   BriefcaseBusiness,
+  Camera,
   CalendarPlus,
   Check,
   FilePlus2,
+  Image as ImageIcon,
   Loader2,
   Mic,
   Phone,
@@ -46,6 +48,7 @@ import {
   type ObjectiveType,
   followUpPreset,
   requiresExplicitDealChoice,
+  shouldAutoSelectDeal,
 } from '@/lib/sales/quick-activity';
 import { parseCrmPhone } from '@/lib/contacts/phone';
 import { CallAction } from '@/components/sales/call-action';
@@ -149,6 +152,10 @@ export function QuickActivityForm() {
   const [dealDialog, setDealDialog] = useState(false);
   const [dealCreating, setDealCreating] = useState(false);
   const [newContactCreateDeal, setNewContactCreateDeal] = useState(false);
+  const [documentDialog, setDocumentDialog] = useState(false);
+  const [pendingDocument, setPendingDocument] = useState<File | null>(null);
+  const [documentSource, setDocumentSource] = useState('iphone_file');
+  const [documentUploading, setDocumentUploading] = useState(false);
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -247,6 +254,10 @@ export function QuickActivityForm() {
         (row) => row.contact_id === contact.id && row.is_primary
       ) ?? contactCompanyLinks.find((row) => row.contact_id === contact.id);
     const linkedDeals = dealsForContact(contact);
+    if (shouldAutoSelectDeal(linkedDeals.length)) {
+      applyDealContext(linkedDeals[0], contact);
+      return;
+    }
     setCompanyId(companyLink?.company_id ?? '');
     setDealId('');
     setBlocker('');
@@ -273,6 +284,10 @@ export function QuickActivityForm() {
         row.company_id === company.id &&
         (!contact || row.contact_id === contact.id)
     );
+    if (contact && shouldAutoSelectDeal(linkedDeals.length)) {
+      applyDealContext(linkedDeals[0], contact);
+      return;
+    }
     setCompanyId(company.id);
     setContactId(contact?.id ?? '');
     setPhone(contact?.phone ?? company.phone ?? '');
@@ -298,7 +313,15 @@ export function QuickActivityForm() {
     const restoredDeal = searchParams.get('deal');
     const restoredContact = searchParams.get('contact');
     const restoredCompany = searchParams.get('company');
-    if (!afterCall && !restoredDeal && !restoredContact && !restoredCompany)
+    const createDealRequested = searchParams.get('newDeal') === '1';
+    const requestedAction = searchParams.get('action');
+    if (
+      !afterCall &&
+      !restoredDeal &&
+      !restoredContact &&
+      !restoredCompany &&
+      !createDealRequested
+    )
       return;
     const contact = contacts.find((row) => row.id === restoredContact);
     if (contact) chooseContact(contact);
@@ -311,6 +334,16 @@ export function QuickActivityForm() {
       setType('TELEFON');
       setStatus('WYKONANE');
       setFlowStep('result');
+    }
+    if (createDealRequested && contact) setDealDialog(true);
+    if (requestedAction === 'dictate' && contact) {
+      setType('INNY_KONTAKT');
+      setStatus('WYKONANE');
+      setFlowStep('result');
+    }
+    if (requestedAction === 'document' && contact) {
+      setFlowStep('action');
+      setDocumentDialog(true);
     }
     restoredCall.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -454,9 +487,74 @@ export function QuickActivityForm() {
   }
 
   function openDocuments() {
-    if (!dealId)
-      return toast.info('Wybierz klienta z Dealem, aby dodać dokument.');
-    router.push(`/deals/${dealId}`);
+    if (!contactId) return toast.info('Najpierw wybierz klienta.');
+    setDocumentDialog(true);
+  }
+
+  async function saveDocument() {
+    if (!accountId || !selectedContact || !pendingDocument || documentUploading)
+      return;
+    setDocumentUploading(true);
+    const session = (await db.auth.getSession()).data.session;
+    if (!session?.user) {
+      setDocumentUploading(false);
+      return;
+    }
+    const safeName = pendingDocument.name.replace(/[^a-zA-Z0-9._-]+/g, '-');
+    const ownerPath = dealId || `contacts/${selectedContact.id}`;
+    const storagePath = `${accountId}/${ownerPath}/${crypto.randomUUID()}-${safeName}`;
+    try {
+      const uploaded = await db.storage
+        .from('deal-documents')
+        .upload(storagePath, pendingDocument);
+      if (uploaded.error) throw uploaded.error;
+      if (dealId) {
+        const documentRow = await db.from('deal_documents').insert({
+          account_id: accountId,
+          deal_id: dealId,
+          user_id: session.user.id,
+          name: pendingDocument.name,
+          storage_path: storagePath,
+          status: 'otrzymany',
+          document_type: pendingDocument.type || 'plik',
+          received_at: new Date().toISOString(),
+          source_channel: documentSource,
+        });
+        if (documentRow.error) throw documentRow.error;
+      }
+      const history = await db.from('sales_activities').insert({
+        account_id: accountId,
+        user_id: session.user.id,
+        activity_type: 'inny_kontakt',
+        activity_status: 'WYKONANE',
+        objective_type: 'OBSLUGA_SERWIS',
+        contact_id: selectedContact.id,
+        company_id: companyId || null,
+        deal_id: dealId || null,
+        title: `DOKUMENT — ${pendingDocument.name}`,
+        description: `Dodano dokument do CRM: ${pendingDocument.name}`,
+        occurred_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        completed: true,
+        call_channel: 'dokument',
+        source: activityCustomerSource,
+        product_group: activityProductCategory,
+      });
+      if (history.error) throw history.error;
+      toast.success(
+        dealId
+          ? 'Dokument zapisany w tym Dealu i historii.'
+          : 'Dokument zapisany przy Kontakcie i w historii.'
+      );
+      setPendingDocument(null);
+      setDocumentDialog(false);
+    } catch (error) {
+      toast.error(
+        `Nie zapisano dokumentu: ${error instanceof Error ? error.message : 'nieznany błąd'}`
+      );
+    } finally {
+      setDocumentUploading(false);
+    }
   }
 
   async function createDealRecord({
@@ -960,10 +1058,39 @@ export function QuickActivityForm() {
           </div>
           {selectedDeal ? (
             <div className="rounded-2xl bg-white p-3 ring-1 ring-emerald-900/10">
-              <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
-                Ta konkretna sprawa
-              </p>
-              <p className="mt-1 font-black">{selectedDeal.title}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
+                    Ta konkretna sprawa
+                  </p>
+                  <p className="mt-1 truncate font-black">
+                    {selectedDeal.title}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDealId('');
+                    const companyLink =
+                      contactCompanyLinks.find(
+                        (row) =>
+                          row.contact_id === selectedContact.id &&
+                          row.is_primary
+                      ) ??
+                      contactCompanyLinks.find(
+                        (row) => row.contact_id === selectedContact.id
+                      );
+                    setCompanyId(companyLink?.company_id ?? '');
+                    setBlocker('');
+                    setFlowStep('selection');
+                  }}
+                  className="shrink-0 font-black text-emerald-900"
+                >
+                  ZMIEŃ DEAL
+                </Button>
+              </div>
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
                 <dt className="text-slate-500">Produkt</dt>
                 <dd className="font-semibold">
@@ -1051,8 +1178,8 @@ export function QuickActivityForm() {
           <section className="rounded-[1.5rem] border border-amber-300 bg-amber-50 p-4 shadow-sm">
             <p className="font-black">Wybierz konkretny Deal</p>
             <p className="mt-1 text-sm text-slate-600">
-              Wskaż sprawę, której dotyczy aktywność, albo świadomie kontynuuj
-              tylko na Kontakcie. System nie zgaduje Deala.
+              Wskaż sprawę, której dotyczy aktywność. System nie zgaduje Deala
+              przy rzeczywistej wieloznaczności.
             </p>
             <div className="mt-3 space-y-2">
               {selectedContactDeals.map((deal) => (
@@ -1064,9 +1191,18 @@ export function QuickActivityForm() {
                 >
                   <span className="block font-black">{deal.title}</span>
                   <span className="block text-xs text-slate-600">
-                    {[deal.product_type, deal.source]
+                    {[
+                      deal.product_type,
+                      companies.find(
+                        (company) => company.id === deal.company_id
+                      )?.name,
+                      stages.find((stage) => stage.id === deal.stage_id)?.name,
+                      Number(deal.value) > 0
+                        ? `${Number(deal.value).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`
+                        : null,
+                    ]
                       .filter(Boolean)
-                      .join(' · ') || 'Brak produktu i źródła'}
+                      .join(' · ') || 'Brak szczegółów'}
                   </span>
                 </button>
               ))}
@@ -1074,9 +1210,9 @@ export function QuickActivityForm() {
                 type="button"
                 variant="outline"
                 onClick={() => setFlowStep('action')}
-                className="h-12 w-full rounded-2xl border-amber-400 bg-white font-black text-slate-800"
+                className="h-10 w-full rounded-xl border-dashed border-slate-300 bg-transparent text-xs font-semibold text-slate-600"
               >
-                AKTYWNOŚĆ TYLKO NA KONTAKCIE
+                OGÓLNA NOTATKA / RELACJA — BEZ DEALA
               </Button>
               <Button
                 type="button"
@@ -1259,10 +1395,10 @@ export function QuickActivityForm() {
           >
             <div>
               <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
-                Minimum do potwierdzenia
+                ROZPOZNAŁEM
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Tylko trzy rzeczy przed zapisem.
+                Potwierdź tylko next action, termin i ewentualny blocker.
               </p>
             </div>
             <div>
@@ -1539,7 +1675,89 @@ export function QuickActivityForm() {
           )}
         </DialogContent>
       </Dialog>
+      <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-[1.5rem]">
+          <DialogHeader>
+            <DialogTitle>DODAJ DOKUMENT DO CRM</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-emerald-50 p-3 text-sm">
+              <p className="font-black">
+                {selectedDeal
+                  ? selectedDeal.title
+                  : `${contactName(selectedContact)} — bez Deala`}
+              </p>
+              <p className="text-xs text-slate-600">
+                Dokument dziedziczy ten kontekst i stanie się zdarzeniem
+                historii.
+              </p>
+            </div>
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+              <Camera className="size-5" /> ZRÓB ZDJĘCIE / SKAN
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(event) => {
+                  setDocumentSource('iphone_camera');
+                  setPendingDocument(event.target.files?.[0] || null);
+                }}
+              />
+            </label>
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+              <ImageIcon className="size-5" /> WYBIERZ ZDJĘCIE
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  setDocumentSource('iphone_photo');
+                  setPendingDocument(event.target.files?.[0] || null);
+                }}
+              />
+            </label>
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+              <FilePlus2 className="size-5" /> WYBIERZ PLIK / PDF
+              <input
+                type="file"
+                accept="application/pdf,.doc,.docx,.xls,.xlsx,image/*"
+                className="hidden"
+                onChange={(event) => {
+                  setDocumentSource('iphone_file');
+                  setPendingDocument(event.target.files?.[0] || null);
+                }}
+              />
+            </label>
+            {pendingDocument && (
+              <p className="rounded-xl bg-slate-100 p-3 text-sm font-semibold">
+                Wybrano: {pendingDocument.name}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDocumentDialog(false);
+                  setDealId('');
+                  setFlowStep('selection');
+                }}
+              >
+                ZMIEŃ KONTEKST
+              </Button>
+              <Button
+                disabled={!pendingDocument || documentUploading}
+                onClick={() => void saveDocument()}
+              >
+                {documentUploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                ZAPISZ DOKUMENT
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

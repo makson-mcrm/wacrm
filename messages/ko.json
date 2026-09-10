@@ -16,7 +16,7 @@
   },
   "Sidebar": {
     "title": "WhatsApp용 CRM 템플릿",
-    "dashboard": "대시보드",
+    "dashboard": "DZISIAJ",
     "inbox": "인박스",
     "notifications": "알림",
     "contacts": "연락처",
@@ -30,6 +30,8 @@
     "automations": "자동화",
     "flows": "플로우",
     "aiAgents": "AI 에이전트",
+    "tasks": "ZADANIA",
+    "assistant": "ASYSTENT",
     "settings": "설정",
     "beta": "베타",
     "unreadConversations": "읽지 않은 대화 {count}건",
@@ -1749,4 +1751,3 @@
     }
   }
 }
-

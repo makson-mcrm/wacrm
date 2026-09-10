@@ -156,4 +156,3 @@ export function questionnaireStatusLabel(status: QuestionnaireStatus): string {
     submitted: 'Przesłana',
   }[status];
 }
-

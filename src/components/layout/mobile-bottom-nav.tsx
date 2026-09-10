@@ -9,7 +9,7 @@ const items = [
   { href: '/dashboard', label: 'DZISIAJ', icon: House },
   { href: '/quick-call', label: 'AKTYWNOŚĆ', icon: Activity },
   { href: '/contacts', label: 'KLIENCI', icon: Users },
-  { href: '/agents', label: 'ASYSTENT', icon: Bot },
+  { href: '/assistant', label: 'ASYSTENT', icon: Bot },
 ] as const;
 
 export function MobileBottomNav() {

@@ -8,6 +8,7 @@ import {
   phoneSearchStrength,
   requiresExplicitDealChoice,
   suggestedRetryAt,
+  shouldAutoSelectDeal,
 } from './quick-activity';
 describe('quick activity helpers', () => {
   it('starts suggestions at three digits and strengthens at six', () => {
@@ -34,9 +35,9 @@ describe('quick activity helpers', () => {
     expect(followUpPreset('SPOTKANIE').type).toBe('SPOTKANIE');
     expect(followUpPreset('INNY').channel).toBe('follow_up');
   });
-  it('never guesses a Deal when a Contact has active sales cases', () => {
+  it('auto-selects one clear Deal and requires choice for ambiguity', () => {
     expect(requiresExplicitDealChoice(0)).toBe(false);
-    expect(requiresExplicitDealChoice(1)).toBe(true);
+    expect(requiresExplicitDealChoice(1)).toBe(false);
     expect(requiresExplicitDealChoice(3)).toBe(true);
   });
   it('keeps the chosen follow-up kind in the single next-action field', () => {
@@ -57,5 +58,11 @@ describe('quick activity helpers', () => {
       next_step: 'Sprawdzić dokumenty',
     });
   });
+  it('reports whether one Deal can be selected automatically', () => {
+    expect(shouldAutoSelectDeal(1)).toBe(true);
+    expect(shouldAutoSelectDeal(0)).toBe(false);
+    expect(shouldAutoSelectDeal(2)).toBe(false);
+    expect(requiresExplicitDealChoice(1)).toBe(false);
+    expect(requiresExplicitDealChoice(2)).toBe(true);
+  });
 });
-

@@ -10,6 +10,7 @@ import {
   Copy,
   FileText,
   Mail,
+  Mic,
   Pencil,
   Trash2,
   Upload,
@@ -443,7 +444,32 @@ export default function DealPage() {
                 contactId={actionContact.id}
                 companyId={deal.company_id}
                 dealId={deal.id}
+                label="WIADOMOŚĆ"
               />
+              <Button
+                size="sm"
+                variant="outline"
+                render={
+                  <Link
+                    href={`/quick-call?deal=${deal.id}&contact=${actionContact.id}&action=dictate`}
+                  />
+                }
+              >
+                <Mic className="h-4 w-4" />
+                DYKTUJ
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                render={
+                  <Link
+                    href={`/quick-call?deal=${deal.id}&contact=${actionContact.id}&action=document`}
+                  />
+                }
+              >
+                <Upload className="h-4 w-4" />
+                DODAJ DOKUMENT
+              </Button>
             </>
           )}
           {deal.contact?.email && (
@@ -461,6 +487,20 @@ export default function DealPage() {
             </Button>
           </Link>
         </div>
+        <dl className="mt-4 grid gap-2 rounded-xl bg-emerald-50 p-3 text-sm sm:grid-cols-4">
+          <Row label="Produkt / kategoria" value={deal.product_type} />
+          <Row label="Etap" value={deal.stage?.name} />
+          <Row label="Next action" value={deal.next_action} />
+          <Row
+            label="Termin"
+            value={deal.next_action_at && dt(deal.next_action_at)}
+          />
+          {deal.blocker && (
+            <div className="sm:col-span-4">
+              <Row label="Blocker" value={deal.blocker} />
+            </div>
+          )}
+        </dl>
       </header>
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
         <aside className="space-y-4">

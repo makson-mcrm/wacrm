@@ -51,6 +51,7 @@ import {
   X,
   DollarSign,
   LayoutTemplate,
+  Mic,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
@@ -154,7 +155,9 @@ export function ContactDetailView({
       setEditIdentityDocument(data.identity_document ?? '');
       setEditBikStatus(data.bik_status ?? '');
       setEditIncomeType(data.income_type ?? '');
-      setEditMonthlyIncome(data.monthly_income == null ? '' : String(data.monthly_income));
+      setEditMonthlyIncome(
+        data.monthly_income == null ? '' : String(data.monthly_income)
+      );
     }
     setLoading(false);
   }, [contactId, supabase]);
@@ -180,7 +183,11 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoadingNotes(true);
 
-    const notesResult = await supabase.from('contact_notes').select('*').eq('contact_id', contactId).order('created_at', { ascending: false });
+    const notesResult = await supabase
+      .from('contact_notes')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
     if (notesResult.data) setNotes(notesResult.data);
     setLoadingNotes(false);
   }, [contactId, supabase]);
@@ -212,16 +219,31 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoadingDeals(true);
     const [{ data: direct }, { data: links }] = await Promise.all([
-      supabase.from('deals').select('*, stage:pipeline_stages(*)').eq('contact_id', contactId),
-      supabase.from('deal_contacts').select('deal_id').eq('contact_id', contactId),
+      supabase
+        .from('deals')
+        .select('*, stage:pipeline_stages(*)')
+        .eq('contact_id', contactId),
+      supabase
+        .from('deal_contacts')
+        .select('deal_id')
+        .eq('contact_id', contactId),
     ]);
     const linkedIds = (links ?? []).map((row) => row.deal_id);
     const { data: linked } = linkedIds.length
-      ? await supabase.from('deals').select('*, stage:pipeline_stages(*)').in('id', linkedIds)
+      ? await supabase
+          .from('deals')
+          .select('*, stage:pipeline_stages(*)')
+          .in('id', linkedIds)
       : { data: [] };
     const unique = new Map<string, Deal>();
-    [...(direct ?? []), ...(linked ?? [])].forEach((row) => unique.set(row.id, row as Deal));
-    setDeals([...unique.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))));
+    [...(direct ?? []), ...(linked ?? [])].forEach((row) =>
+      unique.set(row.id, row as Deal)
+    );
+    setDeals(
+      [...unique.values()].sort((a, b) =>
+        String(b.created_at).localeCompare(String(a.created_at))
+      )
+    );
     setLoadingDeals(false);
   }, [contactId, supabase]);
 
@@ -231,9 +253,7 @@ export function ContactDetailView({
       supabase.from('companies').select('*').order('name'),
       supabase
         .from('contact_companies')
-        .select(
-          '*, company:companies!contact_companies_company_id_fkey(*)'
-        )
+        .select('*, company:companies!contact_companies_company_id_fkey(*)')
         .eq('contact_id', contactId)
         .order('created_at'),
     ]);
@@ -310,7 +330,9 @@ export function ContactDetailView({
     }
 
     setSavingDetails(true);
-    const fullName = [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') || editName.trim();
+    const fullName =
+      [editFirstName.trim(), editLastName.trim()].filter(Boolean).join(' ') ||
+      editName.trim();
     const { error } = await supabase
       .from('contacts')
       .update({
@@ -325,7 +347,9 @@ export function ContactDetailView({
         identity_document: editIdentityDocument.trim() || null,
         bik_status: editBikStatus || null,
         income_type: editIncomeType.trim() || null,
-        monthly_income: editMonthlyIncome.trim() ? Number(editMonthlyIncome) : null,
+        monthly_income: editMonthlyIncome.trim()
+          ? Number(editMonthlyIncome)
+          : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', contactId);
@@ -541,7 +565,13 @@ export function ContactDetailView({
                         </span>
                       )}
                       {contactCompanies.map((link) => (
-                        <Link key={link.company_id} href={`/companies?open=${link.company_id}`} target="_blank" rel="noopener noreferrer" className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-700 hover:bg-emerald-50 hover:underline">
+                        <Link
+                          key={link.company_id}
+                          href={`/companies?open=${link.company_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-700 hover:bg-emerald-50 hover:underline"
+                        >
                           <Building2 className="size-3" />
                           {link.company?.name}
                         </Link>
@@ -550,13 +580,31 @@ export function ContactDetailView({
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <CallAction phone={contact.phone} contactId={contact.id} companyId={contactCompanies.find((link) => link.is_primary)?.company_id ?? contactCompanies[0]?.company_id} />
+                  <CallAction
+                    phone={contact.phone}
+                    contactId={contact.id}
+                    companyId={
+                      contactCompanies.find((link) => link.is_primary)
+                        ?.company_id ?? contactCompanies[0]?.company_id
+                    }
+                  />
                   <SmsAction
                     phone={contact.phone}
                     contactName={contact.name}
                     contactId={contact.id}
-                    companyId={contactCompanies.find((link) => link.is_primary)?.company_id ?? contactCompanies[0]?.company_id}
+                    companyId={
+                      contactCompanies.find((link) => link.is_primary)
+                        ?.company_id ?? contactCompanies[0]?.company_id
+                    }
+                    label="WIADOMOŚĆ"
                   />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    render={<Link href={`/quick-call?contact=${contact.id}`} />}
+                  >
+                    <Mic className="size-4" /> DYKTUJ
+                  </Button>
                   <Button
                     size="sm"
                     onClick={() => setTemplatePickerOpen(true)}
@@ -570,6 +618,42 @@ export function ContactDetailView({
                     )}
                     {t('sendTemplateBtn')}
                   </Button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
+                      Aktywne Deale
+                    </p>
+                    <Link
+                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
+                      className="text-xs font-black text-emerald-800"
+                    >
+                      + NOWY DEAL
+                    </Link>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {deals.map((deal) => (
+                      <Link
+                        key={deal.id}
+                        href={`/deals/${deal.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-56 rounded-xl border bg-white p-3 hover:border-emerald-500"
+                      >
+                        <span className="block truncate text-sm font-black">
+                          {deal.title}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {deal.product_type || 'Kategoria nieustalona'}
+                        </span>
+                      </Link>
+                    ))}
+                    {!deals.length && (
+                      <p className="text-xs text-slate-500">
+                        Kontakt nie ma jeszcze aktywnego Deala.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </SheetHeader>
 
@@ -631,12 +715,22 @@ export function ContactDetailView({
                   <div className="space-y-3">
                     <div className="grid gap-2 md:max-w-md md:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs">Imię</Label>
-                        <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} />
+                        <Label className="text-muted-foreground text-xs">
+                          Imię
+                        </Label>
+                        <Input
+                          value={editFirstName}
+                          onChange={(e) => setEditFirstName(e.target.value)}
+                        />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs">Nazwisko</Label>
-                        <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} />
+                        <Label className="text-muted-foreground text-xs">
+                          Nazwisko
+                        </Label>
+                        <Input
+                          value={editLastName}
+                          onChange={(e) => setEditLastName(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -670,25 +764,65 @@ export function ContactDetailView({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">LinkedIn</Label>
-                      <Input type="url" value={editLinkedin} onChange={(e) => setEditLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+                      <Label className="text-muted-foreground text-xs">
+                        LinkedIn
+                      </Label>
+                      <Input
+                        type="url"
+                        value={editLinkedin}
+                        onChange={(e) => setEditLinkedin(e.target.value)}
+                        placeholder="https://linkedin.com/in/..."
+                      />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">Opis Kontaktu</Label>
-                      <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="min-h-32 resize-y" placeholder="Pełny opis osoby i ustaleń" />
+                      <Label className="text-muted-foreground text-xs">
+                        Opis Kontaktu
+                      </Label>
+                      <Textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="min-h-32 resize-y"
+                        placeholder="Pełny opis osoby i ustaleń"
+                      />
                     </div>
                     <details className="rounded-lg border p-3">
                       <summary className="cursor-pointer text-xs font-semibold">
                         Dane do wniosku — wrażliwe
                       </summary>
                       <div className="mt-3 grid gap-2 md:grid-cols-2">
-                        <Input value={editPesel} onChange={(e) => setEditPesel(e.target.value)} placeholder="PESEL" />
-                        <Input value={editIdentityDocument} onChange={(e) => setEditIdentityDocument(e.target.value)} placeholder="Seria i numer dokumentu" />
-                        <select value={editBikStatus} onChange={(e) => setEditBikStatus(e.target.value)} className="h-9 rounded-md border bg-muted px-2 text-sm">
-                          <option value="">BIK — brak danych</option><option>Sprawdzony — OK</option><option>Wymaga analizy</option><option>Negatywny</option>
+                        <Input
+                          value={editPesel}
+                          onChange={(e) => setEditPesel(e.target.value)}
+                          placeholder="PESEL"
+                        />
+                        <Input
+                          value={editIdentityDocument}
+                          onChange={(e) =>
+                            setEditIdentityDocument(e.target.value)
+                          }
+                          placeholder="Seria i numer dokumentu"
+                        />
+                        <select
+                          value={editBikStatus}
+                          onChange={(e) => setEditBikStatus(e.target.value)}
+                          className="bg-muted h-9 rounded-md border px-2 text-sm"
+                        >
+                          <option value="">BIK — brak danych</option>
+                          <option>Sprawdzony — OK</option>
+                          <option>Wymaga analizy</option>
+                          <option>Negatywny</option>
                         </select>
-                        <Input value={editIncomeType} onChange={(e) => setEditIncomeType(e.target.value)} placeholder="Źródło dochodu" />
-                        <Input type="number" value={editMonthlyIncome} onChange={(e) => setEditMonthlyIncome(e.target.value)} placeholder="Dochód miesięczny" />
+                        <Input
+                          value={editIncomeType}
+                          onChange={(e) => setEditIncomeType(e.target.value)}
+                          placeholder="Źródło dochodu"
+                        />
+                        <Input
+                          type="number"
+                          value={editMonthlyIncome}
+                          onChange={(e) => setEditMonthlyIncome(e.target.value)}
+                          placeholder="Dochód miesięczny"
+                        />
                       </div>
                     </details>
                     <Button
@@ -715,7 +849,9 @@ export function ContactDetailView({
                   <div className="space-y-3">
                     {accountId && contactId && (
                       <section className="rounded-xl border p-4">
-                        <h3 className="mb-3 text-sm font-semibold">Tagi CRM Kontaktu</h3>
+                        <h3 className="mb-3 text-sm font-semibold">
+                          Tagi CRM Kontaktu
+                        </h3>
                         <EntityTagsEditor
                           accountId={accountId}
                           entityType="contact"
@@ -797,27 +933,28 @@ export function ContactDetailView({
                       </p>
                     ) : (
                       <>
-                      {notes.map((note) => (
-                        <div
-                          key={note.id}
-                          className="bg-muted/50 border-border/50 group rounded-lg border p-3"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-muted-foreground flex-1 text-sm whitespace-pre-wrap">
-                              {note.note_text}
+                        {notes.map((note) => (
+                          <div
+                            key={note.id}
+                            className="bg-muted/50 border-border/50 group rounded-lg border p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-muted-foreground flex-1 text-sm whitespace-pre-wrap">
+                                {note.note_text}
+                              </p>
+                              <button
+                                onClick={() => deleteNote(note.id)}
+                                className="text-muted-foreground shrink-0 cursor-pointer opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-muted-foreground mt-1.5 text-xs">
+                              {formatWarsawDateTime(note.created_at)} ·
+                              Europe/Warsaw
                             </p>
-                            <button
-                              onClick={() => deleteNote(note.id)}
-                              className="text-muted-foreground shrink-0 cursor-pointer opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
                           </div>
-                          <p className="text-muted-foreground mt-1.5 text-xs">
-                            {formatWarsawDateTime(note.created_at)} · Europe/Warsaw
-                          </p>
-                        </div>
-                      ))}
+                        ))}
                       </>
                     )}
                   </div>
@@ -891,7 +1028,12 @@ export function ContactDetailView({
                           key={link.company_id}
                           className="border-border bg-muted/50 flex items-center justify-between gap-3 rounded-lg border p-3"
                         >
-                          <Link href={`/companies?open=${link.company_id}`} target="_blank" rel="noopener noreferrer" className="min-w-0 rounded px-1 py-1 hover:bg-emerald-50">
+                          <Link
+                            href={`/companies?open=${link.company_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-w-0 rounded px-1 py-1 hover:bg-emerald-50"
+                          >
                             <p className="text-foreground truncate text-sm font-medium hover:text-emerald-800 hover:underline">
                               {link.company?.name ?? 'Firma'}
                             </p>
@@ -940,7 +1082,11 @@ export function ContactDetailView({
                       />
                       <Button
                         variant="outline"
-                        render={<Link href={`/companies?new=company&contact=${contact.id}`} />}
+                        render={
+                          <Link
+                            href={`/companies?new=company&contact=${contact.id}`}
+                          />
+                        }
                         className="w-full"
                       >
                         <Plus className="size-4" />
@@ -968,7 +1114,14 @@ export function ContactDetailView({
                   value="deals"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <Button className="mb-3 w-full" render={<Link href={`/pipelines?new=deal&contact=${contact.id}`} />}>
+                  <Button
+                    className="mb-3 w-full"
+                    render={
+                      <Link
+                        href={`/pipelines?new=deal&contact=${contact.id}`}
+                      />
+                    }
+                  >
                     <Plus className="size-4" /> Nowy Deal dla tego Kontaktu
                   </Button>
                   {loadingDeals ? (
@@ -1030,7 +1183,10 @@ export function ContactDetailView({
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="history" className="flex-1 overflow-y-auto px-4 py-3">
+                <TabsContent
+                  value="history"
+                  className="flex-1 overflow-y-auto px-4 py-3"
+                >
                   <ActivityHistory contactId={contact.id} />
                 </TabsContent>
               </Tabs>
@@ -1046,4 +1202,3 @@ export function ContactDetailView({
     </>
   );
 }
-

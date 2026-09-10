@@ -1062,4 +1062,3 @@ function numberOrNull(value: string) {
 function localDateTime(value?: string) {
   return value ? value.slice(0, 16) : '';
 }
-

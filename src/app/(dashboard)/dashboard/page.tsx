@@ -6,6 +6,7 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   Phone,
   PhoneMissed,
@@ -596,7 +597,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="hidden items-center rounded-lg border p-0.5 md:flex">
+          <div className="flex items-center rounded-lg border p-0.5">
             <Button
               size="sm"
               variant="ghost"
@@ -613,6 +614,10 @@ export default function DashboardPage() {
               Tydzień
             </Button>
           </div>
+          <Button size="sm" variant="outline" render={<Link href="/tasks" />}>
+            <ClipboardList className="size-4" />
+            Wszystkie zadania
+          </Button>
           <Button render={<Link href="/quick-call" />}>
             <Phone className="size-4" />
             Szybka Aktywność
@@ -1291,4 +1296,3 @@ function Field({
     </div>
   );
 }
-

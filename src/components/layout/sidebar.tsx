@@ -17,6 +17,7 @@ import {
   Crown,
   GitBranch,
   LayoutDashboard,
+  ListTodo,
   LogOut,
   MessageSquare,
   Radio,
@@ -87,16 +88,17 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-  { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
-  { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
+  { href: '/contacts', labelKey: 'contacts', icon: Users },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
-  { href: '/contacts', labelKey: 'contacts', icon: Users },
+  { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
+  { href: '/assistant', labelKey: 'assistant', icon: Bot },
+  { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
+  { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
   { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
-  { href: '/agents', labelKey: 'aiAgents', icon: Bot },
 ];
 
 const bottomNavItems = [
@@ -368,4 +370,3 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
-

@@ -11,6 +11,7 @@ export const DRIVE_SYNC_LIMIT = 50;
 export const DRIVE_TREE_LIMIT = 300;
 export const DRIVE_MAX_DEPTH = 4;
 export const DRIVE_FILE_MAX_BYTES = 1_000_000;
+export const DRIVE_CLIENT_FILE_MAX_BYTES = 10_000_000;
 
 export const APPROVED_DRIVE_ROOTS = [
   {
@@ -32,6 +33,16 @@ const DOWNLOADABLE_MIME_TYPES = new Set([
   'text/plain',
   'text/markdown',
   'text/csv',
+]);
+const CLIENT_SHAREABLE_MIME_TYPES = new Set([
+  GOOGLE_DOC,
+  GOOGLE_SHEET,
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ...DOWNLOADABLE_MIME_TYPES,
 ]);
 
 export type DriveKnowledgeConfig = {
@@ -71,8 +82,18 @@ export type DriveKnowledgeCandidate = DriveKnowledgeFile & {
   sourceType: 'instruction' | 'form' | 'promotion' | 'agreement';
 };
 
+export type ClientShareableDriveFile = {
+  sourceName: string;
+  name: string;
+  bank: string;
+  product: string;
+  version: string;
+  effectiveDate: string | null;
+};
+
 export type DriveKnowledgePlan = {
   candidates: DriveKnowledgeCandidate[];
+  clientFiles: DriveKnowledgeCandidate[];
   skipped: {
     folder: number;
     unsupportedType: number;
@@ -230,6 +251,18 @@ export function driveDocumentType(file: DriveKnowledgeCandidate) {
   return `google_drive_internal:${file.productRoute}:${file.domains.join('+')}:${file.sourceType}`;
 }
 
+export function isClientShareableDriveSource(input: {
+  sourceName?: string | null;
+  documentType?: string | null;
+}) {
+  const root = APPROVED_DRIVE_ROOTS.find(
+    (item) =>
+      item.kind === 'bank_catalog' &&
+      input.sourceName?.startsWith(`gdrive://${item.folderId}/`)
+  );
+  return Boolean(root && input.documentType?.endsWith(':form'));
+}
+
 export function buildDriveKnowledgePlan(
   root: DriveKnowledgeRoot,
   files: Array<DriveKnowledgeFile & { path?: string[] }>,
@@ -244,9 +277,28 @@ export function buildDriveKnowledgePlan(
     outOfScope: 0,
   };
   const candidates: DriveKnowledgeCandidate[] = [];
+  const clientFiles: DriveKnowledgeCandidate[] = [];
   for (const file of files) {
     const path = file.path ?? [];
     const route = classifyDriveFile(root, path, file.name);
+    if (
+      file.parents.length &&
+      !file.publiclyShared &&
+      route?.sourceType === 'form' &&
+      CLIENT_SHAREABLE_MIME_TYPES.has(file.mimeType) &&
+      (file.size === null || file.size <= DRIVE_CLIENT_FILE_MAX_BYTES)
+    ) {
+      const effectiveDate = file.modifiedTime?.slice(0, 10) || null;
+      clientFiles.push({
+        ...file,
+        sourceName: `gdrive://${root.folderId}/${file.id}`,
+        sourceVersion: file.version || file.modifiedTime || 'brak wersji',
+        effectiveDate,
+        rootId: root.folderId,
+        path,
+        ...route,
+      });
+    }
     if (!file.parents.length) {
       skipped.outsideFolder += 1;
     } else if (file.mimeType === GOOGLE_FOLDER) {
@@ -272,7 +324,7 @@ export function buildDriveKnowledgePlan(
       });
     }
   }
-  return { candidates, skipped, truncated };
+  return { candidates, clientFiles, skipped, truncated };
 }
 
 function normalizePath(value: string) {
@@ -529,7 +581,55 @@ export async function downloadDriveKnowledgeFile(args: {
   return content;
 }
 
+export async function downloadClientShareableDriveFile(args: {
+  sourceName: string;
+  config: DriveKnowledgeConfig;
+  fetcher?: typeof fetch;
+}) {
+  const root = args.config.approvedRoots.find(
+    (item) =>
+      item.kind === 'bank_catalog' &&
+      args.sourceName.startsWith(`gdrive://${item.folderId}/`)
+  );
+  if (!root) throw new Error('FOLDER_NOT_ALLOWLISTED');
+  const plan = await listAllowlistedDriveFiles({
+    root,
+    config: args.config,
+    fetcher: args.fetcher,
+  });
+  const file = plan.clientFiles.find(
+    (candidate) =>
+      candidate.sourceName === args.sourceName &&
+      candidate.sourceType === 'form'
+  );
+  if (!file) throw new Error('CLIENT_DOCUMENT_NOT_ALLOWED');
+  const fetcher = args.fetcher || fetch;
+  const token = await getServiceAccountAccessToken(args.config, fetcher);
+  const isGoogleNative =
+    file.mimeType === GOOGLE_DOC || file.mimeType === GOOGLE_SHEET;
+  const url = isGoogleNative
+    ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}/export?mimeType=application%2Fpdf`
+    : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media`;
+  const response = await fetcher(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error('DRIVE_READ_FAILED');
+  const bytes = await response.arrayBuffer();
+  if (!bytes.byteLength || bytes.byteLength > 10_000_000)
+    throw new Error('DRIVE_FILE_TOO_LARGE');
+  return {
+    bytes,
+    mimeType: isGoogleNative
+      ? 'application/pdf'
+      : file.mimeType || 'application/octet-stream',
+    fileName: isGoogleNative
+      ? `${file.name.replace(/\.[^.]+$/, '')}.pdf`
+      : file.name,
+  };
+}
+
 export function __resetDriveTokenForTests() {
   tokenCache = null;
 }
-

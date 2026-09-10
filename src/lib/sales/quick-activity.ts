@@ -39,9 +39,13 @@ export function followUpPreset(kind: FollowUpKind): {
   return { type: 'FOLLOW_UP', label: 'Inny follow-up', channel: 'follow_up' };
 }
 
-/** Any active Deal requires an explicit Contact-only vs Deal choice. */
+/** Only a genuinely ambiguous set of active Deals requires a selector. */
 export function requiresExplicitDealChoice(activeDealCount: number) {
-  return activeDealCount > 0;
+  return activeDealCount > 1;
+}
+
+export function shouldAutoSelectDeal(activeDealCount: number) {
+  return activeDealCount === 1;
 }
 
 export function formatFollowUpAction(
@@ -108,4 +112,3 @@ export function suggestedRetryAt(attempt: number, now = new Date()) {
 export function toLocalDateTimeValue(date: Date) {
   return toWarsawDateTimeInput(date);
 }
-
