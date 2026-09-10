@@ -30,7 +30,13 @@ export default function AssistantPage() {
       .order('updated_at', { ascending: false });
     const rows = (result.data ?? []) as DealOption[];
     setDeals(rows);
-    setDealId((current) => current || rows[0]?.id || '');
+    setDealId((current) => {
+      if (current) return current;
+      const requested = new URLSearchParams(window.location.search).get('deal');
+      return rows.some((deal) => deal.id === requested)
+        ? requested || ''
+        : rows[0]?.id || '';
+    });
   }, [accountId, db]);
 
   useEffect(() => void load(), [load]);
