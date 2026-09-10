@@ -12,6 +12,7 @@ import {
   Mail,
   Mic,
   Pencil,
+  Sparkles,
   Trash2,
   Upload,
   UserPlus,
@@ -411,19 +412,20 @@ export default function DealPage() {
             </p>
           </div>
         </div>
-        <div className="mt-4 flex gap-1 overflow-x-auto">
-          {stages.map((stage) => (
-            <button
-              type="button"
-              key={stage.id}
-              onClick={() => void changeStage(stage.id)}
-              title={`Przenieś Deal do etapu: ${stage.name}`}
-              className={`min-w-36 flex-1 rounded-full px-3 py-2 text-center text-xs font-semibold ${stage.id === deal.stage_id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-            >
-              {stage.name}
-            </button>
-          ))}
-        </div>
+        <label className="mt-4 block max-w-sm text-xs font-bold text-slate-500">
+          Etap
+          <select
+            value={deal.stage_id}
+            onChange={(event) => void changeStage(event.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border bg-white px-3 text-sm font-semibold text-slate-900"
+          >
+            {stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setEdit(true)}>
             <Pencil className="h-4 w-4" />
@@ -501,9 +503,16 @@ export default function DealPage() {
             </div>
           )}
         </dl>
+        <Link
+          href={`/assistant?deal=${deal.id}`}
+          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#123d2b] px-4 py-3 text-sm font-black text-lime-300 shadow-sm hover:bg-[#0b2d1f]"
+        >
+          <Sparkles className="size-4" /> ASYSTENT AI — przygotuj, sprawdź,
+          podpowiedz
+        </Link>
       </header>
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-        <aside className="space-y-4">
+        <aside className="hidden space-y-4 xl:block">
           <Panel title="Powiązane osoby">
             {people.map((person) => (
               <div key={person.contact_id} className="rounded-lg border p-3">
@@ -636,24 +645,29 @@ export default function DealPage() {
         </aside>
         <main className="bg-card rounded-xl border p-4">
           <Tabs defaultValue="notes">
-            <TabsList className="mb-4 flex h-auto flex-wrap">
-              <TabsTrigger value="timeline">Oś czasu</TabsTrigger>
-              <TabsTrigger value="notes">Komentarze i notatki</TabsTrigger>
-              <TabsTrigger value="activities">Działania</TabsTrigger>
-              <TabsTrigger value="case">Dane sprawy</TabsTrigger>
-              <TabsTrigger value="analysis">Asystent AI</TabsTrigger>
-              <TabsTrigger value="banking-knowledge">
-                Wiedza Bankowa
-              </TabsTrigger>
-              <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
-              <TabsTrigger value="comm">Komunikacja</TabsTrigger>
-              <TabsTrigger value="email">Wiadomości e-mail</TabsTrigger>
-              <TabsTrigger value="banks">Proces bankowy</TabsTrigger>
-              <TabsTrigger value="files">Pliki</TabsTrigger>
-              <TabsTrigger value="history">Etapy</TabsTrigger>
-              <TabsTrigger value="settlement">Rozliczenie</TabsTrigger>
+            <TabsList className="mb-3 grid h-auto w-full grid-cols-3 rounded-xl bg-emerald-50 p-1">
+              <TabsTrigger value="notes">Szczegóły</TabsTrigger>
               <TabsTrigger value="activity-history">Historia</TabsTrigger>
+              <TabsTrigger value="files">Dokumenty</TabsTrigger>
             </TabsList>
+            <details className="mb-4 rounded-xl border bg-slate-50">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-500">
+                WIĘCEJ DANYCH SPRAWY
+              </summary>
+              <TabsList className="flex h-auto flex-wrap justify-start border-t bg-transparent p-2">
+                <TabsTrigger value="timeline">Oś czasu</TabsTrigger>
+                <TabsTrigger value="activities">Działania</TabsTrigger>
+                <TabsTrigger value="case">Dane sprawy</TabsTrigger>
+                <TabsTrigger value="analysis">Asystent AI</TabsTrigger>
+                <TabsTrigger value="banking-knowledge">Wiedza Bankowa</TabsTrigger>
+                <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
+                <TabsTrigger value="comm">Komunikacja</TabsTrigger>
+                <TabsTrigger value="email">E-mail</TabsTrigger>
+                <TabsTrigger value="banks">Proces bankowy</TabsTrigger>
+                <TabsTrigger value="history">Etapy</TabsTrigger>
+                <TabsTrigger value="settlement">Rozliczenie</TabsTrigger>
+              </TabsList>
+            </details>
             <TabsContent value="timeline" className="space-y-3">
               <Section title="Aktualny stan">
                 <Row label="Etap" value={deal.stage?.name} />
