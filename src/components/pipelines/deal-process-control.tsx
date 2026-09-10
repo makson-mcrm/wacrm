@@ -410,6 +410,7 @@ export function DealProcessControl({
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            className="border-lime-400 bg-lime-300 text-[#123d2b] hover:bg-lime-200"
             disabled={analyzing}
             onClick={() => void runBankAnalysis()}
           >
@@ -458,3 +459,4 @@ export function DealProcessControl({
     </div>
   );
 }
+

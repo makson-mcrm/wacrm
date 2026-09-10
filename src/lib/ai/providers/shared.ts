@@ -10,6 +10,7 @@ export interface ProviderArgs {
   systemPrompt: string
   messages: ChatMessage[]
   timeoutMs: number
+  maxOutputTokens?: number
 }
 
 /**
@@ -23,6 +24,7 @@ export function normalizeUsage(raw: {
   prompt?: unknown
   completion?: unknown
   total?: unknown
+  cached?: unknown
 }): AiUsage | null {
   const num = (v: unknown): number =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0
@@ -33,7 +35,8 @@ export function normalizeUsage(raw: {
   if (promptTokens === 0 && completionTokens === 0 && totalTokens === 0) {
     return null
   }
-  return { promptTokens, completionTokens, totalTokens }
+   const cachedTokens = Math.min(promptTokens, num(raw.cached))
+  return { promptTokens, completionTokens, totalTokens, ...(cachedTokens ? { cachedTokens } : {}) }
 }
 
 /** Map a fetch rejection (timeout / DNS / offline) to a typed AiError. */
@@ -107,3 +110,4 @@ export function mergeConsecutive(messages: ChatMessage[]): ChatMessage[] {
   }
   return out
 }
+

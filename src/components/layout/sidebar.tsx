@@ -9,20 +9,21 @@ import { useTotalUnread } from '@/hooks/use-total-unread';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import { useUnhandledSubmissions } from '@/hooks/use-unhandled-submissions';
 import {
-  Bell,
+  Activity,
   Bot,
   Building2,
   ClipboardList,
   CalendarDays,
+  ChevronDown,
   Crown,
   GitBranch,
   LayoutDashboard,
   ListTodo,
-  LogOut,
   MessageSquare,
   Radio,
   Settings,
   Shield,
+  Sparkles,
   User,
   UserCog,
   Users,
@@ -67,17 +68,11 @@ const ROLE_CHIP: Record<
   },
 };
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface NavItem {
   href: string;
   labelKey: string;
+  label?: string;
   icon: typeof LayoutDashboard;
   /**
    * When true, the nav row renders a small "Beta" chip after the label.
@@ -88,11 +83,15 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+  { href: '/quick-call', labelKey: 'activity', label: 'AKTYWNOŚĆ', icon: Activity },
   { href: '/contacts', labelKey: 'contacts', icon: Users },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
   { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
   { href: '/assistant', labelKey: 'assistant', icon: Bot },
+];
+
+const secondaryNavItems: NavItem[] = [
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
@@ -116,7 +115,7 @@ import { useTranslations } from 'next-intl';
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const { profile, profileLoading, account, accountRole } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   const unhandledSubmissions = useUnhandledSubmissions();
@@ -187,12 +186,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             close button is hidden since the sidebar is always-visible. */}
         <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg">
-              <MessageSquare className="h-4 w-4" />
+            <div className="bg-[#123d2b] text-lime-300 flex h-8 w-8 items-center justify-center rounded-lg">
+              <Sparkles className="h-4 w-4" />
             </div>
-            <span className="text-foreground text-sm font-semibold">
-              {t('title')}
-            </span>
+            <span className="text-foreground text-sm font-black">mCRM AI</span>
           </Link>
           <button
             type="button"
@@ -237,7 +234,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{t(item.labelKey as string)}</span>
+                    <span className="flex-1">{item.label || t(item.labelKey as string)}</span>
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
@@ -279,6 +276,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
           </ul>
+
+          <details className="mt-4 rounded-lg border">
+            <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold">
+              <ChevronDown className="size-3.5" /> NARZĘDZIA DODATKOWE
+            </summary>
+            <ul className="flex flex-col gap-1 border-t p-2">
+              {secondaryNavItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href);
+                const badge = item.href === '/notifications' ? unreadNotifications : item.href === '/inbox' ? totalUnread : item.href === '/submissions' ? unhandledSubmissions : 0;
+                return <li key={item.href}><Link href={item.href} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors', isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}><item.icon className="size-4" /><span className="flex-1">{item.label || t(item.labelKey as string)}</span>{badge > 0 ? <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px]">{badge > 99 ? '99+' : badge}</span> : null}</Link></li>;
+              })}
+            </ul>
+          </details>
 
           <div className="border-border my-4 border-t" />
 
@@ -370,3 +380,4 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
+

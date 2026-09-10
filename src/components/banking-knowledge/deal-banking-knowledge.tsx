@@ -28,10 +28,10 @@ const QUALITY_STYLES: Record<BankingKnowledgeQuality, string> = {
   'WYMAGA WERYFIKACJI': 'bg-rose-100 text-rose-800',
 };
 
-export function DealBankingKnowledge({ dealId }: { dealId: string }) {
+export function DealBankingKnowledge({ dealId, initialMode = 'answer' }: { dealId: string; initialMode?: Mode }) {
   const router = useRouter();
   const [answer, setAnswer] = useState<BankingKnowledgeAnswer | null>(null);
-  const [mode, setMode] = useState<Mode>('answer');
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [question, setQuestion] = useState('Co mam zrobić dalej?');
   const [nextAction, setNextAction] = useState('');
   const [nextActionAt, setNextActionAt] = useState('');
@@ -224,7 +224,7 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         <Button
           size="lg"
           variant={mode === 'answer' ? 'default' : 'outline'}
-          className="h-auto min-h-11 py-3 text-center whitespace-normal"
+          className="h-auto min-h-11 border-lime-400 bg-lime-300 py-3 text-center text-[#123d2b] whitespace-normal hover:bg-lime-200"
           onClick={() => void ask()}
         >
           <ShieldCheck className="size-4" /> JAK WYKONAĆ NASTĘPNY KROK?
@@ -232,7 +232,7 @@ export function DealBankingKnowledge({ dealId }: { dealId: string }) {
         <Button
           size="lg"
           variant={mode === 'guide' ? 'default' : 'outline'}
-          className="h-auto min-h-11 py-3 text-center whitespace-normal"
+          className="h-auto min-h-11 border-lime-400 bg-lime-300 py-3 text-center text-[#123d2b] whitespace-normal hover:bg-lime-200"
           onClick={() => setMode('guide')}
         >
           <ListChecks className="size-4" /> PROWADŹ MNIE KROK PO KROKU

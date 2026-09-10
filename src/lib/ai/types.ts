@@ -46,6 +46,8 @@ export interface AiUsage {
   promptTokens: number
   completionTokens: number
   totalTokens: number
+  /** Provider-reported cached input subset, when available. */
+  cachedTokens?: number
 }
 
 /** Raw text + usage a provider adapter returns before handoff parsing. */
@@ -79,3 +81,4 @@ export class AiError extends Error {
     this.status = opts.status ?? 502
   }
 }
+

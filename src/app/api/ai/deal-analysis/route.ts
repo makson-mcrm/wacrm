@@ -2,13 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { loadAiConfig } from '@/lib/ai/config'
 import { generateReply } from '@/lib/ai/generate'
+import { budgetState, calculateAiCost, priceForRoute, readAiCostPolicy } from '@/lib/ai/cost-control'
 import { applyDealBankRules, buildAnalysisInsert, enforceAllowedRecommendations, knowledgeState, MANUAL_VERIFICATION_MESSAGE, type KnowledgeMetadata } from '@/lib/ai/deal-analysis'
 
 const MAX_CHUNKS = 12
-const MODEL_ALLOWLIST: Record<string, string[]> = {
-  openai: ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini'],
-  anthropic: ['claude-3-5-haiku-latest', 'claude-3-7-sonnet-latest'],
-}
 type KnowledgeDocument = KnowledgeMetadata & { id: string }
 type Chunk = { id: string; content: string; document_id: string; score?: number }
 type Recommendation = { bank?: string; solution?: string; client_fit?: string; justification?: string; limitations?: string[]; risks?: string[]; missing_data?: string[]; required_documents?: string[] }
@@ -30,7 +27,7 @@ export async function POST(request: Request) {
   const started = Date.now()
   try {
     const { supabase, accountId } = await requireRole('agent')
-    const body = await request.json().catch(() => null) as { deal_id?: string; model?: string } | null
+    const body = await request.json().catch(() => null) as { deal_id?: string; confirm_over_budget?: boolean } | null
     if (!body?.deal_id) return NextResponse.json({ error: 'Brak identyfikatora Deala.' }, { status: 400 })
     const [{ data: deal }, { data: bankProcesses }, { data: documents }, { data: requirements }] = await Promise.all([
       supabase.from('deals').select('id,title,description,product_type,goal,value,source,questionnaire_text,questionnaire_data,missing_documents,liabilities,income_type,accounting_type,company_nip,mandatory_bank,preferred_bank,excluded_banks,analysis_include_banks').eq('account_id', accountId).eq('id', body.deal_id).single(),
@@ -67,13 +64,23 @@ export async function POST(request: Request) {
     })
     const config = await loadAiConfig(supabase, accountId)
     if (!config) return NextResponse.json({ error: 'model nieskonfigurowany', code: 'ai_not_configured' }, { status: 400 })
-    const chosenModel = body.model?.trim() || config.model
-    if (!new Set([config.model, ...(MODEL_ALLOWLIST[config.provider] ?? [])]).has(chosenModel)) return NextResponse.json({ error: 'Wybrany model nie jest dozwolony dla skonfigurowanego dostawcy.' }, { status: 400 })
+    const policy = readAiCostPolicy()
+    const route = policy.routes[2]
+    if (!route || route.provider !== config.provider) return NextResponse.json({ error: 'Brak bezpiecznej konfiguracji routingu dla tej analizy.', code: 'ai_routing_not_configured' }, { status: 400 })
+    const price = priceForRoute(policy, route)
+    if (!price) return NextResponse.json({ error: 'Brak wersjonowanego cennika dla wybranego routingu.', code: 'ai_pricing_not_configured' }, { status: 400 })
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+    const { data: spendRows, error: spendError } = await supabase.from('deal_ai_analyses').select('cost_amount').eq('account_id', accountId).gte('created_at', monthStart.toISOString()).limit(10_000)
+    if (spendError) throw spendError
+    const spend = budgetState((spendRows ?? []).reduce((sum, row) => sum + (Number(row.cost_amount) || 0), 0), policy)
+    if (spend.requiresConfirmation && !body.confirm_over_budget) return NextResponse.json({ error: `Wykorzystano budżet ${policy.monthlyBudgetPln} zł. Potwierdź kolejną płatną analizę.`, code: 'budget_confirmation_required' }, { status: 409 })
+    const chosenModel = route.model
     const today = new Date().toISOString().slice(0, 10)
     const { data: commissions } = await supabase.from('ai_commission_rates').select('bank,product,rate,valid_from,valid_to,source_name,source_version').eq('account_id', accountId).in('bank', rules.allowedBanks).lte('valid_from', today).or(`valid_to.is.null,valid_to.gte.${today}`)
     const context = chunks.map((chunk, index) => { const source = sources[index]; return `[${index + 1}] BANK=${source.bank}; PRODUKT=${source.product}; TYP=${source.documentType}; ŹRÓDŁO=${source.sourceName}; WERSJA=${source.version || source.effectiveDate || 'brak'}\n${chunk.content}` }).join('\n\n')
     const generation = await generateReply({
       config: { ...config, model: chosenModel },
+      maxOutputTokens: spend.warning ? Math.min(route.maxOutputTokens, 400) : route.maxOutputTokens,
       systemPrompt: [
         'Jesteś analitykiem wspierającym eksperta kredytowego. Twarde reguły banków wykonał już CRM.',
         `Wolno analizować wyłącznie banki: ${rules.allowedBanks.join(', ')}. Nie dodawaj żadnego innego banku.`,
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
     try { parsed = JSON.parse(cleanJson(generation.text)) as typeof parsed } catch { return NextResponse.json({ error: 'Model zwrócił nieprawidłowy format. Spróbuj ponownie.' }, { status: 502 }) }
     const recommendations = enforceAllowedRecommendations(Array.isArray(parsed.recommendations) ? parsed.recommendations : [], rules.allowedBanks)
     const result = { recommendations, operationalPriority: { preferredBank: rules.preferredBank, mandatoryBank: rules.mandatoryBank, rules: rules.operationalRules }, knowledgeCompleteness: completeness, overallRisks: parsed.overall_risks ?? [], missingClientData: parsed.missing_client_data ?? [], commissions: commissions ?? [] }
-    const insert = buildAnalysisInsert({ accountId, dealId: deal.id, modelProvider: config.provider, modelName: chosenModel, durationMs: Date.now() - started, chunkCount: chunks.length, usage: generation.usage, result, sources })
+    const insert = buildAnalysisInsert({ accountId, dealId: deal.id, modelProvider: config.provider, modelName: chosenModel, durationMs: Date.now() - started, chunkCount: chunks.length, usage: generation.usage, costAmount: calculateAiCost(generation.usage, price), costCurrency: 'PLN', result: { ...result, feature: 'qualify', priceVersion: price.version, cachedTokens: generation.usage?.cachedTokens ?? null }, sources })
     const { data: saved, error: saveError } = await supabase.from('deal_ai_analyses').insert(insert).select('id,created_at').single()
     if (saveError) throw saveError
     const requiredNames = [...new Set(recommendations.flatMap((item) => item.required_documents ?? []).map((name) => name.trim()).filter(Boolean))]
@@ -99,4 +106,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: saved.id, created_at: saved.created_at, provider: config.provider, model: chosenModel, duration_ms: insert.duration_ms, chunk_count: chunks.length, usage: generation.usage, sources, result })
   } catch (error) { return toErrorResponse(error) }
 }
+
 

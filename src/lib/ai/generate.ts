@@ -15,6 +15,8 @@ export interface GenerateArgs {
   systemPrompt: string
   /** Recent conversation turns, oldest first. */
   messages: ChatMessage[]
+  /** Per-feature cap selected by the cost router. */
+  maxOutputTokens?: number
 }
 
 /**
@@ -23,7 +25,7 @@ export interface GenerateArgs {
  * of the raw text. Throws `AiError` on any provider/network failure.
  */
 export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
-  const { config, systemPrompt, messages } = args
+  const { config, systemPrompt, messages, maxOutputTokens } = args
   const timeoutMs = aiRequestTimeoutMs()
   const providerArgs = {
     apiKey: config.apiKey,
@@ -31,6 +33,7 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
     systemPrompt,
     messages,
     timeoutMs,
+    maxOutputTokens,
   }
 
   let result: { text: string; usage: AiUsage | null }
@@ -66,3 +69,4 @@ export function parseGeneration(
   const text = raw.split(HANDOFF_SENTINEL).join('').trim()
   return { text, handoff, usage }
 }
+

@@ -99,6 +99,8 @@ export function buildAnalysisInsert(input: {
   durationMs: number
   chunkCount: number
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number } | null
+  costAmount?: number | null
+  costCurrency?: string | null
   result: unknown
   sources: unknown[]
 }) {
@@ -112,9 +114,11 @@ export function buildAnalysisInsert(input: {
     prompt_tokens: input.usage?.promptTokens ?? null,
     completion_tokens: input.usage?.completionTokens ?? null,
     total_tokens: input.usage?.totalTokens ?? null,
-    cost_amount: null,
+    cost_amount: input.costAmount ?? null,
+    cost_currency: input.costCurrency ?? null,
     result: input.result,
     sources: input.sources,
   }
 }
+
 

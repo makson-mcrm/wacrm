@@ -28,7 +28,7 @@ import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DealForm } from '@/components/pipelines/deal-form';
 import { DealProcessControl } from '@/components/pipelines/deal-process-control';
-import { DealAiAnalysis } from '@/components/pipelines/deal-ai-analysis';
+import { DealAssistantActions } from '@/components/assistant/deal-assistant-actions';
 import { DealBankingKnowledge } from '@/components/banking-knowledge/deal-banking-knowledge';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { toast } from 'sonner';
@@ -641,7 +641,7 @@ export default function DealPage() {
               <TabsTrigger value="notes">Komentarze i notatki</TabsTrigger>
               <TabsTrigger value="activities">Działania</TabsTrigger>
               <TabsTrigger value="case">Dane sprawy</TabsTrigger>
-              <TabsTrigger value="analysis">Analiza AI</TabsTrigger>
+              <TabsTrigger value="analysis">Asystent AI</TabsTrigger>
               <TabsTrigger value="banking-knowledge">
                 Wiedza Bankowa
               </TabsTrigger>
@@ -809,7 +809,7 @@ export default function DealPage() {
               </Section>
             </TabsContent>
             <TabsContent value="analysis">
-              <DealAiAnalysis deal={deal} />
+              <DealAssistantActions dealId={deal.id} />
             </TabsContent>
             <TabsContent value="banking-knowledge">
               <DealBankingKnowledge dealId={deal.id} />
@@ -1305,3 +1305,4 @@ function D({
     </label>
   );
 }
+

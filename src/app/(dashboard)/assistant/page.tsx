@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, BriefcaseBusiness } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { DealBankingKnowledge } from '@/components/banking-knowledge/deal-banking-knowledge';
+import { DealAssistantActions } from '@/components/assistant/deal-assistant-actions';
 
 type DealOption = {
   id: string;
@@ -19,7 +19,6 @@ export default function AssistantPage() {
   const { accountId } = useAuth();
   const [deals, setDeals] = useState<DealOption[]>([]);
   const [dealId, setDealId] = useState('');
-  const [knowledgeReady, setKnowledgeReady] = useState(false);
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -35,30 +34,6 @@ export default function AssistantPage() {
   }, [accountId, db]);
 
   useEffect(() => void load(), [load]);
-  useEffect(() => {
-    if (!accountId) return;
-    const key = `mcrm-ai-drive-sync-${new Date().toLocaleDateString('sv-SE')}`;
-    if (window.localStorage.getItem(key) === 'done') {
-      setKnowledgeReady(true);
-      return;
-    }
-    const controller = new AbortController();
-    fetch('/api/ai/banking-knowledge/drive', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dry_run: false }),
-      signal: controller.signal,
-    })
-      .then((response) => {
-        if (response.ok) window.localStorage.setItem(key, 'done');
-      })
-      .catch(() => null)
-      .finally(() => {
-        if (!controller.signal.aborted) setKnowledgeReady(true);
-      });
-    return () => controller.abort();
-  }, [accountId]);
-
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
       <header className="rounded-[1.75rem] bg-[#123d2b] p-5 text-white">
@@ -96,31 +71,10 @@ export default function AssistantPage() {
             ))}
           </select>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-emerald-900">
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5">
-            PRZYGOTUJ MNIE
-          </span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5">
-            SPRAWDŹ WIEDZĘ BANKOWĄ
-          </span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5">
-            CO TERAZ?
-          </span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5">
-            KTO STOI?
-          </span>
-          <span className="rounded-full bg-emerald-50 px-3 py-1.5">
-            PODSUMUJ KLIENTA
-          </span>
-        </div>
       </section>
 
-      {!knowledgeReady ? (
-        <p className="rounded-2xl border p-4 text-sm text-slate-500">
-          Sprawdzam aktualność zatwierdzonych źródeł…
-        </p>
-      ) : dealId ? (
-        <DealBankingKnowledge dealId={dealId} />
+      {dealId ? (
+        <DealAssistantActions dealId={dealId} />
       ) : (
         <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500">
           Brak aktywnego Deala do pracy z Asystentem.
@@ -129,3 +83,4 @@ export default function AssistantPage() {
     </div>
   );
 }
+
