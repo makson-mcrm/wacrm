@@ -58,6 +58,21 @@ export function formatFollowUpAction(
         : 'FOLLOW-UP';
   return trimmed ? `${label}: ${trimmed}` : label;
 }
+
+export function buildContactActivityUpdate({
+  contactResult,
+  nextAction,
+  nextActionAt,
+}: {
+  contactResult: string;
+  nextAction: string;
+  nextActionAt: string | null;
+}) {
+  const update: Record<string, string> = { contact_result: contactResult };
+  if (nextAction) update.next_step = nextAction;
+  if (nextActionAt) update.follow_up_at = nextActionAt;
+  return update;
+}
 export const activityTypeForDb = (type: ActivityType) =>
   type.toLocaleLowerCase('pl');
 export const normalizeActivityPhone = (value: string) =>

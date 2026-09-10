@@ -35,6 +35,7 @@ import type { Company, Contact, Deal, PipelineStage } from '@/types';
 import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import {
   activityTypeForDb,
+  buildContactActivityUpdate,
   formatFollowUpAction,
   normalizeActivityPhone,
   suggestedRetryAt,
@@ -796,11 +797,13 @@ export function QuickActivityForm() {
       }
       const { error: contactError } = await db
         .from('contacts')
-        .update({
-          contact_result: type === 'TELEFON' ? result : status,
-          next_step: storedNextAction || null,
-          follow_up_at: scheduledIso,
-        })
+        .update(
+          buildContactActivityUpdate({
+            contactResult: type === 'TELEFON' ? result : status,
+            nextAction: storedNextAction,
+            nextActionAt: scheduledIso,
+          })
+        )
         .eq('account_id', accountId)
         .eq('id', contactId);
       if (contactError)

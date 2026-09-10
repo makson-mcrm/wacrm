@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildContactActivityUpdate,
   followUpPreset,
   formatFollowUpAction,
   nextBusinessDay,
@@ -43,6 +44,18 @@ describe('quick activity helpers', () => {
       'TELEFON: zadzwonić w poniedziałek'
     );
     expect(formatFollowUpAction('SPOTKANIE', '')).toBe('SPOTKANIE');
+  });
+  it('does not erase an earlier follow-up when a later note has no date', () => {
+    expect(
+      buildContactActivityUpdate({
+        contactResult: 'WYKONANE',
+        nextAction: 'Sprawdzić dokumenty',
+        nextActionAt: null,
+      })
+    ).toEqual({
+      contact_result: 'WYKONANE',
+      next_step: 'Sprawdzić dokumenty',
+    });
   });
 });
 
