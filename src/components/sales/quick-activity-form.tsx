@@ -1305,13 +1305,17 @@ export function QuickActivityForm() {
                   id="mcrm-next-action-day"
                   type="date"
                   value={nextActionDay}
-                  onChange={(event) => setNextActionDay(event.target.value)}
+                  onInput={(event) =>
+                    setNextActionDay(event.currentTarget.value)
+                  }
                   className="h-12 rounded-xl [color-scheme:light]"
                 />
                 <Input
                   type="time"
                   value={nextActionTime}
-                  onChange={(event) => setNextActionTime(event.target.value)}
+                  onInput={(event) =>
+                    setNextActionTime(event.currentTarget.value)
+                  }
                   aria-label="Opcjonalna godzina follow-upu"
                   className="h-12 w-32 rounded-xl [color-scheme:light]"
                 />
