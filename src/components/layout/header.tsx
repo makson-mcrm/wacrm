@@ -81,7 +81,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-foreground truncate text-base font-semibold sm:text-lg">
-          {t(titleKey as string)}
+          {pathname === '/dashboard' ? 'DZISIAJ' : t(titleKey as string)}
         </h1>
       </div>
 
@@ -191,3 +191,4 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     </header>
   );
 }
+
