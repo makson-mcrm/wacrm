@@ -84,8 +84,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
-  { href: '/contacts', labelKey: 'contacts', icon: Users },
-  { href: '/deals', labelKey: 'deals', label: 'DEALE', icon: BriefcaseBusiness },
+  { href: '/contacts', labelKey: 'contacts', label: 'KLIENCI', icon: Users },
+  {
+    href: '/deals',
+    labelKey: 'deals',
+    label: 'DEALE',
+    icon: BriefcaseBusiness,
+  },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
   { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
   { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
@@ -93,7 +98,12 @@ const navItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
-  { href: '/quick-call', labelKey: 'activity', label: 'AKTYWNOŚĆ', icon: Activity },
+  {
+    href: '/quick-call',
+    labelKey: 'activity',
+    label: 'AKTYWNOŚĆ',
+    icon: Activity,
+  },
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
@@ -180,7 +190,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
+          'lg:static lg:z-0 lg:w-40 lg:translate-x-0 lg:bg-[#20383d] lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]'
         )}
         aria-label="Primary"
       >
@@ -188,7 +198,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             close button is hidden since the sidebar is always-visible. */}
         <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="bg-[#123d2b] text-lime-300 flex h-8 w-8 items-center justify-center rounded-lg">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123d2b] text-lime-300">
               <Sparkles className="h-4 w-4" />
             </div>
             <span className="text-foreground text-sm font-black">mCRM AI</span>
@@ -236,7 +246,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label || t(item.labelKey as string)}</span>
+                    <span className="flex-1">
+                      {item.label || t(item.labelKey as string)}
+                    </span>
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
@@ -285,9 +297,39 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             </summary>
             <ul className="flex flex-col gap-1 border-t p-2">
               {secondaryNavItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href);
-                const badge = item.href === '/notifications' ? unreadNotifications : item.href === '/inbox' ? totalUnread : item.href === '/submissions' ? unhandledSubmissions : 0;
-                return <li key={item.href}><Link href={item.href} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors', isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}><item.icon className="size-4" /><span className="flex-1">{item.label || t(item.labelKey as string)}</span>{badge > 0 ? <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px]">{badge > 99 ? '99+' : badge}</span> : null}</Link></li>;
+                const isActive =
+                  pathname === item.href || pathname.startsWith(item.href);
+                const badge =
+                  item.href === '/notifications'
+                    ? unreadNotifications
+                    : item.href === '/inbox'
+                      ? totalUnread
+                      : item.href === '/submissions'
+                        ? unhandledSubmissions
+                        : 0;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      <item.icon className="size-4" />
+                      <span className="flex-1">
+                        {item.label || t(item.labelKey as string)}
+                      </span>
+                      {badge > 0 ? (
+                        <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px]">
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                );
               })}
             </ul>
           </details>
@@ -382,4 +424,3 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
-

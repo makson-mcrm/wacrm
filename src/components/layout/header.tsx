@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import {
   BriefcaseBusiness,
+  Bell,
   Building2,
   CalendarPlus,
   ListTodo,
   LogOut,
   Menu,
   Plus,
+  Search,
   Settings as SettingsIcon,
   User,
   UserPlus,
@@ -95,8 +97,11 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-foreground truncate text-base font-semibold sm:text-lg">
-          {sectionTitle}
+        <h1 className="text-foreground truncate text-base font-black sm:text-lg">
+          <span className="sm:hidden">
+            {pathname === '/dashboard' ? 'mCRM AI' : sectionTitle}
+          </span>
+          <span className="hidden sm:inline">{sectionTitle}</span>
         </h1>
       </div>
 
@@ -105,105 +110,120 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold">
-            <Plus className="size-4" />
-            <span className="hidden sm:inline">Dodaj</span>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-52">
-            <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
-              <BriefcaseBusiness className="size-4" />
-              Deal
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
-              <UserPlus className="size-4" />
-              Kontakt
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/companies?new=company" />}>
-              <Building2 className="size-4" />
-              Firma
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<a href="/calendar?new=task" />}>
-              <ListTodo className="size-4" />
-              Zadanie
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<a href="/calendar?new=event" />}>
-              <CalendarPlus className="size-4" />
-              Spotkanie
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <ModeToggle />
+        <Link
+          href="/contacts"
+          aria-label="Wyszukaj klienta lub Deal"
+          className="flex size-9 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
+        >
+          <Search className="size-4" />
+        </Link>
+        <Link
+          href="/notifications"
+          aria-label="Powiadomienia"
+          className="flex size-9 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
+        >
+          <Bell className="size-4" />
+        </Link>
+        <div className="hidden items-center gap-2 sm:flex">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold">
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">Dodaj</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
+                <BriefcaseBusiness className="size-4" />
+                Deal
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
+                <UserPlus className="size-4" />
+                Kontakt
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/companies?new=company" />}>
+                <Building2 className="size-4" />
+                Firma
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem render={<a href="/calendar?new=task" />}>
+                <ListTodo className="size-4" />
+                Zadanie
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<a href="/calendar?new=event" />}>
+                <CalendarPlus className="size-4" />
+                Spotkanie
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ModeToggle />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-md px-1 py-1 transition-colors focus:outline-none sm:gap-3 sm:pr-3 sm:pl-1"
-            aria-label={t('openAccountMenu')}
-          >
-            <Avatar className="size-8">
-              {profile?.avatar_url ? (
-                <AvatarImage
-                  src={profile.avatar_url}
-                  alt={profile.full_name ?? t('defaultAvatar')}
-                />
-              ) : null}
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                {initial}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-foreground hidden text-sm font-medium sm:inline">
-              {profile?.full_name ?? t('defaultUser')}
-            </span>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            sideOffset={6}
-            className="bg-popover text-popover-foreground ring-border min-w-56"
-          >
-            <div className="px-2 py-1.5">
-              <p className="text-foreground truncate text-sm font-medium">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-md px-1 py-1 transition-colors focus:outline-none sm:gap-3 sm:pr-3 sm:pl-1"
+              aria-label={t('openAccountMenu')}
+            >
+              <Avatar className="size-8">
+                {profile?.avatar_url ? (
+                  <AvatarImage
+                    src={profile.avatar_url}
+                    alt={profile.full_name ?? t('defaultAvatar')}
+                  />
+                ) : null}
+                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                  {initial}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-foreground hidden text-sm font-medium sm:inline">
                 {profile?.full_name ?? t('defaultUser')}
-              </p>
-              <p className="text-muted-foreground truncate text-xs">
-                {profile?.email ?? ''}
-              </p>
-            </div>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem
-              render={
-                <Link
-                  href="/settings?tab=profile"
-                  className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                />
-              }
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={6}
+              className="bg-popover text-popover-foreground ring-border min-w-56"
             >
-              <User className="size-4" />
-              {t('menuProfile')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              render={
-                <Link
-                  href="/settings?tab=whatsapp"
-                  className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                />
-              }
-            >
-              <SettingsIcon className="size-4" />
-              {t('menuSettings')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem
-              onClick={signOut}
-              className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-            >
-              <LogOut className="size-4" />
-              {t('menuSignOut')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <div className="px-2 py-1.5">
+                <p className="text-foreground truncate text-sm font-medium">
+                  {profile?.full_name ?? t('defaultUser')}
+                </p>
+                <p className="text-muted-foreground truncate text-xs">
+                  {profile?.email ?? ''}
+                </p>
+              </div>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/settings?tab=profile"
+                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                  />
+                }
+              >
+                <User className="size-4" />
+                {t('menuProfile')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/settings?tab=whatsapp"
+                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                  />
+                }
+              >
+                <SettingsIcon className="size-4" />
+                {t('menuSettings')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                onClick={signOut}
+                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+              >
+                <LogOut className="size-4" />
+                {t('menuSignOut')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );
 }
-

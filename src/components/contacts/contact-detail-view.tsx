@@ -47,6 +47,7 @@ import {
   DollarSign,
   LayoutTemplate,
   Mic,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
@@ -522,7 +523,7 @@ export function ContactDetailView({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-[calc(100vw-15rem)]"
+          className="w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl"
         >
           {loading || !contact ? (
             <div className="flex h-full items-center justify-center">
@@ -531,7 +532,7 @@ export function ContactDetailView({
           ) : (
             <div className="flex h-full flex-col">
               {/* Header */}
-              <SheetHeader className="border-border/50 border-b p-4">
+              <SheetHeader className="border-border/50 shrink-0 border-b p-4 pr-10">
                 <div className="flex items-center gap-3">
                   <Avatar className="bg-muted border-border size-12 border">
                     <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
@@ -542,7 +543,7 @@ export function ContactDetailView({
                     <SheetTitle className="text-popover-foreground truncate">
                       {contact.name || t('unnamed')}
                     </SheetTitle>
-                    <SheetDescription className="text-muted-foreground mt-0.5 text-xs">
+                    <SheetDescription className="sr-only">
                       {t('contactDetailsDesc')}
                     </SheetDescription>
                     <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
@@ -579,7 +580,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid grid-cols-4 gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-[10px] [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-[10px]">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -601,77 +602,30 @@ export function ContactDetailView({
                   <Button
                     size="sm"
                     variant="outline"
-                    render={<Link href={`/quick-call?contact=${contact.id}`} />}
+                    render={
+                      <Link
+                        href={`/quick-call?contact=${contact.id}&action=dictate`}
+                      />
+                    }
                   >
                     <Mic className="size-4" /> DYKTUJ
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => setTemplatePickerOpen(true)}
-                    disabled={sendingTemplate}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    variant="outline"
+                    onClick={() => {
+                      setActiveTab('details');
+                      window.setTimeout(() => {
+                        const details = document.getElementById(
+                          'contact-deeper-details'
+                        );
+                        details?.setAttribute('open', '');
+                        details?.scrollIntoView({ behavior: 'smooth' });
+                      }, 0);
+                    }}
                   >
-                    {sendingTemplate ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <LayoutTemplate className="size-4" />
-                    )}
-                    {t('sendTemplateBtn')}
+                    <MoreHorizontal className="size-4" /> WIĘCEJ
                   </Button>
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4">
-                  <div>
-                    <dt className="font-black uppercase text-slate-400">Źródło</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.source || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-black uppercase text-slate-400">Kategoria</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.product_category || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-black uppercase text-slate-400">Następny krok</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.next_step || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-black uppercase text-slate-400">Termin</dt>
-                    <dd className="mt-0.5 font-semibold text-slate-800">{contact.follow_up_at ? new Date(contact.follow_up_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</dd>
-                  </div>
-                </dl>
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
-                      Aktywne Deale
-                    </p>
-                    <Link
-                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
-                      className="text-xs font-black text-emerald-800"
-                    >
-                      + NOWY DEAL
-                    </Link>
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {deals.map((deal) => (
-                      <Link
-                        key={deal.id}
-                        href={`/deals/${deal.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-56 rounded-xl border bg-white p-3 hover:border-emerald-500"
-                      >
-                        <span className="block truncate text-sm font-black">
-                          {deal.title}
-                        </span>
-                        <span className="mt-1 block text-xs text-slate-500">
-                          {deal.product_type || 'Kategoria nieustalona'}
-                        </span>
-                      </Link>
-                    ))}
-                    {!deals.length && (
-                      <p className="text-xs text-slate-500">
-                        Kontakt nie ma jeszcze aktywnego Deala.
-                      </p>
-                    )}
-                  </div>
                 </div>
               </SheetHeader>
 
@@ -681,45 +635,52 @@ export function ContactDetailView({
                 onValueChange={setActiveTab}
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="mx-4 mt-3 grid h-auto grid-cols-2 rounded-xl bg-emerald-50 p-1">
-                  <TabsTrigger value="deals">Deale ({deals.length})</TabsTrigger>
-                  <TabsTrigger value="history">Historia i dokumenty</TabsTrigger>
+                <TabsList className="mx-4 mt-2 grid h-10 grid-cols-3 rounded-none border-b bg-transparent p-0">
+                  <TabsTrigger value="deals">
+                    Deale ({deals.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="history">
+                    Historia i dokumenty
+                  </TabsTrigger>
                 </TabsList>
-                <details className="mx-4 mt-2 rounded-xl border bg-slate-50">
+                <details
+                  id="contact-deeper-details"
+                  className="mx-4 mt-2 rounded-xl border bg-slate-50"
+                >
                   <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-500">
                     WIĘCEJ DANYCH KLIENTA
                   </summary>
                   <TabsList className="flex h-auto flex-wrap justify-start border-t bg-transparent p-2">
-                  <TabsTrigger
-                    value="details"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    {t('tabs.details')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="tags"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    {t('tabs.tags')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="notes"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    {t('tabs.notes')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="custom"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    {t('tabs.custom')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="companies"
-                    className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                  >
-                    Firmy
-                  </TabsTrigger>
+                    <TabsTrigger
+                      value="details"
+                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                    >
+                      {t('tabs.details')}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="tags"
+                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                    >
+                      {t('tabs.tags')}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="notes"
+                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                    >
+                      {t('tabs.notes')}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="custom"
+                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                    >
+                      {t('tabs.custom')}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="companies"
+                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                    >
+                      Firmy
+                    </TabsTrigger>
                   </TabsList>
                 </details>
 
@@ -729,6 +690,63 @@ export function ContactDetailView({
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
                   <div className="space-y-3">
+                    <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4">
+                      <div>
+                        <dt className="font-black text-slate-400 uppercase">
+                          Źródło
+                        </dt>
+                        <dd className="mt-0.5 font-semibold text-slate-800">
+                          {contact.source || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-black text-slate-400 uppercase">
+                          Kategoria
+                        </dt>
+                        <dd className="mt-0.5 font-semibold text-slate-800">
+                          {contact.product_category || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-black text-slate-400 uppercase">
+                          Następny krok
+                        </dt>
+                        <dd className="mt-0.5 font-semibold text-slate-800">
+                          {contact.next_step || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-black text-slate-400 uppercase">
+                          Termin
+                        </dt>
+                        <dd className="mt-0.5 font-semibold text-slate-800">
+                          {contact.follow_up_at
+                            ? new Date(contact.follow_up_at).toLocaleString(
+                                'pl-PL',
+                                {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                }
+                              )
+                            : '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTemplatePickerOpen(true)}
+                      disabled={sendingTemplate}
+                    >
+                      {sendingTemplate ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <LayoutTemplate className="size-4" />
+                      )}
+                      {t('sendTemplateBtn')}
+                    </Button>
                     <div className="grid gap-2 md:max-w-md md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label className="text-muted-foreground text-xs">
@@ -1130,16 +1148,6 @@ export function ContactDetailView({
                   value="deals"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <Button
-                    className="mb-3 w-full"
-                    render={
-                      <Link
-                        href={`/pipelines?new=deal&contact=${contact.id}`}
-                      />
-                    }
-                  >
-                    <Plus className="size-4" /> Nowy Deal dla tego Kontaktu
-                  </Button>
                   {loadingDeals ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="text-primary size-5 animate-spin" />
@@ -1156,7 +1164,7 @@ export function ContactDetailView({
                           href={`/deals/${deal.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="border-border bg-muted/50 rounded-lg border p-3"
+                          className="block rounded-lg border border-emerald-950/10 bg-white p-3"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-foreground text-sm font-medium">
@@ -1174,6 +1182,14 @@ export function ContactDetailView({
                               </span>
                             )}
                           </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Następny krok: {deal.next_action || 'Nie ustalono'}
+                          </p>
+                          {deal.next_action_at && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {formatWarsawDateTime(deal.next_action_at)}
+                            </p>
+                          )}
                           <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs">
                             <span className="flex items-center gap-1">
                               <DollarSign className="size-3" />
@@ -1200,12 +1216,52 @@ export function ContactDetailView({
                   )}
                 </TabsContent>
                 <TabsContent
+                  value="documents"
+                  className="flex-1 overflow-y-auto px-4 py-3"
+                >
+                  <p className="mb-3 text-xs text-slate-500">
+                    Dokumenty są przypięte do właściwej sprawy. Wybierz Deal,
+                    aby je otworzyć.
+                  </p>
+                  {deals.map((deal) => (
+                    <Link
+                      key={deal.id}
+                      href={`/deals/${deal.id}?tab=files`}
+                      className="mb-2 block rounded-lg border p-3 text-sm font-semibold"
+                    >
+                      {deal.title} · Dokumenty
+                    </Link>
+                  ))}
+                  <Button
+                    variant="outline"
+                    render={
+                      <Link
+                        href={`/quick-call?contact=${contact.id}&action=document`}
+                      />
+                    }
+                  >
+                    Dodaj dokument
+                  </Button>
+                </TabsContent>
+                <TabsContent
                   value="history"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
                   <ActivityHistory contactId={contact.id} />
                 </TabsContent>
               </Tabs>
+              <div className="shrink-0 border-t bg-white p-3">
+                <Button
+                  className="w-full bg-emerald-800 text-white"
+                  render={
+                    <Link
+                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
+                    />
+                  }
+                >
+                  + NOWY DEAL
+                </Button>
+              </div>
             </div>
           )}
         </SheetContent>
@@ -1218,4 +1274,3 @@ export function ContactDetailView({
     </>
   );
 }
-

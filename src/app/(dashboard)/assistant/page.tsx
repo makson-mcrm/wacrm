@@ -41,16 +41,15 @@ export default function AssistantPage() {
 
   useEffect(() => void load(), [load]);
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5">
-      <header className="rounded-[1.75rem] bg-[#123d2b] p-5 text-white">
-        <div className="flex items-center gap-2 text-lime-300">
-          <Bot className="size-5" />
-          <p className="text-xs font-black tracking-[0.18em] uppercase">
-            mCRM AI
-          </p>
+    <div className="mx-auto w-full max-w-4xl space-y-4">
+      <header className="border-b border-emerald-950/10 px-1 pb-3">
+        <div className="flex items-center gap-2 text-emerald-900">
+          <span className="flex size-9 items-center justify-center rounded-full bg-emerald-50">
+            <Bot className="size-4" />
+          </span>
+          <h1 className="text-xl font-black">Asystent</h1>
         </div>
-        <h1 className="mt-2 text-2xl font-black">ASYSTENT</h1>
-        <p className="mt-1 text-sm text-emerald-50/90">
+        <p className="mt-1 text-sm text-slate-500">
           Zapytaj o klienta, Deal albo co zrobić teraz.
         </p>
       </header>
@@ -89,4 +88,3 @@ export default function AssistantPage() {
     </div>
   );
 }
-

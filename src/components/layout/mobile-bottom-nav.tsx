@@ -37,7 +37,7 @@ export function MobileBottomNav() {
                 <span
                   className={cn(
                     'flex h-8 min-w-10 items-center justify-center rounded-full px-3',
-                    active && 'bg-lime-300'
+                    active && 'bg-emerald-50'
                   )}
                 >
                   <item.icon className="size-5" />

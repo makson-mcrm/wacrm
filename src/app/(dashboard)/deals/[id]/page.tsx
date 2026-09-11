@@ -123,10 +123,14 @@ export default function DealPage() {
     [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
   const [loadError, setLoadError] = useState('');
-  const [activeTab, setActiveTab] = useState('notes');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    setActiveTab('notes');
+    setActiveTab(
+      new URLSearchParams(window.location.search).get('tab') === 'files'
+        ? 'files'
+        : 'overview'
+    );
   }, [id]);
   const load = useCallback(async () => {
     setLoadError('');
@@ -393,7 +397,7 @@ export default function DealPage() {
       settlementVerified: deal.settlement_verified,
     });
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <Link
         href="/pipelines"
         className="text-muted-foreground inline-flex items-center gap-2 text-sm"
@@ -401,41 +405,74 @@ export default function DealPage() {
         <ArrowLeft className="h-4 w-4" />
         Wróć do lejka
       </Link>
-      <header className="bg-card rounded-xl border p-4">
-        <div className="flex flex-wrap justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{deal.title}</h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {deal.product_type || 'Typ nieustalony'} ·{' '}
-              {deal.goal || 'Cel nieustalony'}
+      <header className="rounded-xl border border-emerald-950/10 bg-white p-3 sm:p-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-white">
+            <FileText className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base font-black">{deal.title}</h1>
+            <p className="mt-1 text-xs text-slate-500">
+              {actionContact?.name} ·{' '}
+              {deal.product_type || 'Kategoria nieustalona'}
             </p>
+            {Number(deal.value) > 0 && (
+              <p className="mt-1 text-sm font-bold">
+                {money(deal.value)} {deal.currency || 'PLN'}
+              </p>
+            )}
           </div>
-          <div className="text-right">
-            <p className="text-muted-foreground text-xs">Kwota</p>
-            <p className="text-xl font-bold">
-              {money(deal.value)} {deal.currency || 'PLN'}
-            </p>
+          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
+            {deal.status === 'open' ? 'AKTYWNY' : deal.status}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block text-xs font-bold">
+            Etap
+            <select
+              value={deal.stage_id}
+              onChange={(event) => void changeStage(event.target.value)}
+              className="mt-1 h-10 w-full rounded-md border bg-white px-2 text-xs font-normal"
+            >
+              {stages.map((stage) => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div>
+            <p className="text-xs font-bold">Następny krok</p>
+            <button
+              type="button"
+              onClick={() => setEdit(true)}
+              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
+            >
+              {deal.next_action || 'Ustal następny krok'}
+            </button>
+          </div>
+          <div>
+            <p className="text-xs font-bold">Termin</p>
+            <button
+              type="button"
+              onClick={() => setEdit(true)}
+              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
+            >
+              {deal.next_action_at ? dt(deal.next_action_at) : 'Nie ustalono'}
+            </button>
+          </div>
+          <div>
+            <p className="text-xs font-bold">Blocker (jeśli jest)</p>
+            <button
+              type="button"
+              onClick={() => setEdit(true)}
+              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
+            >
+              {deal.blocker || 'Brak'}
+            </button>
           </div>
         </div>
-        <label className="mt-4 block max-w-sm text-xs font-bold text-slate-500">
-          Etap
-          <select
-            value={deal.stage_id}
-            onChange={(event) => void changeStage(event.target.value)}
-            className="mt-1 h-11 w-full rounded-xl border bg-white px-3 text-sm font-semibold text-slate-900"
-          >
-            {stages.map((stage) => (
-              <option key={stage.id} value={stage.id}>
-                {stage.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEdit(true)}>
-            <Pencil className="h-4 w-4" />
-            Edytuj Deal i powiązania
-          </Button>
+        <div className="mt-4 grid grid-cols-2 gap-2 [&_a]:h-11 [&_a]:text-xs [&_button]:h-11 [&_button]:w-full [&_button]:text-xs">
           {actionContact?.phone && (
             <>
               <CallAction
@@ -443,7 +480,7 @@ export default function DealPage() {
                 contactId={actionContact.id}
                 companyId={deal.company_id}
                 dealId={deal.id}
-                variant="default"
+                className="w-full"
               />
               <SmsAction
                 phone={actionContact.phone}
@@ -453,71 +490,49 @@ export default function DealPage() {
                 dealId={deal.id}
                 label="WIADOMOŚĆ"
               />
-              <Button
-                size="sm"
-                variant="outline"
-                render={
-                  <Link
-                    href={`/quick-call?deal=${deal.id}&contact=${actionContact.id}&action=dictate`}
-                  />
-                }
-              >
-                <Mic className="h-4 w-4" />
-                DYKTUJ
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                render={
-                  <Link
-                    href={`/quick-call?deal=${deal.id}&contact=${actionContact.id}&action=document`}
-                  />
-                }
-              >
-                <Upload className="h-4 w-4" />
-                DODAJ DOKUMENT
-              </Button>
             </>
           )}
-          {deal.contact?.email && (
-            <a href={`mailto:${deal.contact.email}`}>
-              <Button size="sm" variant="outline">
-                <Mail className="h-4 w-4" />
-                E-mail
-              </Button>
-            </a>
-          )}
-          <Link href={`/calendar?new=event&deal=${deal.id}`}>
-            <Button size="sm" variant="outline">
-              <CalendarDays className="h-4 w-4" />
-              Dodaj termin
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            render={
+              <Link href={`/quick-call?deal=${deal.id}&action=dictate`} />
+            }
+          >
+            <Mic className="size-4" /> DYKTUJ
+          </Button>
+          <Button
+            variant="outline"
+            render={
+              <Link href={`/quick-call?deal=${deal.id}&action=document`} />
+            }
+          >
+            <Upload className="size-4" /> DODAJ DOKUMENT
+          </Button>
         </div>
-        <dl className="mt-4 grid gap-2 rounded-xl bg-emerald-50 p-3 text-sm sm:grid-cols-4">
-          <Row label="Produkt / kategoria" value={deal.product_type} />
-          <Row label="Etap" value={deal.stage?.name} />
-          <Row label="Next action" value={deal.next_action} />
-          <Row
-            label="Termin"
-            value={deal.next_action_at && dt(deal.next_action_at)}
-          />
-          {deal.blocker && (
-            <div className="sm:col-span-4">
-              <Row label="Blocker" value={deal.blocker} />
-            </div>
-          )}
-        </dl>
         <Link
           href={`/assistant?deal=${deal.id}`}
-          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#123d2b] px-4 py-3 text-sm font-black text-lime-300 shadow-sm hover:bg-[#0b2d1f]"
+          className="mt-3 flex min-h-14 flex-col items-center justify-center rounded-lg bg-[#123d2b] px-3 py-2 text-lime-300"
         >
-          <Sparkles className="size-4" /> ASYSTENT AI — przygotuj, sprawdź,
-          podpowiedz
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <Sparkles className="size-4" /> ASYSTENT AI
+          </span>
+          <span className="mt-0.5 text-[11px]">
+            Przygotuj, sprawdź, podpowiedz
+          </span>
         </Link>
       </header>
-      <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-        <aside className="hidden space-y-4 xl:block">
+      <div
+        className={
+          activeTab === 'case'
+            ? 'grid gap-4 xl:grid-cols-[360px_1fr]'
+            : 'grid gap-3'
+        }
+      >
+        <aside
+          className={
+            activeTab === 'case' ? 'hidden space-y-4 xl:block' : 'hidden'
+          }
+        >
           <Panel title="Powiązane osoby">
             {people.map((person) => (
               <div key={person.contact_id} className="rounded-lg border p-3">
@@ -651,7 +666,7 @@ export default function DealPage() {
         <main className="bg-card rounded-xl border p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-3 grid h-auto w-full grid-cols-3 rounded-xl bg-emerald-50 p-1">
-              <TabsTrigger value="notes">Szczegóły</TabsTrigger>
+              <TabsTrigger value="overview">Szczegóły</TabsTrigger>
               <TabsTrigger value="activity-history">Historia</TabsTrigger>
               <TabsTrigger value="files">Dokumenty</TabsTrigger>
             </TabsList>
@@ -660,11 +675,14 @@ export default function DealPage() {
                 WIĘCEJ DANYCH SPRAWY
               </summary>
               <TabsList className="flex h-auto flex-wrap justify-start border-t bg-transparent p-2">
+                <TabsTrigger value="notes">Notatki</TabsTrigger>
                 <TabsTrigger value="timeline">Oś czasu</TabsTrigger>
                 <TabsTrigger value="activities">Działania</TabsTrigger>
                 <TabsTrigger value="case">Dane sprawy</TabsTrigger>
                 <TabsTrigger value="analysis">Asystent AI</TabsTrigger>
-                <TabsTrigger value="banking-knowledge">Wiedza Bankowa</TabsTrigger>
+                <TabsTrigger value="banking-knowledge">
+                  Wiedza Bankowa
+                </TabsTrigger>
                 <TabsTrigger value="control">Kontrola procesu</TabsTrigger>
                 <TabsTrigger value="comm">Komunikacja</TabsTrigger>
                 <TabsTrigger value="email">E-mail</TabsTrigger>
@@ -673,6 +691,33 @@ export default function DealPage() {
                 <TabsTrigger value="settlement">Rozliczenie</TabsTrigger>
               </TabsList>
             </details>
+            <TabsContent value="overview">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEdit(true)}
+                >
+                  <Pencil className="size-4" /> Edytuj Deal i powiązania
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={`/calendar?new=event&deal=${deal.id}`} />}
+                >
+                  <CalendarDays className="size-4" /> Dodaj termin
+                </Button>
+                {deal.contact?.email && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<a href={`mailto:${deal.contact.email}`} />}
+                  >
+                    <Mail className="size-4" /> E-mail
+                  </Button>
+                )}
+              </div>
+            </TabsContent>
             <TabsContent value="timeline" className="space-y-3">
               <Section title="Aktualny stan">
                 <Row label="Etap" value={deal.stage?.name} />
@@ -1324,4 +1369,3 @@ function D({
     </label>
   );
 }
-

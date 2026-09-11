@@ -927,27 +927,38 @@ export function QuickActivityForm() {
   const newContactPhone = PHONE_QUERY.test(query.trim()) ? query.trim() : '';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pb-24 text-slate-950 lg:pb-6">
-      <header className="rounded-[1.75rem] bg-[#123d2b] px-5 py-6 text-white shadow-sm">
-        <p className="text-xs font-black tracking-[0.22em] text-lime-300 uppercase">
-          mCRM AI
-        </p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight">AKTYWNOŚĆ</h1>
-        <p className="mt-2 max-w-md text-sm leading-5 text-emerald-50/90">
-          Wyszukaj klienta, wykonaj akcję i zapisz tylko to, co ważne.
-        </p>
+    <div className="mx-auto max-w-2xl space-y-3 pb-24 text-slate-950 lg:pb-6">
+      <header className="flex items-end justify-between gap-3 border-b border-emerald-950/10 px-1 pb-3">
+        <div>
+          <h1 className="text-xl font-black tracking-tight">
+            {flowStep === 'confirmation' ? 'Podsumowanie rozmowy' : 'Aktywność'}
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {flowStep === 'selection' && 'Szukaj, wybierz, działaj'}
+            {flowStep === 'action' && 'Wybierz jedną szybką akcję'}
+            {flowStep === 'follow-up' && 'Wybierz rodzaj następnego kroku'}
+            {flowStep === 'result' && 'Zapisz wynik i notatkę'}
+            {flowStep === 'confirmation' && 'Szybki zapis po rozmowie'}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-800">
+          {flowStep === 'selection' && 'KROK 1'}
+          {flowStep === 'action' && 'KROK 2'}
+          {(flowStep === 'follow-up' || flowStep === 'result') && 'KROK 3'}
+          {flowStep === 'confirmation' && 'KROK 4'}
+        </span>
       </header>
 
-      <p className="px-1 text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
-        {flowStep === 'selection' && 'Krok 1 · Klient i Deal'}
-        {flowStep === 'action' && 'Krok 2 · Akcja'}
-        {flowStep === 'follow-up' && 'Krok 3 · Rodzaj follow-upu'}
-        {flowStep === 'result' && 'Krok 3 · Wynik i notatka'}
-        {flowStep === 'confirmation' && 'Krok 4 · Potwierdzenie'}
+      <p className="px-1 text-xs font-black tracking-[0.12em] text-emerald-800 uppercase">
+        {flowStep === 'selection' && 'Klient i Deal'}
+        {flowStep === 'action' && 'Szybkie akcje po wyborze'}
+        {flowStep === 'follow-up' && 'Rodzaj follow-upu'}
+        {flowStep === 'result' && 'Wynik i dyktowanie'}
+        {flowStep === 'confirmation' && 'Rozpoznany kontekst'}
       </p>
 
       {flowStep === 'selection' && (
-        <section className="rounded-[1.5rem] border border-emerald-950/10 bg-white p-3 shadow-sm">
+        <section className="rounded-xl border border-emerald-950/10 bg-white p-3 shadow-sm">
           <Label htmlFor="mcrm-search" className="sr-only">
             Kontakt, telefon, Firma lub Deal
           </Label>
@@ -961,7 +972,7 @@ export function QuickActivityForm() {
               id="mcrm-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="h-14 rounded-2xl border-0 bg-[#f2f6f1] pr-11 pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-emerald-800"
+              className="h-14 rounded-lg border-0 bg-[#f2f6f1] pr-11 pl-12 text-base shadow-none focus-visible:ring-2 focus-visible:ring-emerald-800"
               placeholder="Kontakt / telefon / Firma / Deal"
               autoComplete="off"
               inputMode="search"
@@ -983,7 +994,7 @@ export function QuickActivityForm() {
             </p>
           )}
           {canSearch && query && (
-            <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200">
+            <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
               {searchMatches.map((match) => (
                 <button
                   type="button"
@@ -1015,6 +1026,43 @@ export function QuickActivityForm() {
               )}
             </div>
           )}
+          {!query && !contactId && contacts.length > 0 && (
+            <div className="mt-3">
+              <p className="px-1 text-[10px] font-black tracking-wide text-slate-500 uppercase">
+                Wybierz kontakt
+              </p>
+              <div className="mt-1 divide-y overflow-hidden rounded-xl border bg-white">
+                {contacts.slice(0, 3).map((contact) => (
+                  <button
+                    type="button"
+                    key={contact.id}
+                    onClick={() =>
+                      chooseMatch({
+                        kind: 'contact',
+                        id: contact.id,
+                        title: contactName(contact),
+                        subtitle: contact.phone || contact.email || 'Kontakt',
+                        contact,
+                      })
+                    }
+                    className="flex min-h-12 w-full items-center gap-3 px-3 text-left hover:bg-emerald-50"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                      <UserRound className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">
+                        {contactName(contact)}
+                      </span>
+                      <span className="block truncate text-[11px] text-slate-500">
+                        {contact.phone || contact.email || 'Kontakt'}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {!contactId && (
             <Button
               type="button"
@@ -1028,10 +1076,10 @@ export function QuickActivityForm() {
         </section>
       )}
 
-      {selectedContact ? (
-        <section className="space-y-3 rounded-[1.5rem] bg-emerald-50 p-4 ring-1 ring-emerald-900/10">
+      {selectedContact && flowStep !== 'confirmation' ? (
+        <section className="space-y-3 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-900/10">
           <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#123d2b] text-lime-300">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#123d2b] text-white">
               <Check className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
@@ -1057,7 +1105,7 @@ export function QuickActivityForm() {
             </button>
           </div>
           {selectedDeal ? (
-            <div className="rounded-2xl bg-white p-3 ring-1 ring-emerald-900/10">
+            <div className="rounded-lg bg-white p-3 ring-1 ring-emerald-900/10">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-black tracking-wider text-emerald-800 uppercase">
@@ -1165,17 +1213,17 @@ export function QuickActivityForm() {
             </div>
           ) : null}
         </section>
-      ) : (
+      ) : !selectedContact ? (
         <p className="px-2 text-center text-sm text-slate-500">
           Najpierw wybierz klienta lub konkretny Deal.
         </p>
-      )}
+      ) : null}
 
       {flowStep === 'selection' &&
         selectedContact &&
         selectedContactDeals.length > 0 &&
         !selectedDeal && (
-          <section className="rounded-[1.5rem] border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
             <p className="font-black">Wybierz konkretny Deal</p>
             <p className="mt-1 text-sm text-slate-600">
               Wskaż sprawę, której dotyczy aktywność. System nie zgaduje Deala
@@ -1187,7 +1235,7 @@ export function QuickActivityForm() {
                   key={deal.id}
                   type="button"
                   onClick={() => applyDealContext(deal, selectedContact)}
-                  className="w-full rounded-2xl bg-white p-3 text-left ring-1 ring-amber-300 transition hover:bg-amber-100"
+                  className="w-full rounded-lg bg-white p-3 text-left ring-1 ring-amber-300 transition hover:bg-amber-100"
                 >
                   <span className="block font-black">{deal.title}</span>
                   <span className="block text-xs text-slate-600">
@@ -1226,7 +1274,8 @@ export function QuickActivityForm() {
           </section>
         )}
 
-      {flowStep === 'action' && (
+      {(flowStep === 'action' ||
+        (flowStep === 'selection' && !selectedContact)) && (
         <section aria-label="Szybkie akcje" className="grid grid-cols-2 gap-2">
           {phone && contactId ? (
             <CallAction
@@ -1235,10 +1284,10 @@ export function QuickActivityForm() {
               companyId={companyId}
               dealId={dealId}
               size="lg"
-              className="h-16 rounded-2xl border-0 bg-[#123d2b] text-base font-black text-lime-300 hover:bg-[#0b2d1f]"
+              className="h-14 rounded-lg border-0 bg-[#123d2b] text-base font-black text-white hover:bg-[#0b2d1f]"
             />
           ) : (
-            <Button disabled className="h-16 rounded-2xl text-base font-black">
+            <Button disabled className="h-14 rounded-lg text-base font-black">
               <Phone className="size-5" /> ZADZWOŃ
             </Button>
           )}
@@ -1247,7 +1296,7 @@ export function QuickActivityForm() {
             variant="outline"
             disabled={!contactId}
             onClick={prepareDictation}
-            className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
+            className="h-14 rounded-lg border-emerald-900/20 bg-white text-base font-black text-emerald-950"
           >
             <Mic className="size-5" /> DYKTUJ
           </Button>
@@ -1256,11 +1305,11 @@ export function QuickActivityForm() {
             variant="outline"
             disabled={!contactId}
             onClick={openFollowUpChoice}
-            className="h-16 rounded-2xl border-emerald-900/20 bg-white text-base font-black text-emerald-950"
+            className="h-14 rounded-lg border-emerald-900/20 bg-white text-base font-black text-emerald-950"
           >
-            <CalendarPlus className="size-5" /> FOLLOW-UP
+            <CalendarPlus className="size-5" /> UMÓW
           </Button>
-          <div className="[&>button]:h-16 [&>button]:w-full [&>button]:rounded-2xl [&>button]:border-emerald-900/20 [&>button]:bg-white [&>button]:text-base [&>button]:font-black [&>button]:text-emerald-950">
+          <div className="[&>button]:h-14 [&>button]:w-full [&>button]:rounded-lg [&>button]:border-emerald-900/20 [&>button]:bg-white [&>button]:text-base [&>button]:font-black [&>button]:text-emerald-950">
             {phone && contactId ? (
               <SmsAction
                 phone={phone}
@@ -1277,7 +1326,7 @@ export function QuickActivityForm() {
               <Button
                 disabled
                 variant="outline"
-                className="h-16 w-full rounded-2xl"
+                className="h-14 w-full rounded-lg"
               >
                 WIADOMOŚĆ
               </Button>
@@ -1288,7 +1337,7 @@ export function QuickActivityForm() {
             variant="outline"
             disabled={!contactId}
             onClick={openDocuments}
-            className="col-span-2 h-14 rounded-2xl border-emerald-900/20 bg-white text-sm font-black text-emerald-950"
+            className="col-span-2 h-14 rounded-lg border-emerald-900/20 bg-white text-sm font-black text-emerald-950"
           >
             <FilePlus2 className="size-5" /> DODAJ DOKUMENT
           </Button>
@@ -1296,7 +1345,7 @@ export function QuickActivityForm() {
       )}
 
       {flowStep === 'follow-up' && (
-        <section className="rounded-[1.5rem] border border-emerald-950/10 bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-emerald-950/10 bg-white p-4 shadow-sm">
           <p className="font-black">Co ma być następnym krokiem?</p>
           <p className="mt-1 text-sm text-slate-500">
             Wybierz typ. Datę, opcjonalną godzinę i krótką treść podasz dalej.
@@ -1314,7 +1363,7 @@ export function QuickActivityForm() {
                 type="button"
                 variant="outline"
                 onClick={() => prepareFollowUp(kind)}
-                className="h-14 justify-start rounded-2xl border-emerald-900/20 bg-white font-black text-emerald-950"
+                className="h-14 justify-start rounded-lg border-emerald-900/20 bg-white font-black text-emerald-950"
               >
                 <CalendarPlus className="size-5" /> {label}
               </Button>
@@ -1332,7 +1381,7 @@ export function QuickActivityForm() {
       )}
 
       {flowStep === 'result' && type === 'TELEFON' && (
-        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black tracking-[0.16em] text-slate-500 uppercase">
             Wynik rozmowy
           </p>
@@ -1342,7 +1391,7 @@ export function QuickActivityForm() {
                 type="button"
                 key={outcome.value}
                 onClick={() => selectOutcome(outcome.value)}
-                className={`min-h-16 rounded-2xl px-2 text-xs font-black transition ${result === outcome.value ? 'bg-lime-300 text-emerald-950 ring-2 ring-emerald-900' : 'bg-slate-100 text-slate-700'}`}
+                className={`min-h-14 rounded-lg px-2 text-xs font-black transition ${result === outcome.value ? 'bg-emerald-100 text-emerald-950 ring-1 ring-emerald-700' : 'bg-slate-100 text-slate-700'}`}
               >
                 {outcome.label}
               </button>
@@ -1354,12 +1403,12 @@ export function QuickActivityForm() {
       {flowStep === 'result' && (
         <section
           id="mcrm-dictation"
-          className="space-y-4 rounded-[1.5rem] bg-[#123d2b] p-4 text-white shadow-sm"
+          className="space-y-4 rounded-xl bg-[#123d2b] p-4 text-white shadow-sm"
         >
-          <Label className="text-xs font-black tracking-[0.16em] text-lime-300 uppercase">
+          <Label className="text-xs font-black tracking-[0.16em] text-white uppercase">
             Notatka
           </Label>
-          <div className="mt-2 [&_button]:h-14 [&_button]:w-full [&_button]:rounded-2xl [&_button]:border-0 [&_button]:bg-lime-300 [&_button]:text-base [&_button]:font-black [&_button]:text-emerald-950 [&_textarea]:min-h-32 [&_textarea]:rounded-2xl [&_textarea]:border-0 [&_textarea]:bg-white [&_textarea]:text-base [&_textarea]:text-slate-950">
+          <div className="mt-2 [&_button]:h-14 [&_button]:w-full [&_button]:rounded-lg [&_button]:border-0 [&_button]:bg-white [&_button]:text-base [&_button]:font-black [&_button]:text-emerald-950 [&_textarea]:min-h-32 [&_textarea]:rounded-lg [&_textarea]:border-0 [&_textarea]:bg-white [&_textarea]:text-base [&_textarea]:text-slate-950">
             <VoiceTextarea
               value={note}
               onChange={setNote}
@@ -1379,7 +1428,7 @@ export function QuickActivityForm() {
               type="button"
               disabled={type === 'TELEFON' && !result}
               onClick={() => setFlowStep('confirmation')}
-              className="h-12 rounded-xl bg-lime-300 font-black text-emerald-950 hover:bg-lime-200"
+              className="h-12 rounded-xl bg-emerald-700 font-black text-white hover:bg-emerald-800"
             >
               Dalej <ArrowRight className="size-4" />
             </Button>
@@ -1391,7 +1440,7 @@ export function QuickActivityForm() {
         <>
           <section
             id="mcrm-confirmation"
-            className="space-y-4 rounded-[1.5rem] border border-emerald-950/10 bg-white p-4 shadow-sm"
+            className="space-y-3 rounded-xl border border-emerald-950/10 bg-white p-3 shadow-sm"
           >
             <div>
               <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
@@ -1399,6 +1448,35 @@ export function QuickActivityForm() {
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 Potwierdź tylko next action, termin i ewentualny blocker.
+              </p>
+            </div>
+            <div className="rounded-lg bg-emerald-50 p-3 ring-1 ring-emerald-900/10">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+                <dt className="font-bold text-emerald-800">Klient</dt>
+                <dd className="font-semibold">
+                  {contactName(selectedContact)}
+                </dd>
+                <dt className="font-bold text-emerald-800">Produkt</dt>
+                <dd className="font-semibold">
+                  {activityProductCategory || 'Brak danych'}
+                </dd>
+                <dt className="font-bold text-emerald-800">Źródło</dt>
+                <dd className="font-semibold">
+                  {activityCustomerSource || 'Brak danych'}
+                </dd>
+                <dt className="font-bold text-emerald-800">Deal</dt>
+                <dd className="font-semibold">
+                  {selectedDeal?.title || 'Bez Deala'}
+                </dd>
+              </dl>
+            </div>
+            <div className="rounded-lg border border-emerald-950/10 bg-[#f8faf7] p-3">
+              <p className="text-[10px] font-black tracking-wide text-emerald-800 uppercase">
+                Podsumowanie
+              </p>
+              <p className="mt-1 text-sm whitespace-pre-wrap text-slate-700">
+                {note.trim() ||
+                  'Brak notatki — uzupełnij tylko ustalony następny krok.'}
               </p>
             </div>
             <div>
@@ -1420,7 +1498,7 @@ export function QuickActivityForm() {
                         (current) => current || followUpPreset(kind).label
                       );
                     }}
-                    className={`min-h-11 rounded-xl px-1 text-[11px] font-black ${nextStepKind === kind ? 'bg-lime-300 text-emerald-950 ring-2 ring-emerald-900' : 'bg-slate-100 text-slate-700'}`}
+                    className={`min-h-11 rounded-xl px-1 text-[11px] font-black ${nextStepKind === kind ? 'bg-emerald-100 text-emerald-950 ring-1 ring-emerald-700' : 'bg-slate-100 text-slate-700'}`}
                   >
                     {label}
                   </button>
@@ -1482,7 +1560,7 @@ export function QuickActivityForm() {
               onClick={() =>
                 setFlowStep(plannedFollowUpKind ? 'follow-up' : 'result')
               }
-              className="h-14 rounded-2xl"
+              className="h-14 rounded-lg"
             >
               <ArrowLeft className="size-4" /> Wróć
             </Button>
@@ -1490,21 +1568,21 @@ export function QuickActivityForm() {
               type="button"
               onClick={saveActivity}
               disabled={saving || loading || !contactId}
-              className="h-14 rounded-2xl bg-[#123d2b] text-base font-black text-lime-300 shadow-lg hover:bg-[#0b2d1f]"
+              className="h-14 rounded-lg bg-[#123d2b] text-base font-black text-white shadow-lg hover:bg-[#0b2d1f]"
             >
               {saving ? (
                 <Loader2 className="size-5 animate-spin" />
               ) : (
                 <Save className="size-5" />
               )}
-              {saving ? 'ZAPISUJĘ…' : 'ZAPIS'}
+              {saving ? 'ZAPISUJĘ…' : 'ZAPISZ'}
             </Button>
           </div>
         </>
       )}
 
       <Dialog open={contactDialog} onOpenChange={setContactDialog}>
-        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-[1.5rem]">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle>Nowy Kontakt</DialogTitle>
           </DialogHeader>
@@ -1602,7 +1680,7 @@ export function QuickActivityForm() {
       </Dialog>
 
       <Dialog open={dealDialog} onOpenChange={setDealDialog}>
-        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-[1.5rem]">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle>Utwórz Deal</DialogTitle>
           </DialogHeader>
@@ -1676,7 +1754,7 @@ export function QuickActivityForm() {
         </DialogContent>
       </Dialog>
       <Dialog open={documentDialog} onOpenChange={setDocumentDialog}>
-        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-[1.5rem]">
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-xl">
           <DialogHeader>
             <DialogTitle>DODAJ DOKUMENT DO CRM</DialogTitle>
           </DialogHeader>
@@ -1692,7 +1770,7 @@ export function QuickActivityForm() {
                 historii.
               </p>
             </div>
-            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-lg border px-4 font-black text-emerald-950">
               <Camera className="size-5" /> ZRÓB ZDJĘCIE / SKAN
               <input
                 type="file"
@@ -1705,7 +1783,7 @@ export function QuickActivityForm() {
                 }}
               />
             </label>
-            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-lg border px-4 font-black text-emerald-950">
               <ImageIcon className="size-5" /> WYBIERZ ZDJĘCIE
               <input
                 type="file"
@@ -1717,7 +1795,7 @@ export function QuickActivityForm() {
                 }}
               />
             </label>
-            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-2xl border px-4 font-black text-emerald-950">
+            <label className="flex h-14 cursor-pointer items-center gap-3 rounded-lg border px-4 font-black text-emerald-950">
               <FilePlus2 className="size-5" /> WYBIERZ PLIK / PDF
               <input
                 type="file"
