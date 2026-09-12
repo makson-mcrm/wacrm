@@ -146,6 +146,51 @@ export default function TasksPage() {
     return Boolean(taskDay && taskDay > today);
   });
 
+  const today = localDay(new Date());
+  const taskGroups =
+    filter === 'all'
+      ? [
+          {
+            key: 'today',
+            label: 'DZISIAJ',
+            tone: 'border-red-200 bg-red-50 text-red-700',
+            tasks: tasks.filter(
+              (task) => task.dueAt && localDay(new Date(task.dueAt)) === today
+            ),
+          },
+          {
+            key: 'overdue',
+            label: 'ZALEGŁE',
+            tone: 'border-rose-200 bg-rose-50 text-rose-700',
+            tasks: tasks.filter(
+              (task) => task.dueAt && localDay(new Date(task.dueAt)) < today
+            ),
+          },
+          {
+            key: 'upcoming',
+            label: 'NADCHODZĄCE',
+            tone: 'border-blue-200 bg-blue-50 text-blue-700',
+            tasks: tasks.filter(
+              (task) => task.dueAt && localDay(new Date(task.dueAt)) > today
+            ),
+          },
+          {
+            key: 'undated',
+            label: 'BEZ DATY',
+            tone: 'border-slate-200 bg-slate-100 text-slate-700',
+            tasks: tasks.filter((task) => !task.dueAt),
+          },
+        ].filter((group) => group.tasks.length)
+      : [
+          {
+            key: filter,
+            label:
+              filters.find(([value]) => value === filter)?.[1] || 'ZADANIA',
+            tone: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+            tasks: visible,
+          },
+        ];
+
   async function setDate(task: Task, iso: string) {
     setBusy(task.key);
     const result =
@@ -237,20 +282,21 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
-            Pełny obraz pracy
-          </p>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">ZADANIA</h1>
-          <p className="text-muted-foreground text-sm">
-            AI priorytetyzuje DZISIAJ, ale żadna sprawa nie jest ukryta.
-          </p>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            ZADANIA
+          </h1>
         </div>
         <div className="flex gap-2">
           <Button render={<Link href="/tasks?new=task" />}>+ DODAJ</Button>
-          <Button variant="outline" render={<Link href="/calendar?view=week" />}><CalendarDays className="size-4" /> KALENDARZ</Button>
+          <Button
+            variant="outline"
+            render={<Link href="/calendar?view=week" />}
+          >
+            <CalendarDays className="size-4" /> KALENDARZ
+          </Button>
         </div>
       </header>
       <nav
@@ -269,90 +315,117 @@ export default function TasksPage() {
           </Button>
         ))}
       </nav>
-      <section className="space-y-2">
-        {visible.map((task) => (
-          <article key={task.key} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-black">{task.title}</p>
-                <p className="truncate text-sm text-slate-600">{task.where}</p>
-                <p className="mt-1 text-xs font-semibold text-emerald-800">
-                  {task.dueAt
-                    ? new Date(task.dueAt).toLocaleString('pl-PL')
-                    : 'Bez daty'}
-                </p>
-              </div>
-              <Link
-                href={
-                  task.dealId
-                    ? `/deals/${task.dealId}`
-                    : task.contactId
-                      ? `/contacts?open=${task.contactId}`
-                      : '/quick-call'
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Otwórz sprawę"
-                className="rounded-full p-2 text-emerald-900 hover:bg-emerald-50"
-              >
-                <ExternalLink className="size-4" />
-              </Link>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {taskGroups.map((group) => (
+          <div key={group.key}>
+            <div
+              className={`flex items-center gap-2 border-y px-4 py-2 text-xs font-black ${group.tone}`}
+            >
+              <span>{group.label}</span>
+              <span>({group.tasks.length})</span>
             </div>
-            <div className="mt-3 hidden grid-cols-3 gap-2 group-hover:grid">
-              <Button
-                size="sm"
-                disabled={busy === task.key}
-                onClick={() => void complete(task)}
-              >
-                <Check className="size-4" /> ZROBIONE
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy === task.key}
-                onClick={() => void setDate(task, tomorrowAtNine())}
-              >
-                JUTRO
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setEditing(editing === task.key ? '' : task.key);
-                  setCustomDay(
-                    task.dueAt ? localDay(new Date(task.dueAt)) : ''
-                  );
-                }}
-              >
-                <Clock3 className="size-4" /> INNY TERMIN
-              </Button>
-            </div>
-            {editing === task.key && (
-              <div className="mt-3 flex gap-2">
-                <input
-                  type="date"
-                  value={customDay}
-                  onInput={(event) =>
-                    setCustomDay(
-                      (event.currentTarget as HTMLInputElement).value
-                    )
-                  }
-                  className="h-10 min-w-0 flex-1 rounded-lg border px-3"
-                />
-                <Button
-                  disabled={!customDay || busy === task.key}
-                  onClick={() =>
-                    void setDate(
-                      task,
-                      warsawDateTimeInputToIso(`${customDay}T09:00`)
-                    )
-                  }
+            <div className="divide-y divide-slate-100">
+              {group.tasks.map((task) => (
+                <article
+                  key={task.key}
+                  className="group px-4 py-2.5 hover:bg-slate-50"
                 >
-                  Zapisz
-                </Button>
-              </div>
-            )}
-          </article>
+                  <div className="flex min-h-10 items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={busy === task.key}
+                      onClick={() => void complete(task)}
+                      aria-label={`Oznacz jako zrobione: ${task.title}`}
+                      className="flex size-5 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-emerald-700 hover:border-emerald-600"
+                    >
+                      <Check className="size-3 opacity-0 group-hover:opacity-100" />
+                    </button>
+                    <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {task.title}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {task.where}
+                      </p>
+                    </div>
+                    <time className="shrink-0 text-xs font-bold text-slate-500">
+                      {task.dueAt
+                        ? new Date(task.dueAt).toLocaleString('pl-PL', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Bez daty'}
+                    </time>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="hidden text-xs group-hover:inline-flex"
+                      onClick={() => void setDate(task, tomorrowAtNine())}
+                    >
+                      JUTRO
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Zmień termin"
+                      onClick={() => {
+                        setEditing(editing === task.key ? '' : task.key);
+                        setCustomDay(
+                          task.dueAt ? localDay(new Date(task.dueAt)) : ''
+                        );
+                      }}
+                    >
+                      <Clock3 className="size-4" />
+                    </Button>
+                    <Link
+                      href={
+                        task.dealId
+                          ? `/deals/${task.dealId}`
+                          : task.contactId
+                            ? `/contacts?open=${task.contactId}`
+                            : '/quick-call'
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Otwórz sprawę"
+                      className="rounded-full p-2 text-emerald-900 hover:bg-emerald-50"
+                    >
+                      <ExternalLink className="size-4" />
+                    </Link>
+                  </div>
+                  {editing === task.key && (
+                    <div className="mt-2 ml-10 flex max-w-sm gap-2">
+                      <input
+                        type="date"
+                        value={customDay}
+                        onInput={(event) =>
+                          setCustomDay(
+                            (event.currentTarget as HTMLInputElement).value
+                          )
+                        }
+                        className="h-9 min-w-0 flex-1 rounded-lg border px-3"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={!customDay || busy === task.key}
+                        onClick={() =>
+                          void setDate(
+                            task,
+                            warsawDateTimeInputToIso(`${customDay}T09:00`)
+                          )
+                        }
+                      >
+                        Zapisz
+                      </Button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
         ))}
         {!visible.length && (
           <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500">
