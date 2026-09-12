@@ -86,7 +86,7 @@ export function DealAssistantActions({ dealId }: { dealId: string }) {
         <h3 className="flex items-center gap-2 font-semibold text-[#123d2b]"><Sparkles className="size-4" /> ASYSTENT DEALA</h3>
         <span className="rounded-full bg-lime-300 px-2 py-1 text-[10px] font-black text-[#123d2b]">AI — ŚWIADOME URUCHOMIENIE</span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <AiButton icon={<Bot className="size-4" />} label="PRZYGOTUJ MNIE" busy={busy === 'prepare'} onClick={() => void run('prepare')} />
         <AiButton icon={<Gauge className="size-4" />} label="KWALIFIKUJ TEMAT" busy={busy === 'qualify'} onClick={() => void run('qualify')} />
         <AiButton icon={<FileCheck2 className="size-4" />} label="SPRAWDŹ KOMPLETACJĘ" busy={busy === 'completeness'} onClick={() => void run('completeness')} />
