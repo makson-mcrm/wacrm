@@ -577,6 +577,8 @@ export default function ContactsPage() {
           setSearch(value);
           setPage(0);
         }}
+        segment={desktopSegment}
+        onSegmentChange={setDesktopSegment}
         onOpen={openDetail}
         onAdd={openAddForm}
       />
@@ -596,445 +598,445 @@ export default function ContactsPage() {
         onOpen={openDetail}
       />
       <div className="hidden">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {totalCount > 0
-              ? t('subtitle', { count: totalCount })
-              : t('subtitleZero')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canEditSettings && (
-            <Button
-              variant="outline"
-              onClick={() => setCustomFieldsOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <SlidersHorizontal className="size-4" />
-              {t('customFieldsBtn')}
-            </Button>
-          )}
-          {canEditSettings && (
-            <Button
-              variant="outline"
-              onClick={() => setImportOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Upload className="size-4" />
-              {t('importBtn')}
-            </Button>
-          )}
-          {canEditSettings && (
-            <Button
-              variant="outline"
-              onClick={() => void exportContactsCsv()}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Download className="size-4" />
-              Eksport CSV
-            </Button>
-          )}
-          <GatedButton
-            canAct={canEdit}
-            gateReason="add or import contacts"
-            onClick={openAddForm}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Plus className="size-4" />
-            {t('addContactBtn')}
-          </GatedButton>
-        </div>
-      </div>
-
-      {/* Search + tag filter */}
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="relative w-full max-w-sm">
-            <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                // Reset pagination when the query changes — the result
-                // set shrinks/grows, page N may no longer be valid.
-                setPage(0);
-              }}
-              placeholder={t('searchPlaceholder')}
-              className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
-            />
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-foreground text-2xl font-bold">{t('title')}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {totalCount > 0
+                ? t('subtitle', { count: totalCount })
+                : t('subtitleZero')}
+            </p>
           </div>
-
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted shrink-0"
-                />
-              }
-            >
-              <Filter className="size-4" />
-              {t('filterByTags')}
-              {selectedTagIds.length > 0 && (
-                <span className="bg-primary text-primary-foreground ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
-                  {selectedTagIds.length}
-                </span>
-              )}
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <div className="border-border flex items-center justify-between border-b px-3 py-2">
-                <span className="text-popover-foreground text-sm font-medium">
-                  {t('filterByTags')}
-                </span>
-                {selectedTagIds.length > 0 && (
-                  <button
-                    onClick={clearTagFilters}
-                    className="text-muted-foreground hover:text-foreground text-xs"
-                  >
-                    {t('clearAll')}
-                  </button>
-                )}
-              </div>
-              {allTags.length === 0 ? (
-                <p className="text-muted-foreground px-3 py-4 text-center text-sm">
-                  {t('noTagsYet')}
-                </p>
-              ) : (
-                <div className="max-h-64 overflow-y-auto py-1">
-                  {allTags.map((tag) => (
-                    <label
-                      key={tag.id}
-                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-3 py-1.5"
-                    >
-                      <Checkbox
-                        checked={selectedTagIds.includes(tag.id)}
-                        onCheckedChange={() => toggleTagFilter(tag.id)}
-                        aria-label={`Filter by ${tag.name}`}
-                      />
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="text-popover-foreground truncate text-sm">
-                        {tag.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Active tag-filter chips */}
-        {selectedTagIds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {selectedTagIds.map((id) => {
-              const tag = tagsMap[id];
-              if (!tag) return null;
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: tag.color + '20',
-                    color: tag.color,
-                  }}
-                >
-                  {tag.name}
-                  <button
-                    onClick={() => toggleTagFilter(id)}
-                    aria-label={`Remove ${tag.name} filter`}
-                    className="hover:opacity-70"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </span>
-              );
-            })}
-            <button
-              onClick={clearTagFilters}
-              className="text-muted-foreground hover:text-foreground px-1 text-xs"
-            >
-              {t('clearAll')}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
-        <div className="border-border bg-muted/40 flex items-center justify-between gap-4 rounded-lg border px-4 py-2">
-          <p className="text-foreground text-sm">
-            {t('selectedCount', { count: selected.size })}
-          </p>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelected(new Set())}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              {t('clearSelection')}
-            </Button>
+            {canEditSettings && (
+              <Button
+                variant="outline"
+                onClick={() => setCustomFieldsOpen(true)}
+                className="border-border text-muted-foreground hover:bg-muted"
+              >
+                <SlidersHorizontal className="size-4" />
+                {t('customFieldsBtn')}
+              </Button>
+            )}
+            {canEditSettings && (
+              <Button
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                className="border-border text-muted-foreground hover:bg-muted"
+              >
+                <Upload className="size-4" />
+                {t('importBtn')}
+              </Button>
+            )}
+            {canEditSettings && (
+              <Button
+                variant="outline"
+                onClick={() => void exportContactsCsv()}
+                className="border-border text-muted-foreground hover:bg-muted"
+              >
+                <Download className="size-4" />
+                Eksport CSV
+              </Button>
+            )}
             <GatedButton
-              variant="destructive"
-              size="sm"
               canAct={canEdit}
-              gateReason="delete contacts"
-              onClick={() => setBulkDeleteOpen(true)}
+              gateReason="add or import contacts"
+              onClick={openAddForm}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              <Trash2 className="size-4" />
-              {t('deleteSelected')}
+              <Plus className="size-4" />
+              {t('addContactBtn')}
             </GatedButton>
           </div>
         </div>
-      )}
 
-      {/* Table */}
-      <div className="border-border overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={allOnPageSelected}
-                  indeterminate={!allOnPageSelected && someOnPageSelected}
-                  onCheckedChange={toggleSelectAll}
-                  disabled={contacts.length === 0}
-                  aria-label="Select all contacts on this page"
-                />
-              </TableHead>
-              <TableHead className="text-muted-foreground">
-                {t('tableColumns.name')}
-              </TableHead>
-              <TableHead className="text-muted-foreground">
-                {t('tableColumns.phone')}
-              </TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">
-                {t('tableColumns.email')}
-              </TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">
-                Firma / Firmy
-              </TableHead>
-              <TableHead className="text-muted-foreground hidden xl:table-cell">
-                Źródło
-              </TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">
-                Ostatnia aktywność
-              </TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">
-                Następne działanie / termin
-              </TableHead>
-              <TableHead className="text-muted-foreground w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow className="border-border">
-                <TableCell colSpan={9} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="text-primary size-6 animate-spin" />
-                    <p className="text-muted-foreground text-sm">
-                      {t('loading')}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : contacts.length === 0 ? (
-              <TableRow className="border-border">
-                <TableCell colSpan={9} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Users className="text-muted-foreground size-8" />
-                    <p className="text-muted-foreground text-sm">
-                      {hasActiveFilters
-                        ? t('noContactsMatch')
-                        : t('noContactsYet')}
-                    </p>
-                    {!hasActiveFilters && (
-                      <GatedButton
-                        canAct={canEdit}
-                        gateReason="add or import contacts"
-                        variant="outline"
-                        size="sm"
-                        onClick={openAddForm}
-                        className="border-border text-muted-foreground hover:bg-muted mt-2"
-                      >
-                        <Plus className="size-3.5" />
-                        {t('addFirstContact')}
-                      </GatedButton>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              contacts.map((contact) => (
-                <TableRow
-                  key={contact.id}
-                  className="border-border hover:bg-muted/50 h-14"
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selected.has(contact.id)}
-                      onCheckedChange={() => toggleSelect(contact.id)}
-                      aria-label={`Select ${contact.name || contact.phone}`}
-                    />
-                  </TableCell>
-                  <TableCell className="min-w-44 py-2">
-                    <Link
-                      href={`/contacts?open=${contact.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-foreground hover:text-primary block min-h-6 truncate text-sm font-semibold hover:underline"
+        {/* Search + tag filter */}
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative w-full max-w-sm">
+              <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  // Reset pagination when the query changes — the result
+                  // set shrinks/grows, page N may no longer be valid.
+                  setPage(0);
+                }}
+                placeholder={t('searchPlaceholder')}
+                className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
+              />
+            </div>
+
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                  />
+                }
+              >
+                <Filter className="size-4" />
+                {t('filterByTags')}
+                {selectedTagIds.length > 0 && (
+                  <span className="bg-primary text-primary-foreground ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
+                    {selectedTagIds.length}
+                  </span>
+                )}
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-0">
+                <div className="border-border flex items-center justify-between border-b px-3 py-2">
+                  <span className="text-popover-foreground text-sm font-medium">
+                    {t('filterByTags')}
+                  </span>
+                  {selectedTagIds.length > 0 && (
+                    <button
+                      onClick={clearTagFilters}
+                      className="text-muted-foreground hover:text-foreground text-xs"
                     >
-                      {contact.name || t('unnamed')}
-                    </Link>
-                    <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
-                      {contact.email || contact.source || 'Brak e-maila'}
-                    </p>
-                    {contact.companies?.[0] && (
-                      <Link
-                        href={`/companies?open=${contact.companies[0].id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary block max-w-48 truncate text-xs hover:underline lg:hidden"
+                      {t('clearAll')}
+                    </button>
+                  )}
+                </div>
+                {allTags.length === 0 ? (
+                  <p className="text-muted-foreground px-3 py-4 text-center text-sm">
+                    {t('noTagsYet')}
+                  </p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {allTags.map((tag) => (
+                      <label
+                        key={tag.id}
+                        className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-3 py-1.5"
                       >
-                        {contact.companies[0].name}
-                      </Link>
-                    )}
+                        <Checkbox
+                          checked={selectedTagIds.includes(tag.id)}
+                          onCheckedChange={() => toggleTagFilter(tag.id)}
+                          aria-label={`Filter by ${tag.name}`}
+                        />
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <span className="text-popover-foreground truncate text-sm">
+                          {tag.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Active tag-filter chips */}
+          {selectedTagIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {selectedTagIds.map((id) => {
+                const tag = tagsMap[id];
+                if (!tag) return null;
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{
+                      backgroundColor: tag.color + '20',
+                      color: tag.color,
+                    }}
+                  >
+                    {tag.name}
+                    <button
+                      onClick={() => toggleTagFilter(id)}
+                      aria-label={`Remove ${tag.name} filter`}
+                      className="hover:opacity-70"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                );
+              })}
+              <button
+                onClick={clearTagFilters}
+                className="text-muted-foreground hover:text-foreground px-1 text-xs"
+              >
+                {t('clearAll')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Bulk action bar */}
+        {selected.size > 0 && (
+          <div className="border-border bg-muted/40 flex items-center justify-between gap-4 rounded-lg border px-4 py-2">
+            <p className="text-foreground text-sm">
+              {t('selectedCount', { count: selected.size })}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelected(new Set())}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {t('clearSelection')}
+              </Button>
+              <GatedButton
+                variant="destructive"
+                size="sm"
+                canAct={canEdit}
+                gateReason="delete contacts"
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                {t('deleteSelected')}
+              </GatedButton>
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="border-border overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allOnPageSelected}
+                    indeterminate={!allOnPageSelected && someOnPageSelected}
+                    onCheckedChange={toggleSelectAll}
+                    disabled={contacts.length === 0}
+                    aria-label="Select all contacts on this page"
+                  />
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  {t('tableColumns.name')}
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  {t('tableColumns.phone')}
+                </TableHead>
+                <TableHead className="text-muted-foreground hidden md:table-cell">
+                  {t('tableColumns.email')}
+                </TableHead>
+                <TableHead className="text-muted-foreground hidden lg:table-cell">
+                  Firma / Firmy
+                </TableHead>
+                <TableHead className="text-muted-foreground hidden xl:table-cell">
+                  Źródło
+                </TableHead>
+                <TableHead className="text-muted-foreground hidden lg:table-cell">
+                  Ostatnia aktywność
+                </TableHead>
+                <TableHead className="text-muted-foreground hidden md:table-cell">
+                  Następne działanie / termin
+                </TableHead>
+                <TableHead className="text-muted-foreground w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow className="border-border">
+                  <TableCell colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="text-primary size-6 animate-spin" />
+                      <p className="text-muted-foreground text-sm">
+                        {t('loading')}
+                      </p>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
-                    {contact.phone}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground hidden text-sm md:table-cell">
-                    {contact.email || (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden min-w-44 py-2 text-sm lg:table-cell">
-                    <div className="flex max-w-56 flex-wrap gap-x-2 gap-y-0.5">
-                      {contact.companies?.length ? (
-                        contact.companies.map((company) => (
-                          <Link
-                            key={company.id}
-                            href={`/companies?open=${company.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary max-w-44 truncate font-medium hover:underline"
-                          >
-                            {company.name}
-                          </Link>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
+                </TableRow>
+              ) : contacts.length === 0 ? (
+                <TableRow className="border-border">
+                  <TableCell colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Users className="text-muted-foreground size-8" />
+                      <p className="text-muted-foreground text-sm">
+                        {hasActiveFilters
+                          ? t('noContactsMatch')
+                          : t('noContactsYet')}
+                      </p>
+                      {!hasActiveFilters && (
+                        <GatedButton
+                          canAct={canEdit}
+                          gateReason="add or import contacts"
+                          variant="outline"
+                          size="sm"
+                          onClick={openAddForm}
+                          className="border-border text-muted-foreground hover:bg-muted mt-2"
+                        >
+                          <Plus className="size-3.5" />
+                          {t('addFirstContact')}
+                        </GatedButton>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden max-w-40 truncate text-xs xl:table-cell">
-                    {contact.source || '-'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground hidden text-xs whitespace-nowrap lg:table-cell">
-                    {contact.lastActivityAt
-                      ? formatCrmDate(contact.lastActivityAt)
-                      : '-'}
-                  </TableCell>
-                  <TableCell className="hidden min-w-48 py-2 md:table-cell">
-                    <p className="max-w-56 truncate text-xs font-medium">
-                      {contact.nextAction || 'Brak następnego działania'}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {contact.nextActionAt
-                        ? formatCrmDate(contact.nextActionAt)
-                        : '—'}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        }
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="bg-popover border-border"
-                      >
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditForm(contact);
-                          }}
-                          className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                        >
-                          <Pencil className="size-4" />
-                          {t('editAction')}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmDelete(contact);
-                          }}
-                        >
-                          <Trash2 className="size-4" />
-                          {t('deleteAction')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-xs">
-            {t('showingPagination', {
-              start: page * PAGE_SIZE + 1,
-              end: Math.min((page + 1) * PAGE_SIZE, totalCount),
-              total: totalCount,
-            })}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={!hasPrev}
-              onClick={() => setPage((p) => p - 1)}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <span className="text-muted-foreground px-2 text-xs">
-              {t('pageCount', { page: page + 1, total: totalPages })}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={!hasNext}
-              onClick={() => setPage((p) => p + 1)}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
+              ) : (
+                contacts.map((contact) => (
+                  <TableRow
+                    key={contact.id}
+                    className="border-border hover:bg-muted/50 h-14"
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(contact.id)}
+                        onCheckedChange={() => toggleSelect(contact.id)}
+                        aria-label={`Select ${contact.name || contact.phone}`}
+                      />
+                    </TableCell>
+                    <TableCell className="min-w-44 py-2">
+                      <Link
+                        href={`/contacts?open=${contact.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground hover:text-primary block min-h-6 truncate text-sm font-semibold hover:underline"
+                      >
+                        {contact.name || t('unnamed')}
+                      </Link>
+                      <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
+                        {contact.email || contact.source || 'Brak e-maila'}
+                      </p>
+                      {contact.companies?.[0] && (
+                        <Link
+                          href={`/companies?open=${contact.companies[0].id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary block max-w-48 truncate text-xs hover:underline lg:hidden"
+                        >
+                          {contact.companies[0].name}
+                        </Link>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-xs">
+                      {contact.phone}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground hidden text-sm md:table-cell">
+                      {contact.email || (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden min-w-44 py-2 text-sm lg:table-cell">
+                      <div className="flex max-w-56 flex-wrap gap-x-2 gap-y-0.5">
+                        {contact.companies?.length ? (
+                          contact.companies.map((company) => (
+                            <Link
+                              key={company.id}
+                              href={`/companies?open=${company.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary max-w-44 truncate font-medium hover:underline"
+                            >
+                              {company.name}
+                            </Link>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground hidden max-w-40 truncate text-xs xl:table-cell">
+                      {contact.source || '-'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground hidden text-xs whitespace-nowrap lg:table-cell">
+                      {contact.lastActivityAt
+                        ? formatCrmDate(contact.lastActivityAt)
+                        : '-'}
+                    </TableCell>
+                    <TableCell className="hidden min-w-48 py-2 md:table-cell">
+                      <p className="max-w-56 truncate text-xs font-medium">
+                        {contact.nextAction || 'Brak następnego działania'}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {contact.nextActionAt
+                          ? formatCrmDate(contact.nextActionAt)
+                          : '—'}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          }
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="bg-popover border-border"
+                        >
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditForm(contact);
+                            }}
+                            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                          >
+                            <Pencil className="size-4" />
+                            {t('editAction')}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-border" />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              confirmDelete(contact);
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                            {t('deleteAction')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground text-xs">
+              {t('showingPagination', {
+                start: page * PAGE_SIZE + 1,
+                end: Math.min((page + 1) * PAGE_SIZE, totalCount),
+                total: totalCount,
+              })}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={!hasPrev}
+                onClick={() => setPage((p) => p - 1)}
+                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-muted-foreground px-2 text-xs">
+                {t('pageCount', { page: page + 1, total: totalPages })}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={!hasNext}
+                onClick={() => setPage((p) => p + 1)}
+                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Contact Form Dialog */}
@@ -1144,17 +1146,15 @@ export default function ContactsPage() {
 }
 
 type DesktopContactSegment =
-  | 'all'
-  | 'active'
-  | 'new'
-  | 'potential'
-  | 'companies';
+  'all' | 'active' | 'new' | 'potential' | 'companies';
 
 function MobileContactsView({
   contacts,
   loading,
   search,
   onSearchChange,
+  segment,
+  onSegmentChange,
   onOpen,
   onAdd,
 }: {
@@ -1162,29 +1162,130 @@ function MobileContactsView({
   loading: boolean;
   search: string;
   onSearchChange: (value: string) => void;
+  segment: DesktopContactSegment;
+  onSegmentChange: (segment: DesktopContactSegment) => void;
   onOpen: (contactId: string) => void;
   onAdd: () => void;
 }) {
+  const now = Date.now();
+  const filtered = contacts.filter((contact) => {
+    if (segment === 'active') return (contact.dealCount ?? 0) > 0;
+    if (segment === 'new')
+      return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
+    if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
+    return true;
+  });
+  const segments: Array<[DesktopContactSegment, string]> = [
+    ['all', 'Wszyscy'],
+    ['active', 'Aktywni'],
+    ['potential', 'Ciepli'],
+    ['new', 'Nowi'],
+  ];
+
   return (
     <section className="space-y-3 lg:hidden" aria-label="Klienci">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black tracking-tight text-slate-950">KLIENCI</h1>
-        <button type="button" onClick={onAdd} className="flex size-10 items-center justify-center rounded-full bg-emerald-800 text-white" aria-label="Dodaj klienta"><Plus className="size-5" /></button>
+        <h1 className="text-xl font-black tracking-tight text-slate-950">
+          KLIENCI
+        </h1>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex size-10 items-center justify-center rounded-full bg-emerald-800 text-white"
+          aria-label="Dodaj klienta"
+        >
+          <Plus className="size-5" />
+        </button>
       </div>
       <label className="relative block">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-        <Input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Szukaj klienta…" className="h-11 rounded-xl border-slate-200 bg-white pl-9" />
+        <Input
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Szukaj klientów, firm, NIP…"
+          className="h-11 rounded-xl border-slate-200 bg-white pl-9"
+        />
       </label>
-      <div className="space-y-2">
-        {loading ? <p className="py-12 text-center text-sm text-slate-500"><Loader2 className="mx-auto mb-2 size-5 animate-spin" />Ładowanie…</p> : null}
-        {!loading && contacts.map((contact) => (
-          <button key={contact.id} type="button" onClick={() => onOpen(contact.id)} className="flex min-h-16 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">{(contact.name || 'K').split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>
-            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-slate-950">{contact.name || 'Kontakt bez nazwy'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{contact.companies?.[0]?.name || contact.phone || 'Klient'} · {contact.dealCount ?? 0} {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}</span></span>
-            <ChevronRight className="size-4 text-slate-400" />
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-50 p-1">
+        {segments.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onSegmentChange(value)}
+            className={`rounded-lg px-2 py-2 text-[11px] font-bold transition-colors ${
+              segment === value
+                ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500'
+            }`}
+          >
+            {label}
           </button>
         ))}
-        {!loading && !contacts.length ? <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">Brak klientów.</p> : null}
+      </div>
+      <div className="space-y-2">
+        {loading ? (
+          <p className="py-12 text-center text-sm text-slate-500">
+            <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
+            Ładowanie…
+          </p>
+        ) : null}
+        {!loading &&
+          filtered.map((contact) => {
+            const isCompany = Boolean(contact.companies?.length);
+            const status = isCompany
+              ? 'Firma'
+              : (contact.dealCount ?? 0) > 0
+                ? 'Klient'
+                : 'Prospekt';
+            const statusClass =
+              status === 'Prospekt'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-emerald-100 text-emerald-800';
+            return (
+              <button
+                key={contact.id}
+                type="button"
+                onClick={() => onOpen(contact.id)}
+                className="flex min-h-16 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
+                  {(contact.name || 'K')
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black text-slate-950">
+                    {contact.name || 'Kontakt bez nazwy'}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    {contact.companies?.[0]?.name || contact.phone || 'Klient'}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
+                    <span className={`rounded-full px-2 py-0.5 ${statusClass}`}>
+                      {status}
+                    </span>
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">
+                      {contact.dealCount ?? 0}{' '}
+                      {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}
+                    </span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] text-slate-400">
+                  {contact.lastActivityAt
+                    ? formatCrmDate(contact.lastActivityAt)
+                    : ''}
+                </span>
+                <ChevronRight className="size-4 text-slate-400" />
+              </button>
+            );
+          })}
+        {!loading && !filtered.length ? (
+          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">
+            Brak klientów.
+          </p>
+        ) : null}
       </div>
     </section>
   );
@@ -1235,10 +1336,19 @@ function DesktopContactsView({
     <section className="hidden lg:block" aria-label="Klienci — pełna lista">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">KLIENCI</h1>
-          <p className="mt-1 text-sm text-slate-500">{totalCount} kontaktów w mCRM AI</p>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            KLIENCI
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {totalCount} kontaktów w mCRM AI
+          </p>
         </div>
-        <GatedButton canAct={canEdit} gateReason="add contacts" onClick={onAdd} className="bg-emerald-800 text-white hover:bg-emerald-900">
+        <GatedButton
+          canAct={canEdit}
+          gateReason="add contacts"
+          onClick={onAdd}
+          className="bg-emerald-800 text-white hover:bg-emerald-900"
+        >
           <Plus className="size-4" /> Dodaj klienta
         </GatedButton>
       </div>
@@ -1287,36 +1397,71 @@ function DesktopContactsView({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center text-slate-500">
-                    <Loader2 className="mx-auto mb-2 size-5 animate-spin" /> Ładowanie klientów…
+                  <TableCell
+                    colSpan={6}
+                    className="h-48 text-center text-slate-500"
+                  >
+                    <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
+                    Ładowanie klientów…
                   </TableCell>
                 </TableRow>
               ) : filtered.length ? (
                 filtered.map((contact) => {
-                  const status = (contact.dealCount ?? 0) > 0 ? 'AKTYWNY' : 'POTENCJAŁ';
+                  const status =
+                    (contact.dealCount ?? 0) > 0 ? 'AKTYWNY' : 'POTENCJAŁ';
                   return (
-                    <TableRow key={contact.id} className="h-16 border-slate-200 hover:bg-emerald-50/40">
+                    <TableRow
+                      key={contact.id}
+                      className="h-16 border-slate-200 hover:bg-emerald-50/40"
+                    >
                       <TableCell>
-                        <button type="button" onClick={() => onOpen(contact.id)} className="block text-left">
-                          <span className="block font-bold text-slate-900">{contact.name || 'Kontakt bez nazwy'}</span>
-                          <span className="block text-xs text-slate-500">{contact.companies?.map((company) => company.name).join(', ') || 'Klient indywidualny'}</span>
+                        <button
+                          type="button"
+                          onClick={() => onOpen(contact.id)}
+                          className="block text-left"
+                        >
+                          <span className="block font-bold text-slate-900">
+                            {contact.name || 'Kontakt bez nazwy'}
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {contact.companies
+                              ?.map((company) => company.name)
+                              .join(', ') || 'Klient indywidualny'}
+                          </span>
                         </button>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-600">{contact.phone || '—'}</TableCell>
-                      <TableCell className="text-sm text-slate-600">{contact.email || '—'}</TableCell>
+                      <TableCell className="font-mono text-xs text-slate-600">
+                        {contact.phone || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {contact.email || '—'}
+                      </TableCell>
                       <TableCell>
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}
+                        >
                           {status}
                         </span>
                       </TableCell>
-                      <TableCell className="font-bold text-slate-800">{contact.dealCount ?? 0}</TableCell>
-                      <TableCell className="text-sm text-slate-500">{contact.lastActivityAt ? formatCrmDate(contact.lastActivityAt) : 'Brak'}</TableCell>
+                      <TableCell className="font-bold text-slate-800">
+                        {contact.dealCount ?? 0}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        {contact.lastActivityAt
+                          ? formatCrmDate(contact.lastActivityAt)
+                          : 'Brak'}
+                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center text-slate-500">Brak klientów w tym widoku.</TableCell>
+                  <TableCell
+                    colSpan={6}
+                    className="h-48 text-center text-slate-500"
+                  >
+                    Brak klientów w tym widoku.
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
