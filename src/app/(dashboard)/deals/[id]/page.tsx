@@ -400,25 +400,24 @@ export default function DealPage() {
     <div className="space-y-3 sm:space-y-4">
       <Link
         href="/pipelines"
-        className="text-muted-foreground inline-flex items-center gap-2 text-sm"
+        className="text-muted-foreground inline-flex items-center gap-2 text-sm lg:hidden"
       >
         <ArrowLeft className="h-4 w-4" />
         Wróć do lejka
       </Link>
-      <header className="hidden items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm lg:flex">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Deal</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-base font-black text-slate-950">{deal.title}</h1>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-800">{deal.product_type || 'Kategoria nieustalona'}</span>
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700">{deal.stage?.name || 'Etap nieustalony'}</span>
-            {Number(deal.value) > 0 ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">{money(deal.value)} {deal.currency || 'PLN'}</span> : null}
-          </div>
-        </div>
+      <header className="hidden min-h-12 items-center gap-4 border-b border-slate-200 px-1 pb-3 lg:flex">
+        <Link href="/pipelines" className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 hover:text-slate-900">
+          <ArrowLeft className="size-4" /> Wróć do listy deali
+        </Link>
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><FileText className="size-3.5" /></span>
+        <h1 className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{deal.title}</h1>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-800">{deal.product_type || 'Kategoria nieustalona'}</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">{deal.stage?.name || 'Etap nieustalony'}</span>
+        {Number(deal.value) > 0 ? <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-700">{money(deal.value)} {deal.currency || 'PLN'}</span> : null}
       </header>
-      <section className="hidden min-h-[570px] grid-cols-[minmax(230px,0.8fr)_minmax(360px,1.25fr)_minmax(290px,0.9fr)] gap-3 lg:grid" aria-label="Deal — widok roboczy">
-        <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Klient</p>
+      <section className="hidden min-h-[610px] grid-cols-[280px_minmax(440px,1fr)_300px] gap-3 lg:grid" aria-label="Deal — widok roboczy">
+        <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black text-slate-900">Klient</p>
           <div className="mt-3 flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
               {(actionContact?.name || 'K').split(' ').map((part) => part[0]).join('').slice(0, 2)}
@@ -430,35 +429,39 @@ export default function DealPage() {
             </div>
           </div>
           {actionContact?.id ? <Link href={`/contacts?open=${actionContact.id}`} className="mt-3 block rounded-lg border border-emerald-200 px-3 py-2 text-center text-xs font-bold text-emerald-800">Zobacz pełny profil</Link> : null}
-          <div className="mt-5 border-t border-slate-100 pt-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sprawa</p>
-            <h1 className="mt-2 text-lg font-black leading-tight text-slate-950">{deal.title}</h1>
-            <p className="mt-2 text-sm text-slate-600">{deal.product_type || 'Kategoria nieustalona'}{Number(deal.value) > 0 ? ` · ${money(deal.value)} ${deal.currency || 'PLN'}` : ''}</p>
-            <span className="mt-3 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">{deal.stage?.name || 'Etap nieustalony'}</span>
-          </div>
-          <div className="mt-5 border-t border-slate-100 pt-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Następny krok</p>
-            <p className="mt-2 text-sm font-bold text-slate-900">{deal.next_action || 'Nie ustalono'}</p>
-            <p className="mt-1 text-xs text-slate-500">{deal.next_action_at ? dt(deal.next_action_at) : 'Bez terminu'}</p>
-            {deal.blocker ? <p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">Blocker: {deal.blocker}</p> : null}
-          </div>
-          <dl className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-xs">
+          <dl className="mt-4 space-y-2.5 border-t border-slate-100 pt-4 text-xs">
+            <p className="mb-3 font-black text-slate-900">Szczegóły sprawy</p>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Wartość</dt><dd className="text-right font-semibold text-slate-800">{Number(deal.value) > 0 ? `${money(deal.value)} ${deal.currency || 'PLN'}` : 'Nie ustalono'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Cel</dt><dd className="text-right font-semibold text-slate-800">{deal.goal || 'Nie ustalono'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Typ</dt><dd className="text-right font-semibold text-slate-800">{deal.product_type || 'Nie ustalono'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-slate-500">Źródło</dt><dd className="text-right font-semibold text-slate-800">{deal.source || 'Nie ustalono'}</dd></div>
+            <div className="flex items-center justify-between gap-3"><dt className="text-slate-500">Etap</dt><dd><select value={deal.stage_id} onChange={(event) => void changeStage(event.target.value)} className="h-8 max-w-40 rounded-md border bg-white px-2 text-[11px] font-semibold">{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></dd></div>
             <div className="flex justify-between gap-3"><dt className="text-slate-500">Opiekun</dt><dd className="text-right font-semibold text-slate-800">Tomasz</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Utworzono</dt><dd className="text-right font-semibold text-slate-800">{dt(deal.created_at)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Data utworzenia</dt><dd className="text-right font-semibold text-slate-800">{dt(deal.created_at)}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Planowana decyzja</dt><dd className="text-right font-semibold text-slate-800">{deal.expected_close_date ? dt(deal.expected_close_date) : 'Nie ustalono'}</dd></div>
           </dl>
+          <div className="mt-4 rounded-lg bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Następny krok</p><p className="mt-1 text-xs font-bold text-slate-900">{deal.next_action || 'Nie ustalono'}</p><p className="mt-1 text-[11px] text-slate-500">{deal.next_action_at ? dt(deal.next_action_at) : 'Bez terminu'}</p>{deal.blocker ? <p className="mt-2 text-[11px] text-amber-800">Blocker: {deal.blocker}</p> : null}</div>
         </aside>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-base font-black text-slate-950">Oś czasu</h2>
-            <div className="flex gap-1 text-[11px] font-bold text-slate-500"><span className="rounded-md bg-slate-100 px-2 py-1">HISTORIA</span><span className="px-2 py-1">ZADANIA</span></div>
+        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 pb-2 text-[10px] font-bold text-slate-500">
+            <span className="whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-slate-900">OŚ CZASU</span>
+            <span className="whitespace-nowrap px-2 py-1">KOMENTARZE <b className="text-blue-600">{notes.length}</b></span>
+            <span className="whitespace-nowrap px-2 py-1">ZADANIA</span>
+            <span className="whitespace-nowrap px-2 py-1">DOKUMENTY <b className="text-blue-600">{docs.length}</b></span>
+            <span className="whitespace-nowrap px-2 py-1">PRODUKTY</span>
+            <span className="whitespace-nowrap px-2 py-1">WIADOMOŚCI</span>
+            <span className="whitespace-nowrap px-2 py-1">HISTORIA ETAPÓW</span>
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <VoiceTextarea value={note} onChange={setNote} placeholder="Dodaj komentarz, notatkę lub @wspomnij…" className="min-h-9 resize-none border-0 bg-transparent py-2 text-xs shadow-none" />
+            <Button size="icon" variant="ghost" disabled={!note.trim()} onClick={() => void addNote()} aria-label="Dodaj notatkę"><CheckCircle2 className="size-4" /></Button>
           </div>
           <div className="mt-2 divide-y divide-slate-100">
-            {notes.slice(0, 6).map((entry) => (
-              <article key={entry.id} className="grid grid-cols-[92px_1fr] gap-3 py-4">
-                <span className="text-xs text-slate-500">{dt(entry.created_at)}</span>
-                <div><p className="line-clamp-2 text-sm text-slate-800">{entry.note_text}</p><p className="mt-1 text-[11px] text-blue-600">Notatka · {entry.author_name || 'Użytkownik'}</p></div>
+            {notes.slice(0, 5).map((entry, index) => (
+              <article key={entry.id} className="grid grid-cols-[28px_1fr] gap-3 py-3">
+                <span className={`flex size-7 items-center justify-center rounded-full text-[10px] font-black ${index % 3 === 0 ? 'bg-emerald-100 text-emerald-800' : index % 3 === 1 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{(entry.author_name || 'U').split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>
+                <div><p className="text-[11px] font-bold text-slate-700">{entry.author_name || 'Użytkownik'} <span className="ml-2 font-normal text-slate-400">{dt(entry.created_at)}</span></p><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-700">{entry.note_text}</p></div>
               </article>
             ))}
             {!notes.length ? <p className="py-12 text-center text-sm text-slate-500">Historia tej sprawy jest jeszcze pusta.</p> : null}
@@ -466,18 +469,19 @@ export default function DealPage() {
           <button type="button" onClick={() => setActiveTab('activity-history')} className="mt-3 text-xs font-bold text-blue-600 hover:underline">Pokaż pełną historię</button>
         </section>
 
-        <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-base font-black text-slate-950">Asystent AI — ta sprawa</h2>
           <div className="mt-3 rounded-xl border border-lime-300 bg-lime-50 p-3">
-            <div className="grid gap-2 text-sm font-bold text-emerald-950">
-              <Link href={`/assistant?deal=${deal.id}&feature=prepare`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Przygotuj mnie</Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=qualify`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Kwalifikuj temat</Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=completeness`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź kompletację</Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=knowledge`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź wiedzę bankową</Link>
+            <div className="grid gap-1.5 text-xs font-bold text-emerald-950">
+              <Link href={`/assistant?deal=${deal.id}&feature=prepare`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Przygotuj mnie</span><span className="font-normal text-slate-500">Podsumuj sprawę i przygotuj do rozmowy</span></Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=qualify`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Kwalifikuj temat</span><span className="font-normal text-slate-500">Oceń szanse i ryzyka</span></Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=completeness`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Sprawdź kompletację</span><span className="font-normal text-slate-500">Zweryfikuj realizację dokumentów</span></Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=knowledge`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Sprawdź wiedzę bankową</span><span className="font-normal text-slate-500">Porównaj źródła i wymagania banków</span></Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=guide`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Prowadź mnie krok po kroku</span><span className="font-normal text-slate-500">Zaproponuj kolejne działania</span></Link>
             </div>
           </div>
           <h3 className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500">Szybkie działania</h3>
-          <div className="mt-4 grid gap-2 [&_a]:h-10 [&_button]:h-10 [&_button]:w-full">
+          <div className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-10 [&_a]:text-[11px] [&_button]:h-10 [&_button]:w-full [&_button]:px-2 [&_button]:text-[11px]">
             {actionContact?.phone ? <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} className="w-full" /> : null}
             {actionContact?.phone ? <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} label="WIADOMOŚĆ" /> : null}
             <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=dictate`} />}><Mic className="size-4" /> DYKTUJ</Button>
