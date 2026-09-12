@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Settings as SettingsIcon,
+  Sparkles,
   User,
   UserPlus,
 } from 'lucide-react';
@@ -99,12 +100,18 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-foreground truncate text-base font-black sm:text-lg lg:hidden">
-          <span className="sm:hidden">
-            {pathname === '/dashboard' ? 'mCRM AI' : sectionTitle}
+        <Link
+          href="/dashboard"
+          className="flex min-w-0 items-center gap-2 lg:hidden"
+          aria-label="mCRM AI — DZISIAJ"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-lime-300">
+            <Sparkles className="size-4" />
           </span>
-          <span className="hidden sm:inline">{sectionTitle}</span>
-        </h1>
+          <span className="text-foreground truncate text-base font-black sm:text-lg">
+            mCRM AI
+          </span>
+        </Link>
       </div>
 
       <div className="hidden min-w-0 flex-1 justify-center px-3 md:flex">
