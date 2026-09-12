@@ -405,6 +405,17 @@ export default function DealPage() {
         <ArrowLeft className="h-4 w-4" />
         Wróć do lejka
       </Link>
+      <header className="hidden items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm lg:flex">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Deal</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="truncate text-base font-black text-slate-950">{deal.title}</h1>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-800">{deal.product_type || 'Kategoria nieustalona'}</span>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700">{deal.stage?.name || 'Etap nieustalony'}</span>
+            {Number(deal.value) > 0 ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">{money(deal.value)} {deal.currency || 'PLN'}</span> : null}
+          </div>
+        </div>
+      </header>
       <section className="hidden min-h-[570px] grid-cols-[minmax(230px,0.8fr)_minmax(360px,1.25fr)_minmax(290px,0.9fr)] gap-3 lg:grid" aria-label="Deal — widok roboczy">
         <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Klient</p>
@@ -415,8 +426,10 @@ export default function DealPage() {
             <div className="min-w-0">
               <p className="truncate font-black text-slate-950">{actionContact?.name || 'Brak głównego kontaktu'}</p>
               <p className="text-xs text-slate-500">{actionContact?.phone || 'Brak telefonu'}</p>
+              {actionContact?.email ? <p className="truncate text-xs text-slate-500">{actionContact.email}</p> : null}
             </div>
           </div>
+          {actionContact?.id ? <Link href={`/contacts?open=${actionContact.id}`} className="mt-3 block rounded-lg border border-emerald-200 px-3 py-2 text-center text-xs font-bold text-emerald-800">Zobacz pełny profil</Link> : null}
           <div className="mt-5 border-t border-slate-100 pt-4">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sprawa</p>
             <h1 className="mt-2 text-lg font-black leading-tight text-slate-950">{deal.title}</h1>
@@ -429,6 +442,11 @@ export default function DealPage() {
             <p className="mt-1 text-xs text-slate-500">{deal.next_action_at ? dt(deal.next_action_at) : 'Bez terminu'}</p>
             {deal.blocker ? <p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">Blocker: {deal.blocker}</p> : null}
           </div>
+          <dl className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-xs">
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Źródło</dt><dd className="text-right font-semibold text-slate-800">{deal.source || 'Nie ustalono'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Opiekun</dt><dd className="text-right font-semibold text-slate-800">Tomasz</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-slate-500">Utworzono</dt><dd className="text-right font-semibold text-slate-800">{dt(deal.created_at)}</dd></div>
+          </dl>
         </aside>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -449,21 +467,21 @@ export default function DealPage() {
         </section>
 
         <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-black text-slate-950">Działania</h2>
-          <div className="mt-4 grid gap-2 [&_a]:h-10 [&_button]:h-10 [&_button]:w-full">
-            {actionContact?.phone ? <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} className="w-full" /> : null}
-            {actionContact?.phone ? <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} label="WIADOMOŚĆ" /> : null}
-            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=dictate`} />}><Mic className="size-4" /> DYKTUJ</Button>
-            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=document`} />}><Upload className="size-4" /> DODAJ DOKUMENT</Button>
-          </div>
-          <div className="mt-5 rounded-xl border border-lime-300 bg-lime-50 p-3">
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI — płatne na żądanie</p>
-            <div className="mt-3 grid gap-2 text-sm font-bold text-emerald-950">
+          <h2 className="text-base font-black text-slate-950">Asystent AI — ta sprawa</h2>
+          <div className="mt-3 rounded-xl border border-lime-300 bg-lime-50 p-3">
+            <div className="grid gap-2 text-sm font-bold text-emerald-950">
               <Link href={`/assistant?deal=${deal.id}&feature=prepare`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Przygotuj mnie</Link>
               <Link href={`/assistant?deal=${deal.id}&feature=qualify`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Kwalifikuj temat</Link>
               <Link href={`/assistant?deal=${deal.id}&feature=completeness`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź kompletację</Link>
               <Link href={`/assistant?deal=${deal.id}&feature=knowledge`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź wiedzę bankową</Link>
             </div>
+          </div>
+          <h3 className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500">Szybkie działania</h3>
+          <div className="mt-4 grid gap-2 [&_a]:h-10 [&_button]:h-10 [&_button]:w-full">
+            {actionContact?.phone ? <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} className="w-full" /> : null}
+            {actionContact?.phone ? <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} label="WIADOMOŚĆ" /> : null}
+            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=dictate`} />}><Mic className="size-4" /> DYKTUJ</Button>
+            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=document`} />}><Upload className="size-4" /> DODAJ DOKUMENT</Button>
           </div>
         </aside>
       </section>
@@ -586,8 +604,8 @@ export default function DealPage() {
       <div
         className={
           activeTab === 'case'
-            ? 'grid gap-4 xl:grid-cols-[360px_1fr]'
-            : 'grid gap-3'
+            ? 'grid gap-4 lg:hidden xl:grid-cols-[360px_1fr]'
+            : 'grid gap-3 lg:hidden'
         }
       >
         <aside

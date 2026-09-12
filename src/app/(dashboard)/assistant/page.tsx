@@ -80,17 +80,20 @@ export default function AssistantPage() {
       </section>
 
       {dealId ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
           <section className="min-h-[520px] rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
               <span className="flex size-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-900"><Bot className="size-5" /></span>
               <div><h2 className="font-black text-slate-950">Co chcesz zrobić w tej sprawie?</h2><p className="text-xs text-slate-500">{selectedDeal?.title} · {selectedDeal?.product_type || 'produkt nieustalony'}</p></div>
             </div>
-            <div className="mt-5 rounded-2xl border border-lime-300 bg-lime-50 p-4">
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI na żądanie</p>
-              <p className="mt-2 text-sm text-slate-700">Każda analiza uruchamia się dopiero po świadomym wybraniu funkcji poniżej. Zwykła praca w CRM nie wywołuje płatnego AI.</p>
+            <div className="mt-5 ml-auto max-w-xl rounded-2xl rounded-tr-sm bg-lime-50 p-4 text-sm text-slate-800">
+              Podsumuj tę sprawę i wskaż najważniejszy kolejny krok.
             </div>
-            <div className="mt-5"><DealAssistantActions dealId={dealId} /></div>
+            <div className="mt-4 max-w-2xl rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 p-5">
+              <p className="font-black text-slate-950">Kontekst sprawy</p>
+              <p className="mt-2 text-sm leading-6 text-slate-700">Pracujesz nad Dealem <strong>{selectedDeal?.title}</strong>. Produkt: {selectedDeal?.product_type || 'nie ustalono'}, bank: {selectedDeal?.mandatory_bank || selectedDeal?.preferred_bank || 'nie ustalono'}.</p>
+              <p className="mt-4 text-xs text-slate-500">Uruchom wybraną funkcję AI po prawej, aby otrzymać odpowiedź ze źródłami i poziomem pewności.</p>
+            </div>
           </section>
           <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">Kontekst Deala</p>
@@ -99,7 +102,8 @@ export default function AssistantPage() {
               <div><dt className="text-xs font-bold text-slate-500">Produkt</dt><dd className="mt-1 font-semibold">{selectedDeal?.product_type || 'Nie ustalono'}</dd></div>
               <div><dt className="text-xs font-bold text-slate-500">Bank</dt><dd className="mt-1 font-semibold">{selectedDeal?.mandatory_bank || selectedDeal?.preferred_bank || 'Nie ustalono'}</dd></div>
             </dl>
-            <div className="mt-6 rounded-xl bg-slate-50 p-4"><MessageCircle className="size-5 text-emerald-800" /><p className="mt-2 text-sm font-bold">Odpowiedź pozostaje w kontekście wybranego Deala.</p><p className="mt-1 text-xs text-slate-500">Źródła i poziom pewności są pokazywane przez istniejący silnik M4.</p></div>
+            <div className="mt-6 rounded-xl border border-lime-300 bg-lime-50 p-3"><p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI na żądanie</p><div className="mt-3"><DealAssistantActions dealId={dealId} /></div></div>
+            <div className="mt-4 rounded-xl bg-slate-50 p-4"><MessageCircle className="size-5 text-emerald-800" /><p className="mt-2 text-sm font-bold">Odpowiedź pozostaje w kontekście wybranego Deala.</p><p className="mt-1 text-xs text-slate-500">Źródła i poziom pewności pokazuje istniejący silnik M4.</p></div>
           </aside>
         </div>
       ) : (

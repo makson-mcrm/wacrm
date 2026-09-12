@@ -43,7 +43,7 @@ export default function TasksPage() {
   const db = useMemo(() => createClient(), []);
   const { accountId, user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<Filter>('today');
+  const [filter, setFilter] = useState<Filter>('all');
   const [busy, setBusy] = useState('');
   const [editing, setEditing] = useState('');
   const [customDay, setCustomDay] = useState('');
@@ -248,9 +248,10 @@ export default function TasksPage() {
             AI priorytetyzuje DZISIAJ, ale żadna sprawa nie jest ukryta.
           </p>
         </div>
-        <Button variant="outline" render={<Link href="/calendar?view=week" />}>
-          <CalendarDays className="size-4" /> KALENDARZ
-        </Button>
+        <div className="flex gap-2">
+          <Button render={<Link href="/tasks?new=task" />}>+ DODAJ</Button>
+          <Button variant="outline" render={<Link href="/calendar?view=week" />}><CalendarDays className="size-4" /> KALENDARZ</Button>
+        </div>
       </header>
       <nav
         className="flex gap-2 overflow-x-auto pb-1"
@@ -270,7 +271,7 @@ export default function TasksPage() {
       </nav>
       <section className="space-y-2">
         {visible.map((task) => (
-          <article key={task.key} className="rounded-2xl border bg-white p-4">
+          <article key={task.key} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-black">{task.title}</p>
@@ -297,7 +298,7 @@ export default function TasksPage() {
                 <ExternalLink className="size-4" />
               </Link>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 hidden grid-cols-3 gap-2 group-hover:grid">
               <Button
                 size="sm"
                 disabled={busy === task.key}

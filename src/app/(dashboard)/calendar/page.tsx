@@ -392,17 +392,31 @@ export default function CalendarPage() {
         </div>
       </div>
       {view === 'week' ? (
-        <WeekGrid
-          days={days}
-          items={visible}
-          names={names}
-          onAdd={(day, hour) => {
-            const d = new Date(day);
-            d.setHours(hour, 0, 0, 0);
-            reset(undefined, d);
-          }}
-          onOpen={reset}
-        />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <WeekGrid
+            days={days}
+            items={visible}
+            names={names}
+            onAdd={(day, hour) => {
+              const d = new Date(day);
+              d.setHours(hour, 0, 0, 0);
+              reset(undefined, d);
+            }}
+            onOpen={reset}
+          />
+          <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-500">Najbliższe wydarzenie</p>
+            {visible[0] ? (
+              <div className="mt-4 space-y-4">
+                <div><p className="text-xs text-slate-500">Termin</p><p className="mt-1 font-black text-slate-950">{new Date(visible[0].startsAt).toLocaleString('pl-PL', { timeZone: BUSINESS_TIME_ZONE, dateStyle: 'medium', timeStyle: 'short' })}</p></div>
+                <div><p className="text-xs text-slate-500">Typ</p><p className="mt-1 font-bold capitalize text-slate-800">{visible[0].type}</p></div>
+                <div><p className="text-xs text-slate-500">Cel</p><p className="mt-1 text-sm font-semibold text-slate-800">{visible[0].title}</p></div>
+                <Button variant="outline" className="w-full" onClick={() => reset(visible[0])}>Edytuj</Button>
+                {visible[0].dealId ? <Link href={`/deals/${visible[0].dealId}`} className="block rounded-lg border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Otwórz Deal</Link> : null}
+              </div>
+            ) : <p className="mt-4 text-sm text-slate-500">Brak wydarzeń w tym zakresie.</p>}
+          </aside>
+        </div>
       ) : (
         <div
           className={
@@ -594,13 +608,14 @@ function WeekGrid({
   onAdd: (day: Date, hour: number) => void;
   onOpen: (item: Item) => void;
 }) {
+  const workDays = days.slice(0, 5);
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <div className="min-w-[980px]">
-          <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/70">
+        <div className="min-w-[720px]">
+          <div className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/70">
             <div aria-hidden="true" />
-            {days.map((day) => (
+            {workDays.map((day) => (
               <button
                 key={dateKey(day)}
                 type="button"
@@ -624,12 +639,12 @@ function WeekGrid({
             {WEEK_HOURS.map((hour) => (
               <div
                 key={hour}
-                className="grid min-h-[58px] grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
+                className="grid min-h-[58px] grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
               >
                 <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
                   {String(hour).padStart(2, '0')}:00
                 </div>
-                {days.map((day) => {
+                {workDays.map((day) => {
                   const cellItems = items.filter((item) => {
                     const startsAt = new Date(item.startsAt);
                     return (
