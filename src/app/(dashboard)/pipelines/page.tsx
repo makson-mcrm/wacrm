@@ -366,7 +366,8 @@ export default function PipelinesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="mr-2 text-2xl font-black tracking-tight text-slate-950">LEJEK SPRZEDAŻY</h1>
           {/* Pipeline selector dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger className="border-border bg-card text-foreground hover:bg-muted data-[popup-open]:bg-muted inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors">
@@ -543,3 +544,4 @@ export default function PipelinesPage() {
     </div>
   );
 }
+

@@ -243,7 +243,7 @@ export default function TasksPage() {
           <p className="text-xs font-black tracking-[0.16em] text-emerald-800 uppercase">
             Pełny obraz pracy
           </p>
-          <h1 className="text-2xl font-black">WSZYSTKIE ZADANIA</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">ZADANIA</h1>
           <p className="text-muted-foreground text-sm">
             AI priorytetyzuje DZISIAJ, ale żadna sprawa nie jest ukryta.
           </p>
@@ -362,3 +362,4 @@ export default function TasksPage() {
     </div>
   );
 }
+

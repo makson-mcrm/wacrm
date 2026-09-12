@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
+  ArrowRight,
   Bot,
   CalendarDays,
   CheckCircle2,
@@ -577,15 +578,15 @@ export default function DashboardPage() {
       new Date(now)
     ),
   });
-  const workspaceItem =
-    todayPlan.now.find((item) => item.main) ??
-    todayPlan.nextBlock.find((item) => item.main) ??
-    todayPlan.laterToday.find((item) => item.main);
-  const workspaceDeal =
-    deals.find((deal) => deal.id === workspaceItem?.dealId) ?? deals[0];
-  const workspaceContact =
-    contacts.find((contact) => contact.id === workspaceDeal?.contact_id) ??
-    contacts.find((contact) => contact.id === workspaceItem?.contactId);
+  const newContactsToday = contacts.filter(
+    (contact) => contact.created_at?.slice(0, 10) === date
+  ).length;
+  const applications = deals.filter((deal) =>
+    /wniosk/i.test(deal.stage?.name || '')
+  ).length;
+  const decisions = deals.filter((deal) =>
+    /decyzj/i.test(deal.stage?.name || '')
+  ).length;
   function proposePriorities() {
     const proposed = buildPrioritySuggestions(
       deals as unknown as PriorityDeal[],
@@ -604,12 +605,17 @@ export default function DashboardPage() {
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
-      <MobileTodayBoard todayPlan={todayPlan} />
-      <DesktopWorkspaces
+      <MobileTodayBoard
         todayPlan={todayPlan}
-        deals={deals}
-        activeDeal={workspaceDeal}
-        activeContact={workspaceContact}
+        overdueCount={overdue.length}
+        newCount={newContactsToday}
+      />
+      <DesktopTodayBoard
+        todayPlan={todayPlan}
+        newContacts={newContactsToday}
+        conversations={calls}
+        applications={applications}
+        decisions={decisions}
       />
       <div className="hidden">
         <Metric
@@ -1103,6 +1109,174 @@ export default function DashboardPage() {
   );
 }
 
+function DesktopTodayBoard({
+  todayPlan,
+  newContacts,
+  conversations,
+  applications,
+  decisions,
+}: {
+  todayPlan: TodayPlan;
+  newContacts: number;
+  conversations: number;
+  applications: number;
+  decisions: number;
+}) {
+  const dayLabel = new Intl.DateTimeFormat('pl-PL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+  const allItems = [
+    ...todayPlan.now,
+    ...todayPlan.nextBlock,
+    ...todayPlan.laterToday,
+  ].filter(
+    (item, index, items) =>
+      items.findIndex((candidate) => candidate.id === item.id) === index
+  );
+  const recommendations = allItems.slice(0, 3);
+  const stats = [
+    ['Nowe kontakty', newContacts],
+    ['Rozmowy', conversations],
+    ['Wnioski złożone', applications],
+    ['Decyzje pozytywne', decisions],
+  ] as const;
+
+  return (
+    <section className="hidden lg:block" aria-label="DZISIAJ — widok roboczy">
+      <div className="mb-3 flex items-center justify-between">
+        <h1 className="text-2xl font-black tracking-tight text-slate-950">
+          DZISIAJ
+        </h1>
+      </div>
+      <div className="grid min-h-[590px] grid-cols-[minmax(0,1fr)_minmax(330px,0.94fr)] gap-4">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-lg font-black text-slate-900">Mój dzień</h2>
+            <span className="text-xs capitalize text-slate-500">{dayLabel}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">
+              Moje zadania {allItems.length}
+            </span>
+            <span className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+              Po terminie {todayPlan.now.filter((item) => /zaleg/i.test(item.reason || '')).length}
+            </span>
+            <span className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+              Na dziś {todayPlan.now.length + todayPlan.nextBlock.length}
+            </span>
+            <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
+              Na później {todayPlan.laterToday.length}
+            </span>
+          </div>
+          <div className="mt-3 divide-y divide-slate-100">
+            {allItems.length ? (
+              allItems.slice(0, 8).map((item, index) => (
+                <DesktopTodayRow key={item.id} item={item} index={index} />
+              ))
+            ) : (
+              <p className="py-10 text-center text-sm text-slate-500">
+                Brak działań zaplanowanych na dziś.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <div className="grid min-h-0 grid-rows-[1fr_auto] gap-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="flex items-center gap-2 text-base font-black text-slate-900">
+                Rekomendowane przez AI <Sparkles className="size-4 text-emerald-700" />
+              </h2>
+              <Link href="/tasks" className="text-xs font-semibold text-blue-600 hover:underline">
+                Zobacz wszystkie
+              </Link>
+            </div>
+            <div className="mt-3 space-y-2">
+              {recommendations.map((item, index) => (
+                <div key={item.id} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-800">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-slate-900">
+                      {item.action || item.title}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+                      {item.reason || item.stageName || 'Najważniejsza sprawa na teraz'}
+                    </p>
+                  </div>
+                  {item.href ? (
+                    <Link href={item.href} className="shrink-0 rounded-lg border border-emerald-200 px-2 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50">
+                      Otwórz sprawę
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
+              {!recommendations.length ? (
+                <p className="py-10 text-center text-sm text-slate-500">
+                  Brak rekomendacji — wszystkie pilne sprawy są zamknięte.
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-black text-slate-900">Twoja aktywność</h2>
+              <span className="text-xs text-slate-500">Ostatnie 7 dni</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {stats.map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-2xl font-black text-slate-900">{value}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DesktopTodayRow({
+  item,
+  index,
+}: {
+  item: RankedTodayItem;
+  index: number;
+}) {
+  const time = item.dueAt
+    ? new Date(item.dueAt).toLocaleTimeString('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
+  const dots = ['bg-red-500', 'bg-emerald-500', 'bg-amber-400', 'bg-slate-400'];
+  const content = (
+    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 py-3">
+      <span className="flex items-center gap-2 text-sm font-black text-slate-700">
+        <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
+        {time}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold text-slate-900">
+          {item.title}{item.action && item.action !== item.title ? ` — ${item.action}` : ''}
+        </span>
+        <span className="mt-0.5 block truncate text-[11px] font-semibold text-slate-500 uppercase">
+          {[item.stageName, item.section].filter(Boolean).join(' · ') || item.reason}
+        </span>
+      </span>
+      <ArrowRight className="size-4 text-slate-400" />
+    </div>
+  );
+  return item.href ? <Link href={item.href}>{content}</Link> : content;
+}
+
 function DesktopWorkspaces({
   todayPlan,
   deals,
@@ -1430,7 +1604,15 @@ function DesktopWorkspaces({
   );
 }
 
-function MobileTodayBoard({ todayPlan }: { todayPlan: TodayPlan }) {
+function MobileTodayBoard({
+  todayPlan,
+  overdueCount,
+  newCount,
+}: {
+  todayPlan: TodayPlan;
+  overdueCount: number;
+  newCount: number;
+}) {
   const dayLabel = new Intl.DateTimeFormat('pl-PL', {
     weekday: 'long',
     day: 'numeric',
@@ -1445,8 +1627,21 @@ function MobileTodayBoard({ todayPlan }: { todayPlan: TodayPlan }) {
   return (
     <section className="rounded-2xl border border-emerald-950/10 bg-[#f8faf7] p-3 shadow-sm lg:hidden">
       <div className="mb-4">
-        <h1 className="text-xl font-black tracking-tight">Dziś</h1>
-        <p className="text-xs text-slate-500 capitalize">{dayLabel}</p>
+        <div className="flex items-end justify-between gap-3">
+          <h1 className="text-xl font-black tracking-tight">DZISIAJ</h1>
+          <p className="text-xs text-slate-500 capitalize">{dayLabel}</p>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <span className="rounded-lg bg-emerald-700 px-2 py-2 text-center text-[11px] font-bold text-white">
+            Moje zadania {todayPlan.mainCount}
+          </span>
+          <span className="rounded-lg bg-rose-50 px-2 py-2 text-center text-[11px] font-bold text-rose-700">
+            Po terminie {overdueCount}
+          </span>
+          <span className="rounded-lg bg-blue-50 px-2 py-2 text-center text-[11px] font-bold text-blue-700">
+            Nowe {newCount}
+          </span>
+        </div>
       </div>
       <div className="space-y-4">
         {sections.map(([title, items]) => (
@@ -1464,6 +1659,12 @@ function MobileTodayBoard({ todayPlan }: { todayPlan: TodayPlan }) {
           </div>
         ))}
       </div>
+      <Link
+        href="/tasks?new=task"
+        className="mt-3 flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white"
+      >
+        + Dodaj zadanie
+      </Link>
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-emerald-950/10 pt-3">
         <Link
           href="/calendar?view=day"
@@ -1618,3 +1819,4 @@ function Field({
     </div>
   );
 }
+

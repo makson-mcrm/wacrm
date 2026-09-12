@@ -38,6 +38,7 @@ const pageTitles: Record<string, string> = {
   '/pipelines': 'pipelines',
   '/calendar': 'calendar',
   '/deals': 'deals',
+  '/finances': 'finances',
   '/broadcasts': 'broadcasts',
   '/automations': 'automations',
   '/settings': 'settings',
@@ -52,6 +53,7 @@ const mcrmSectionTitles: Record<string, string> = {
   '/calendar': 'KALENDARZ',
   '/tasks': 'ZADANIA',
   '/assistant': 'ASYSTENT',
+  '/finances': 'FINANSE',
 };
 
 function getPageTitleKey(pathname: string): string {
@@ -97,7 +99,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-foreground truncate text-base font-black sm:text-lg">
+        <h1 className="text-foreground truncate text-base font-black sm:text-lg lg:hidden">
           <span className="sm:hidden">
             {pathname === '/dashboard' ? 'mCRM AI' : sectionTitle}
           </span>
@@ -227,3 +229,4 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     </header>
   );
 }
+

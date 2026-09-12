@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Crown,
   GitBranch,
+  Landmark,
   LayoutDashboard,
   ListTodo,
   MessageSquare,
@@ -83,7 +84,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+  {
+    href: '/dashboard',
+    labelKey: 'dashboard',
+    label: 'DZISIAJ',
+    icon: LayoutDashboard,
+  },
   { href: '/contacts', labelKey: 'contacts', label: 'KLIENCI', icon: Users },
   {
     href: '/deals',
@@ -91,10 +97,31 @@ const navItems: NavItem[] = [
     label: 'DEALE',
     icon: BriefcaseBusiness,
   },
-  { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
-  { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
-  { href: '/tasks', labelKey: 'tasks', icon: ListTodo },
-  { href: '/assistant', labelKey: 'assistant', icon: Bot },
+  {
+    href: '/pipelines',
+    labelKey: 'pipelines',
+    label: 'LEJEK SPRZEDAŻY',
+    icon: GitBranch,
+  },
+  {
+    href: '/calendar',
+    labelKey: 'calendar',
+    label: 'KALENDARZ',
+    icon: CalendarDays,
+  },
+  { href: '/tasks', labelKey: 'tasks', label: 'ZADANIA', icon: ListTodo },
+  {
+    href: '/finances',
+    labelKey: 'finances',
+    label: 'FINANSE',
+    icon: Landmark,
+  },
+  {
+    href: '/assistant',
+    labelKey: 'assistant',
+    label: 'ASYSTENT AI',
+    icon: Bot,
+  },
 ];
 
 const secondaryNavItems: NavItem[] = [
@@ -424,3 +451,4 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
+

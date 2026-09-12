@@ -17,6 +17,7 @@ import {
   Plus,
   Save,
   Search,
+  Sparkles,
   UserRound,
   X,
 } from 'lucide-react';
@@ -1344,6 +1345,16 @@ export function QuickActivityForm() {
         </section>
       )}
 
+      {flowStep === 'action' && dealId ? (
+        <section className="rounded-xl border border-lime-300 bg-lime-50 p-3">
+          <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI — płatne na żądanie</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Button type="button" variant="outline" onClick={() => router.push(`/assistant?deal=${dealId}&feature=prepare`)} className="h-10 border-lime-300 bg-white text-xs font-bold text-emerald-950">PRZYGOTUJ MNIE</Button>
+            <Button type="button" variant="outline" onClick={() => router.push(`/assistant?deal=${dealId}&feature=qualify`)} className="h-10 border-lime-300 bg-white text-xs font-bold text-emerald-950">KWALIFIKUJ TEMAT</Button>
+          </div>
+        </section>
+      ) : null}
+
       {flowStep === 'follow-up' && (
         <section className="rounded-xl border border-emerald-950/10 bg-white p-4 shadow-sm">
           <p className="font-black">Co ma być następnym krokiem?</p>
@@ -1839,3 +1850,4 @@ export function QuickActivityForm() {
     </div>
   );
 }
+

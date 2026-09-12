@@ -69,6 +69,7 @@ interface ContactWithTags extends Contact {
   lastActivityAt?: string | null;
   nextAction?: string | null;
   nextActionAt?: string | null;
+  dealCount?: number;
 }
 
 interface ContactCompanyRow {
@@ -100,6 +101,9 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [desktopSegment, setDesktopSegment] = useState<
+    'all' | 'active' | 'new' | 'potential' | 'companies'
+  >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -242,8 +246,7 @@ export default function ContactsPage() {
       supabase
         .from('deals')
         .select('contact_id,next_action,next_action_at,follow_up_at,status')
-        .in('contact_id', contactIds)
-        .eq('status', 'open'),
+        .in('contact_id', contactIds),
     ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
 
@@ -275,8 +278,12 @@ export default function ContactsPage() {
     });
 
     const nextDealByContact: Record<string, ContactDealRow> = {};
+    const dealCountByContact: Record<string, number> = {};
     (dealRows as ContactDealRow[] | null)?.forEach((deal) => {
       if (!deal.contact_id) return;
+      dealCountByContact[deal.contact_id] =
+        (dealCountByContact[deal.contact_id] ?? 0) + 1;
+      if (deal.status !== 'open') return;
       const current = nextDealByContact[deal.contact_id];
       const dealDate = deal.next_action_at || deal.follow_up_at;
       const currentDate = current?.next_action_at || current?.follow_up_at;
@@ -302,6 +309,7 @@ export default function ContactsPage() {
         nextDealByContact[c.id]?.next_action_at ||
         nextDealByContact[c.id]?.follow_up_at ||
         null,
+      dealCount: dealCountByContact[c.id] ?? 0,
       tags: (tagsByContact[c.id] ?? [])
         .map((tid) => tagsMap[tid])
         .filter(Boolean),
@@ -561,6 +569,33 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
+      <MobileContactsView
+        contacts={contacts}
+        loading={loading}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(0);
+        }}
+        onOpen={openDetail}
+        onAdd={openAddForm}
+      />
+      <DesktopContactsView
+        contacts={contacts}
+        loading={loading}
+        totalCount={totalCount}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(0);
+        }}
+        segment={desktopSegment}
+        onSegmentChange={setDesktopSegment}
+        onAdd={openAddForm}
+        canEdit={canEdit}
+        onOpen={openDetail}
+      />
+      <div className="hidden">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1000,6 +1035,7 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Contact Form Dialog */}
       <ContactForm
@@ -1106,3 +1142,188 @@ export default function ContactsPage() {
     </div>
   );
 }
+
+type DesktopContactSegment =
+  | 'all'
+  | 'active'
+  | 'new'
+  | 'potential'
+  | 'companies';
+
+function MobileContactsView({
+  contacts,
+  loading,
+  search,
+  onSearchChange,
+  onOpen,
+  onAdd,
+}: {
+  contacts: ContactWithTags[];
+  loading: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onOpen: (contactId: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <section className="space-y-3 lg:hidden" aria-label="Klienci">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-black tracking-tight text-slate-950">KLIENCI</h1>
+        <button type="button" onClick={onAdd} className="flex size-10 items-center justify-center rounded-full bg-emerald-800 text-white" aria-label="Dodaj klienta"><Plus className="size-5" /></button>
+      </div>
+      <label className="relative block">
+        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+        <Input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Szukaj klienta…" className="h-11 rounded-xl border-slate-200 bg-white pl-9" />
+      </label>
+      <div className="space-y-2">
+        {loading ? <p className="py-12 text-center text-sm text-slate-500"><Loader2 className="mx-auto mb-2 size-5 animate-spin" />Ładowanie…</p> : null}
+        {!loading && contacts.map((contact) => (
+          <button key={contact.id} type="button" onClick={() => onOpen(contact.id)} className="flex min-h-16 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">{(contact.name || 'K').split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-slate-950">{contact.name || 'Kontakt bez nazwy'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{contact.companies?.[0]?.name || contact.phone || 'Klient'} · {contact.dealCount ?? 0} {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}</span></span>
+            <ChevronRight className="size-4 text-slate-400" />
+          </button>
+        ))}
+        {!loading && !contacts.length ? <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">Brak klientów.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function DesktopContactsView({
+  contacts,
+  loading,
+  totalCount,
+  search,
+  onSearchChange,
+  segment,
+  onSegmentChange,
+  onAdd,
+  canEdit,
+  onOpen,
+}: {
+  contacts: ContactWithTags[];
+  loading: boolean;
+  totalCount: number;
+  search: string;
+  onSearchChange: (value: string) => void;
+  segment: DesktopContactSegment;
+  onSegmentChange: (segment: DesktopContactSegment) => void;
+  onAdd: () => void;
+  canEdit: boolean;
+  onOpen: (contactId: string) => void;
+}) {
+  const now = Date.now();
+  const filtered = contacts.filter((contact) => {
+    if (segment === 'active') return (contact.dealCount ?? 0) > 0;
+    if (segment === 'new') {
+      return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
+    }
+    if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
+    if (segment === 'companies') return Boolean(contact.companies?.length);
+    return true;
+  });
+  const segments: Array<[DesktopContactSegment, string]> = [
+    ['all', 'Wszyscy'],
+    ['active', 'Aktywni'],
+    ['new', 'Nowi'],
+    ['potential', 'Potencjalni'],
+    ['companies', 'Firmy'],
+  ];
+
+  return (
+    <section className="hidden lg:block" aria-label="Klienci — pełna lista">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">KLIENCI</h1>
+          <p className="mt-1 text-sm text-slate-500">{totalCount} kontaktów w mCRM AI</p>
+        </div>
+        <GatedButton canAct={canEdit} gateReason="add contacts" onClick={onAdd} className="bg-emerald-800 text-white hover:bg-emerald-900">
+          <Plus className="size-4" /> Dodaj klienta
+        </GatedButton>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {segments.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onSegmentChange(value)}
+                className={`rounded-lg border px-4 py-2 text-xs font-bold transition-colors ${
+                  segment === value
+                    ? 'border-emerald-700 bg-emerald-700 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="relative w-full max-w-xs">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Szukaj klienta…"
+              className="border-slate-200 bg-white pl-9"
+            />
+          </label>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+                <TableHead>Klient / Firma</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Deale</TableHead>
+                <TableHead>Ostatni kontakt</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-48 text-center text-slate-500">
+                    <Loader2 className="mx-auto mb-2 size-5 animate-spin" /> Ładowanie klientów…
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length ? (
+                filtered.map((contact) => {
+                  const status = (contact.dealCount ?? 0) > 0 ? 'AKTYWNY' : 'POTENCJAŁ';
+                  return (
+                    <TableRow key={contact.id} className="h-16 border-slate-200 hover:bg-emerald-50/40">
+                      <TableCell>
+                        <button type="button" onClick={() => onOpen(contact.id)} className="block text-left">
+                          <span className="block font-bold text-slate-900">{contact.name || 'Kontakt bez nazwy'}</span>
+                          <span className="block text-xs text-slate-500">{contact.companies?.map((company) => company.name).join(', ') || 'Klient indywidualny'}</span>
+                        </button>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-slate-600">{contact.phone || '—'}</TableCell>
+                      <TableCell className="text-sm text-slate-600">{contact.email || '—'}</TableCell>
+                      <TableCell>
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}>
+                          {status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-bold text-slate-800">{contact.dealCount ?? 0}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{contact.lastActivityAt ? formatCrmDate(contact.lastActivityAt) : 'Brak'}</TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-48 text-center text-slate-500">Brak klientów w tym widoku.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </section>
+  );
+}
+

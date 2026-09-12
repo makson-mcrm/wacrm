@@ -405,7 +405,69 @@ export default function DealPage() {
         <ArrowLeft className="h-4 w-4" />
         Wróć do lejka
       </Link>
-      <header className="rounded-xl border border-emerald-950/10 bg-white p-3 sm:p-4">
+      <section className="hidden min-h-[570px] grid-cols-[minmax(230px,0.8fr)_minmax(360px,1.25fr)_minmax(290px,0.9fr)] gap-3 lg:grid" aria-label="Deal — widok roboczy">
+        <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Klient</p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex size-11 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
+              {(actionContact?.name || 'K').split(' ').map((part) => part[0]).join('').slice(0, 2)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-black text-slate-950">{actionContact?.name || 'Brak głównego kontaktu'}</p>
+              <p className="text-xs text-slate-500">{actionContact?.phone || 'Brak telefonu'}</p>
+            </div>
+          </div>
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sprawa</p>
+            <h1 className="mt-2 text-lg font-black leading-tight text-slate-950">{deal.title}</h1>
+            <p className="mt-2 text-sm text-slate-600">{deal.product_type || 'Kategoria nieustalona'}{Number(deal.value) > 0 ? ` · ${money(deal.value)} ${deal.currency || 'PLN'}` : ''}</p>
+            <span className="mt-3 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">{deal.stage?.name || 'Etap nieustalony'}</span>
+          </div>
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Następny krok</p>
+            <p className="mt-2 text-sm font-bold text-slate-900">{deal.next_action || 'Nie ustalono'}</p>
+            <p className="mt-1 text-xs text-slate-500">{deal.next_action_at ? dt(deal.next_action_at) : 'Bez terminu'}</p>
+            {deal.blocker ? <p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">Blocker: {deal.blocker}</p> : null}
+          </div>
+        </aside>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 className="text-base font-black text-slate-950">Oś czasu</h2>
+            <div className="flex gap-1 text-[11px] font-bold text-slate-500"><span className="rounded-md bg-slate-100 px-2 py-1">HISTORIA</span><span className="px-2 py-1">ZADANIA</span></div>
+          </div>
+          <div className="mt-2 divide-y divide-slate-100">
+            {notes.slice(0, 6).map((entry) => (
+              <article key={entry.id} className="grid grid-cols-[92px_1fr] gap-3 py-4">
+                <span className="text-xs text-slate-500">{dt(entry.created_at)}</span>
+                <div><p className="line-clamp-2 text-sm text-slate-800">{entry.note_text}</p><p className="mt-1 text-[11px] text-blue-600">Notatka · {entry.author_name || 'Użytkownik'}</p></div>
+              </article>
+            ))}
+            {!notes.length ? <p className="py-12 text-center text-sm text-slate-500">Historia tej sprawy jest jeszcze pusta.</p> : null}
+          </div>
+          <button type="button" onClick={() => setActiveTab('activity-history')} className="mt-3 text-xs font-bold text-blue-600 hover:underline">Pokaż pełną historię</button>
+        </section>
+
+        <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-black text-slate-950">Działania</h2>
+          <div className="mt-4 grid gap-2 [&_a]:h-10 [&_button]:h-10 [&_button]:w-full">
+            {actionContact?.phone ? <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} className="w-full" /> : null}
+            {actionContact?.phone ? <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} label="WIADOMOŚĆ" /> : null}
+            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=dictate`} />}><Mic className="size-4" /> DYKTUJ</Button>
+            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=document`} />}><Upload className="size-4" /> DODAJ DOKUMENT</Button>
+          </div>
+          <div className="mt-5 rounded-xl border border-lime-300 bg-lime-50 p-3">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI — płatne na żądanie</p>
+            <div className="mt-3 grid gap-2 text-sm font-bold text-emerald-950">
+              <Link href={`/assistant?deal=${deal.id}&feature=prepare`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Przygotuj mnie</Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=qualify`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Kwalifikuj temat</Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=completeness`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź kompletację</Link>
+              <Link href={`/assistant?deal=${deal.id}&feature=knowledge`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100">Sprawdź wiedzę bankową</Link>
+            </div>
+          </div>
+        </aside>
+      </section>
+      <header className="rounded-xl border border-emerald-950/10 bg-white p-3 sm:p-4 lg:hidden">
         <div className="flex items-start gap-3">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-800 text-white">
             <FileText className="size-5" />
@@ -1369,3 +1431,4 @@ function D({
     </label>
   );
 }
+

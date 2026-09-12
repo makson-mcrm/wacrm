@@ -79,7 +79,7 @@ export function GlobalCrmSearch() {
     results.deals.length + results.contacts.length + results.companies.length;
 
   return (
-    <div className="relative w-full max-w-xl">
+    <div className="relative w-full max-w-xl lg:max-w-3xl">
       <div className="relative">
         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <input
@@ -87,7 +87,7 @@ export function GlobalCrmSearch() {
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => term.length >= 3 && setOpen(true)}
           onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
-          placeholder="Szukaj Deal / Kontakt / Firma"
+          placeholder="Szukaj kontaktu, firmy, telefonu lub Deala…"
           aria-label="Globalna wyszukiwarka CRM"
           className="border-border bg-muted/40 focus:border-primary h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none"
         />

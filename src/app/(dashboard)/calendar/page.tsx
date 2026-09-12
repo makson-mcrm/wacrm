@@ -349,7 +349,7 @@ export default function CalendarPage() {
     <div className="mx-auto w-full max-w-[1800px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Kalendarz</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">KALENDARZ</h1>
           <p className="text-muted-foreground text-sm">
             Spotkania, follow-upy, zadania i terminy sprzedażowe.
           </p>
@@ -359,7 +359,7 @@ export default function CalendarPage() {
           Dodaj
         </Button>
       </header>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
         <div className="flex">
           <Button size="sm" variant="ghost" onClick={() => shift(-1)}>
             <ChevronLeft />
