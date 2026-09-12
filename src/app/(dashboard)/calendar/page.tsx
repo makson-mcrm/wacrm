@@ -349,7 +349,9 @@ export default function CalendarPage() {
     <div className="mx-auto w-full max-w-[1800px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">KALENDARZ</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+            KALENDARZ
+          </h1>
           <p className="text-muted-foreground text-sm">
             Spotkania, follow-upy, zadania i terminy sprzedażowe.
           </p>
@@ -389,33 +391,45 @@ export default function CalendarPage() {
           ))}
         </div>
       </div>
-      <div
-        className={
-          view === 'month'
-            ? 'bg-border grid grid-cols-7 gap-px overflow-hidden rounded-xl border'
-            : view === 'week'
-              ? 'grid gap-2 md:grid-cols-7'
+      {view === 'week' ? (
+        <WeekGrid
+          days={days}
+          items={visible}
+          names={names}
+          onAdd={(day, hour) => {
+            const d = new Date(day);
+            d.setHours(hour, 0, 0, 0);
+            reset(undefined, d);
+          }}
+          onOpen={reset}
+        />
+      ) : (
+        <div
+          className={
+            view === 'month'
+              ? 'bg-border grid grid-cols-7 gap-px overflow-hidden rounded-xl border'
               : 'space-y-2'
-        }
-      >
-        {days.map((day) => (
-          <Day
-            key={dateKey(day)}
-            day={day}
-            items={visible.filter(
-              (x) => dateKey(new Date(x.startsAt)) === dateKey(day)
-            )}
-            month={view === 'month'}
-            names={names}
-            onAdd={() => {
-              const d = new Date(day);
-              d.setHours(9, 0, 0, 0);
-              reset(undefined, d);
-            }}
-            onOpen={reset}
-          />
-        ))}
-      </div>
+          }
+        >
+          {days.map((day) => (
+            <Day
+              key={dateKey(day)}
+              day={day}
+              items={visible.filter(
+                (x) => dateKey(new Date(x.startsAt)) === dateKey(day)
+              )}
+              month={view === 'month'}
+              names={names}
+              onAdd={() => {
+                const d = new Date(day);
+                d.setHours(9, 0, 0, 0);
+                reset(undefined, d);
+              }}
+              onOpen={reset}
+            />
+          ))}
+        </div>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
@@ -560,6 +574,125 @@ export default function CalendarPage() {
     </div>
   );
 }
+
+const WEEK_HOURS = Array.from({ length: 11 }, (_, index) => index + 8);
+
+function WeekGrid({
+  days,
+  items,
+  names,
+  onAdd,
+  onOpen,
+}: {
+  days: Date[];
+  items: Item[];
+  names: {
+    contacts: Map<string, string>;
+    companies: Map<string, string>;
+    deals: Map<string, string>;
+  };
+  onAdd: (day: Date, hour: number) => void;
+  onOpen: (item: Item) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/70">
+            <div aria-hidden="true" />
+            {days.map((day) => (
+              <button
+                key={dateKey(day)}
+                type="button"
+                className="border-l border-slate-200 px-2 py-3 text-center hover:bg-slate-100"
+                onClick={() => onAdd(day, 9)}
+              >
+                <span className="block text-[11px] font-semibold text-slate-500 uppercase">
+                  {day.toLocaleDateString('pl-PL', { weekday: 'short' })}
+                </span>
+                <span className="text-sm font-bold text-slate-900">
+                  {day.toLocaleDateString('pl-PL', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="max-h-[610px] overflow-y-auto">
+            {WEEK_HOURS.map((hour) => (
+              <div
+                key={hour}
+                className="grid min-h-[58px] grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
+              >
+                <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
+                  {String(hour).padStart(2, '0')}:00
+                </div>
+                {days.map((day) => {
+                  const cellItems = items.filter((item) => {
+                    const startsAt = new Date(item.startsAt);
+                    return (
+                      dateKey(startsAt) === dateKey(day) &&
+                      Number(
+                        startsAt.toLocaleTimeString('pl-PL', {
+                          timeZone: BUSINESS_TIME_ZONE,
+                          hour: '2-digit',
+                          hour12: false,
+                        })
+                      ) === hour
+                    );
+                  });
+
+                  return (
+                    <div
+                      key={`${dateKey(day)}-${hour}`}
+                      className="group min-w-0 border-l border-slate-200 p-1"
+                      onDoubleClick={() => onAdd(day, hour)}
+                    >
+                      <div className="space-y-1">
+                        {cellItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => onOpen(item)}
+                            className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-left hover:border-emerald-400 hover:bg-emerald-100"
+                          >
+                            <span className="block truncate text-[11px] font-bold text-slate-900">
+                              {new Date(item.startsAt).toLocaleTimeString(
+                                'pl-PL',
+                                {
+                                  timeZone: BUSINESS_TIME_ZONE,
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                }
+                              )}{' '}
+                              {item.title}
+                            </span>
+                            <span className="block truncate text-[10px] text-slate-500">
+                              {item.dealId
+                                ? names.deals.get(item.dealId)
+                                : item.contactId
+                                  ? names.contacts.get(item.contactId)
+                                  : item.companyId
+                                    ? names.companies.get(item.companyId)
+                                    : (item.status ?? item.type)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Day({
   day,
   items,
