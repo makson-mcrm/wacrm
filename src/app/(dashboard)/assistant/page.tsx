@@ -5,6 +5,7 @@ import { Bot, BriefcaseBusiness, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { DealAssistantActions } from '@/components/assistant/deal-assistant-actions';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
 type DealOption = {
   id: string;
@@ -28,7 +29,9 @@ export default function AssistantPage() {
       .eq('account_id', accountId)
       .eq('status', 'open')
       .order('updated_at', { ascending: false });
-    const rows = (result.data ?? []) as DealOption[];
+    const rows = ((result.data ?? []) as DealOption[]).filter(
+      (deal) => !isOperationalTestRecord(deal.title)
+    );
     setDeals(rows);
     setDealId((current) => {
       if (current) return current;
