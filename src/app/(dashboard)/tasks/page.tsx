@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { warsawDateTimeInputToIso } from '@/lib/date-time';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
 type Filter = 'today' | 'overdue' | 'upcoming' | 'undated' | 'all';
 type Task = {
@@ -71,7 +72,22 @@ export default function TasksPage() {
     const rows: Task[] = [];
     const dealIds = new Set<string>();
     const contactsCoveredByDeal = new Set<string>();
+    const testDealIds = new Set(
+      (dealRows.data ?? [])
+        .filter((deal) => isOperationalTestRecord(deal.title))
+        .map((deal) => deal.id)
+    );
+    const testContactIds = new Set(
+      (contactRows.data ?? [])
+        .filter((contact) => isOperationalTestRecord(contact.name))
+        .map((contact) => contact.id)
+    );
     for (const deal of dealRows.data ?? []) {
+      if (
+        testDealIds.has(deal.id) ||
+        (deal.contact_id && testContactIds.has(deal.contact_id))
+      )
+        continue;
       if (!deal.next_action && !deal.next_action_at && !deal.follow_up_at)
         continue;
       dealIds.add(deal.id);
@@ -88,6 +104,7 @@ export default function TasksPage() {
       });
     }
     for (const contact of contactRows.data ?? []) {
+      if (testContactIds.has(contact.id)) continue;
       if (
         (!contact.next_step && !contact.follow_up_at) ||
         contactsCoveredByDeal.has(contact.id)
@@ -105,6 +122,11 @@ export default function TasksPage() {
       });
     }
     for (const activity of activityRows.data ?? []) {
+      if (
+        (activity.deal_id && testDealIds.has(activity.deal_id)) ||
+        (activity.contact_id && testContactIds.has(activity.contact_id))
+      )
+        continue;
       if (
         (activity.deal_id && dealIds.has(activity.deal_id)) ||
         (activity.contact_id && contactsCoveredByDeal.has(activity.contact_id))
@@ -436,4 +458,3 @@ export default function TasksPage() {
     </div>
   );
 }
-

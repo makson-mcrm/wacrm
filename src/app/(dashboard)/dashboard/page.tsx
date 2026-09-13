@@ -53,6 +53,7 @@ import {
   currentWorkContext,
   type ExistingCalendarRow,
 } from '@/lib/today/existing-data';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
 type Priority = {
   position: number;
@@ -219,9 +220,24 @@ export default function DashboardPage() {
         .or(`snoozed_until.is.null,snoozed_until.lte.${end}`)
         .limit(200),
     ]);
-    setDeals((dealRows.data ?? []) as Deal[]);
-    setContacts((contactRows.data ?? []) as Contact[]);
-    setCompanies((companyRows.data ?? []) as Company[]);
+    setDeals(
+      ((dealRows.data ?? []) as Deal[]).filter(
+        (deal) =>
+          !isOperationalTestRecord(deal.title) &&
+          !isOperationalTestRecord(deal.contact?.name) &&
+          !isOperationalTestRecord(deal.company?.name)
+      )
+    );
+    setContacts(
+      ((contactRows.data ?? []) as Contact[]).filter(
+        (contact) => !isOperationalTestRecord(contact.name)
+      )
+    );
+    setCompanies(
+      ((companyRows.data ?? []) as Company[]).filter(
+        (company) => !isOperationalTestRecord(company.name)
+      )
+    );
     setActivities((activityRows.data ?? []) as Activity[]);
     setCallHistory((callRows.data ?? []) as CallQueueActivity[]);
     setPlannedActivities((plannedRows.data ?? []) as PlannedActivity[]);
@@ -1155,14 +1171,20 @@ function DesktopTodayBoard({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-lg font-black text-slate-900">Mój dzień</h2>
-            <span className="text-xs capitalize text-slate-500">{dayLabel}</span>
+            <span className="text-xs text-slate-500 capitalize">
+              {dayLabel}
+            </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">
               Moje zadania {allItems.length}
             </span>
             <span className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
-              Po terminie {todayPlan.now.filter((item) => /zaleg/i.test(item.reason || '')).length}
+              Po terminie{' '}
+              {
+                todayPlan.now.filter((item) => /zaleg/i.test(item.reason || ''))
+                  .length
+              }
             </span>
             <span className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
               Na dziś {todayPlan.now.length + todayPlan.nextBlock.length}
@@ -1173,9 +1195,11 @@ function DesktopTodayBoard({
           </div>
           <div className="mt-3 divide-y divide-slate-100">
             {allItems.length ? (
-              allItems.slice(0, 8).map((item, index) => (
-                <DesktopTodayRow key={item.id} item={item} index={index} />
-              ))
+              allItems
+                .slice(0, 8)
+                .map((item, index) => (
+                  <DesktopTodayRow key={item.id} item={item} index={index} />
+                ))
             ) : (
               <p className="py-10 text-center text-sm text-slate-500">
                 Brak działań zaplanowanych na dziś.
@@ -1188,15 +1212,22 @@ function DesktopTodayBoard({
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="flex items-center gap-2 text-base font-black text-slate-900">
-                Rekomendowane przez AI <Sparkles className="size-4 text-emerald-700" />
+                Rekomendowane przez AI{' '}
+                <Sparkles className="size-4 text-emerald-700" />
               </h2>
-              <Link href="/tasks" className="text-xs font-semibold text-blue-600 hover:underline">
+              <Link
+                href="/tasks"
+                className="text-xs font-semibold text-blue-600 hover:underline"
+              >
                 Zobacz wszystkie
               </Link>
             </div>
             <div className="mt-3 space-y-2">
               {recommendations.map((item, index) => (
-                <div key={item.id} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 rounded-xl border border-slate-200 p-3"
+                >
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-800">
                     {index + 1}
                   </span>
@@ -1205,11 +1236,16 @@ function DesktopTodayBoard({
                       {item.action || item.title}
                     </p>
                     <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
-                      {item.reason || item.stageName || 'Najważniejsza sprawa na teraz'}
+                      {item.reason ||
+                        item.stageName ||
+                        'Najważniejsza sprawa na teraz'}
                     </p>
                   </div>
                   {item.href ? (
-                    <Link href={item.href} className="shrink-0 rounded-lg border border-emerald-200 px-2 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50">
+                    <Link
+                      href={item.href}
+                      className="shrink-0 rounded-lg border border-emerald-200 px-2 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50"
+                    >
                       Otwórz sprawę
                     </Link>
                   ) : null}
@@ -1225,12 +1261,17 @@ function DesktopTodayBoard({
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-black text-slate-900">Twoja aktywność</h2>
+              <h2 className="text-base font-black text-slate-900">
+                Twoja aktywność
+              </h2>
               <span className="text-xs text-slate-500">Ostatnie 7 dni</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {stats.map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div
+                  key={label}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                >
                   <p className="text-2xl font-black text-slate-900">{value}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{label}</p>
                 </div>
@@ -1265,10 +1306,12 @@ function DesktopTodayRow({
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-bold text-slate-900">
-          {item.title}{item.action && item.action !== item.title ? ` — ${item.action}` : ''}
+          {item.title}
+          {item.action && item.action !== item.title ? ` — ${item.action}` : ''}
         </span>
         <span className="mt-0.5 block truncate text-[11px] font-semibold text-slate-500 uppercase">
-          {[item.stageName, item.section].filter(Boolean).join(' · ') || item.reason}
+          {[item.stageName, item.section].filter(Boolean).join(' · ') ||
+            item.reason}
         </span>
       </span>
       <ArrowRight className="size-4 text-slate-400" />
@@ -1819,4 +1862,3 @@ function Field({
     </div>
   );
 }
-

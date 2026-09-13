@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -367,7 +368,9 @@ export default function PipelinesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="mr-2 text-2xl font-black tracking-tight text-slate-950">LEJEK SPRZEDAŻY</h1>
+          <h1 className="mr-2 text-2xl font-black tracking-tight text-slate-950">
+            LEJEK SPRZEDAŻY
+          </h1>
           {/* Pipeline selector dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger className="border-border bg-card text-foreground hover:bg-muted data-[popup-open]:bg-muted inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors">
@@ -420,7 +423,7 @@ export default function PipelinesPage() {
             canAct={canEditSettings}
             gateReason="create pipelines"
             onClick={() => setNewPipelineOpen(true)}
-            className="hidden border-border bg-card text-foreground hover:bg-muted"
+            className="border-border bg-card text-foreground hover:bg-muted hidden"
           >
             <Plus className="mr-1 h-4 w-4" />
             {t('addPipeline')}
@@ -461,8 +464,10 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineBoard
-            stages={stages}
-            deals={deals}
+            stages={stages.filter(
+              (stage) => !stage.name.toUpperCase().includes('ARCHIWUM')
+            )}
+            deals={deals.filter((deal) => !isOperationalTestRecord(deal.title))}
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
@@ -544,4 +549,3 @@ export default function PipelinesPage() {
     </div>
   );
 }
-

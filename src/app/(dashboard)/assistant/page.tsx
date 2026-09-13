@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, BriefcaseBusiness, MessageCircle, Sparkles } from 'lucide-react';
+import { Bot, BriefcaseBusiness, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { DealAssistantActions } from '@/components/assistant/deal-assistant-actions';
@@ -42,7 +42,7 @@ export default function AssistantPage() {
   useEffect(() => void load(), [load]);
   const selectedDeal = deals.find((deal) => deal.id === dealId);
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4">
+    <div className="mx-auto w-full max-w-[1180px] space-y-4 overflow-x-hidden">
       <header className="border-b border-emerald-950/10 px-1 pb-3">
         <div className="flex items-center gap-2 text-emerald-900">
           <span className="flex size-9 items-center justify-center rounded-full bg-emerald-50">
@@ -55,7 +55,7 @@ export default function AssistantPage() {
         </p>
       </header>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label htmlFor="assistant-deal" className="text-sm font-black">
           Aktywny Deal
         </label>
@@ -80,32 +80,57 @@ export default function AssistantPage() {
       </section>
 
       {dealId ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-          <section className="min-h-[520px] rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <span className="flex size-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-900"><Bot className="size-5" /></span>
-              <div><h2 className="font-black text-slate-950">Co chcesz zrobić w tej sprawie?</h2><p className="text-xs text-slate-500">{selectedDeal?.title} · {selectedDeal?.product_type || 'produkt nieustalony'}</p></div>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <span className="flex size-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-900">
+                  <Bot className="size-5" />
+                </span>
+                <div>
+                  <h2 className="font-black text-slate-950">
+                    Co chcesz zrobić w tej sprawie?
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {selectedDeal?.title} ·{' '}
+                    {selectedDeal?.product_type || 'produkt nieustalony'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-black tracking-wide text-slate-500 uppercase">
+                  Kontekst rozmowy
+                </p>
+                <h3 className="mt-2 text-lg font-black text-slate-950">
+                  {selectedDeal?.title}
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  {selectedDeal?.product_type || 'Produkt nieustalony'} ·{' '}
+                  {selectedDeal?.mandatory_bank ||
+                    selectedDeal?.preferred_bank ||
+                    'Bank nieustalony'}
+                </p>
+              </div>
+              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 text-sm text-slate-700">
+                <p className="font-bold text-slate-950">
+                  Asystent pracuje wyłącznie w kontekście tej sprawy.
+                </p>
+                <p className="mt-1">
+                  Wybierz świadomie jedną akcję. Samo otwarcie widoku nie
+                  uruchamia płatnego AI.
+                </p>
+              </div>
             </div>
-            <div className="mt-5 ml-auto max-w-xl rounded-2xl rounded-tr-sm bg-lime-50 p-4 text-sm text-slate-800">
-              Podsumuj tę sprawę i wskaż najważniejszy kolejny krok.
+            <div className="min-w-0 rounded-xl border border-lime-300 bg-lime-50/60 p-3">
+              <p className="flex items-center gap-2 text-xs font-black tracking-wide text-emerald-950 uppercase">
+                <Sparkles className="size-4 text-lime-600" /> AI na żądanie
+              </p>
+              <div className="mt-3">
+                <DealAssistantActions dealId={dealId} compact />
+              </div>
             </div>
-            <div className="mt-4 max-w-2xl rounded-2xl rounded-tl-sm border border-slate-200 bg-slate-50 p-5">
-              <p className="font-black text-slate-950">Kontekst sprawy</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">Pracujesz nad Dealem <strong>{selectedDeal?.title}</strong>. Produkt: {selectedDeal?.product_type || 'nie ustalono'}, bank: {selectedDeal?.mandatory_bank || selectedDeal?.preferred_bank || 'nie ustalono'}.</p>
-              <p className="mt-4 text-xs text-slate-500">Uruchom wybraną funkcję AI po prawej, aby otrzymać odpowiedź ze źródłami i poziomem pewności.</p>
-            </div>
-          </section>
-          <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">Kontekst Deala</p>
-            <h3 className="mt-2 text-lg font-black text-slate-950">{selectedDeal?.title}</h3>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div><dt className="text-xs font-bold text-slate-500">Produkt</dt><dd className="mt-1 font-semibold">{selectedDeal?.product_type || 'Nie ustalono'}</dd></div>
-              <div><dt className="text-xs font-bold text-slate-500">Bank</dt><dd className="mt-1 font-semibold">{selectedDeal?.mandatory_bank || selectedDeal?.preferred_bank || 'Nie ustalono'}</dd></div>
-            </dl>
-            <div className="mt-6 rounded-xl border border-lime-300 bg-lime-50 p-3"><p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-950"><Sparkles className="size-4 text-lime-600" /> AI na żądanie</p><div className="mt-3"><DealAssistantActions dealId={dealId} /></div></div>
-            <div className="mt-4 rounded-xl bg-slate-50 p-4"><MessageCircle className="size-5 text-emerald-800" /><p className="mt-2 text-sm font-bold">Odpowiedź pozostaje w kontekście wybranego Deala.</p><p className="mt-1 text-xs text-slate-500">Źródła i poziom pewności pokazuje istniejący silnik M4.</p></div>
-          </aside>
-        </div>
+          </div>
+        </section>
       ) : (
         <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500">
           Brak aktywnego Deala do pracy z Asystentem.
@@ -114,4 +139,3 @@ export default function AssistantPage() {
     </div>
   );
 }
-

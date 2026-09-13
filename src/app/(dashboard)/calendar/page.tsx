@@ -22,6 +22,7 @@ import {
   toWarsawDateTimeInput,
   warsawDateTimeInputToIso,
 } from '@/lib/date-time';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 type View = 'day' | 'week' | 'month';
 type Source = 'calendar' | 'activity' | 'deal' | 'queue';
 type Item = {
@@ -175,7 +176,9 @@ export default function CalendarPage() {
           dealId: r.deal_id,
         });
     setItems(
-      result.sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+      result
+        .filter((item) => !isOperationalTestRecord(item.title))
+        .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
     );
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
@@ -392,7 +395,7 @@ export default function CalendarPage() {
         </div>
       </div>
       {view === 'week' ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <WeekGrid
             days={days}
             items={visible}
@@ -405,16 +408,54 @@ export default function CalendarPage() {
             onOpen={reset}
           />
           <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">Najbliższe wydarzenie</p>
+            <p className="text-xs font-black tracking-wide text-slate-500 uppercase">
+              Najbliższe wydarzenie
+            </p>
             {visible[0] ? (
               <div className="mt-4 space-y-4">
-                <div><p className="text-xs text-slate-500">Termin</p><p className="mt-1 font-black text-slate-950">{new Date(visible[0].startsAt).toLocaleString('pl-PL', { timeZone: BUSINESS_TIME_ZONE, dateStyle: 'medium', timeStyle: 'short' })}</p></div>
-                <div><p className="text-xs text-slate-500">Typ</p><p className="mt-1 font-bold capitalize text-slate-800">{visible[0].type}</p></div>
-                <div><p className="text-xs text-slate-500">Cel</p><p className="mt-1 text-sm font-semibold text-slate-800">{visible[0].title}</p></div>
-                <Button variant="outline" className="w-full" onClick={() => reset(visible[0])}>Edytuj</Button>
-                {visible[0].dealId ? <Link href={`/deals/${visible[0].dealId}`} className="block rounded-lg border border-slate-200 px-3 py-2 text-center text-sm font-semibold">Otwórz Deal</Link> : null}
+                <div>
+                  <p className="text-xs text-slate-500">Termin</p>
+                  <p className="mt-1 font-black text-slate-950">
+                    {new Date(visible[0].startsAt).toLocaleString('pl-PL', {
+                      timeZone: BUSINESS_TIME_ZONE,
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Typ</p>
+                  <p className="mt-1 font-bold text-slate-800 capitalize">
+                    {visible[0].type}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Cel</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {visible[0].title}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => reset(visible[0])}
+                >
+                  Edytuj
+                </Button>
+                {visible[0].dealId ? (
+                  <Link
+                    href={`/deals/${visible[0].dealId}`}
+                    className="block rounded-lg border border-slate-200 px-3 py-2 text-center text-sm font-semibold"
+                  >
+                    Otwórz Deal
+                  </Link>
+                ) : null}
               </div>
-            ) : <p className="mt-4 text-sm text-slate-500">Brak wydarzeń w tym zakresie.</p>}
+            ) : (
+              <p className="mt-4 text-sm text-slate-500">
+                Brak wydarzeń w tym zakresie.
+              </p>
+            )}
           </aside>
         </div>
       ) : (
@@ -635,11 +676,11 @@ function WeekGrid({
             ))}
           </div>
 
-          <div className="max-h-[610px] overflow-y-auto">
+          <div className="max-h-[650px] overflow-y-auto">
             {WEEK_HOURS.map((hour) => (
               <div
                 key={hour}
-                className="grid min-h-[58px] grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
+                className="grid min-h-[54px] grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
               >
                 <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
                   {String(hour).padStart(2, '0')}:00
@@ -856,4 +897,3 @@ function defaultInput() {
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
   return toWarsawDateTimeInput(d);
 }
-

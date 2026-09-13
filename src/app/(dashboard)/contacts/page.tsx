@@ -60,6 +60,7 @@ import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { formatCrmDate } from '@/lib/crm/format';
+import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
 const PAGE_SIZE = 25;
 
@@ -596,6 +597,8 @@ export default function ContactsPage() {
         onAdd={openAddForm}
         canEdit={canEdit}
         onOpen={openDetail}
+        page={page}
+        onPageChange={setPage}
       />
       <div className="hidden">
         {/* Header */}
@@ -1169,6 +1172,7 @@ function MobileContactsView({
 }) {
   const now = Date.now();
   const filtered = contacts.filter((contact) => {
+    if (isOperationalTestRecord(contact.name)) return false;
     if (segment === 'active') return (contact.dealCount ?? 0) > 0;
     if (segment === 'new')
       return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
@@ -1206,13 +1210,13 @@ function MobileContactsView({
           className="h-11 rounded-xl border-slate-200 bg-white pl-9"
         />
       </label>
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-50 p-1">
+      <div className="grid w-full grid-cols-4 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1">
         {segments.map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => onSegmentChange(value)}
-            className={`rounded-lg px-2 py-2 text-[11px] font-bold transition-colors ${
+            className={`min-w-0 truncate rounded-lg px-1 py-2 text-[10px] font-bold transition-colors ${
               segment === value
                 ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200'
                 : 'text-slate-500'
@@ -1302,6 +1306,8 @@ function DesktopContactsView({
   onAdd,
   canEdit,
   onOpen,
+  page,
+  onPageChange,
 }: {
   contacts: ContactWithTags[];
   loading: boolean;
@@ -1313,9 +1319,12 @@ function DesktopContactsView({
   onAdd: () => void;
   canEdit: boolean;
   onOpen: (contactId: string) => void;
+  page: number;
+  onPageChange: (page: number) => void;
 }) {
   const now = Date.now();
   const filtered = contacts.filter((contact) => {
+    if (isOperationalTestRecord(contact.name)) return false;
     if (segment === 'active') return (contact.dealCount ?? 0) > 0;
     if (segment === 'new') {
       return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
@@ -1386,19 +1395,23 @@ function DesktopContactsView({
           <Table>
             <TableHeader>
               <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+                <TableHead className="w-10">
+                  <Checkbox aria-label="Zaznacz wszystkie widoczne kontakty" />
+                </TableHead>
                 <TableHead>Klient / Firma</TableHead>
                 <TableHead>Telefon</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Deale</TableHead>
                 <TableHead>Ostatni kontakt</TableHead>
+                <TableHead className="w-20 text-center">Opiekun</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={8}
                     className="h-48 text-center text-slate-500"
                   >
                     <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
@@ -1414,6 +1427,11 @@ function DesktopContactsView({
                       key={contact.id}
                       className="h-16 border-slate-200 hover:bg-emerald-50/40"
                     >
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Zaznacz ${contact.name || 'kontakt'}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <button
                           type="button"
@@ -1451,13 +1469,18 @@ function DesktopContactsView({
                           ? formatCrmDate(contact.lastActivityAt)
                           : 'Brak'}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex size-8 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-800">
+                          TM
+                        </span>
+                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={8}
                     className="h-48 text-center text-slate-500"
                   >
                     Brak klientów w tym widoku.
@@ -1467,8 +1490,31 @@ function DesktopContactsView({
             </TableBody>
           </Table>
         </div>
+        <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Pokazuję {totalCount ? page * PAGE_SIZE + 1 : 0}–
+            {Math.min((page + 1) * PAGE_SIZE, totalCount)} z {totalCount}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page === 0}
+              onClick={() => onPageChange(Math.max(0, page - 1))}
+            >
+              <ChevronLeft className="size-4" /> Poprzednia
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={(page + 1) * PAGE_SIZE >= totalCount}
+              onClick={() => onPageChange(page + 1)}
+            >
+              Następna <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
-
