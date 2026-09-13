@@ -112,7 +112,8 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       <a
         href={`/deals/${deal.id}`}
         onClick={(event) => event.stopPropagation()}
-        className="block truncate text-xs leading-tight font-black text-slate-950 hover:underline"
+        title={deal.title}
+        className="line-clamp-2 break-words text-xs leading-tight font-black text-slate-950 hover:underline"
       >
         {deal.title}
       </a>
@@ -126,12 +127,13 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           <a
             href={`/contacts?open=${deal.contact_id}`}
             onClick={(event) => event.stopPropagation()}
-            className="truncate text-xs text-slate-600 hover:underline"
+            title={contactLabel}
+            className="min-w-0 truncate text-xs text-slate-600 hover:underline"
           >
             {contactLabel}
           </a>
         ) : (
-          <span className="truncate text-xs text-slate-600">
+          <span title={contactLabel} className="min-w-0 truncate text-xs text-slate-600">
             {contactLabel}
           </span>
         )}
@@ -141,9 +143,11 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         <a
           href={`/companies?open=${deal.company.id}`}
           onClick={(event) => event.stopPropagation()}
-          className="mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500 hover:underline"
+          title={deal.company.name}
+          className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-500 hover:underline"
         >
-          <Building2 className="size-3 shrink-0" /> {deal.company.name}
+          <Building2 className="size-3 shrink-0" />
+          <span className="truncate">{deal.company.name}</span>
         </a>
       ) : null}
 
@@ -171,7 +175,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
 
       {deal.next_action && (
         <div className="border-border/60 mt-1 border-t pt-1">
-          <p className="truncate text-[11px] font-medium">
+          <p title={deal.next_action} className="line-clamp-2 break-words text-[11px] font-medium leading-4">
             Następnie: {deal.next_action}
           </p>
           {deal.next_action_at && (
@@ -195,3 +199,4 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
     </div>
   );
 }
+
