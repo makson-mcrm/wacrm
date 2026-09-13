@@ -32,6 +32,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
+type DealSort = 'recent' | 'oldest' | 'value' | 'next_action';
+
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
 // agent+. The two CTAs gate on different `useCan` capabilities,
@@ -61,6 +63,14 @@ export default function PipelinesPage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productFilter, setProductFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<DealSort>('recent');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [includeArchive, setIncludeArchive] = useState(false);
+  const filterPipelineRef = useRef('');
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -343,6 +353,130 @@ export default function PipelinesPage() {
   }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
+  const operationalStages = useMemo(
+    () =>
+      stages.filter(
+        (stage) =>
+          includeArchive || !stage.name.toUpperCase().includes('ARCHIWUM')
+      ),
+    [includeArchive, stages]
+  );
+  const operationalDeals = useMemo(
+    () => deals.filter((deal) => !isOperationalTestRecord(deal.title)),
+    [deals]
+  );
+  const filterOptions = useMemo(
+    () => ({
+      products: [
+        ...new Set(
+          operationalDeals.map((deal) => deal.product_type).filter(Boolean)
+        ),
+      ] as string[],
+      owners: [
+        ...new Set(
+          operationalDeals
+            .map((deal) => deal.assignee?.full_name)
+            .filter(Boolean)
+        ),
+      ] as string[],
+      sources: [
+        ...new Set(operationalDeals.map((deal) => deal.source).filter(Boolean)),
+      ] as string[],
+    }),
+    [operationalDeals]
+  );
+  const visibleDeals = useMemo(() => {
+    const rows = operationalDeals.filter((deal) => {
+      if (productFilter !== 'all' && deal.product_type !== productFilter)
+        return false;
+      if (ownerFilter !== 'all' && deal.assignee?.full_name !== ownerFilter)
+        return false;
+      if (sourceFilter !== 'all' && deal.source !== sourceFilter) return false;
+      if (statusFilter !== 'all' && deal.status !== statusFilter) return false;
+      return true;
+    });
+    return [...rows].sort((a, b) => {
+      if (sortBy === 'oldest')
+        return (
+          +new Date(a.updated_at || a.created_at) -
+          +new Date(b.updated_at || b.created_at)
+        );
+      if (sortBy === 'value')
+        return Number(b.value || 0) - Number(a.value || 0);
+      if (sortBy === 'next_action') {
+        const av = a.next_action_at
+          ? +new Date(a.next_action_at)
+          : Number.MAX_SAFE_INTEGER;
+        const bv = b.next_action_at
+          ? +new Date(b.next_action_at)
+          : Number.MAX_SAFE_INTEGER;
+        return av - bv;
+      }
+      return (
+        +new Date(b.updated_at || b.created_at) -
+        +new Date(a.updated_at || a.created_at)
+      );
+    });
+  }, [
+    operationalDeals,
+    ownerFilter,
+    productFilter,
+    sortBy,
+    sourceFilter,
+    statusFilter,
+  ]);
+
+  useEffect(() => {
+    if (!selectedPipelineId) return;
+    const saved = window.localStorage.getItem(
+      `mcrm:pipeline-view:${selectedPipelineId}`
+    );
+    if (!saved) {
+      filterPipelineRef.current = selectedPipelineId;
+      return;
+    }
+    try {
+      const value = JSON.parse(saved) as Partial<{
+        product: string;
+        owner: string;
+        source: string;
+        status: string;
+        sort: DealSort;
+      }>;
+      setProductFilter(value.product || 'all');
+      setOwnerFilter(value.owner || 'all');
+      setSourceFilter(value.source || 'all');
+      setStatusFilter(value.status || 'all');
+      setSortBy(value.sort || 'recent');
+    } catch {
+      window.localStorage.removeItem(
+        `mcrm:pipeline-view:${selectedPipelineId}`
+      );
+    }
+    filterPipelineRef.current = selectedPipelineId;
+  }, [selectedPipelineId]);
+
+  useEffect(() => {
+    if (!selectedPipelineId || filterPipelineRef.current !== selectedPipelineId)
+      return;
+    window.localStorage.setItem(
+      `mcrm:pipeline-view:${selectedPipelineId}`,
+      JSON.stringify({
+        product: productFilter,
+        owner: ownerFilter,
+        source: sourceFilter,
+        status: statusFilter,
+        sort: sortBy,
+      })
+    );
+  }, [
+    ownerFilter,
+    productFilter,
+    selectedPipelineId,
+    sortBy,
+    sourceFilter,
+    statusFilter,
+  ]);
 
   if (loading) {
     return (
@@ -364,7 +498,7 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -441,6 +575,79 @@ export default function PipelinesPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-7">
+        <FilterSelect
+          label="Produkt"
+          value={productFilter}
+          onChange={setProductFilter}
+          options={filterOptions.products}
+        />
+        <FilterSelect
+          label="Opiekun"
+          value={ownerFilter}
+          onChange={setOwnerFilter}
+          options={filterOptions.owners}
+        />
+        <FilterSelect
+          label="Źródło"
+          value={sourceFilter}
+          onChange={setSourceFilter}
+          options={filterOptions.sources}
+        />
+        <FilterSelect
+          label="Status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={['open', 'won', 'lost']}
+        />
+        <label className="col-span-2 min-w-0 text-[10px] font-black tracking-wide text-slate-500 uppercase lg:col-span-2">
+          Sortowanie
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as DealSort)}
+            className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800"
+          >
+            <option value="recent">Ostatnia aktywność — najnowsze</option>
+            <option value="oldest">Ostatnia aktywność — najstarsze</option>
+            <option value="value">Największa kwota</option>
+            <option value="next_action">Najbliższy next action</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters((value) => !value)}
+          className="mt-4 h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 hover:bg-slate-100"
+        >
+          Więcej filtrów
+        </button>
+        {showMoreFilters ? (
+          <div className="col-span-full flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs">
+            <label className="flex items-center gap-2 font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={includeArchive}
+                onChange={(event) => setIncludeArchive(event.target.checked)}
+              />
+              Pokaż widok archiwalny
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setProductFilter('all');
+                setOwnerFilter('all');
+                setSourceFilter('all');
+                setStatusFilter('all');
+                setSortBy('recent');
+                setIncludeArchive(false);
+              }}
+              className="font-bold text-emerald-800 hover:underline"
+            >
+              Wyczyść filtry
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       {/* Board */}
       {pipelines.length === 0 ? (
         <div className="border-border flex flex-col items-center justify-center rounded-xl border border-dashed py-20">
@@ -464,10 +671,8 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineBoard
-            stages={stages.filter(
-              (stage) => !stage.name.toUpperCase().includes('ARCHIWUM')
-            )}
-            deals={deals.filter((deal) => !isOperationalTestRecord(deal.title))}
+            stages={operationalStages}
+            deals={visibleDeals}
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
@@ -547,5 +752,35 @@ export default function PipelinesPage() {
         onSaved={refreshDeals}
       />
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <label className="min-w-0 text-[10px] font-black tracking-wide text-slate-500 uppercase">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800"
+      >
+        <option value="all">Wszystkie</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

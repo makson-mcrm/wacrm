@@ -13,7 +13,15 @@ interface DealCardProps {
   isOverlay?: boolean;
 }
 
-const BRAND_STAGE_COLORS = ['#173A52', '#245247', '#B7D84B', '#173A52', '#245247', '#B7D84B', '#1B2730'];
+const BRAND_STAGE_COLORS = [
+  '#173A52',
+  '#245247',
+  '#B7D84B',
+  '#173A52',
+  '#245247',
+  '#B7D84B',
+  '#1B2730',
+];
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pl-PL', {
@@ -34,6 +42,8 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const contactLabel =
     deal.contact?.name || deal.contact?.phone || t('noContact');
   const assigneeLabel = deal.assignee?.full_name || null;
+  const probability = [10, 25, 40, 60, 80, 95][stage?.position ?? 0] ?? 10;
+  const activityDate = deal.updated_at || deal.created_at;
 
   return (
     <div
@@ -50,7 +60,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         if (isOverlay) return;
         if (event.key === 'Enter' || event.key === ' ') onEdit(deal);
       }}
-      className={`group border-border/50 bg-muted/70 relative w-full cursor-pointer border py-1.5 pr-1.5 pl-2.5 text-left shadow-sm transition-all ${
+      className={`group border-border/60 relative w-full cursor-pointer rounded-lg border bg-white py-2 pr-2 pl-3 text-left shadow-sm transition-all ${
         isOverlay
           ? 'shadow-xl'
           : 'hover:border-border hover:bg-muted hover:-translate-y-0.5 hover:shadow-lg'
@@ -68,10 +78,10 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         }}
       />
 
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="text-foreground flex-1 truncate text-xs leading-tight font-semibold">
-          {deal.title}
-        </h4>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
+          {probability}%
+        </span>
         {!isOverlay && (
           <a
             href={`/deals/${deal.id}`}
@@ -97,23 +107,45 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
             {t('lost')}
           </span>
         )}
-        {deal.company && (
-          <p className="text-muted-foreground mt-1 flex items-center gap-1 truncate text-xs">
-            <Building2 className="h-3 w-3 shrink-0" />
-            {deal.company.name}
-          </p>
-        )}
       </div>
+
+      <a
+        href={`/deals/${deal.id}`}
+        onClick={(event) => event.stopPropagation()}
+        className="block truncate text-xs leading-tight font-black text-slate-950 hover:underline"
+      >
+        {deal.title}
+      </a>
 
       {/* Contact row */}
       <div className="mt-1 flex items-center gap-1">
         <span className="bg-muted text-foreground flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-semibold">
           {initials(deal.contact?.name, deal.contact?.phone)}
         </span>
-        <span className="text-muted-foreground truncate text-xs">
-          {contactLabel}
-        </span>
+        {deal.contact_id ? (
+          <a
+            href={`/contacts?open=${deal.contact_id}`}
+            onClick={(event) => event.stopPropagation()}
+            className="truncate text-xs text-slate-600 hover:underline"
+          >
+            {contactLabel}
+          </a>
+        ) : (
+          <span className="truncate text-xs text-slate-600">
+            {contactLabel}
+          </span>
+        )}
       </div>
+
+      {deal.company ? (
+        <a
+          href={`/companies?open=${deal.company.id}`}
+          onClick={(event) => event.stopPropagation()}
+          className="mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500 hover:underline"
+        >
+          <Building2 className="size-3 shrink-0" /> {deal.company.name}
+        </a>
+      ) : null}
 
       <div className="mt-1 flex items-center justify-between">
         <span className="text-primary text-[11px] font-bold">
@@ -126,6 +158,10 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </span>
         )}
       </div>
+
+      <p className="mt-1 text-[10px] text-slate-400">
+        Ostatnia aktywność: {formatDate(activityDate)}
+      </p>
 
       {deal.product_type && (
         <span className="bg-primary/10 text-primary mt-1 inline-flex rounded-full px-1.5 py-0 text-[9px] font-semibold">
