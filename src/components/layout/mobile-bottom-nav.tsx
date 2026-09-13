@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, Bot, GitBranch, House, Users } from 'lucide-react';
+import { Bot, GitBranch, House, Plus, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items = [
   { href: '/dashboard', label: 'DZISIAJ', icon: House },
-  { href: '/quick-call', label: 'AKTYWNOŚĆ', icon: Activity },
-  { href: '/pipelines', label: 'LEJEK', icon: GitBranch },
   { href: '/contacts', label: 'KLIENCI', icon: Users },
+  { href: '/quick-call', label: 'DODAJ', icon: Plus, primary: true },
+  { href: '/pipelines', label: 'LEJEK', icon: GitBranch },
   { href: '/assistant', label: 'ASYSTENT', icon: Bot },
 ] as const;
 
@@ -25,6 +25,7 @@ export function MobileBottomNav() {
           const active =
             pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          const primary = item.href === '/quick-call';
           return (
             <li key={item.href} className="min-w-0">
               <Link
@@ -32,16 +33,22 @@ export function MobileBottomNav() {
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-[8px] font-black tracking-[-0.03em]',
-                  active ? 'text-emerald-950' : 'text-slate-500'
+                  primary
+                    ? 'text-emerald-900'
+                    : active
+                      ? 'text-emerald-950'
+                      : 'text-slate-500'
                 )}
               >
                 <span
                   className={cn(
                     'flex h-8 min-w-8 items-center justify-center rounded-full px-2',
-                    active && 'bg-emerald-50'
+                    primary
+                      ? '-mt-3 size-12 bg-emerald-700 p-0 text-white shadow-lg ring-4 ring-white'
+                      : active && 'bg-emerald-50'
                   )}
                 >
-                  <item.icon className="size-5" />
+                  <item.icon className={cn('size-5', primary && 'size-7')} />
                 </span>
                 <span className="max-w-full truncate">{item.label}</span>
               </Link>
@@ -52,3 +59,4 @@ export function MobileBottomNav() {
     </nav>
   );
 }
+
