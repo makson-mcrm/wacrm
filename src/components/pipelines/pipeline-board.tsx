@@ -305,7 +305,7 @@ function StageColumn({
     // restore the flex-1 share-the-row behavior. The droppable ref is
     // on the inner messages region below — intentionally NOT here, so
     // a drag over the column header doesn't highlight the whole column.
-    <div className="border-border bg-card/60 flex h-[calc(100vh-245px)] min-h-[480px] w-[238px] min-w-[238px] shrink-0 flex-col overflow-hidden rounded-lg border p-1.5">
+    <div className="border-border bg-card/60 flex h-[calc(100vh-245px)] min-h-[480px] w-[264px] min-w-[264px] shrink-0 flex-col overflow-hidden rounded-lg border p-1.5">
       {/* 3px colored top border — sits above the column's padding */}
       <div
         className="-mx-1.5 -mt-1.5 h-[3px]"
@@ -387,3 +387,4 @@ function DraggableDealCard({
     </div>
   );
 }
+
