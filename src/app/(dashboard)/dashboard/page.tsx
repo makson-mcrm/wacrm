@@ -597,12 +597,6 @@ export default function DashboardPage() {
   const newContactsToday = contacts.filter(
     (contact) => contact.created_at?.slice(0, 10) === date
   ).length;
-  const applications = deals.filter((deal) =>
-    /wniosk/i.test(deal.stage?.name || '')
-  ).length;
-  const decisions = deals.filter((deal) =>
-    /decyzj/i.test(deal.stage?.name || '')
-  ).length;
   function proposePriorities() {
     const proposed = buildPrioritySuggestions(
       deals as unknown as PriorityDeal[],
@@ -626,13 +620,7 @@ export default function DashboardPage() {
         overdueCount={overdue.length}
         newCount={newContactsToday}
       />
-      <DesktopTodayBoard
-        todayPlan={todayPlan}
-        newContacts={newContactsToday}
-        conversations={calls}
-        applications={applications}
-        decisions={decisions}
-      />
+      <DesktopTodayBoard todayPlan={todayPlan} deals={deals} />
       <div className="hidden">
         <Metric
           label="Telefony"
@@ -1127,16 +1115,10 @@ export default function DashboardPage() {
 
 function DesktopTodayBoard({
   todayPlan,
-  newContacts,
-  conversations,
-  applications,
-  decisions,
+  deals,
 }: {
   todayPlan: TodayPlan;
-  newContacts: number;
-  conversations: number;
-  applications: number;
-  decisions: number;
+  deals: Deal[];
 }) {
   const dayLabel = new Intl.DateTimeFormat('pl-PL', {
     weekday: 'long',
@@ -1152,133 +1134,239 @@ function DesktopTodayBoard({
     (item, index, items) =>
       items.findIndex((candidate) => candidate.id === item.id) === index
   );
-  const recommendations = allItems.slice(0, 3);
-  const stats = [
-    ['Nowe kontakty', newContacts],
-    ['Rozmowy', conversations],
-    ['Wnioski złożone', applications],
-    ['Decyzje pozytywne', decisions],
-  ] as const;
-
+  const overdueDeals = deals.filter(
+    (deal) => deal.next_action_at && +new Date(deal.next_action_at) < Date.now()
+  );
+  const dealsWithoutAction = deals.filter(
+    (deal) => !deal.next_action?.trim() || !deal.next_action_at
+  );
+  const blockedDeals = deals.filter((deal) => deal.blocker?.trim());
+  const nearCommissionDeals = deals.filter((deal) =>
+    /uruchom|fakt|prowiz|decyz/i.test(deal.stage?.name || '')
+  );
+  const immediateDeals = deals.filter((deal) =>
+    /wniosk|decyz|uruchom|fakt/i.test(deal.stage?.name || '')
+  );
+  const revenueNow = immediateDeals.reduce(
+    (total, deal) =>
+      total + (deal.actual_commission || deal.expected_commission || 0),
+    0
+  );
+  const revenueLater = deals
+    .filter((deal) => !immediateDeals.includes(deal))
+    .reduce((total, deal) => total + (deal.expected_commission || 0), 0);
+  const callsToday = allItems.filter((item) =>
+    /telefon|zadzwo|oddzwo|rozmow/i.test(
+      `${item.title} ${item.action || ''} ${item.reason || ''}`
+    )
+  );
+  const rhythmPercent = Math.min(
+    100,
+    Math.round((Math.min(allItems.length, 4) / 6) * 100)
+  );
+  const formatMoney = (value: number) =>
+    new Intl.NumberFormat('pl-PL', {
+      style: 'currency',
+      currency: 'PLN',
+      maximumFractionDigits: 0,
+    }).format(value);
+  const metrics = [
+    {
+      label: 'TOP 6',
+      note: 'Najważniejsze na dziś',
+      value: String(todayPlan.mainCount),
+      detail: 'zadań i spotkań',
+      icon: '🏆',
+      tone: 'text-amber-600',
+    },
+    {
+      label: 'Przychód teraz',
+      note: 'Zaawansowane sprawy',
+      value: formatMoney(revenueNow),
+      detail: `z ${immediateDeals.length} transakcji`,
+      icon: '▥',
+      tone: 'text-emerald-700',
+    },
+    {
+      label: 'Przychód później',
+      note: 'Kolejne etapy',
+      value: formatMoney(revenueLater),
+      detail: `z ${Math.max(0, deals.length - immediateDeals.length)} transakcji`,
+      icon: '◷',
+      tone: 'text-blue-600',
+    },
+    {
+      label: 'Blisko prowizji',
+      note: 'Sprawy na finiszu',
+      value: String(nearCommissionDeals.length),
+      detail: 'sprawy na finiszu',
+      icon: '♙',
+      tone: 'text-emerald-700',
+    },
+    {
+      label: 'Blockery',
+      note: 'Wymagają uwagi',
+      value: String(blockedDeals.length),
+      detail: 'wymagają Twojej uwagi',
+      icon: '△',
+      tone: 'text-rose-600',
+    },
+    {
+      label: 'Bez next action',
+      note: 'Czekają na akcję',
+      value: String(dealsWithoutAction.length),
+      detail: 'spraw czeka na akcję',
+      icon: '•••',
+      tone: 'text-slate-600',
+    },
+  ];
   return (
     <section className="hidden lg:block" aria-label="DZISIAJ — widok roboczy">
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-2xl font-black tracking-tight text-slate-950">
-          DZISIAJ
-        </h1>
-      </div>
-      <div className="grid min-h-[590px] grid-cols-[minmax(0,1fr)_minmax(330px,0.94fr)] gap-4">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-lg font-black text-slate-900">Mój dzień</h2>
-            <span className="text-xs text-slate-500 capitalize">
-              {dayLabel}
-            </span>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">
-              Moje zadania {allItems.length}
-            </span>
-            <span className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
-              Po terminie{' '}
-              {
-                todayPlan.now.filter((item) => /zaleg/i.test(item.reason || ''))
-                  .length
-              }
-            </span>
-            <span className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
-              Na dziś {todayPlan.now.length + todayPlan.nextBlock.length}
-            </span>
-            <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600">
-              Na później {todayPlan.laterToday.length}
-            </span>
-          </div>
-          <div className="mt-3 divide-y divide-slate-100">
-            {allItems.length ? (
-              allItems
-                .slice(0, 8)
-                .map((item, index) => (
-                  <DesktopTodayRow key={item.id} item={item} index={index} />
-                ))
-            ) : (
-              <p className="py-10 text-center text-sm text-slate-500">
-                Brak działań zaplanowanych na dziś.
-              </p>
-            )}
-          </div>
-        </section>
-
-        <div className="grid min-h-0 grid-rows-[1fr_auto] gap-4">
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="flex items-center gap-2 text-base font-black text-slate-900">
-                Rekomendowane przez AI{' '}
-                <Sparkles className="size-4 text-emerald-700" />
-              </h2>
-              <Link
-                href="/tasks"
-                className="text-xs font-semibold text-blue-600 hover:underline"
-              >
-                Zobacz wszystkie
-              </Link>
-            </div>
-            <div className="mt-3 space-y-2">
-              {recommendations.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 rounded-xl border border-slate-200 p-3"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-800">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-slate-900">
-                      {item.action || item.title}
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
-                      {item.reason ||
-                        item.stageName ||
-                        'Najważniejsza sprawa na teraz'}
-                    </p>
-                  </div>
-                  {item.href ? (
-                    <Link
-                      href={item.href}
-                      className="shrink-0 rounded-lg border border-emerald-200 px-2 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-50"
-                    >
-                      Otwórz sprawę
-                    </Link>
-                  ) : null}
-                </div>
-              ))}
-              {!recommendations.length ? (
-                <p className="py-10 text-center text-sm text-slate-500">
-                  Brak rekomendacji — wszystkie pilne sprawy są zamknięte.
-                </p>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-black text-slate-900">
-                Twoja aktywność
-              </h2>
-              <span className="text-xs text-slate-500">Ostatnie 7 dni</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {stats.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                >
-                  <p className="text-2xl font-black text-slate-900">{value}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{label}</p>
-                </div>
-              ))}
-            </div>
-          </section>
+      <div className="mb-3 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[28px] font-black tracking-tight text-slate-950">
+            Dzisiaj
+          </h1>
+          <p className="text-sm font-medium text-blue-900 capitalize">
+            {dayLabel}
+          </p>
         </div>
+        <p className="max-w-[260px] text-right text-xs leading-5 font-medium text-blue-900">
+          „Małe, konsekwentne działania dają wielkie rezultaty.”
+        </p>
+      </div>
+      <div className="grid grid-cols-6 gap-2.5">
+        {metrics.map((metric) => (
+          <Link
+            key={metric.label}
+            href={metric.label === 'TOP 6' ? '/tasks' : '/pipelines'}
+            className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-emerald-200"
+          >
+            <div className="flex items-start gap-2">
+              <span className={`text-lg font-black ${metric.tone}`}>
+                {metric.icon}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black text-slate-950">
+                  {metric.label}
+                </p>
+                <p className="truncate text-[10px] text-slate-500">
+                  {metric.note}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 truncate text-xl font-black text-blue-950">
+              {metric.value}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-blue-800">
+              {metric.detail}
+            </p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-3 grid grid-cols-[1.18fr_0.9fr_0.58fr] gap-3">
+        <TodayPanel
+          title="Kalendarz dnia"
+          action="Zobacz cały dzień"
+          href="/calendar?view=day"
+        >
+          <div className="divide-y divide-slate-100">
+            {allItems.slice(0, 6).map((item, index) => (
+              <DesktopTodayRow key={item.id} item={item} index={index} />
+            ))}
+            {!allItems.length ? <EmptyTodayState /> : null}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Link
+              href="/calendar?new=event"
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-center text-xs font-bold text-white"
+            >
+              + Dodaj spotkanie
+            </Link>
+            <Link
+              href="/tasks?new=task"
+              className="rounded-lg border border-blue-200 px-3 py-2 text-center text-xs font-bold text-blue-700"
+            >
+              + Utwórz zadanie
+            </Link>
+          </div>
+        </TodayPanel>
+
+        <TodayPanel
+          title="Najbliższe rozmowy"
+          action={`Zobacz wszystkie (${callsToday.length})`}
+          href="/tasks"
+        >
+          <div className="divide-y divide-slate-100">
+            {(callsToday.length ? callsToday : allItems)
+              .slice(0, 5)
+              .map((item, index) => (
+                <DesktopTodayRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  compact
+                />
+              ))}
+            {!allItems.length ? <EmptyTodayState /> : null}
+          </div>
+        </TodayPanel>
+
+        <TodayPanel title="Pasek rytmu dnia">
+          <div className="flex items-center gap-3 py-2">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full border-[8px] border-emerald-500 border-r-emerald-100 text-xl font-black text-blue-950">
+              {rhythmPercent}%
+            </div>
+            <div>
+              <p className="font-black text-emerald-800">Dobry rytm!</p>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Masz zaplanowane {todayPlan.mainCount} kluczowych aktywności.
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 space-y-2 text-[11px]">
+            {[
+              'Poranna analiza',
+              'Pierwsze rozmowy',
+              'Praca z dokumentami',
+              'Follow-upy',
+              'Podsumowanie dnia',
+            ].map((label, index) => (
+              <div key={label} className="flex items-center gap-2">
+                <span
+                  className={`size-3 rounded-full border ${index < 3 ? 'border-emerald-600 bg-emerald-600' : 'border-blue-400'}`}
+                />
+                <span className="min-w-0 flex-1 truncate">{label}</span>
+                <span className="text-slate-500">
+                  {['08:00', '10:00', '12:00', '14:00', '17:00'][index]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </TodayPanel>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <DealStatusPanel
+          title="Zaległe follow-upy"
+          href="/tasks?filter=overdue"
+          deals={overdueDeals}
+          empty="Brak zaległych follow-upów"
+        />
+        <DealStatusPanel
+          title="Sprawy bez next action"
+          href="/pipelines"
+          deals={dealsWithoutAction}
+          empty="Wszystkie sprawy mają next action"
+        />
+        <DealStatusPanel
+          title="Blockery"
+          href="/pipelines"
+          deals={blockedDeals}
+          empty="Brak aktywnych blockerów"
+          blocker
+        />
       </div>
     </section>
   );
@@ -1287,9 +1375,11 @@ function DesktopTodayBoard({
 function DesktopTodayRow({
   item,
   index,
+  compact = false,
 }: {
   item: RankedTodayItem;
   index: number;
+  compact?: boolean;
 }) {
   const time = item.dueAt
     ? new Date(item.dueAt).toLocaleTimeString('pl-PL', {
@@ -1299,7 +1389,9 @@ function DesktopTodayRow({
     : '—';
   const dots = ['bg-red-500', 'bg-emerald-500', 'bg-amber-400', 'bg-slate-400'];
   const content = (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 py-3">
+    <div
+      className={`grid grid-cols-[66px_minmax(0,1fr)_auto] items-center gap-2 ${compact ? 'py-2' : 'py-2.5'}`}
+    >
       <span className="flex items-center gap-2 text-sm font-black text-slate-700">
         <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
         {time}
@@ -1318,6 +1410,100 @@ function DesktopTodayRow({
     </div>
   );
   return item.href ? <Link href={item.href}>{content}</Link> : content;
+}
+
+function TodayPanel({
+  title,
+  action,
+  href,
+  children,
+}: {
+  title: string;
+  action?: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="min-h-[310px] rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
+        <h2 className="text-sm font-black text-blue-950">{title}</h2>
+        {action && href ? (
+          <Link
+            href={href}
+            className="text-[10px] font-bold text-blue-600 hover:underline"
+          >
+            {action} →
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DealStatusPanel({
+  title,
+  href,
+  deals,
+  empty,
+  blocker = false,
+}: {
+  title: string;
+  href: string;
+  deals: Deal[];
+  empty: string;
+  blocker?: boolean;
+}) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
+        <h2 className="text-sm font-black text-blue-950">{title}</h2>
+        <Link
+          href={href}
+          className="text-[10px] font-bold text-blue-600 hover:underline"
+        >
+          Zobacz wszystkie ({deals.length})
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        {deals.slice(0, 3).map((deal) => (
+          <Link
+            key={deal.id}
+            href={`/deals/${deal.id}`}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-bold text-slate-900">
+                {blocker ? deal.blocker : deal.title}
+              </span>
+              <span className="block truncate text-[10px] text-slate-500">
+                {deal.contact?.name ||
+                  deal.company?.name ||
+                  deal.stage?.name ||
+                  'Deal'}
+              </span>
+            </span>
+            <span
+              className={`rounded-md px-2 py-1 text-[9px] font-bold ${blocker ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}
+            >
+              {blocker ? 'W trakcie' : 'Brak akcji'}
+            </span>
+          </Link>
+        ))}
+        {!deals.length ? (
+          <p className="py-5 text-center text-xs text-slate-400">{empty}</p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function EmptyTodayState() {
+  return (
+    <p className="py-10 text-center text-xs text-slate-400">
+      Brak działań zaplanowanych na dziś.
+    </p>
+  );
 }
 
 function DesktopWorkspaces({
@@ -1657,74 +1843,114 @@ function MobileTodayBoard({
   newCount: number;
 }) {
   const dayLabel = new Intl.DateTimeFormat('pl-PL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   }).format(new Date());
-  const sections = [
-    ['TERAZ', todayPlan.now],
-    ['NASTĘPNY BLOK', todayPlan.nextBlock],
-    ['PÓŹNIEJ DZISIAJ', todayPlan.laterToday],
-  ] as const;
+  const allItems = [
+    ...todayPlan.now,
+    ...todayPlan.nextBlock,
+    ...todayPlan.laterToday,
+  ].filter(
+    (item, index, items) =>
+      items.findIndex((candidate) => candidate.id === item.id) === index
+  );
 
   return (
-    <section className="rounded-2xl border border-emerald-950/10 bg-[#f8faf7] p-3 shadow-sm lg:hidden">
-      <div className="mb-4">
-        <div className="flex items-end justify-between gap-3">
-          <h1 className="text-xl font-black tracking-tight">DZISIAJ</h1>
-          <p className="text-xs text-slate-500 capitalize">{dayLabel}</p>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <span className="rounded-lg bg-emerald-700 px-2 py-2 text-center text-[11px] font-bold text-white">
-            Moje zadania {todayPlan.mainCount}
-          </span>
-          <span className="rounded-lg bg-rose-50 px-2 py-2 text-center text-[11px] font-bold text-rose-700">
-            Po terminie {overdueCount}
-          </span>
-          <span className="rounded-lg bg-blue-50 px-2 py-2 text-center text-[11px] font-bold text-blue-700">
-            Nowe {newCount}
-          </span>
-        </div>
+    <section className="min-w-0 bg-[#f7f9f8] px-1 pb-4 lg:hidden">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <h1 className="text-[23px] font-black tracking-tight text-blue-950">
+          Dzisiaj
+        </h1>
+        <p className="text-xs font-semibold text-blue-900 capitalize">
+          {dayLabel}
+        </p>
       </div>
-      <div className="space-y-4">
-        {sections.map(([title, items]) => (
-          <div key={title}>
-            <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black tracking-wide text-emerald-800 uppercase">
-              <Clock3 className="size-3" /> {title}
-            </p>
-            {items[0] ? (
-              <MiniTodayRow item={items[0]} primary={title === 'TERAZ'} />
-            ) : (
-              <p className="rounded-lg border border-dashed bg-white px-3 py-2 text-xs text-slate-400">
-                Brak zaplanowanej sprawy
-              </p>
-            )}
-          </div>
+      <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-white text-[9px] font-bold text-blue-900">
+        <span className="bg-emerald-700 px-1 py-2 text-center text-white">
+          Moje zadania{' '}
+          <b className="ml-0.5 rounded-full bg-rose-500 px-1.5 py-0.5">
+            {todayPlan.mainCount}
+          </b>
+        </span>
+        <span className="px-1 py-2 text-center">
+          Po terminie{' '}
+          <b className="ml-0.5 rounded-full bg-rose-500 px-1.5 py-0.5 text-white">
+            {overdueCount}
+          </b>
+        </span>
+        <span className="px-1 py-2 text-center">Na dziś</span>
+        <span className="px-1 py-2 text-center">Na później</span>
+      </div>
+      <div className="mt-2 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white px-2">
+        {allItems.slice(0, 6).map((item, index) => (
+          <MobileTodayTaskRow key={item.id} item={item} index={index} />
         ))}
+        {!allItems.length ? (
+          <p className="py-12 text-center text-xs text-slate-400">
+            Brak działań zaplanowanych na dziś.
+          </p>
+        ) : null}
       </div>
       <Link
         href="/tasks?new=task"
-        className="mt-3 flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white"
+        className="mt-3 flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white shadow-sm"
       >
         + Dodaj zadanie
       </Link>
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-emerald-950/10 pt-3">
-        <Link
-          href="/calendar?view=day"
-          className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border bg-white text-xs font-bold"
-        >
-          <CalendarDays className="size-4 text-emerald-800" /> Kalendarz
-        </Link>
-        <Link
-          href="/tasks"
-          className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border bg-white text-xs font-bold"
-        >
-          <ClipboardList className="size-4 text-emerald-800" /> Wszystkie
-          zadania
-        </Link>
+      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <div className="flex items-center gap-2 text-sm font-black text-amber-900">
+          <Sparkles className="size-5 text-amber-600" /> Rekomendacja AI
+          <span className="rounded bg-amber-500 px-1 py-0.5 text-[9px] text-white">
+            AI
+          </span>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-blue-950">
+          {allItems[0]
+            ? `Masz ${Math.max(1, todayPlan.mainCount)} ważnych spraw. Zacznij od: ${allItems[0].action || allItems[0].title}.`
+            : newCount
+              ? `Masz ${newCount} nowych kontaktów do sprawdzenia.`
+              : 'Najważniejsze sprawy na dziś są pod kontrolą.'}
+        </p>
       </div>
     </section>
   );
+}
+
+function MobileTodayTaskRow({
+  item,
+  index,
+}: {
+  item: RankedTodayItem;
+  index: number;
+}) {
+  const time = item.dueAt
+    ? new Date(item.dueAt).toLocaleTimeString('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
+  const dots = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-400', 'bg-sky-600'];
+  const content = (
+    <div className="grid grid-cols-[18px_8px_minmax(0,1fr)_44px_12px] items-center gap-2 py-3">
+      <span className="size-3.5 rounded border border-slate-300" />
+      <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-black text-blue-950">
+          {item.action || item.title}
+        </span>
+        <span className="mt-0.5 block truncate text-[9px] font-semibold text-blue-800 uppercase">
+          {item.stageName || item.reason || 'Zadanie'}
+        </span>
+      </span>
+      <span className="text-right text-[10px] font-bold text-blue-900">
+        {time}
+      </span>
+      <ArrowRight className="size-3 text-blue-900" />
+    </div>
+  );
+  return item.href ? <Link href={item.href}>{content}</Link> : content;
 }
 
 function WorkspacePanel({
@@ -1862,3 +2088,4 @@ function Field({
     </div>
   );
 }
+
