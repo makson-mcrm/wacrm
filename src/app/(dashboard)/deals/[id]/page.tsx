@@ -9,9 +9,11 @@ import {
   CalendarDays,
   Copy,
   FileText,
+  Loader2,
   Mail,
   Mic,
   Pencil,
+  Save,
   Sparkles,
   Trash2,
   Upload,
@@ -113,6 +115,10 @@ export default function DealPage() {
     [requiredDocumentsCount, setRequiredDocumentsCount] = useState(0),
     [stages, setStages] = useState<PipelineStage[]>([]),
     [edit, setEdit] = useState(false),
+    [nextActionDraft, setNextActionDraft] = useState(''),
+    [nextActionAtDraft, setNextActionAtDraft] = useState(''),
+    [blockerDraft, setBlockerDraft] = useState(''),
+    [savingNextAction, setSavingNextAction] = useState(false),
     [uploading, setUploading] = useState(false),
     [documentName, setDocumentName] = useState(''),
     [documentType, setDocumentType] = useState('Dokument klienta'),
@@ -183,6 +189,9 @@ export default function DealPage() {
       return;
     }
     setDeal(d.data as Deal | null);
+    setNextActionDraft(d.data?.next_action ?? '');
+    setNextActionAtDraft(toDateTimeLocal(d.data?.next_action_at));
+    setBlockerDraft(d.data?.blocker ?? '');
     setPeople((p.data ?? []) as unknown as DealPerson[]);
     const authorByUser = new Map(
       (profileRows.data ?? []).map((row) => [
@@ -358,6 +367,30 @@ export default function DealPage() {
     toast.success('Deal został przesunięty do kolejnego etapu.');
     await load();
   }
+  async function saveNextAction() {
+    if (!deal) return;
+    setSavingNextAction(true);
+    const nextActionAt = nextActionAtDraft
+      ? new Date(nextActionAtDraft).toISOString()
+      : null;
+    const { error } = await db
+      .from('deals')
+      .update({
+        next_action: nextActionDraft.trim() || null,
+        next_action_at: nextActionAt,
+        blocker: blockerDraft.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', deal.id);
+    if (error) {
+      toast.error(`Nie zapisano następnego kroku: ${error.message}`);
+      setSavingNextAction(false);
+      return;
+    }
+    await load();
+    setSavingNextAction(false);
+    toast.success('Następny krok, termin i blocker zostały zapisane.');
+  }
   if (loadError)
     return (
       <div className="border-destructive/30 bg-destructive/5 m-6 rounded-xl border p-8">
@@ -406,86 +439,313 @@ export default function DealPage() {
         Wróć do lejka
       </Link>
       <header className="hidden min-h-12 items-center gap-4 border-b border-slate-200 px-1 pb-3 lg:flex">
-        <Link href="/pipelines" className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 hover:text-slate-900">
+        <Link
+          href="/pipelines"
+          className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 hover:text-slate-900"
+        >
           <ArrowLeft className="size-4" /> Wróć do listy deali
         </Link>
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><FileText className="size-3.5" /></span>
-        <h1 className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{deal.title}</h1>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-800">{deal.product_type || 'Kategoria nieustalona'}</span>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">{deal.stage?.name || 'Etap nieustalony'}</span>
-        {Number(deal.value) > 0 ? <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-700">{money(deal.value)} {deal.currency || 'PLN'}</span> : null}
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+          <FileText className="size-3.5" />
+        </span>
+        <h1 className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">
+          {deal.title}
+        </h1>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-800">
+          {deal.product_type || 'Kategoria nieustalona'}
+        </span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">
+          {deal.stage?.name || 'Etap nieustalony'}
+        </span>
+        {Number(deal.value) > 0 ? (
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-700">
+            {money(deal.value)} {deal.currency || 'PLN'}
+          </span>
+        ) : null}
       </header>
-      <section className="hidden min-h-[610px] grid-cols-[280px_minmax(440px,1fr)_300px] gap-3 lg:grid" aria-label="Deal — widok roboczy">
+      <section
+        className="hidden min-h-[610px] grid-cols-[280px_minmax(440px,1fr)_300px] gap-3 lg:grid"
+        aria-label="Deal — widok roboczy"
+      >
         <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black text-slate-900">Klient</p>
           <div className="mt-3 flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
-              {(actionContact?.name || 'K').split(' ').map((part) => part[0]).join('').slice(0, 2)}
+              {(actionContact?.name || 'K')
+                .split(' ')
+                .map((part) => part[0])
+                .join('')
+                .slice(0, 2)}
             </span>
             <div className="min-w-0">
-              <p className="truncate font-black text-slate-950">{actionContact?.name || 'Brak głównego kontaktu'}</p>
-              <p className="text-xs text-slate-500">{actionContact?.phone || 'Brak telefonu'}</p>
-              {actionContact?.email ? <p className="truncate text-xs text-slate-500">{actionContact.email}</p> : null}
+              <p className="truncate font-black text-slate-950">
+                {actionContact?.name || 'Brak głównego kontaktu'}
+              </p>
+              <p className="text-xs text-slate-500">
+                {actionContact?.phone || 'Brak telefonu'}
+              </p>
+              {actionContact?.email ? (
+                <p className="truncate text-xs text-slate-500">
+                  {actionContact.email}
+                </p>
+              ) : null}
             </div>
           </div>
-          {actionContact?.id ? <Link href={`/contacts?open=${actionContact.id}`} className="mt-3 block rounded-lg border border-emerald-200 px-3 py-2 text-center text-xs font-bold text-emerald-800">Zobacz pełny profil</Link> : null}
+          {actionContact?.id ? (
+            <Link
+              href={`/contacts?open=${actionContact.id}`}
+              className="mt-3 block rounded-lg border border-emerald-200 px-3 py-2 text-center text-xs font-bold text-emerald-800"
+            >
+              Zobacz pełny profil
+            </Link>
+          ) : null}
           <dl className="mt-4 space-y-2.5 border-t border-slate-100 pt-4 text-xs">
             <p className="mb-3 font-black text-slate-900">Szczegóły sprawy</p>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Wartość</dt><dd className="text-right font-semibold text-slate-800">{Number(deal.value) > 0 ? `${money(deal.value)} ${deal.currency || 'PLN'}` : 'Nie ustalono'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Cel</dt><dd className="text-right font-semibold text-slate-800">{deal.goal || 'Nie ustalono'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Typ</dt><dd className="text-right font-semibold text-slate-800">{deal.product_type || 'Nie ustalono'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Źródło</dt><dd className="text-right font-semibold text-slate-800">{deal.source || 'Nie ustalono'}</dd></div>
-            <div className="flex items-center justify-between gap-3"><dt className="text-slate-500">Etap</dt><dd><select value={deal.stage_id} onChange={(event) => void changeStage(event.target.value)} className="h-8 max-w-40 rounded-md border bg-white px-2 text-[11px] font-semibold">{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Opiekun</dt><dd className="text-right font-semibold text-slate-800">Tomasz</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Data utworzenia</dt><dd className="text-right font-semibold text-slate-800">{dt(deal.created_at)}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-slate-500">Planowana decyzja</dt><dd className="text-right font-semibold text-slate-800">{deal.expected_close_date ? dt(deal.expected_close_date) : 'Nie ustalono'}</dd></div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Wartość</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {Number(deal.value) > 0
+                  ? `${money(deal.value)} ${deal.currency || 'PLN'}`
+                  : 'Nie ustalono'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Cel</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {deal.goal || 'Nie ustalono'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Typ</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {deal.product_type || 'Nie ustalono'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Źródło</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {deal.source || 'Nie ustalono'}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-slate-500">Etap</dt>
+              <dd>
+                <select
+                  value={deal.stage_id}
+                  onChange={(event) => void changeStage(event.target.value)}
+                  className="h-8 max-w-40 rounded-md border bg-white px-2 text-[11px] font-semibold"
+                >
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </select>
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Opiekun</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                Tomasz
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Data utworzenia</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {dt(deal.created_at)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Planowana decyzja</dt>
+              <dd className="text-right font-semibold text-slate-800">
+                {deal.expected_close_date
+                  ? dt(deal.expected_close_date)
+                  : 'Nie ustalono'}
+              </dd>
+            </div>
           </dl>
-          <div className="mt-4 rounded-lg bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Następny krok</p><p className="mt-1 text-xs font-bold text-slate-900">{deal.next_action || 'Nie ustalono'}</p><p className="mt-1 text-[11px] text-slate-500">{deal.next_action_at ? dt(deal.next_action_at) : 'Bez terminu'}</p>{deal.blocker ? <p className="mt-2 text-[11px] text-amber-800">Blocker: {deal.blocker}</p> : null}</div>
+          <NextActionEditor
+            className="mt-4"
+            nextAction={nextActionDraft}
+            nextActionAt={nextActionAtDraft}
+            blocker={blockerDraft}
+            saving={savingNextAction}
+            onNextActionChange={setNextActionDraft}
+            onNextActionAtChange={setNextActionAtDraft}
+            onBlockerChange={setBlockerDraft}
+            onSave={() => void saveNextAction()}
+            compact
+          />
         </aside>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 pb-2 text-[10px] font-bold text-slate-500">
-            <span className="whitespace-nowrap rounded-md bg-slate-100 px-2 py-1 text-slate-900">OŚ CZASU</span>
-            <span className="whitespace-nowrap px-2 py-1">KOMENTARZE <b className="text-blue-600">{notes.length}</b></span>
-            <span className="whitespace-nowrap px-2 py-1">ZADANIA</span>
-            <span className="whitespace-nowrap px-2 py-1">DOKUMENTY <b className="text-blue-600">{docs.length}</b></span>
-            <span className="whitespace-nowrap px-2 py-1">PRODUKTY</span>
-            <span className="whitespace-nowrap px-2 py-1">WIADOMOŚCI</span>
-            <span className="whitespace-nowrap px-2 py-1">HISTORIA ETAPÓW</span>
+            <span className="rounded-md bg-slate-100 px-2 py-1 whitespace-nowrap text-slate-900">
+              OŚ CZASU
+            </span>
+            <span className="px-2 py-1 whitespace-nowrap">
+              KOMENTARZE <b className="text-blue-600">{notes.length}</b>
+            </span>
+            <span className="px-2 py-1 whitespace-nowrap">ZADANIA</span>
+            <span className="px-2 py-1 whitespace-nowrap">
+              DOKUMENTY <b className="text-blue-600">{docs.length}</b>
+            </span>
+            <span className="px-2 py-1 whitespace-nowrap">PRODUKTY</span>
+            <span className="px-2 py-1 whitespace-nowrap">WIADOMOŚCI</span>
+            <span className="px-2 py-1 whitespace-nowrap">HISTORIA ETAPÓW</span>
           </div>
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
-            <VoiceTextarea value={note} onChange={setNote} placeholder="Dodaj komentarz, notatkę lub @wspomnij…" className="min-h-9 resize-none border-0 bg-transparent py-2 text-xs shadow-none" />
-            <Button size="icon" variant="ghost" disabled={!note.trim()} onClick={() => void addNote()} aria-label="Dodaj notatkę"><CheckCircle2 className="size-4" /></Button>
+            <VoiceTextarea
+              value={note}
+              onChange={setNote}
+              placeholder="Dodaj komentarz, notatkę lub @wspomnij…"
+              className="min-h-9 resize-none border-0 bg-transparent py-2 text-xs shadow-none"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              disabled={!note.trim()}
+              onClick={() => void addNote()}
+              aria-label="Dodaj notatkę"
+            >
+              <CheckCircle2 className="size-4" />
+            </Button>
           </div>
           <div className="mt-2 divide-y divide-slate-100">
             {notes.slice(0, 5).map((entry, index) => (
-              <article key={entry.id} className="grid grid-cols-[28px_1fr] gap-3 py-3">
-                <span className={`flex size-7 items-center justify-center rounded-full text-[10px] font-black ${index % 3 === 0 ? 'bg-emerald-100 text-emerald-800' : index % 3 === 1 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{(entry.author_name || 'U').split(' ').map((part) => part[0]).join('').slice(0, 2)}</span>
-                <div><p className="text-[11px] font-bold text-slate-700">{entry.author_name || 'Użytkownik'} <span className="ml-2 font-normal text-slate-400">{dt(entry.created_at)}</span></p><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-700">{entry.note_text}</p></div>
+              <article
+                key={entry.id}
+                className="grid grid-cols-[28px_1fr] gap-3 py-3"
+              >
+                <span
+                  className={`flex size-7 items-center justify-center rounded-full text-[10px] font-black ${index % 3 === 0 ? 'bg-emerald-100 text-emerald-800' : index % 3 === 1 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
+                >
+                  {(entry.author_name || 'U')
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)}
+                </span>
+                <div>
+                  <p className="text-[11px] font-bold text-slate-700">
+                    {entry.author_name || 'Użytkownik'}{' '}
+                    <span className="ml-2 font-normal text-slate-400">
+                      {dt(entry.created_at)}
+                    </span>
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-700">
+                    {entry.note_text}
+                  </p>
+                </div>
               </article>
             ))}
-            {!notes.length ? <p className="py-12 text-center text-sm text-slate-500">Historia tej sprawy jest jeszcze pusta.</p> : null}
+            {!notes.length ? (
+              <p className="py-12 text-center text-sm text-slate-500">
+                Historia tej sprawy jest jeszcze pusta.
+              </p>
+            ) : null}
           </div>
-          <button type="button" onClick={() => setActiveTab('activity-history')} className="mt-3 text-xs font-bold text-blue-600 hover:underline">Pokaż pełną historię</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('activity-history')}
+            className="mt-3 text-xs font-bold text-blue-600 hover:underline"
+          >
+            Pokaż pełną historię
+          </button>
         </section>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-black text-slate-950">Asystent AI — ta sprawa</h2>
+          <h2 className="text-base font-black text-slate-950">
+            Asystent AI — ta sprawa
+          </h2>
           <div className="mt-3 rounded-xl border border-lime-300 bg-lime-50 p-3">
             <div className="grid gap-1.5 text-xs font-bold text-emerald-950">
-              <Link href={`/assistant?deal=${deal.id}&feature=prepare`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Przygotuj mnie</span><span className="font-normal text-slate-500">Podsumuj sprawę i przygotuj do rozmowy</span></Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=qualify`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Kwalifikuj temat</span><span className="font-normal text-slate-500">Oceń szanse i ryzyka</span></Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=completeness`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Sprawdź kompletację</span><span className="font-normal text-slate-500">Zweryfikuj realizację dokumentów</span></Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=knowledge`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Sprawdź wiedzę bankową</span><span className="font-normal text-slate-500">Porównaj źródła i wymagania banków</span></Link>
-              <Link href={`/assistant?deal=${deal.id}&feature=guide`} className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"><span className="block">Prowadź mnie krok po kroku</span><span className="font-normal text-slate-500">Zaproponuj kolejne działania</span></Link>
+              <Link
+                href={`/assistant?deal=${deal.id}&feature=prepare`}
+                className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"
+              >
+                <span className="block">Przygotuj mnie</span>
+                <span className="font-normal text-slate-500">
+                  Podsumuj sprawę i przygotuj do rozmowy
+                </span>
+              </Link>
+              <Link
+                href={`/assistant?deal=${deal.id}&feature=qualify`}
+                className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"
+              >
+                <span className="block">Kwalifikuj temat</span>
+                <span className="font-normal text-slate-500">
+                  Oceń szanse i ryzyka
+                </span>
+              </Link>
+              <Link
+                href={`/assistant?deal=${deal.id}&feature=completeness`}
+                className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"
+              >
+                <span className="block">Sprawdź kompletację</span>
+                <span className="font-normal text-slate-500">
+                  Zweryfikuj realizację dokumentów
+                </span>
+              </Link>
+              <Link
+                href={`/assistant?deal=${deal.id}&feature=knowledge`}
+                className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"
+              >
+                <span className="block">Sprawdź wiedzę bankową</span>
+                <span className="font-normal text-slate-500">
+                  Porównaj źródła i wymagania banków
+                </span>
+              </Link>
+              <Link
+                href={`/assistant?deal=${deal.id}&feature=guide`}
+                className="rounded-lg bg-white px-3 py-2 hover:bg-lime-100"
+              >
+                <span className="block">Prowadź mnie krok po kroku</span>
+                <span className="font-normal text-slate-500">
+                  Zaproponuj kolejne działania
+                </span>
+              </Link>
             </div>
           </div>
-          <h3 className="mt-5 text-xs font-black uppercase tracking-wide text-slate-500">Szybkie działania</h3>
+          <h3 className="mt-5 text-xs font-black tracking-wide text-slate-500 uppercase">
+            Szybkie działania
+          </h3>
           <div className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-10 [&_a]:text-[11px] [&_button]:h-10 [&_button]:w-full [&_button]:px-2 [&_button]:text-[11px]">
-            {actionContact?.phone ? <CallAction phone={actionContact.phone} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} className="w-full" /> : null}
-            {actionContact?.phone ? <SmsAction phone={actionContact.phone} contactName={actionContact.name} contactId={actionContact.id} companyId={deal.company_id} dealId={deal.id} label="WIADOMOŚĆ" /> : null}
-            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=dictate`} />}><Mic className="size-4" /> DYKTUJ</Button>
-            <Button variant="outline" render={<Link href={`/quick-call?deal=${deal.id}&action=document`} />}><Upload className="size-4" /> DODAJ DOKUMENT</Button>
+            {actionContact?.phone ? (
+              <CallAction
+                phone={actionContact.phone}
+                contactId={actionContact.id}
+                companyId={deal.company_id}
+                dealId={deal.id}
+                className="w-full"
+              />
+            ) : null}
+            {actionContact?.phone ? (
+              <SmsAction
+                phone={actionContact.phone}
+                contactName={actionContact.name}
+                contactId={actionContact.id}
+                companyId={deal.company_id}
+                dealId={deal.id}
+                label="WIADOMOŚĆ"
+              />
+            ) : null}
+            <Button
+              variant="outline"
+              render={
+                <Link href={`/quick-call?deal=${deal.id}&action=dictate`} />
+              }
+            >
+              <Mic className="size-4" /> DYKTUJ
+            </Button>
+            <Button
+              variant="outline"
+              render={
+                <Link href={`/quick-call?deal=${deal.id}&action=document`} />
+              }
+            >
+              <Upload className="size-4" /> DODAJ DOKUMENT
+            </Button>
           </div>
         </aside>
       </section>
@@ -510,7 +770,7 @@ export default function DealPage() {
             {deal.status === 'open' ? 'AKTYWNY' : deal.status}
           </span>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4">
           <label className="block text-xs font-bold">
             Etap
             <select
@@ -525,37 +785,18 @@ export default function DealPage() {
               ))}
             </select>
           </label>
-          <div>
-            <p className="text-xs font-bold">Następny krok</p>
-            <button
-              type="button"
-              onClick={() => setEdit(true)}
-              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
-            >
-              {deal.next_action || 'Ustal następny krok'}
-            </button>
-          </div>
-          <div>
-            <p className="text-xs font-bold">Termin</p>
-            <button
-              type="button"
-              onClick={() => setEdit(true)}
-              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
-            >
-              {deal.next_action_at ? dt(deal.next_action_at) : 'Nie ustalono'}
-            </button>
-          </div>
-          <div>
-            <p className="text-xs font-bold">Blocker (jeśli jest)</p>
-            <button
-              type="button"
-              onClick={() => setEdit(true)}
-              className="mt-1 min-h-10 w-full rounded-md border px-2 py-2 text-left text-sm"
-            >
-              {deal.blocker || 'Brak'}
-            </button>
-          </div>
         </div>
+        <NextActionEditor
+          className="mt-4"
+          nextAction={nextActionDraft}
+          nextActionAt={nextActionAtDraft}
+          blocker={blockerDraft}
+          saving={savingNextAction}
+          onNextActionChange={setNextActionDraft}
+          onNextActionAtChange={setNextActionAtDraft}
+          onBlockerChange={setBlockerDraft}
+          onSave={() => void saveNextAction()}
+        />
         <div className="mt-4 grid grid-cols-2 gap-2 [&_a]:h-11 [&_a]:text-xs [&_button]:h-11 [&_button]:w-full [&_button]:text-xs">
           {actionContact?.phone && (
             <>
@@ -1452,5 +1693,95 @@ function D({
       />
     </label>
   );
+}
+
+function NextActionEditor({
+  className = '',
+  nextAction,
+  nextActionAt,
+  blocker,
+  saving,
+  compact = false,
+  onNextActionChange,
+  onNextActionAtChange,
+  onBlockerChange,
+  onSave,
+}: {
+  className?: string;
+  nextAction: string;
+  nextActionAt: string;
+  blocker: string;
+  saving: boolean;
+  compact?: boolean;
+  onNextActionChange: (value: string) => void;
+  onNextActionAtChange: (value: string) => void;
+  onBlockerChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <section
+      className={`${className} rounded-xl border border-emerald-950/10 bg-slate-50 p-3`}
+      aria-label="Następny krok"
+    >
+      <h2 className="text-xs font-black tracking-wide text-slate-700 uppercase">
+        Następny krok
+      </h2>
+      <div className={`mt-3 grid gap-3 ${compact ? '' : 'sm:grid-cols-2'}`}>
+        <label className={compact ? 'block' : 'block sm:col-span-2'}>
+          <span className="text-[11px] font-bold text-slate-600">
+            Co robimy dalej?
+          </span>
+          <Textarea
+            value={nextAction}
+            onChange={(event) => onNextActionChange(event.target.value)}
+            placeholder="Np. zadzwonić po decyzję klienta"
+            className="mt-1 min-h-16 resize-none bg-white text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-bold text-slate-600">Termin</span>
+          <Input
+            type="datetime-local"
+            value={nextActionAt}
+            onChange={(event) => onNextActionAtChange(event.target.value)}
+            className="mt-1 bg-white text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-bold text-slate-600">
+            Blocker (jeśli jest)
+          </span>
+          <Input
+            value={blocker}
+            onChange={(event) => onBlockerChange(event.target.value)}
+            placeholder="Brak"
+            className="mt-1 bg-white text-sm"
+          />
+        </label>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        onClick={onSave}
+        disabled={saving}
+        className="mt-3 w-full bg-emerald-800 text-white hover:bg-emerald-900"
+      >
+        {saving ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Save className="size-4" />
+        )}
+        {saving ? 'Zapisywanie…' : 'Zapisz następny krok'}
+      </Button>
+    </section>
+  );
+}
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
