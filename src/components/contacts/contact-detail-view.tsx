@@ -38,6 +38,7 @@ import {
   Phone,
   Mail,
   Building2,
+  CalendarDays,
   Copy,
   Check,
   Loader2,
@@ -580,7 +581,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-4 gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-[10px] [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-[10px]">
+                <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-[10px] [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-[10px]">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -609,6 +610,17 @@ export function ContactDetailView({
                     }
                   >
                     <Mic className="size-4" /> DYKTUJ
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    render={
+                      <Link
+                        href={`/calendar?new=event&contact=${contact.id}`}
+                      />
+                    }
+                  >
+                    <CalendarDays className="size-4" /> DODAJ TERMIN
                   </Button>
                   <Button
                     size="sm"
@@ -1274,3 +1286,4 @@ export function ContactDetailView({
     </>
   );
 }
+
