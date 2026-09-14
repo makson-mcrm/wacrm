@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -51,7 +51,9 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>('week'),
     [cursor, setCursor] = useState(new Date()),
     [open, setOpen] = useState(false),
-    [editing, setEditing] = useState<Item | null>(null);
+    [editing, setEditing] = useState<Item | null>(null),
+    [loaded, setLoaded] = useState(false);
+  const newEventHandled = useRef(false);
   const [title, setTitle] = useState(''),
     [type, setType] = useState('spotkanie'),
     [startsAt, setStartsAt] = useState(defaultInput()),
@@ -183,6 +185,7 @@ export default function CalendarPage() {
     setContacts((contactRows.data ?? []) as Contact[]);
     setCompanies((companyRows.data ?? []) as Company[]);
     setDeals((dealRows.data ?? []) as Deal[]);
+    setLoaded(true);
   }, [accountId, db]);
   const syncAndLoad = useCallback(async () => {
     if (!accountId) return;
@@ -232,6 +235,27 @@ export default function CalendarPage() {
     setDealId(item?.dealId ?? '');
     setOpen(true);
   }
+  useEffect(() => {
+    if (!loaded || newEventHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new') !== 'event') return;
+
+    newEventHandled.current = true;
+    reset();
+    setDealId(params.get('deal') ?? '');
+    setContactId(params.get('contact') ?? '');
+    setCompanyId(params.get('company') ?? '');
+
+    for (const key of ['new', 'deal', 'contact', 'company']) {
+      params.delete(key);
+    }
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    );
+  }, [loaded]);
   async function save() {
     if (!accountId || !user || !title.trim() || !startsAt)
       return toast.error('Uzupełnij tytuł oraz termin.');
@@ -897,3 +921,4 @@ function defaultInput() {
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
   return toWarsawDateTimeInput(d);
 }
+
