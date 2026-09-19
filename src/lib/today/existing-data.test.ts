@@ -51,6 +51,42 @@ describe('M3 Today existing data adapter', () => {
     });
   });
 
+  it('keeps Deal next action, deadline and blocker as the source of truth for DZISIAJ', () => {
+    const result = buildTodayInputs({
+      now,
+      deals: [
+        {
+          id: 'deal-a',
+          title: 'Hipoteka A',
+          contact_id: 'contact-a',
+          next_action: 'Dosłać dokument do banku',
+          next_action_at: '2026-09-08T10:00:00Z',
+          blocker: 'Brak zaświadczenia',
+        },
+      ],
+      activities: [
+        {
+          id: 'old-activity',
+          title: 'Stary follow-up, którego nie wolno pokazać zamiast Deala',
+          deal_id: 'deal-a',
+          contact_id: 'contact-a',
+          scheduled_at: '2026-09-07T09:00:00Z',
+          completed: false,
+        },
+      ],
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      id: 'deal:deal-a',
+      source: 'deal',
+      action: 'Dosłać dokument do banku',
+      dueAt: '2026-09-08T10:00:00Z',
+      blocker: 'Brak zaświadczenia',
+      href: '/quick-call?deal=deal-a&contact=contact-a',
+    });
+  });
+
   it('uses existing queue sources for future-revenue signals', () => {
     const result = buildTodayInputs({
       deals: [],
@@ -114,4 +150,3 @@ describe('M3 Today existing data adapter', () => {
     );
   });
 });
-
