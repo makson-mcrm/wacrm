@@ -189,10 +189,16 @@ export function buildTodayInputs(input: {
       row.scheduled_at ?? row.next_action_date ?? row.next_contact_at;
     const existing = candidates.get(key);
     if (existing) {
+      const dealIsSourceOfTruth = existing.source === 'deal';
       candidates.set(key, {
         ...existing,
-        action: row.title || existing.action,
-        dueAt: dueAt ?? existing.dueAt,
+        action: dealIsSourceOfTruth
+          ? existing.action
+          : row.title || existing.action,
+        dueAt: dealIsSourceOfTruth
+          ? existing.dueAt ?? dueAt
+          : dueAt ?? existing.dueAt,
+        signal: existing.signal ?? activitySignal(row),
       });
       continue;
     }
@@ -288,4 +294,3 @@ export function currentWorkContext(
   });
   return active?.context ?? 'DOWOLNY';
 }
-
