@@ -1,14 +1,26 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# mCRM AI — wykonanie
 
-# This is NOT the Next.js you know
+## Zasada nadrzędna
+Tomasz nie jest operatorem technicznym. Nie angażować go w GitHub, deploy, logi, komendy ani testy techniczne.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+## Tryb pracy
+- Źródłem prawdy są obowiązujące dokumenty mCRM AI i zatwierdzone plansze UX.
+- Kodować i wdrażać małymi, bezpiecznymi zmianami.
+- Nie projektować nowego UX.
+- Każda zmiana ma prowadzić do działającego LIVE i być możliwa do odbioru biznesowego.
+- Agent API ma być jednym Asystentem mCRM w aplikacji, nie osobnym systemem.
 
-## mCRM 4.0 — binding project decisions
+## Priorytet
+Najpierw stabilny rdzeń sprzedażowy:
+rozmowa → wynik/notatka → następne działanie → termin → blocker → DZISIAJ → wykonanie → historia → prowizja.
 
-- Current architecture: this WaCRM fork (Next.js), Supabase and Hostinger.
-- Do not design or revive AppSheet, Vertex/Vetrix, Google Sheets as the CRM database, or n8n.
-- Website intake creates or finds a Contact/Lead only. It must never create a Deal automatically.
-- Tomasz approves business direction. The coding agent owns implementation, configuration, testing and deployment.
-- Ask Tomasz to act only for genuinely non-delegable identity, 2FA, CAPTCHA, payment, legal consent or missing access.
+## Agent API V1
+Minimalny zakres:
+- odczyt kontekstu Klienta i Deala,
+- podsumowanie sprawy,
+- wykrywanie braków i ryzyk,
+- propozycja następnego kroku,
+- przygotowanie roboczej wiadomości do klienta.
+
+## Komunikacja z Tomaszem
+Pokazywać tylko wynik biznesowy: GOTOWE / NIEGOTOWE / CO DZIAŁA LIVE / jedna decyzja biznesowa, jeśli naprawdę konieczna.
