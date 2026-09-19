@@ -48,6 +48,40 @@ export function shouldAutoSelectDeal(activeDealCount: number) {
   return activeDealCount === 1;
 }
 
+export function activityDealContextError({
+  contactId,
+  dealId,
+  activeDealIds,
+}: {
+  contactId: string;
+  dealId: string;
+  activeDealIds: readonly string[];
+}) {
+  if (!contactId) return 'Wybierz Kontakt przed zapisem aktywności.';
+  if (!dealId && activeDealIds.length === 0) return null;
+  if (!dealId) {
+    return activeDealIds.length === 1
+      ? 'Ten Kontakt ma aktywny Deal. Potwierdź jawnie kontekst Deala.'
+      : 'Ten Kontakt ma kilka aktywnych Deali. Wybierz konkretny Deal.';
+  }
+  if (!activeDealIds.includes(dealId)) {
+    return 'Wybrany Deal nie należy do tego Kontaktu.';
+  }
+  return null;
+}
+
+export function activityContextReturnPath({
+  contactId,
+  dealId,
+}: {
+  contactId: string;
+  dealId?: string | null;
+}) {
+  return dealId
+    ? `/deals/${encodeURIComponent(dealId)}?tab=activity-history`
+    : `/contacts?open=${encodeURIComponent(contactId)}`;
+}
+
 export function formatFollowUpAction(
   kind: FollowUpKind | null,
   content: string

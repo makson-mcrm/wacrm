@@ -12,6 +12,21 @@ export type ActivityHistoryRow = {
   occurred_at: string;
 };
 
+export function activityHistoryRelation({
+  contactId,
+  companyId,
+  dealId,
+}: {
+  contactId?: string | null;
+  companyId?: string | null;
+  dealId?: string | null;
+}): ['deal_id' | 'company_id' | 'contact_id', string] | null {
+  if (dealId) return ['deal_id', dealId];
+  if (companyId) return ['company_id', companyId];
+  if (contactId) return ['contact_id', contactId];
+  return null;
+}
+
 export function activityHistoryLabel(
   activity: Pick<ActivityHistoryRow, 'activity_type' | 'activity_status'>
 ) {

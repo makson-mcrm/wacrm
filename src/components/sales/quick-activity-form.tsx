@@ -37,6 +37,8 @@ import {
 import type { Company, Contact, Deal, PipelineStage } from '@/types';
 import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import {
+  activityContextReturnPath,
+  activityDealContextError,
   activityTypeForDb,
   buildContactActivityUpdate,
   formatFollowUpAction,
@@ -364,6 +366,18 @@ export function QuickActivityForm() {
     ? selectedDeal.source || dealSourceDraft.trim() || null
     : selectedContact?.source || null;
 
+  function validateActivityContext() {
+    const error = activityDealContextError({
+      contactId,
+      dealId,
+      activeDealIds: selectedContactDeals.map((deal) => deal.id),
+    });
+    if (!error) return true;
+    toast.error(error);
+    setFlowStep('selection');
+    return false;
+  }
+
   const searchMatches = useMemo<SearchMatch[]>(() => {
     const trimmed = query.trim();
     const normalized = trimmed.toLocaleLowerCase('pl');
@@ -489,12 +503,14 @@ export function QuickActivityForm() {
 
   function openDocuments() {
     if (!contactId) return toast.info('Najpierw wybierz klienta.');
+    if (!validateActivityContext()) return;
     setDocumentDialog(true);
   }
 
   async function saveDocument() {
     if (!accountId || !selectedContact || !pendingDocument || documentUploading)
       return;
+    if (!validateActivityContext()) return;
     setDocumentUploading(true);
     const session = (await db.auth.getSession()).data.session;
     if (!session?.user) {
@@ -549,6 +565,7 @@ export function QuickActivityForm() {
       );
       setPendingDocument(null);
       setDocumentDialog(false);
+      router.replace(activityContextReturnPath({ contactId, dealId }));
     } catch (error) {
       toast.error(
         `Nie zapisano dokumentu: ${error instanceof Error ? error.message : 'nieznany błąd'}`
@@ -755,6 +772,7 @@ export function QuickActivityForm() {
       return toast.error(
         'Wybierz istniejącego klienta albo dodaj nowy Kontakt.'
       );
+    if (!validateActivityContext()) return;
     if (type === 'TELEFON' && !result)
       return toast.error('Wybierz wynik rozmowy.');
     if (status === 'PLANOWANE' && !nextActionDay)
@@ -912,7 +930,7 @@ export function QuickActivityForm() {
       } else {
         toast.success('Aktywność zapisana. Wracasz do DZISIAJ.');
       }
-      router.replace('/dashboard');
+      router.replace(activityContextReturnPath({ contactId, dealId }));
     } catch (error) {
       toast.error(
         `Nie zapisano aktywności: ${error instanceof Error ? error.message : 'nieznany błąd'}`
@@ -1850,4 +1868,3 @@ export function QuickActivityForm() {
     </div>
   );
 }
-

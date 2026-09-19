@@ -132,9 +132,10 @@ export default function DealPage() {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
     setActiveTab(
-      new URLSearchParams(window.location.search).get('tab') === 'files'
-        ? 'files'
+      requestedTab === 'files' || requestedTab === 'activity-history'
+        ? requestedTab
         : 'overview'
     );
   }, [id]);
@@ -1784,4 +1785,3 @@ function toDateTimeLocal(value?: string | null) {
   const pad = (part: number) => String(part).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-

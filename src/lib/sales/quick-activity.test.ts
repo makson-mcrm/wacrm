@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activityContextReturnPath,
+  activityDealContextError,
   buildContactActivityUpdate,
   followUpPreset,
   formatFollowUpAction,
@@ -64,5 +66,45 @@ describe('quick activity helpers', () => {
     expect(shouldAutoSelectDeal(2)).toBe(false);
     expect(requiresExplicitDealChoice(1)).toBe(false);
     expect(requiresExplicitDealChoice(2)).toBe(true);
+  });
+  it('allows a pre-Deal activity only when the Contact has no active Deal', () => {
+    expect(
+      activityDealContextError({
+        contactId: 'contact-a',
+        dealId: '',
+        activeDealIds: [],
+      })
+    ).toBeNull();
+    expect(
+      activityDealContextError({
+        contactId: 'contact-a',
+        dealId: '',
+        activeDealIds: ['deal-a'],
+      })
+    ).toContain('aktywny Deal');
+  });
+  it('rejects Deal B when saving an activity for Contact A and Deal A', () => {
+    expect(
+      activityDealContextError({
+        contactId: 'contact-a',
+        dealId: 'deal-b',
+        activeDealIds: ['deal-a'],
+      })
+    ).toBe('Wybrany Deal nie należy do tego Kontaktu.');
+    expect(
+      activityDealContextError({
+        contactId: 'contact-a',
+        dealId: 'deal-a',
+        activeDealIds: ['deal-a'],
+      })
+    ).toBeNull();
+  });
+  it('returns to the exact Deal history after saving', () => {
+    expect(
+      activityContextReturnPath({ contactId: 'contact-a', dealId: 'deal-a' })
+    ).toBe('/deals/deal-a?tab=activity-history');
+    expect(activityContextReturnPath({ contactId: 'contact-a' })).toBe(
+      '/contacts?open=contact-a'
+    );
   });
 });

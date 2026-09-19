@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import {
   activityHistoryLabel,
+  activityHistoryRelation,
   type ActivityHistoryRow,
 } from '@/lib/sales/activity-history';
 import {
@@ -75,13 +76,7 @@ export function ActivityHistory({
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const relation = dealId
-      ? ['deal_id', dealId]
-      : companyId
-        ? ['company_id', companyId]
-        : contactId
-          ? ['contact_id', contactId]
-          : null;
+    const relation = activityHistoryRelation({ contactId, companyId, dealId });
     if (!relation) {
       setActivities([]);
       setLoading(false);
