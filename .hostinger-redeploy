@@ -1,4 +1,3 @@
-Recovery deployment trigger for Hostinger.
-Target: P0 stable core LIVE publication
-Source commit: d7ee8dd8167e7a6a042cb41f2769673688547d00
-Triggered: 2026-09-20 15:55 Europe/Warsaw
+Trigger Hostinger production deployment after auth recovery fix.
+Source commit: dfa2821c97f2c46463f2400a028f7dc31bb16822
+Triggered: 2026-09-20 18:22 UTC
