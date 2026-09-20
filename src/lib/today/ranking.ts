@@ -195,6 +195,7 @@ function sectionFor(
     if (due <= now) return 'TERAZ';
     if (nextBlock && due <= new Date(nextBlock.startsAt))
       return 'NASTEPNY_BLOK';
+    return 'POZNIEJ_DZISIAJ';
   }
   if (contextFits(candidate.context, currentContext)) return 'TERAZ';
   if (

@@ -3,6 +3,7 @@ import {
   activityContextReturnPath,
   activityDealContextError,
   buildContactActivityUpdate,
+  buildDealActivityUpdate,
   followUpPreset,
   formatFollowUpAction,
   nextBusinessDay,
@@ -59,6 +60,39 @@ describe('quick activity helpers', () => {
       contact_result: 'WYKONANE',
       next_step: 'Sprawdzić dokumenty',
     });
+  });
+  it('stores one coherent next action, deadline and blocker update', () => {
+    expect(
+      buildDealActivityUpdate({
+        nextAction: 'Dosłać dokumenty',
+        nextActionAt: '2026-09-08T10:00:00Z',
+        blocker: 'Brak zaświadczenia',
+        blockerSince: '2026-09-08T08:00:00Z',
+      })
+    ).toEqual({
+      next_action: 'Dosłać dokumenty',
+      next_action_at: '2026-09-08T10:00:00Z',
+      blocker: 'Brak zaświadczenia',
+      blocker_since: '2026-09-08T08:00:00Z',
+    });
+  });
+  it('clears an old deadline for a new undated action without erasing unrelated action data', () => {
+    expect(
+      buildDealActivityUpdate({
+        nextAction: 'Czekać na odpowiedź',
+        nextActionAt: null,
+        blocker: '',
+        blockerSince: null,
+      })
+    ).toMatchObject({ next_action_at: null });
+    expect(
+      buildDealActivityUpdate({
+        nextAction: '',
+        nextActionAt: null,
+        blocker: '',
+        blockerSince: null,
+      })
+    ).not.toHaveProperty('next_action');
   });
   it('reports whether one Deal can be selected automatically', () => {
     expect(shouldAutoSelectDeal(1)).toBe(true);

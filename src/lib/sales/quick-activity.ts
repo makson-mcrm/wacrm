@@ -111,6 +111,28 @@ export function buildContactActivityUpdate({
   if (nextActionAt) update.follow_up_at = nextActionAt;
   return update;
 }
+export function buildDealActivityUpdate({
+  nextAction,
+  nextActionAt,
+  blocker,
+  blockerSince,
+}: {
+  nextAction: string;
+  nextActionAt: string | null;
+  blocker: string;
+  blockerSince: string | null;
+}) {
+  const update: Record<string, string | null> = {};
+  if (nextAction) {
+    update.next_action = nextAction;
+    update.next_action_at = nextActionAt;
+  } else if (nextActionAt) {
+    update.next_action_at = nextActionAt;
+  }
+  update.blocker = blocker || null;
+  update.blocker_since = blocker ? blockerSince : null;
+  return update;
+}
 export const activityTypeForDb = (type: ActivityType) =>
   type.toLocaleLowerCase('pl');
 export const normalizeActivityPhone = (value: string) =>

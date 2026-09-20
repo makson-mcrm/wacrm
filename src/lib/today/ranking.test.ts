@@ -165,5 +165,24 @@ describe('M3 Today ranking', () => {
     );
     expect(inferWorkContext('Telefon')).toBe('DOWOLNY');
   });
+
+  it('keeps tomorrow and later actions out of TERAZ despite matching context', () => {
+    const plan = buildTodayPlan({
+      now,
+      currentContext: 'DOM_KOMPUTER',
+      candidates: [
+        candidate({ id: 'overdue', dueAt: '2026-09-08T07:00:00Z' }),
+        candidate({ id: 'today', dueAt: '2026-09-08T09:00:00Z' }),
+        candidate({
+          id: 'tomorrow',
+          dueAt: '2026-09-09T09:00:00Z',
+          context: 'DOM_KOMPUTER',
+        }),
+      ],
+    });
+    expect(plan.now[0].id).toBe('overdue');
+    expect(plan.laterToday.some((item) => item.id === 'today')).toBe(true);
+    expect(plan.laterToday.some((item) => item.id === 'tomorrow')).toBe(true);
+  });
 });
 
