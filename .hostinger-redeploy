@@ -1,4 +1,4 @@
 Recovery deployment trigger for Hostinger.
-Target: Paczka 2 P0 DZISIAJ source-of-truth
-Source commit: 341fa74828a1a13e3d1473642e8d5d96cd5b66d3
-Triggered: 2026-09-19
+Target: Paczka 3 P0 aktywność -> Deal -> DZISIAJ
+Source commit: d7ee8dd8167e7a6a042cb41f2769673688547d00
+Triggered: 2026-09-20 15:31 Europe/Warsaw
