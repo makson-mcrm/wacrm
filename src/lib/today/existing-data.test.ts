@@ -45,8 +45,8 @@ describe('M3 Today existing data adapter', () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]).toMatchObject({
       id: 'deal:d1',
-      action: 'Doprowadź decyzję do końca',
-      dueAt: '2026-09-08T09:00:00Z',
+      action: 'Telefon do banku',
+      dueAt: undefined,
       manualPriority: 6,
     });
   });
@@ -85,6 +85,33 @@ describe('M3 Today existing data adapter', () => {
       blocker: 'Brak zaświadczenia',
       href: '/quick-call?deal=deal-a&contact=contact-a',
     });
+  });
+
+  it('does not restore a cleared Deal deadline from stale related records', () => {
+    const result = buildTodayInputs({
+      now,
+      deals: [{ id: 'd1', title: 'Hipoteka', next_action_at: null }],
+      queue: [
+        {
+          id: 'q1',
+          source_type: 'ALERT_CRM',
+          status: 'NOWE',
+          deal_id: 'd1',
+          snoozed_until: '2026-09-09T09:00:00Z',
+        },
+      ],
+      activities: [
+        {
+          id: 'a1',
+          title: 'Stary termin',
+          deal_id: 'd1',
+          scheduled_at: '2026-09-07T09:00:00Z',
+        },
+      ],
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].dueAt).toBeNull();
   });
 
   it('uses existing queue sources for future-revenue signals', () => {

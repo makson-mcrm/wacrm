@@ -41,6 +41,7 @@ import {
   activityDealContextError,
   activityTypeForDb,
   buildContactActivityUpdate,
+  buildDealActivityUpdate,
   formatFollowUpAction,
   normalizeActivityPhone,
   suggestedRetryAt,
@@ -894,17 +895,16 @@ export function QuickActivityForm() {
           (!selectedDeal?.source && dealSourceDraft.trim()) ||
           blocker.trim() !== (selectedDeal?.blocker ?? ''))
       ) {
-        const updates: Record<string, string | null> = {};
-        if (storedNextAction) updates.next_action = storedNextAction;
-        if (scheduledIso) updates.next_action_at = scheduledIso;
+        const updates = buildDealActivityUpdate({
+          nextAction: storedNextAction,
+          nextActionAt: scheduledIso,
+          blocker: blocker.trim(),
+          blockerSince: selectedDeal?.blocker_since || nowIso,
+        });
         if (!selectedDeal?.product_type && dealProductDraft.trim())
           updates.product_type = dealProductDraft.trim();
         if (!selectedDeal?.source && dealSourceDraft.trim())
           updates.source = dealSourceDraft.trim();
-        updates.blocker = blocker.trim() || null;
-        updates.blocker_since = blocker.trim()
-          ? selectedDeal?.blocker_since || nowIso
-          : null;
         const { error: dealError } = await db
           .from('deals')
           .update(updates)

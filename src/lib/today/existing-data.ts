@@ -157,7 +157,10 @@ export function buildTodayInputs(input: {
           existing.manualPriority ?? 0,
           row.manual_priority ?? 0
         ),
-        dueAt: existing.dueAt ?? row.snoozed_until,
+        dueAt:
+          existing.source === 'deal'
+            ? existing.dueAt
+            : (existing.dueAt ?? row.snoozed_until),
       });
       continue;
     }
@@ -195,10 +198,10 @@ export function buildTodayInputs(input: {
         action: dealIsSourceOfTruth
           ? existing.action
           : row.title || existing.action,
-        dueAt: dealIsSourceOfTruth
-          ? existing.dueAt ?? dueAt
-          : dueAt ?? existing.dueAt,
-        signal: existing.signal ?? activitySignal(row),
+        dueAt: dealIsSourceOfTruth ? existing.dueAt : (dueAt ?? existing.dueAt),
+        signal: dealIsSourceOfTruth
+          ? existing.signal
+          : (existing.signal ?? activitySignal(row)),
       });
       continue;
     }
@@ -232,7 +235,7 @@ export function buildTodayInputs(input: {
     if (existing) {
       candidates.set(key, {
         ...existing,
-        action: row.title,
+        action: existing.source === 'deal' ? existing.action : row.title,
         manualPriority: Math.max(
           existing.manualPriority ?? 0,
           7 - row.position
