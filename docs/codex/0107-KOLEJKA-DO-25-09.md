@@ -1,20 +1,33 @@
 # 01.07 — AUTONOMICZNA KOLEJKA WYKONAWCZA mCRM AI
 
-Status: OBOWIĄZUJE od 21.09.2026. Zastępuje wcześniejszą kolejność 002–010 w tym pliku.
+Status: OBOWIĄZUJE od 21.09.2026. Zastępuje wcześniejsze warianty kolejki 002–013.
 Właściciel wdrożenia: 01.07 — Strategiczny Wdrożeniowiec mCRM AI.
 Wykonawca: Codex.
 
-## ZASADA CIĄGŁEJ PRACY
-Codex realizuje paczki kolejno, bez oczekiwania na ręczne zatwierdzenie 01.07 po każdej poprawnej paczce.
-Dla każdej paczki: wykonaj → uruchom wymagane testy/build/diff-check → porównaj z kryteriami paczki → zapisz wynik i dowody w GLOWNY_STAN_WDROZENIA.md → jeśli PASS, przejdź od razu do następnej paczki.
+## ZASADA PROWADZENIA
+Tomasz nie jest kurierem, testerem technicznym ani ręcznym wyzwalaczem kolejnych paczek.
 
+Przepływ jednej paczki:
+01.07 zleca → Codex wykonuje → Codex testuje i zapisuje dowody → 01.07/automat wykonuje niezależny odbiór → PASS = następna paczka bez angażowania Tomasza → FAIL = jedna poprawka tej samej paczki.
+
+Jednocześnie aktywna jest maksymalnie jedna paczka.
+Nie wolno przejść dalej na podstawie samego komunikatu Codexa „gotowe”.
+
+## STOP
 STOP tylko gdy:
-1) potrzebna jest prawdziwa decyzja/uprawnienie człowieka,
-2) nie da się spełnić kryterium bez ryzykownej/nieodwracalnej operacji,
-3) limit lub brak dostępu realnie blokuje dalszą pracę,
-4) potrzebna byłaby zmiana zatwierdzonego zakresu lub źródła prawdy.
+1. potrzebna jest prawdziwa decyzja lub uprawnienie człowieka,
+2. potrzebna byłaby operacja nieodwracalna lub wysokiego ryzyka,
+3. limit/Usage albo brak dostępu realnie blokuje pracę,
+4. konieczna byłaby zmiana zatwierdzonego zakresu lub źródła prawdy.
 
-W STOP zapisz: numer paczki, ostatni zakończony krok, dokładny następny krok, rodzaj blokady.
+Przy STOP zapisz w GLOWNY_STAN_WDROZENIA.md: numer paczki, ostatni zakończony krok, dokładny następny krok i rodzaj blokady.
+Przy limicie nie zakładaj istnienia wyzwalacza po resecie. Wznowienie odbywa się przez okresową kontrolę tego samego wątku; najwyżej jedna próba na przebieg.
+
+## UPRAWNIENIA
+Codex może bez dodatkowej zgody wykonywać zwykłe bezpieczne działania potrzebne do realizacji paczki w istniejącej gałęzi roboczej: czytać/edytować kod, uruchamiać testy, build, diff-check, tworzyć commity i aktualizować dokument stanu w granicach przyznanych uprawnień.
+
+Nie wolno automatycznie zatwierdzać: usuwania danych produkcyjnych, nieodwracalnych zmian LIVE, zmian bezpieczeństwa konta, zakupów/usług, obchodzenia zabezpieczeń ani innych działań wysokiego ryzyka.
+Jeżeli mimo tego potrzebny jest Tomasz, zgłoś jedną konkretną czynność.
 
 ## ŹRÓDŁA OBOWIĄZUJĄCE
 - finalny pakiet UX 9 ekranów z 18.09.2026 + audyt + checklista,
@@ -28,80 +41,60 @@ W STOP zapisz: numer paczki, ostatni zakończony krok, dokładny następny krok,
 
 Bez redesignu. Ekran bez minimalnej działającej funkcji = NIEODEBRANY.
 
-# ETAP A — GOTOWOŚĆ SPRZEDAŻOWA — CEL DO PIĄTKU 25.09
+# 9 PACZEK
 
 ## 002 — FUNDAMENT + DZISIAJ + P0
-Cel: wspólny AppShell/nawigacja/wyszukiwanie/+Dodaj/responsywność + finalny DZISIAJ + potwierdzenie trwałego P0.
-PASS: finalny wygląd DZISIAJ zgodny z planszą; realna pozycja prowadzi do właściwej sprawy; klient→aktywność→next action→termin→DZISIAJ→historia zachowuje dane; testy/build/diff-check PASS; brak regresji.
+Zakres: wspólny AppShell, nawigacja, wyszukiwanie, +Dodaj, responsywność, finalny DZISIAJ i trwały rdzeń P0.
+PASS: realna pozycja prowadzi do właściwej sprawy; klient→aktywność→next action→termin→DZISIAJ→historia zachowuje dane; testy/build/diff-check PASS; brak krytycznej regresji.
 
 ## 003 — KLIENCI + DEAL + REJESTR PRZED DEALEM
-Cel: klient/firma, surowy telefon bez obowiązkowego Deala, źródło/kategoria/próba/wynik/notatka/licznik prób, utworzenie Deala, next action/termin/blocker.
-PASS: można znaleźć/dodać klienta, zapisać kontakt przed Dealem, utworzyć/powiązać Deal i wrócić do zachowanych danych; zgodność z planszami KLIENCI/DEAL; testy/build PASS.
+Zakres: klient/firma, telefon bez obowiązkowego Deala, źródło/kategoria/próba/wynik/notatka/licznik prób, utworzenie/powiązanie Deala, next action/termin/blocker.
+PASS: można znaleźć/dodać klienta, zapisać kontakt przed Dealem, utworzyć/otworzyć właściwy Deal i wrócić do zachowanych danych; zgodność z planszami KLIENCI/DEAL; testy/build PASS.
 
-## 004 — AKTYWNOŚĆ/DZWONIENIE + POMIAR SPRZEDAŻY
-Cel: telefon→wynik→dyktowanie/notatka→next action→termin→blocker→historia oraz wiarygodne liczniki sprzedaży.
-PASS: obsługa Odebrał/Nie odebrał/Oddzwonić i nowego numeru; zapis trafia do właściwego klienta/Deala i historii; mierzone: telefony, wartościowe rozmowy, realne tematy, przesunięcia, wnioski/decyzje/uruchomienia/prowizje; testy/build PASS.
+## 004 — AKTYWNOŚĆ / DZWONIENIE + POMIAR
+Zakres: telefon→wynik→dyktowanie/notatka→next action→termin→blocker→historia; liczniki sprzedaży.
+PASS: Odebrał/Nie odebrał/Oddzwonić i nowy numer działają; zapis trafia do właściwego klienta/Deala i historii; mierzone są telefony, wartościowe rozmowy, realne tematy, przesunięcia oraz zdarzenia blisko prowizji; testy/build PASS.
 
-## 005 — WIEDZA BANKOWA V1 + KWALIFIKACJA BANKÓW
-WAŻNA ZALEŻNOŚĆ: wiedza bankowa i kwalifikacja są PRZED kompletacją. System nie może tworzyć listy braków bez wiedzy, do którego banku/procesu przygotowujemy sprawę.
-Cel: najpierw mBank jako pierwsze obowiązujące źródło wiedzy; dla konkretnego Deala pokazać kwalifikację, wymagania, źródło i wersję procedury oraz umożliwić wybór banku/banków do dalszego procesu.
-PASS: system wskazuje wymagania na podstawie zatwierdzonego źródła i oznacza FAKT / WNIOSEK AI / BRAK DANYCH; nie wymyśla banków ani procedur; mBank działa jako V1; Tomasz może zatwierdzić lub zmienić bank/banki dla konkretnej sprawy bez tworzenia fikcyjnych decyzji automatycznych.
+## 005 — WIEDZA BANKOWA + KWALIFIKACJA + 2–3 PROCESY BANKOWE
+Zależność krytyczna: wiedza i wybór banku są przed kompletacją.
+Zakres: mBank jako pierwsze źródło V1; wymagania, źródło i wersja procedury; kwalifikacja; wybór maksymalnie 2–3 procesów bankowych w jednej sprawie z osobnymi statusami i wymaganiami.
+PASS: system nie wymyśla procedur; rozróżnia FAKT / WNIOSEK AI / BRAK DANYCH; jeden Deal obsługuje wybrane procesy bez kopiowania sprawy do wielu niezależnych Deali; historia i źródła zostają zachowane.
 
-## 006 — RÓWNOLEGŁE BANKI + WYMAGANIA A/B/C
-Cel: jedna sprawa klienta może prowadzić maksymalnie 2–3 wybrane procesy bankowe, każdy z własnym statusem, wymaganiami, brakami, źródłem wiedzy i wersją procedury.
-PASS: jeden Deal nie jest kopiowany do trzech niezależnych Deali; wybrane procesy bankowe mają osobne statusy i wymagania; zmiana banku nie niszczy historii; system zachowuje źródło i datę/wersję wiedzy.
+## 006 — KOMPLETACJA + KOMUNIKACJA
+Zależność: kompletacja korzysta wyłącznie z wymagań wybranych procesów z 005.
+Zakres: co mamy/czego brakuje per bank, wspólna lista bez duplikatów, WhatsApp/SMS/e-mail, zatwierdzone szablony, przypomnienia i historia komunikacji.
+PASS: lista braków wynika z rzeczywistych wymagań wybranych banków; dane klienta/sprawy podstawiają się poprawnie; użytkownik może edytować przed wysłaniem; historia zostaje; nic nie wysyła się samodzielnie bez zatwierdzonej reguły lub akceptacji.
 
-## 007 — KOMPLETACJA + KOMUNIKACJA + WHATSAPP/SMS/E-MAIL
-ZALEŻNOŚĆ: kompletacja korzysta z wybranych banków i ich zatwierdzonych wymagań z 005–006.
-Cel: co mamy / czego brakuje per wybrany bank; wspólna lista dokumentów bez duplikatów; gotowe komunikaty do klienta; WhatsApp/SMS/e-mail; przypomnienia; historia komunikacji.
-PASS: lista braków wynika z rzeczywistych wymagań wybranych banków; z klienta/Deala można przygotować wiadomość z właściwego szablonu i braków; dane klienta/sprawy podstawiają się poprawnie; użytkownik może edytować przed wysłaniem; historia zostaje; minimalny WhatsApp nie niszczy istniejącego fundamentu; system nie wysyła samodzielnie bez zatwierdzonej reguły/akceptacji.
+## 007 — LEJEK + KALENDARZ + ZADANIA + RYTM DNIA
+Zakres sprzedażowy: finalne LEJEK/KALENDARZ/ZADANIA spięte z Deal/next action/terminami.
+Zakres życiowy: ochrona porannej modlitwy/medytacji, ruchu/biegu, Modlitwy Jabesa na rozpoczęcie pracy, PRZYCHODU TERAZ, PRZYCHODU PÓŹNIEJ oraz wieczornego rachunku sumienia/wdzięczności. Garmin/MATA tylko jako potrzebny syntetyczny kontekst.
+PASS: Deal zmienia etap; termin/zadanie pojawia się we właściwym miejscu i w DZISIAJ; brak dublowania; 6 aktywnych etapów; filtry zadań i tydzień roboczy działają; rytm dnia nie jest wypierany przez automatyczne priorytety.
 
-## 008 — LEJEK + KALENDARZ + ZADANIA + RYTM DNIA
-Cel sprzedażowy: finalne ekrany LEJEK/KALENDARZ/ZADANIA spięte z Deal/next action/terminami.
-Cel życiowy: DZISIAJ/Kalendarz/Zadania chronią rytm dnia zamiast być wyłącznie listą sprzedażową.
-Minimalny rytm do uwzględnienia operacyjnie: rano cisza + modlitwa/medytacja chrześcijańska; krótkie ćwiczenia lub zaplanowany bieg; Modlitwa Jabesa na rozpoczęcie pracy; PRZYCHÓD TERAZ; PRZYCHÓD PÓŹNIEJ; wieczorem około 21:00 rachunek sumienia + wdzięczność + wyciszenie. Garmin/MATA dostarcza tylko potrzebny syntetyczny kontekst treningu/regeneracji, bez mieszania w CRM zbędnych wrażliwych danych.
-PASS: Deal zmienia etap; termin/zadanie pojawia się we właściwym miejscu i w DZISIAJ; brak dublowania; 6 aktywnych etapów lejka; filtry zadań i tydzień roboczy działają; chronione bloki rytmu dnia nie są wypierane przez automatyczne priorytety sprzedażowe; testy/build PASS.
+## 008 — FINANSE V1 — PEŁNE MINIMUM
+Źródło: aktywny MASTER projektu 05.
+Zakres: FIRMA / PRYWATNE / CAŁOŚĆ; import dostępnych plików/wyciągów i historii bez ręcznego przepisywania; salda; zobowiązania; cash flow 30/60; aktywne długi i raty; transfery FIRMA↔PRYWATNE bez podwójnego liczenia; prowizje/faktury; uruchomienie→prowizja oczekiwana→FV/rozliczenie→prowizja otrzymana; miesięczna checklista do księgowej; szkic e-maila do księgowej po zatwierdzeniu; Najbliższy krok CFO.
+PASS: dane są rzeczywiste i zachowane; trzy zakładki działają; import działa dla obsługiwanego pliku; transfery nie zawyżają CAŁOŚCI; prowizje nie tworzą równoległego systemu; checklista pokazuje komplet/braki; szkic maila nie wysyła się sam; telefon działa.
 
-# ETAP B — FINANSE / AI / DOMKNIĘCIE — REALIZOWAĆ PO STABILNYM ETAPIE A; CEL NA 25–30.09 W GRANICACH LIMITU
+## 009 — ASYSTENT mCRM — ARCHITEKTURA GOTOWA POD AGENT API
+Priorytet: nie zatrzymywać rdzenia CRM po to, by teraz budować pełnego Asystenta.
+Źródło prawdy o kliencie pozostaje w mCRM/Supabase.
+Zakres teraz: przygotować wyraźną warstwę narzędzi/funkcji mCRM, przez którą późniejszy Asystent będzie mógł odczytać Klienta/Deal, historię, next action, termin, blocker, etap, dane finansowania, braki i ryzyka oraz przygotować propozycję następnego kroku i wiadomości. Model nie manipuluje bazą bezpośrednio; zapisy i akcje przechodzą przez kontrolowane funkcje mCRM z regułami uprawnień.
+PASS: istnieje stabilny interfejs narzędzi do odczytu potrzebnego kontekstu i bezpiecznych dozwolonych akcji; brak drugiej bazy prawdy; minimum ekranu Asystenta ma jawny kontekst Klient/Deal; pełny Agents API może zostać dołożony później bez przebudowy modelu danych.
 
-## 009 — FINANSE V1 — FIRMA / PRYWATNE / CAŁOŚĆ + IMPORT DANYCH
-Źródło funkcjonalne: 00 — MASTER — FINANSE I MAJĄTEK — v2.0.
-Cel: jeden ekran FINANSE ma obsługiwać zakładki FIRMA / PRYWATNE / CAŁOŚĆ i przyjmować dostępne pliki finansowe bez ręcznego przepisywania historii.
-Zakres minimum: import plików/wyciągów i dostępnej historii; salda; zobowiązania z terminami/statusami; cash flow 30/60; aktywne długi i raty; transfery FIRMA↔PRYWATNE jako przepływ wewnętrzny; CAŁOŚĆ bez podwójnego liczenia.
-PASS: użytkownik może wgrać obsługiwany plik/wyciąg; dane są zachowane i przypisane do właściwej warstwy; FIRMA/PRYWATNE/CAŁOŚĆ działa; transfer wewnętrzny nie zawyża CAŁOŚCI; brak ręcznego przepisywania jako podstawowego procesu; telefon działa.
+## 010 — KOŃCOWY ODBIÓR 9 EKRANÓW + FUNKCJI + LIVE
+Zakres: pełny przepływ i zgodność wszystkich 9 zatwierdzonych ekranów z rzeczywistymi funkcjami.
+PASS techniczny: testy/build/diff-check PASS i paczki 002–009 mają dowody odbioru.
+PASS LIVE: klient→telefon→wynik→notatka/dyktowanie→next action→termin→DZISIAJ→historia→bank/banki→wymagania→kompletacja→komunikacja→lejek/kalendarz/zadania→prowizja działa na LIVE i dane pozostają po ponownym wejściu; Finanse mają pełne minimum V1; Asystent ma jawny kontekst i warstwę narzędzi.
+Jeżeli zalogowanego LIVE nie można sprawdzić bez człowieka, zgłoś jedną końcową czynność właścicielską zamiast udawać GOTOWE.
 
-## 010 — FINANSE V1 — PROWIZJE / FAKTURY / KSIĘGOWA / NAJBLIŻSZY KROK CFO
-Cel: połączyć sprzedażowe pieniądze z pełnym minimum finansowym.
-Zakres: prowizje i faktury z mCRM; uruchomienie→prowizja oczekiwana→FV/rozliczenie→prowizja otrzymana; status płynności; jeden „Najbliższy krok CFO”; miesięczna checklista materiałów do księgowej; gotowy szkic e-maila do księgowej, wysyłany dopiero po zatwierdzeniu użytkownika.
-PASS: dane prowizyjne nie są drugim równoległym systemem; checklista pokazuje komplet/braki; szkic maila korzysta z rzeczywistych danych/załączników i nie wysyła się sam; użytkownik widzi decyzję finansową, nie księgowy chaos.
+## ODBIÓR I AUTOMATYCZNE PRZEJŚCIE
+Po każdej paczce Codex zapisuje dowody w GLOWNY_STAN_WDROZENIA.md.
+01.07/automat sprawdza niezależnie: zakres zmian, testy/build/CI, zgodność z kryteriami i — gdy wymagane — LIVE.
+PASS → następna paczka.
+FAIL → jedna poprawka tej samej paczki.
+Brak dowodu → NIEODEBRANE.
 
-## 011 — ASYSTENT mCRM / AGENT API V1
-Cel: jeden Asystent w aplikacji, nie osobny system.
-PASS: jawny kontekst Klient/Deal/next action/termin/blocker; krótkie podsumowanie; propozycja następnego kroku; wykrycie braków/ryzyk; robocza wiadomość do klienta; korzystanie z zatwierdzonej wiedzy bankowej tam, gdzie potrzebne; brak samodzielnego wysyłania lub ważnej zmiany statusu; deterministyczne reguły pozostają w zwykłym kodzie.
-
-## 012 — WSPÓLNE WEJŚCIE mCRM / RACHUNEK SUMIENIA / MATA
-Cel: jedno miejsce wejścia i spójna nawigacja do trzech działających obszarów bez przepisywania ich od zera i bez mieszania baz danych.
-PASS: z mCRM można przejść do RACHUNKU SUMIENIA i MATY oraz wrócić; linki/stan nie wymagają pamiętania osobnych adresów; dane duchowe/zdrowotne nie są kopiowane do sprzedażowej bazy bez potrzeby.
-
-## 013 — KOŃCOWY ODBIÓR 9 EKRANÓW + FUNKCJI + LIVE
-Cel: pełny przepływ sprzedażowy i zgodność 9 ekranów z rzeczywistymi funkcjami.
-PASS techniczny: testy/build/diff-check PASS; wszystkie wymagane paczki oznaczone PASS z dowodami.
-PASS LIVE: klient→telefon→wynik→notatka/dyktowanie→next action→termin→DZISIAJ→historia→wybór banku→wymagania→kompletacja→komunikacja→lejek/kalendarz/zadania→prowizja działa na LIVE i dane pozostają po ponownym wejściu. Finanse mają FIRMA/PRYWATNE/CAŁOŚĆ i import plików; Asystent minimum ma jawny kontekst; rytm dnia jest chroniony.
-Jeżeli zalogowanego LIVE nie można sprawdzić bez człowieka, zapisz POTRZEBNA DECYZJA/UPRAWNIENIE: „końcowy test właścicielski LIVE”, bez udawania GOTOWE.
-
-## KOLEJNOŚĆ OCHRONY PRZY OGRANICZENIU LIMITU
-1. P0 + trwały zapis + dzwonienie.
-2. Klient/Deal/DZISIAJ + pomiar sprzedaży.
-3. Wiedza bankowa/kwalifikacja → procesy bankowe → kompletacja/komunikacja.
-4. Lejek/Kalendarz/Zadania + rytm dnia.
-5. Finanse V1.
-6. Asystent/Agent API V1.
-7. Wspólne wejście mCRM/RACHUNEK/MATA.
-Kosmetyka i rozszerzenia nigdy nie mają pierwszeństwa przed powyższym rdzeniem.
-
-## KOMUNIKATY DO 01.07 / TOMASZA — TYLKO 3
-1. GOTOWE CAŁOŚĆ — pełna wymagana kolejka zakończona i końcowy stan opisany; nie używaj GOTOWE, jeśli LIVE wymagany przez zakres nie został realnie potwierdzony.
-2. POTRZEBNA DECYZJA/UPRAWNIENIE — dokładnie czego potrzeba i dlaczego.
-3. PRACA ZABLOKOWANA — limit/brak dostępu/błąd uniemożliwia dalszy ciąg; podaj ostatni ukończony punkt i następny krok.
-
-Nie zatrzymuj się na zwykłym PASS paczki. Nie angażuj Tomasza jako kuriera ani technicznego testera.
+## POWIADOMIENIA DLA TOMASZA
+Powiadom tylko przy zdarzeniu: PACZKA UKOŃCZONA / PACZKA NIE PRZESZŁA KONTROLI / POTRZEBNE UPRAWNIENIE / BLOKER / LIMIT — OCZEKIWANIE / WZNOWIONO / GOTOWE CAŁOŚĆ.
+Format zawsze: CO ZROBIONO / CZY DZIAŁA / CO ROBI SYSTEM DALEJ / CZY TOMASZ MUSI COŚ ZROBIĆ.
+Nie raportuj zwykłych commitów ani postępu bez zmiany stanu.
