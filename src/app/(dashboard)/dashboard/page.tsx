@@ -214,7 +214,7 @@ export default function DashboardPage() {
         .eq('account_id', accountId)
         .eq('completed', false)
         .or(
-          `scheduled_at.lte.${end},next_action_date.lte.${end},next_contact_at.lte.${end}`
+          `scheduled_at.lt.${end},next_action_date.lt.${end},next_contact_at.lt.${end}`
         )
         .limit(200),
       db
@@ -225,7 +225,7 @@ export default function DashboardPage() {
         .eq('account_id', accountId)
         .is('deleted_at', null)
         .gte('starts_at', start)
-        .lte('starts_at', end)
+        .lt('starts_at', end)
         .order('starts_at'),
       db
         .from('work_queue_items')
@@ -234,7 +234,7 @@ export default function DashboardPage() {
         )
         .eq('account_id', accountId)
         .neq('status', 'ZALATWIONE')
-        .or(`snoozed_until.is.null,snoozed_until.lte.${end}`)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${end}`)
         .limit(200),
     ]);
     const firstError = [
