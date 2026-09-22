@@ -12,6 +12,7 @@ import {
   Clock3,
   Phone,
   PhoneMissed,
+  RefreshCw,
   Save,
   Sparkles,
   UserRound,
@@ -54,6 +55,7 @@ import {
   type ExistingCalendarRow,
 } from '@/lib/today/existing-data';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
+import { warsawDateKey, warsawDayRange } from '@/lib/date-time';
 
 type Priority = {
   position: number;
@@ -111,7 +113,7 @@ type WorkQueueRow = {
 export default function DashboardPage() {
   const db = useMemo(() => createClient(), []),
     { accountId } = useAuth();
-  const date = useMemo(() => new Date().toLocaleDateString('sv-SE'), []),
+  const date = useMemo(() => warsawDateKey(), []),
     [now] = useState(() => Date.now());
   const [deals, setDeals] = useState<Deal[]>([]),
     [contacts, setContacts] = useState<Contact[]>([]),
@@ -122,6 +124,8 @@ export default function DashboardPage() {
     [plannedActivities, setPlannedActivities] = useState<PlannedActivity[]>([]),
     [calendarEvents, setCalendarEvents] = useState<ExistingCalendarRow[]>([]),
     [workQueue, setWorkQueue] = useState<WorkQueueRow[]>([]),
+    [todayLoading, setTodayLoading] = useState(true),
+    [todayError, setTodayError] = useState(''),
     [saving, setSaving] = useState(false),
     [callOpen, setCallOpen] = useState(false),
     [queueSavingId, setQueueSavingId] = useState(''),
@@ -141,12 +145,17 @@ export default function DashboardPage() {
     [nextContactReason, setNextContactReason] = useState('');
 
   const load = useCallback(async () => {
+    if (!accountId) return;
+    setTodayLoading(true);
+    setTodayError('');
     const {
       data: { session },
     } = await db.auth.getSession();
-    if (!session?.user) return;
-    const start = new Date(`${date}T00:00:00`).toISOString(),
-      end = new Date(`${date}T23:59:59`).toISOString();
+    if (!session?.user) {
+      setTodayLoading(false);
+      return;
+    }
+    const { start, end } = warsawDayRange(date);
     const queueStart = new Date(
       Date.now() - 31 * 24 * 60 * 60 * 1000
     ).toISOString();
@@ -166,26 +175,34 @@ export default function DashboardPage() {
         .select(
           '*,contact:contacts!deals_contact_id_fkey(*),company:companies!deals_company_id_fkey(*),stage:pipeline_stages(*),document_requirements:deal_document_requirements(status),bank_processes(progress,status)'
         )
+        .eq('account_id', accountId)
         .eq('status', 'open')
         .order('next_action_at', { ascending: true, nullsFirst: false }),
-      db.from('contacts').select('*').order('name'),
-      db.from('companies').select('*').order('name'),
+      db.from('contacts').select('*').eq('account_id', accountId).order('name'),
+      db
+        .from('companies')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('name'),
       db
         .from('daily_priorities')
         .select('*')
+        .eq('account_id', accountId)
         .eq('priority_date', date)
         .eq('user_id', session.user.id)
         .order('position'),
       db
         .from('sales_activities')
         .select('activity_type,occurred_at')
+        .eq('account_id', accountId)
         .gte('occurred_at', start)
-        .lte('occurred_at', end),
+        .lt('occurred_at', end),
       db
         .from('sales_activities')
         .select(
           'id,activity_type,occurred_at,phone_number,call_result,attempt_number,expires_at,contact_id,company_id,deal_id,title,description,call_type,source,product_group,next_contact_at,next_contact_reason,completed'
         )
+        .eq('account_id', accountId)
         .eq('activity_type', 'telefon')
         .gte('occurred_at', queueStart)
         .order('occurred_at', { ascending: false }),
@@ -220,6 +237,22 @@ export default function DashboardPage() {
         .or(`snoozed_until.is.null,snoozed_until.lte.${end}`)
         .limit(200),
     ]);
+    const firstError = [
+      dealRows,
+      contactRows,
+      companyRows,
+      priorityRows,
+      activityRows,
+      callRows,
+      plannedRows,
+      calendarRows,
+      queueRows,
+    ].find((response) => response.error)?.error;
+    if (firstError) {
+      setTodayError(firstError.message);
+      setTodayLoading(false);
+      return;
+    }
     setDeals(
       ((dealRows.data ?? []) as Deal[]).filter(
         (deal) =>
@@ -255,6 +288,7 @@ export default function DashboardPage() {
           }
       )
     );
+    setTodayLoading(false);
   }, [accountId, db, date]);
 
   const matchNumber = useCallback(
@@ -615,12 +649,18 @@ export default function DashboardPage() {
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
-      <MobileTodayBoard
-        todayPlan={todayPlan}
-        overdueCount={overdue.length}
-        newCount={newContactsToday}
-      />
-      <DesktopTodayBoard todayPlan={todayPlan} deals={deals} />
+      {todayLoading ? <TodayLoadingState /> : null}
+      {todayError ? <TodayErrorState onRetry={() => void load()} /> : null}
+      {!todayLoading && !todayError ? (
+        <>
+          <MobileTodayBoard
+            todayPlan={todayPlan}
+            overdueCount={overdue.length}
+            newCount={newContactsToday}
+          />
+          <DesktopTodayBoard todayPlan={todayPlan} deals={deals} />
+        </>
+      ) : null}
       <div className="hidden">
         <Metric
           label="Telefony"
@@ -1110,6 +1150,52 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function TodayLoadingState() {
+  return (
+    <section
+      aria-label="Wczytywanie planu dnia"
+      aria-busy="true"
+      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+    >
+      <div className="h-7 w-36 animate-pulse rounded bg-slate-200" />
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="h-24 animate-pulse rounded-lg bg-slate-100"
+          />
+        ))}
+      </div>
+      <p className="mt-4 text-sm font-medium text-slate-500">
+        Układam aktualny plan dnia…
+      </p>
+    </section>
+  );
+}
+
+function TodayErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <section
+      role="alert"
+      className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-rose-950"
+    >
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 size-5 shrink-0 text-rose-600" />
+        <div>
+          <h1 className="font-black">Nie udało się wczytać DZISIAJ</h1>
+          <p className="mt-1 text-sm">
+            Nie pokazujemy niepełnego planu. Odśwież dane i wróć do pracy na
+            aktualnych sprawach.
+          </p>
+          <Button className="mt-3" variant="outline" onClick={onRetry}>
+            <RefreshCw className="size-4" /> Spróbuj ponownie
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2088,4 +2174,3 @@ function Field({
     </div>
   );
 }
-
