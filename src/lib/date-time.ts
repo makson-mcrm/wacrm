@@ -2,14 +2,19 @@ export const BUSINESS_TIME_ZONE = 'Europe/Warsaw';
 
 const partsFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: BUSINESS_TIME_ZONE,
-  year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
   hourCycle: 'h23',
 });
 
 function partsAt(date: Date) {
   return Object.fromEntries(
-    partsFormatter.formatToParts(date)
+    partsFormatter
+      .formatToParts(date)
       .filter((part) => part.type !== 'literal')
       .map((part) => [part.type, Number(part.value)])
   ) as Record<'year' | 'month' | 'day' | 'hour' | 'minute' | 'second', number>;
@@ -37,9 +42,37 @@ export function warsawDateTimeInputToIso(value: string) {
   let candidate = new Date(wallClockUtc);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const shown = partsAt(candidate);
-    const shownAsUtc = Date.UTC(shown.year, shown.month - 1, shown.day, shown.hour, shown.minute, shown.second);
+    const shownAsUtc = Date.UTC(
+      shown.year,
+      shown.month - 1,
+      shown.day,
+      shown.hour,
+      shown.minute,
+      shown.second
+    );
     candidate = new Date(candidate.getTime() + wallClockUtc - shownAsUtc);
   }
   return candidate.toISOString();
 }
 
+/** Calendar date used by the sales day, regardless of the device time zone. */
+export function warsawDateKey(value: string | Date = new Date()) {
+  const parts = partsAt(typeof value === 'string' ? new Date(value) : value);
+  const pad = (number: number) => String(number).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
+}
+
+/** UTC boundaries for one business day in Europe/Warsaw (DST-safe). */
+export function warsawDayRange(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+    throw new Error('Nieprawidłowa data dnia sprzedażowego.');
+  const start = warsawDateTimeInputToIso(`${date}T00:00`);
+  const [year, month, day] = date.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(year, month - 1, day + 1));
+  const nextKey = [
+    nextDate.getUTCFullYear(),
+    String(nextDate.getUTCMonth() + 1).padStart(2, '0'),
+    String(nextDate.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+  return { start, end: warsawDateTimeInputToIso(`${nextKey}T00:00`) };
+}

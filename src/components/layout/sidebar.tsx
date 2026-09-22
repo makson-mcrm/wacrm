@@ -94,13 +94,13 @@ const navItems: NavItem[] = [
   {
     href: '/deals',
     labelKey: 'deals',
-    label: 'DEALE',
+    label: 'DEAL',
     icon: BriefcaseBusiness,
   },
   {
     href: '/pipelines',
     labelKey: 'pipelines',
-    label: 'LEJEK SPRZEDAŻY',
+    label: 'LEJEK',
     icon: GitBranch,
   },
   {
@@ -119,7 +119,7 @@ const navItems: NavItem[] = [
   {
     href: '/assistant',
     labelKey: 'assistant',
-    label: 'ASYSTENT AI',
+    label: 'ASYSTENT',
     icon: Bot,
   },
 ];
@@ -451,4 +451,3 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
-
