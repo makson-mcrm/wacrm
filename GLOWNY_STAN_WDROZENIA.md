@@ -77,10 +77,6 @@ STOP uznajemy wyłącznie po rzeczywistym odrzuceniu/uniemożliwieniu uruchomien
 Zakres kodowy paczki obejmuje zatwierdzony fundament 9 ekranów, bezpieczny
 odczyt DZISIAJ w granicach konta i dnia Europe/Warsaw, jawne stany
 ładowania/błędu oraz istniejący roundtrip P0 do właściwego Deala i historii.
-Kontrola po scaleniu PR #7 wykryła i poprawiła jeden konkretny błąd granicy
-dnia: rekord dokładnie z północy następnego dnia nie może wejść do DZISIAJ.
-Aktualny commit `main` przeszedł CI, ale pełny odbiór na rzeczywistym LIVE nie
-został potwierdzony, dlatego nie nadajemy PASS.
 Po wdrożeniu wykonać kryteria odbiorowe zapisane w
 `docs/codex/0107-002-FUNDAMENT-DZISIAJ-P0.md`. Nie wykonywać 01.07-003 przed
 pełnym PASS 01.07-002.
