@@ -33,6 +33,8 @@ describe('plansza UX mCRM AI 10.09', () => {
     expect(dashboard).not.toContain('scheduled_at.lte.${end}');
     expect(dashboard).not.toContain(".lte('starts_at', end)");
     expect(dashboard).not.toContain('snoozed_until.lte.${end}');
+    expect(dashboard).toContain('setNow(Date.now())');
+    expect(dashboard).toContain('warsawDateKey(new Date(now))');
   });
 
   it('utrzymuje zwarty mobilny DZISIAJ i pięć paneli desktopowych', () => {

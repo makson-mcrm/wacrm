@@ -113,8 +113,8 @@ type WorkQueueRow = {
 export default function DashboardPage() {
   const db = useMemo(() => createClient(), []),
     { accountId } = useAuth();
-  const date = useMemo(() => warsawDateKey(), []),
-    [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  const date = useMemo(() => warsawDateKey(new Date(now)), [now]);
   const [deals, setDeals] = useState<Deal[]>([]),
     [contacts, setContacts] = useState<Contact[]>([]),
     [companies, setCompanies] = useState<Company[]>([]),
@@ -316,6 +316,10 @@ export default function DashboardPage() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.get('quick-call') === '1') setCallOpen(true);
