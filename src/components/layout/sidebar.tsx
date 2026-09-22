@@ -94,13 +94,13 @@ const navItems: NavItem[] = [
   {
     href: '/deals',
     labelKey: 'deals',
-    label: 'DEALE',
+    label: 'DEAL',
     icon: BriefcaseBusiness,
   },
   {
     href: '/pipelines',
     labelKey: 'pipelines',
-    label: 'LEJEK SPRZEDAŻY',
+    label: 'LEJEK',
     icon: GitBranch,
   },
   {
@@ -117,20 +117,20 @@ const navItems: NavItem[] = [
     icon: Landmark,
   },
   {
-    href: '/assistant',
-    labelKey: 'assistant',
-    label: 'ASYSTENT AI',
-    icon: Bot,
-  },
-];
-
-const secondaryNavItems: NavItem[] = [
-  {
     href: '/quick-call',
     labelKey: 'activity',
     label: 'AKTYWNOŚĆ',
     icon: Activity,
   },
+  {
+    href: '/assistant',
+    labelKey: 'assistant',
+    label: 'ASYSTENT',
+    icon: Bot,
+  },
+];
+
+const secondaryNavItems: NavItem[] = [
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },
@@ -451,4 +451,3 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     </>
   );
 }
-

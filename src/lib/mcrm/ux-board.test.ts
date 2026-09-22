@@ -6,6 +6,60 @@ const source = (path: string) =>
   readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('plansza UX mCRM AI 10.09', () => {
+  it('utrzymuje zatwierdzony fundament nawigacji dziewięciu ekranów', () => {
+    const sidebar = source('src/components/layout/sidebar.tsx');
+    const labels = [
+      'DZISIAJ',
+      'KLIENCI',
+      'DEAL',
+      'LEJEK',
+      'KALENDARZ',
+      'ZADANIA',
+      'FINANSE',
+      'AKTYWNOŚĆ',
+      'ASYSTENT',
+    ];
+    for (const label of labels) {
+      expect(sidebar).toContain(`label: '${label}'`);
+    }
+    const mainNavigation = sidebar.slice(
+      sidebar.indexOf('const navItems'),
+      sidebar.indexOf('const secondaryNavItems')
+    );
+    const positions = labels.map((label) =>
+      mainNavigation.indexOf(`label: '${label}'`)
+    );
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(
+      sidebar.slice(sidebar.indexOf('const secondaryNavItems'))
+    ).not.toContain("label: 'AKTYWNOŚĆ'");
+  });
+
+  it('AppShell udostępnia GlobalSearch i GlobalAdd także na mobile', () => {
+    const header = source('src/components/layout/header.tsx');
+    const mobile = source('src/components/layout/mobile-bottom-nav.tsx');
+    const globalAdd = source('src/components/layout/global-add.tsx');
+    expect(header).toContain('<GlobalCrmSearch />');
+    expect(header).toContain('<GlobalAdd />');
+    expect(mobile).toContain('<GlobalAdd mobile />');
+    expect(globalAdd).toContain('href="/quick-call"');
+  });
+
+  it('nie pokazuje pustego DZISIAJ podczas ładowania albo błędu danych', () => {
+    const dashboard = source('src/app/(dashboard)/dashboard/page.tsx');
+    expect(dashboard).toContain('TodayLoadingState');
+    expect(dashboard).toContain('TodayErrorState');
+    expect(dashboard).toContain('Nie pokazujemy niepełnego planu');
+    expect(dashboard).toContain(".eq('account_id', accountId)");
+    expect(dashboard).toContain('warsawDayRange(date)');
+    expect(dashboard).not.toContain('scheduled_at.lte.${end}');
+    expect(dashboard).not.toContain(".lte('starts_at', end)");
+    expect(dashboard).not.toContain('snoozed_until.lte.${end}');
+    expect(dashboard).toContain('setNow(Date.now())');
+    expect(dashboard).toContain('warsawDateKey(new Date(now))');
+  });
+
   it('utrzymuje zwarty mobilny DZISIAJ i pięć paneli desktopowych', () => {
     const dashboard = source('src/app/(dashboard)/dashboard/page.tsx');
     expect(dashboard).toContain('MobileTodayBoard');
