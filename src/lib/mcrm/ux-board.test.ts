@@ -8,7 +8,7 @@ const source = (path: string) =>
 describe('plansza UX mCRM AI 10.09', () => {
   it('utrzymuje zatwierdzony fundament nawigacji dziewięciu ekranów', () => {
     const sidebar = source('src/components/layout/sidebar.tsx');
-    for (const label of [
+    const labels = [
       'DZISIAJ',
       'KLIENCI',
       'DEAL',
@@ -18,9 +18,32 @@ describe('plansza UX mCRM AI 10.09', () => {
       'FINANSE',
       'AKTYWNOŚĆ',
       'ASYSTENT',
-    ]) {
+    ];
+    for (const label of labels) {
       expect(sidebar).toContain(`label: '${label}'`);
     }
+    const mainNavigation = sidebar.slice(
+      sidebar.indexOf('const navItems'),
+      sidebar.indexOf('const secondaryNavItems')
+    );
+    const positions = labels.map((label) =>
+      mainNavigation.indexOf(`label: '${label}'`)
+    );
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(
+      sidebar.slice(sidebar.indexOf('const secondaryNavItems'))
+    ).not.toContain("label: 'AKTYWNOŚĆ'");
+  });
+
+  it('AppShell udostępnia GlobalSearch i GlobalAdd także na mobile', () => {
+    const header = source('src/components/layout/header.tsx');
+    const mobile = source('src/components/layout/mobile-bottom-nav.tsx');
+    const globalAdd = source('src/components/layout/global-add.tsx');
+    expect(header).toContain('<GlobalCrmSearch />');
+    expect(header).toContain('<GlobalAdd />');
+    expect(mobile).toContain('<GlobalAdd mobile />');
+    expect(globalAdd).toContain('href="/quick-call"');
   });
 
   it('nie pokazuje pustego DZISIAJ podczas ładowania albo błędu danych', () => {

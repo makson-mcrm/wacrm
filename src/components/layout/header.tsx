@@ -4,19 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  BriefcaseBusiness,
   Bell,
-  Building2,
-  CalendarPlus,
-  ListTodo,
   LogOut,
   Menu,
-  Plus,
   Search,
   Settings as SettingsIcon,
   Sparkles,
   User,
-  UserPlus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -28,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { GlobalCrmSearch } from '@/components/layout/global-crm-search';
+import { GlobalAdd } from '@/components/layout/global-add';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'dashboard',
@@ -49,7 +44,7 @@ const mcrmSectionTitles: Record<string, string> = {
   '/dashboard': 'DZISIAJ',
   '/quick-call': 'AKTYWNOŚĆ',
   '/contacts': 'KLIENCI',
-  '/deals': 'DEALE',
+  '/deals': 'DEAL',
   '/pipelines': 'LEJEK',
   '/calendar': 'KALENDARZ',
   '/tasks': 'ZADANIA',
@@ -134,35 +129,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <Bell className="size-4" />
         </Link>
         <div className="hidden items-center gap-2 sm:flex">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold">
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Dodaj</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-52">
-              <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
-                <BriefcaseBusiness className="size-4" />
-                Deal
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
-                <UserPlus className="size-4" />
-                Kontakt
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/companies?new=company" />}>
-                <Building2 className="size-4" />
-                Firma
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem render={<a href="/calendar?new=task" />}>
-                <ListTodo className="size-4" />
-                Zadanie
-              </DropdownMenuItem>
-              <DropdownMenuItem render={<a href="/calendar?new=event" />}>
-                <CalendarPlus className="size-4" />
-                Spotkanie
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <GlobalAdd />
           <ModeToggle />
 
           <DropdownMenu>
@@ -236,4 +203,3 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     </header>
   );
 }
-

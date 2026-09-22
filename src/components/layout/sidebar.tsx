@@ -117,6 +117,12 @@ const navItems: NavItem[] = [
     icon: Landmark,
   },
   {
+    href: '/quick-call',
+    labelKey: 'activity',
+    label: 'AKTYWNOŚĆ',
+    icon: Activity,
+  },
+  {
     href: '/assistant',
     labelKey: 'assistant',
     label: 'ASYSTENT',
@@ -125,12 +131,6 @@ const navItems: NavItem[] = [
 ];
 
 const secondaryNavItems: NavItem[] = [
-  {
-    href: '/quick-call',
-    labelKey: 'activity',
-    label: 'AKTYWNOŚĆ',
-    icon: Activity,
-  },
   { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
   { href: '/notifications', labelKey: 'notifications', icon: ClipboardList },
   { href: '/companies', labelKey: 'companies', icon: Building2 },

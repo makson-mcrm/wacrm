@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bot, GitBranch, House, Plus, Users } from 'lucide-react';
+import { Bot, GitBranch, House, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GlobalAdd } from '@/components/layout/global-add';
 
 const items = [
-  { href: '/dashboard', label: 'DZISIAJ', icon: House },
-  { href: '/contacts', label: 'KLIENCI', icon: Users },
-  { href: '/quick-call', label: 'DODAJ', icon: Plus, primary: true },
-  { href: '/pipelines', label: 'LEJEK', icon: GitBranch },
-  { href: '/assistant', label: 'ASYSTENT', icon: Bot },
+  { href: '/dashboard', label: 'DZISIAJ', icon: House, primary: false },
+  { href: '/contacts', label: 'KLIENCI', icon: Users, primary: false },
+  { href: '/quick-call', label: 'DODAJ', primary: true },
+  { href: '/pipelines', label: 'LEJEK', icon: GitBranch, primary: false },
+  { href: '/assistant', label: 'ASYSTENT', icon: Bot, primary: false },
 ] as const;
 
 export function MobileBottomNav() {
@@ -28,30 +29,34 @@ export function MobileBottomNav() {
           const primary = item.href === '/quick-call';
           return (
             <li key={item.href} className="min-w-0">
-              <Link
-                href={item.href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-[8px] font-black tracking-[-0.03em]',
-                  primary
-                    ? 'text-emerald-900'
-                    : active
-                      ? 'text-emerald-950'
-                      : 'text-slate-500'
-                )}
-              >
-                <span
+              {item.primary ? (
+                <GlobalAdd mobile />
+              ) : (
+                <Link
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-8 min-w-8 items-center justify-center rounded-full px-2',
+                    'flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-[8px] font-black tracking-[-0.03em]',
                     primary
-                      ? '-mt-3 size-12 bg-emerald-700 p-0 text-white shadow-lg ring-4 ring-white'
-                      : active && 'bg-emerald-50'
+                      ? 'text-emerald-900'
+                      : active
+                        ? 'text-emerald-950'
+                        : 'text-slate-500'
                   )}
                 >
-                  <item.icon className={cn('size-5', primary && 'size-7')} />
-                </span>
-                <span className="max-w-full truncate">{item.label}</span>
-              </Link>
+                  <span
+                    className={cn(
+                      'flex h-8 min-w-8 items-center justify-center rounded-full px-2',
+                      primary
+                        ? '-mt-3 size-12 bg-emerald-700 p-0 text-white shadow-lg ring-4 ring-white'
+                        : active && 'bg-emerald-50'
+                    )}
+                  >
+                    <item.icon className={cn('size-5', primary && 'size-7')} />
+                  </span>
+                  <span className="max-w-full truncate">{item.label}</span>
+                </Link>
+              )}
             </li>
           );
         })}
@@ -59,4 +64,3 @@ export function MobileBottomNav() {
     </nav>
   );
 }
-
