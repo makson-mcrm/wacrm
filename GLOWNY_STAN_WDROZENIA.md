@@ -1,88 +1,133 @@
 # GŁÓWNY STAN WDROŻENIA mCRM AI
 
-Aktualizacja: 2026-09-22 Europe/Warsaw
+Aktualizacja: 2026-09-24 Europe/Warsaw
 Właściciel biznesowy: Tomasz
 Kierownik strategiczny: 01.07 — Strategiczny Wdrożeniowiec mCRM AI
 Repozytorium: makson-mcrm/wacrm
 
 ## AKTUALNY CEL
 
-Do piątku 25.09.2026 doprowadzić LIVE do realnej codziennej sprzedaży na zatwierdzonym pakiecie UX 9 ekranów: DZISIAJ / KLIENCI / DEAL / LEJEK / KALENDARZ / ZADANIA / FINANSE / AKTYWNOŚĆ / ASYSTENT. Rdzeń ma obsługiwać prawdziwego klienta, telefon/aktywność, wynik rozmowy, notatkę/dyktowanie, następny krok, termin, blocker, historię i pomiar sprzedaży. Do piątku w minimum również: WhatsApp + zatwierdzone szablony/kompletacja oraz Finanse sprzedażowe minimum. Bez budowania Agents API od zera przed stabilnym rdzeniem.
+Po resecie tygodniowego limitu w sobotę 26.09.2026 doprowadzić w pierwszej kolejności do stabilnego CRM MINIMUM LIVE:
+
+002 — FUNDAMENT + DZISIAJ + P0
+003 — KLIENCI + DEAL + lekki rejestr przed Dealem
+004 — AKTYWNOŚĆ / DZWONIENIE + pomiar sprzedaży
+
+Dopiero po stabilnym LIVE 002–004 wolno przechodzić dalej. Firma i technologia mają przywrócić realną sprzedaż, a nie konsumować limit na kosmetykę, audyty poboczne i równoległe eksperymenty.
 
 ## OSTATNI POTWIERDZONY MAIN
 
-cf6fc9110aae4b1dbf8335e9b118ad73734971ca — merge PR #4 „01.07-001 — rdzeń sprzedażowy do realnej pracy”.
+`8a68c42d29486d53e35c562df0f616950f7c0918` — merge PR #10 „finalny AppShell 002” z 22.09.2026.
 
-## KRYTYCZNA KOREKTA 01.07-001
+To zastępuje stary wpis wskazujący PR #4 jako ostatni potwierdzony main.
 
-PR #4 został scalony, ale zawierał wyłącznie 2 pliki dokumentacyjne (GLOWNY_STAN_WDROZENIA.md oraz opis zlecenia 01.07-001). Nie zawierał zmian kodu aplikacji. Dlatego nie wolno uznawać 01.07-001 za wdrożoną funkcję ani za dowód poprawy rdzenia sprzedażowego. Wcześniejsze określenie tego merge jako „wdrożenia rdzenia” było błędne.
+## 002 — STAN
 
-## CO JEST POTWIERDZONE
+- Kod paczki 002 został scalony do `main` przez kolejne PR-y #7–#10.
+- PR #10 zawierał poprawki finalnego AppShellu 002, w tym GlobalAdd i nawigację 9 ekranów.
+- Pełny LIVE PASS 002 PO PR #10 NIE został jeszcze niezależnie potwierdzony na rzeczywistym zalogowanym LIVE względem finalnej planszy DZISIAJ + audytu + checklisty.
+- W sobotę pierwsza bramka to rzeczywisty odbiór LIVE 002. Jeżeli FAIL — poprawiamy wyłącznie 002. 003 pozostaje STOP.
 
-- LIVE Hostinger otwiera się po zalogowaniu i pokazuje działający ekran „Dzisiaj” na rzeczywistych danych użytkownika.
-- Widoczny LIVE nadal odpowiada wcześniejszemu/staremu układowi, a nie finalnemu pakietowi UX 9 ekranów z 18.09.
-- PR #3 dotyczący roundtrip aktywność → Deal → DZISIAJ został wcześniej scalony do main.
-- Aktualny main zawiera poprawki odzyskiwania hasła i wcześniejsze wywołanie wdrożenia Hostinger.
-- Finalny pakiet UX jest utrwalony na Drive w folderze „UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026”: PDF + audyt + checklista.
+## 003 — STAN
 
-## CO NIE JEST JESZ POTWIERDZONE
+Aktywny PR: #11
+Branch: `codex/0107-003-klienci-deal-rejestr`
+Head PR #11: `6d22708f80f88684420f460a26a70c986f623067`
 
-- Finalny UX 9 ekranów na LIVE.
-- Pełny realny przepływ: klient → telefon → wynik → next action → termin → DZISIAJ → historia → prowizja na aktualnym LIVE.
-- Minimalny WhatsApp + finalne szablony + kompletacja na aktualnym LIVE.
-- Finanse sprzedażowe minimum i Asystent minimum w finalnym UX.
-- Czy ostrzeżenia Hostinger o bezpieczeństwie są zamknięte w sposób pozwalający uznać produkcję za bezpieczną do stałej pracy.
+STATUS: NIEGOTOWE / NIE SCALAĆ.
+
+Powód:
+- Codex został realnie uruchomiony i wykonał lokalne zmiany oraz testy,
+- ale jego środowisko nie miało poświadczeń pozwalających zapisać lokalny commit na istniejącej gałęzi GitHub,
+- dlatego head PR #11 nie zmienił się i ostatnie zmiany Codexa nie są fizycznie dostarczone do repo.
+
+Wniosek: raport Codexa o lokalnym commicie bez zmiany head PR NIE jest dowodem wykonania.
+
+## 004 — STAN
+
+NIEURUCHOMIONA.
+Specyfikacja przygotowana: `docs/codex/0107-004-AKTYWNOSC-POMIAR.md`.
+004 wolno uruchomić dopiero po pełnym LIVE PASS 003.
+
+## TRANSPORT CODEX → GITHUB — GŁÓWNY BLOCKER
+
+Potwierdzony stan:
+- GitHub → wywołanie Codexa: działa,
+- Codex → wykonanie kodu/testów lokalnie: działa,
+- Codex → fizyczny zapis wyniku jako nowy head istniejącego PR: w dotychczasowym trybie NIE działał z powodu braku poświadczeń zapisu.
+
+Do czasu naprawy transportu NIE wolno przedstawiać automatyzacji jako samodzielnego wdrażania.
+
+Kryterium PASS transportu:
+- istniejący PR #11,
+- Codex wykonuje minimalną kontrolowaną zmianę,
+- bez ręcznego przenoszenia kodu przez Tomasza pojawia się nowy head SHA PR #11 w `makson-mcrm/wacrm`.
+
+Po dwóch kolejnych próbach bez zmiany head: STOP, bez dalszego spalania limitu.
 
 ## ŹRÓDŁO UX — OBOWIĄZUJE
 
 Folder Drive: „UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026”.
 PDF: „UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026.pdf”.
 Załączniki: „01 — AUDYT UX — ZAŁĄCZNIK DO 9 EKRANÓW — 18.09.2026” oraz „02 — CHECKLISTA ODBIOROWA UX — 9 EKRANÓW — 18.09.2026”.
-Nie wolno wracać do 13.09 jako wersji finalnej ani redesignować zatwierdzonych plansz.
 
-## PLAN PACZEK DO PIĄTKU — JEDNA NARAZ
+Plansza określa wygląd, proporcje i hierarchię. Audyt określa zachowanie, responsywność i kryteria odbioru. Nie redesignować.
 
-01.07-002 — FUNDAMENT + DZISIAJ.
-01.07-003 — KLIENCI + DEAL + lekki rejestr przed Dealem.
-01.07-004 — AKTYWNOŚĆ/DZWONIENIE + pomiar sprzedaży.
-01.07-005 — WHATSAPP + finalne szablony + kompletacja minimum.
-01.07-006 — LEJEK + KALENDARZ + ZADANIA.
-01.07-007 — FINANSE sprzedażowe minimum + ASYSTENT minimum bez budowy Agents API od zera.
-01.07-008 — pełny odbiór 9 ekranów/LIVE + tylko poprawki krytyczne.
+## DOKUMENTY WYKONAWCZE NA SOBOTĘ
 
-## BUDŻET LIMITÓW — OSTATNI POTWIERDZONY STAN
+- `docs/codex/0107-003-KLIENCI-DEAL-REJESTR.md`
+- `docs/codex/0107-004-AKTYWNOSC-POMIAR.md`
+- `docs/codex/0107-START-SOBOTA-2026-09-26.md`
 
-Odczyt z panelu Usage z 21.09 około 17:30:
+## PR-Y — PORZĄDEK
 
-- limit 5h: 77% pozostało; reset był wskazany za około 23 min,
-- limit tygodniowy: 59% pozostało; reset za około 4 dni 19 godz.
-  01.07 nie ma samodzielnego odczytu aktualnych procentów; nie zgaduje świeżego stanu.
-  Planistycznie do piątku: maksymalnie 49 punktów procentowych tygodniowego budżetu na paczki i 10 punktów rezerwy na błędy krytyczne. To alokacja, nie prognoza faktycznego zużycia.
-  Work: 0 jako plan bazowy. Jedno aktywne zlecenie Codex naraz.
+- PR #5: ARCHIWALNY — zamknięty. Nie używać jako źródła prawdy.
+- PR #6: ARCHIWALNY — zamknięty. Nie używać jako źródła prawdy.
+- PR #7–#10: historia wykonania 002; scalone.
+- PR #11: JEDYNY aktywny PR 003; NIE SCALAĆ przed dostarczeniem rzeczywistych zmian Codexa i spełnieniem warunków startu.
+
+## BUDŻET LIMITU — 24.09.2026
+
+Ostatni stan podany przez Tomasza:
+- limit tygodniowy: około 5% pozostało przed sobotnim resetem.
+
+Zasada do resetu:
+- nie kodować nowych funkcji,
+- nie ruszać 004,
+- nie uruchamiać 005–010,
+- pozostały limit Codexa przeznaczyć wyłącznie na test/naprawę transportu Codex → GitHub,
+- zwykłym Chatem/GitHubem przygotować dokumentację, stan i kolejność bez spalania limitu Codexa.
 
 ## ZASADA ODBIORU
 
-Ekran bez minimalnej działającej funkcji = NIEODEBRANY.
 Raport Codexa ≠ odbiór.
-Każda paczka: kod → testy/build → zgodność z zatwierdzonym UX → rzeczywiste działanie LIVE → aktualizacja tego pliku → decyzja 01.07.
-Tomasz wykonuje dopiero końcowy krótki test biznesowy po odbiorze technicznym.
+Lokalny commit Codexa ≠ dostarczenie.
+Testy/build ≠ LIVE PASS.
 
-## STOP LIMITU I WZNOWIENIE
+Każda paczka:
+kod → fizyczny commit na właściwym PR → testy/build/checki → merge → deploy → rzeczywiste porównanie LIVE → PASS/FAIL.
 
-STOP uznajemy wyłącznie po rzeczywistym odrzuceniu/uniemożliwieniu uruchomienia Codex z powodu limitu. Wtedy zapisujemy numer paczki, ostatni zamknięty punkt i dokładnie jeden następny krok. Bez serii ponowień. Po resecie pierwsza zaplanowana kontrola podejmuje jedną próbę wznowienia tej samej paczki.
+Tomasz nie jest kurierem kodu ani testerem technicznym. Angażować go tylko do jednej koniecznej czynności właścicielskiej lub krótkiego końcowego testu biznesowego LIVE.
+
+## KOLEJNOŚĆ SOBOTA 26.09
+
+1. Odbiór LIVE 002 po PR #10.
+2. Jeśli 002 FAIL — poprawka tylko 002.
+3. Jeśli 002 PASS — test transportu Codex → istniejący PR #11.
+4. Jeśli transport PASS — wykonanie 003 według zamkniętej specyfikacji.
+5. Merge + LIVE PASS 003.
+6. Dopiero wtedy 004.
+7. 005–010 pozostają STOP do czasu stabilnego CRM MINIMUM LIVE.
+
+## STOP
+
+STOP gdy:
+- 002 lub 003 nie ma rzeczywistego LIVE PASS,
+- dwie kolejne próby transportu nie zmieniają head PR,
+- potrzebne jest ryzykowne uprawnienie/decyzja właściciela,
+- limit realnie blokuje pracę,
+- źródła prawdy są sprzeczne.
 
 ## NASTĘPNY KROK
 
-01.07-002 pozostaje NIEGOTOWA do czasu wdrożenia i niezależnego odbioru LIVE.
-Zakres kodowy paczki obejmuje zatwierdzony fundament 9 ekranów, bezpieczny
-odczyt DZISIAJ w granicach konta i dnia Europe/Warsaw, jawne stany
-ładowania/błędu oraz istniejący roundtrip P0 do właściwego Deala i historii.
-Po wdrożeniu wykonać kryteria odbiorowe zapisane w
-`docs/codex/0107-002-FUNDAMENT-DZISIAJ-P0.md`. Nie wykonywać 01.07-003 przed
-pełnym PASS 01.07-002.
-
-## PO PIĄTKU / DO 30.09
-
-28.09 — Wiedza bankowa V1 (najpierw mBank) + minimalna obsługa 2–3 banków w jednym Dealu.
-29.09 — Finanse V1 rozszerzone + wspólne wejście mCRM/RACHUNEK/MATA.
-30.09 — kontrola jakości danych T12 + tylko minimalny przepływ Zdrowie/Żywienie, jeśli rdzeń sprzedażowy jest stabilny. Bez Smart Home/EV/pełnego Agents API przed stabilnością rdzenia.
+Do soboty: bez nowego kodu. Przygotowanie repo i dokumentów oraz jedna oszczędna próba rozwiązania transportu Codex → GitHub na PR #11. Po resecie sobotnim zacząć dokładnie od `docs/codex/0107-START-SOBOTA-2026-09-26.md`.
