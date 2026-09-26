@@ -1,0 +1,1 @@
+STATUS: gotowe do CI; LIVE PASS wymaga wdrożenia i rzeczywistego odbioru.
