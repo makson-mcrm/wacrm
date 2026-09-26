@@ -1,8 +1,10 @@
 import { Suspense } from 'react';
-import { QuickActivityForm } from '@/components/sales/quick-activity-form';
+import { ActivityBoard08 } from '@/components/sales/activity-board-08';
 
 export default function QuickCallPage() {
-  return <Suspense fallback={null}><QuickActivityForm /></Suspense>;
+  return (
+    <Suspense fallback={null}>
+      <ActivityBoard08 />
+    </Suspense>
+  );
 }
-
-
