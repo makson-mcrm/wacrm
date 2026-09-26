@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------
-# Stage 1 — install dependencies (cached until package*.json change)
+# Stage 1 — install dependencies
 # ---------------------------------------------------------------
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+# package-lock.json was corrupted in the repository. Until a clean lockfile
+# is regenerated, install directly from package.json so production builds
+# do not fail before dependency installation starts.
+RUN npm install --no-package-lock
 
 # ---------------------------------------------------------------
 # Stage 2 — build
