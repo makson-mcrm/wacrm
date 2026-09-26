@@ -1,0 +1,1 @@
+004 pozostaje zablokowane do czasu rzeczywistego LIVE PASS ekranu AKTYWNOŚĆ.
