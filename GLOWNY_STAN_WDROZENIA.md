@@ -1,133 +1,192 @@
 # GŁÓWNY STAN WDROŻENIA mCRM AI
 
-Aktualizacja: 2026-09-24 Europe/Warsaw
+Aktualizacja: 2026-09-26 około 17:15 Europe/Warsaw
 Właściciel biznesowy: Tomasz
-Kierownik strategiczny: 01.07 — Strategiczny Wdrożeniowiec mCRM AI
+Rola: 01.07 — Strategiczny Wdrożeniowiec mCRM AI
 Repozytorium: makson-mcrm/wacrm
+Status: FORMALNE PRZEKAZANIE OKNA 01.07 — po utracie jakości starego okna
+
+## BRAMKA 0 — OBOWIĄZUJE PRZED KAŻDYM URUCHOMIENIEM CODEXA
+
+Przed każdym uruchomieniem Codexa 01.07 musi odczytać:
+1. ten plik `GLOWNY_STAN_WDROZENIA.md`,
+2. aktualny plan wykonawczy,
+3. finalny pakiet `UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026`.
+
+Następnie musi ustalić numer aktualnej paczki i kryterium PASS. Jeśli źródła są niespójne — STOP bez uruchamiania Codexa.
+
+Zakazane jako zamiennik zatwierdzonego UX: stary ekran, stare WaCRM, `/quick-call` w starej/uproszczonej formie, „tymczasowe minimum”, własny redesign. Tomasz nie przypomina, która grafika obowiązuje.
+
+Finalny PDF 9 ekranów jest jedynym źródłem prawdy dla wyglądu. Plansza 08 jest źródłem prawdy dla AKTYWNOŚCI.
 
 ## AKTUALNY CEL
 
-Po resecie tygodniowego limitu w sobotę 26.09.2026 doprowadzić w pierwszej kolejności do stabilnego CRM MINIMUM LIVE:
+Najbliższy cel biznesowy: na poniedziałek rano Tomasz ma móc realnie rejestrować telefony sprzedażowe bez gubienia danych.
 
-002 — FUNDAMENT + DZISIAJ + P0
-003 — KLIENCI + DEAL + lekki rejestr przed Dealem
-004 — AKTYWNOŚĆ / DZWONIENIE + pomiar sprzedaży
+Bezpośredni cel pozostawiony przez stare okno po ostatniej decyzji Tomasza: doprowadzić WYŁĄCZNIE ekran AKTYWNOŚĆ do działającego LIVE zgodnego 1:1 z finalną planszą 08. Nie ruszać innych ekranów, dopóki ten efekt nie jest widoczny i sprawdzony.
 
-Dopiero po stabilnym LIVE 002–004 wolno przechodzić dalej. Firma i technologia mają przywrócić realną sprzedaż, a nie konsumować limit na kosmetykę, audyty poboczne i równoległe eksperymenty.
+Docelowy przepływ AKTYWNOŚCI: Klient/Deal → Akcja/telefon → Wynik rozmowy → notatka/dyktowanie → następny krok → termin → blocker → zapis → trwałość danych/historia.
 
-## OSTATNI POTWIERDZONY MAIN
+## OSTATNIA ZATWIERDZONA DECYZJA
 
-`8a68c42d29486d53e35c562df0f616950f7c0918` — merge PR #10 „finalny AppShell 002” z 22.09.2026.
+1. BRAMKA 0 obowiązuje bez wyjątku.
+2. Finalny pakiet `UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026` zastępuje stare grafiki i uproszczenia.
+3. Tomasz polecił następnie: „daj tylko działające okno aktywność”.
+4. Po formalnym przejęciu nie uruchamiać żadnej nowej pracy Codexa, nie tworzyć nowego planu i nie pytać Tomasza o technikalia.
 
-To zastępuje stary wpis wskazujący PR #4 jako ostatni potwierdzony main.
+## AKTUALNY RZECZYWISTY STAN KODU
 
-## 002 — STAN
+### main
+Aktualny head `main` przed tym zapisem stanu: `640e5f8aca89e63088c5278a37b10c2d0ac54f40`.
+To commit dokumentacyjny „PREP SOBOTA 26.09 — stan + spec 003/004 + plan startowy”; nie wniósł zmian funkcjonalnych.
 
-- Kod paczki 002 został scalony do `main` przez kolejne PR-y #7–#10.
-- PR #10 zawierał poprawki finalnego AppShellu 002, w tym GlobalAdd i nawigację 9 ekranów.
-- Pełny LIVE PASS 002 PO PR #10 NIE został jeszcze niezależnie potwierdzony na rzeczywistym zalogowanym LIVE względem finalnej planszy DZISIAJ + audytu + checklisty.
-- W sobotę pierwsza bramka to rzeczywisty odbiór LIVE 002. Jeżeli FAIL — poprawiamy wyłącznie 002. 003 pozostaje STOP.
+Ostatni potwierdzony funkcjonalny merge 002: `8a68c42d29486d53e35c562df0f616950f7c0918` — merge PR #10 „finalny AppShell 002”.
 
-## 003 — STAN
+Aktualny plik `src/components/sales/quick-activity-form.tsx` na main ma blob SHA `c7e80ab0efc726c8002164490151174c31879497` i nadal odpowiada wersji obecnej w repo, nie lokalnej zmianie Codexa zgłoszonej dziś.
 
-Aktywny PR: #11
-Branch: `codex/0107-003-klienci-deal-rejestr`
-Head PR #11: `6d22708f80f88684420f460a26a70c986f623067`
+### PR #11
+Aktywny PR #11: `01.07-003 — KLIENCI + DEAL + rejestr — NIE SCALAĆ`.
+Branch: `codex/0107-003-klienci-deal-rejestr`.
+Rzeczywisty head PR #11: `6d22708f80f88684420f460a26a70c986f623067`.
+Head nie zawiera dzisiejszych lokalnych commitów Codexa.
 
-STATUS: NIEGOTOWE / NIE SCALAĆ.
+Codex raportował lokalne, niewidoczne w repo commity, m.in.:
+- `dedf2c2cf74c5c0f23f7a355de302d31beebff7c` — przygotowana AKTYWNOŚĆ,
+- wcześniej `c7b4aa5a56970b3ac36a06754dcf7fd1730f4458` — inna lokalna wersja AKTYWNOŚCI,
+- wcześniejsze lokalne HOTFIX-y 002.
 
-Powód:
-- Codex został realnie uruchomiony i wykonał lokalne zmiany oraz testy,
-- ale jego środowisko nie miało poświadczeń pozwalających zapisać lokalny commit na istniejącej gałęzi GitHub,
-- dlatego head PR #11 nie zmienił się i ostatnie zmiany Codexa nie są fizycznie dostarczone do repo.
+Żaden z tych lokalnych SHA nie jest obecnie committem dostępnym w GitHubie. Raport lokalnego commita ≠ dostarczenie.
 
-Wniosek: raport Codexa o lokalnym commicie bez zmiany head PR NIE jest dowodem wykonania.
+## CO FAKTYCZNIE DZIAŁA LIVE
 
-## 004 — STAN
+Potwierdzone ze zrzutów Tomasza z 26.09:
+- produkcja Hostinger się otwiera i Tomasz może wejść do zalogowanej aplikacji,
+- AppShell/sidebar pokazuje strukturę 9 ekranów, w tym AKTYWNOŚĆ,
+- stary/uproszczony ekran rejestracji aktywności `/quick-call` otwiera się i był wcześniej funkcjonalny w podstawowym zakresie.
 
-NIEURUCHOMIONA.
-Specyfikacja przygotowana: `docs/codex/0107-004-AKTYWNOSC-POMIAR.md`.
-004 wolno uruchomić dopiero po pełnym LIVE PASS 003.
+Nie wolno tego traktować jako PASS finalnej AKTYWNOŚCI.
 
-## TRANSPORT CODEX → GITHUB — GŁÓWNY BLOCKER
+## CO NIE DZIAŁA / NIE MA PASS LIVE
 
-Potwierdzony stan:
-- GitHub → wywołanie Codexa: działa,
-- Codex → wykonanie kodu/testów lokalnie: działa,
-- Codex → fizyczny zapis wyniku jako nowy head istniejącego PR: w dotychczasowym trybie NIE działał z powodu braku poświadczeń zapisu.
+- AKTYWNOŚĆ zgodna z finalną planszą 08: NIEPOTWIERDZONE / brak widocznego wdrożenia na LIVE.
+- Tomasz nie zobaczył dziś działającej planszy 08 na LIVE.
+- DZISIAJ: ostatni pokazany stan LIVE zatrzymywał się na „Układam aktualny plan dnia...”; Codex przygotował hotfix lokalnie, ale nie ma dowodu wdrożenia tej poprawki na main/LIVE.
+- 002 nie ma pełnego niezależnego LIVE PASS.
+- 003 nie ma LIVE PASS i PR #11 nie zawiera ostatnich lokalnych zmian Codexa.
+- 004 jako formalna paczka nie ma LIVE PASS.
+- pełny przepływ poniedziałkowy klient → telefon → wynik → next action → termin → blocker → historia → trwały zapis nie został dziś odebrany na finalnym UX.
 
-Do czasu naprawy transportu NIE wolno przedstawiać automatyzacji jako samodzielnego wdrażania.
+## CO JEST NIEDOKOŃCZONE
 
-Kryterium PASS transportu:
-- istniejący PR #11,
-- Codex wykonuje minimalną kontrolowaną zmianę,
-- bez ręcznego przenoszenia kodu przez Tomasza pojawia się nowy head SHA PR #11 w `makson-mcrm/wacrm`.
+1. Fizyczne przeniesienie gotowej lokalnej zmiany AKTYWNOŚCI zgodnej z planszą 08 do prawdziwego repozytorium.
+2. Commit na właściwej gałęzi / main zgodnie z bezpiecznym trybem wdrożenia.
+3. Deploy na LIVE.
+4. Krótki odbiór LIVE planszy 08 i trwałości zapisu.
 
-Po dwóch kolejnych próbach bez zmiany head: STOP, bez dalszego spalania limitu.
+## OSTATNIE ZAKOŃCZONE ZLECENIE CODEXA
 
-## ŹRÓDŁO UX — OBOWIĄZUJE
+Ostatni wynik Codexa w PR #11: komentarz `#issuecomment-5847316225` „GOTOWE DO WDROŻENIA — AKTYWNOŚĆ”.
 
-Folder Drive: „UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026”.
-PDF: „UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026.pdf”.
-Załączniki: „01 — AUDYT UX — ZAŁĄCZNIK DO 9 EKRANÓW — 18.09.2026” oraz „02 — CHECKLISTA ODBIOROWA UX — 9 EKRANÓW — 18.09.2026”.
+Poprzedni pełniejszy wynik kodowy: Codex zgłosił lokalny commit `dedf2c2cf74c5c0f23f7a355de302d31beebff7c`, testy 1029/1029, typecheck/lint/check:migrations/diff-check PASS; build zatrzymany na zewnętrznym foncie Inter. Codex sam zaznaczył, że LIVE PASS nie jest potwierdzony.
 
-Plansza określa wygląd, proporcje i hierarchię. Audyt określa zachowanie, responsywność i kryteria odbioru. Nie redesignować.
+WAŻNE: ostatnie polecenie odzyskania zmiany (`#issuecomment-5847279377`) wymagało zwrócenia KOMPLETNEJ treści `src/components/sales/quick-activity-form.tsx` oraz zmienionego testu, aby 01.07 mógł zapisać pliki uwierzytelnionym konektorem GitHub. Odpowiedź `#issuecomment-5847316225` podała ponownie opis i odnośniki/linie, ale nie dostarczyła w trwałym komentarzu pełnej treści wymaganych plików. Kryterium tego polecenia NIE zostało spełnione. Nie wdrożono zmiany do repo ani LIVE.
 
-## DOKUMENTY WYKONAWCZE NA SOBOTĘ
+## PRACE AKTUALNIE URUCHOMIONE LUB OCZEKUJĄCE
 
-- `docs/codex/0107-003-KLIENCI-DEAL-REJESTR.md`
-- `docs/codex/0107-004-AKTYWNOSC-POMIAR.md`
-- `docs/codex/0107-START-SOBOTA-2026-09-26.md`
+Codex:
+- brak potwierdzonego aktywnego zadania, które nadal wykonuje kod w tej chwili; ostatnie polecenie odzyskania zakończyło się komentarzem 5847316225,
+- nie wolno uruchamiać nowego zadania Codexa w ramach tego przekazania.
 
-## PR-Y — PORZĄDEK
+Oczekujące wykonanie:
+- odzyskanie z istniejącego wyniku/artefaktu pełnej gotowej zmiany AKTYWNOŚCI i fizyczne zapisanie jej do repo, bez projektowania od nowa.
 
-- PR #5: ARCHIWALNY — zamknięty. Nie używać jako źródła prawdy.
-- PR #6: ARCHIWALNY — zamknięty. Nie używać jako źródła prawdy.
-- PR #7–#10: historia wykonania 002; scalone.
-- PR #11: JEDYNY aktywny PR 003; NIE SCALAĆ przed dostarczeniem rzeczywistych zmian Codexa i spełnieniem warunków startu.
+## AKTUALNY BLOCKER
 
-## BUDŻET LIMITU — 24.09.2026
+Główny blocker: transport gotowej zmiany Codexa do GitHuba.
 
-Ostatni stan podany przez Tomasza:
-- limit tygodniowy: około 5% pozostało przed sobotnim resetem.
+GitHub → uruchomienie Codexa działa.
+Codex → lokalne kodowanie/testy działa.
+Codex → trwały commit/push do repo nie działał z powodu braku poświadczeń w środowisku zadania.
+Ostatnia próba obejścia przez prośbę o pełną treść plików nie dostarczyła pełnych plików, tylko ponowny raport opisowy.
 
-Zasada do resetu:
-- nie kodować nowych funkcji,
-- nie ruszać 004,
-- nie uruchamiać 005–010,
-- pozostały limit Codexa przeznaczyć wyłącznie na test/naprawę transportu Codex → GitHub,
-- zwykłym Chatem/GitHubem przygotować dokumentację, stan i kolejność bez spalania limitu Codexa.
+## DOKŁADNIE JEDEN NASTĘPNY KROK DLA NOWEGO OKNA
 
-## ZASADA ODBIORU
+Wznowić WYŁĄCZNIE odzyskanie już przygotowanej zmiany AKTYWNOŚCI z istniejącego wyniku Codexa i fizycznie zapisać ją do GitHuba przez uwierzytelniony konektor, bez nowego projektowania i bez uruchamiania nowej pracy Codexa; po fizycznym zapisie dopiero wdrożyć i sprawdzić LIVE planszę 08.
 
-Raport Codexa ≠ odbiór.
-Lokalny commit Codexa ≠ dostarczenie.
-Testy/build ≠ LIVE PASS.
+Jeśli istniejące trwałe źródła nie zawierają kompletnej treści gotowej zmiany, nowe okno ma najpierw odczytać istniejący wynik/task/komentarze i odzyskać artefakt; nie wolno zgadywać kodu ani wracać do starego UX.
 
-Każda paczka:
-kod → fizyczny commit na właściwym PR → testy/build/checki → merge → deploy → rzeczywiste porównanie LIVE → PASS/FAIL.
+## CZEGO NOWEMU OKNU NIE WOLNO RUSZAĆ
 
-Tomasz nie jest kurierem kodu ani testerem technicznym. Angażować go tylko do jednej koniecznej czynności właścicielskiej lub krótkiego końcowego testu biznesowego LIVE.
+- nie uruchamiać nowej pracy Codexa przed wykonaniem powyższego jednego kroku,
+- nie ruszać innych ekranów niż AKTYWNOŚĆ,
+- nie wracać do `/quick-call` jako „tymczasowego minimum”,
+- nie używać starej grafiki WaCRM ani wcześniejszych makiet,
+- nie tworzyć nowego planu paczek,
+- nie rozpoczynać 005–010 ani szerokiego 003/004,
+- nie używać Work/Cloud Browser,
+- nie angażować Tomasza w technikalia, kopiowanie kodu, GitHub, logi ani testy techniczne,
+- nie deklarować PASS bez rzeczywistego LIVE.
 
-## KOLEJNOŚĆ SOBOTA 26.09
+## NAJWAŻNIEJSZE BŁĘDY DZISIEJSZEGO WDROŻENIA — NIE POWTARZAĆ
 
-1. Odbiór LIVE 002 po PR #10.
-2. Jeśli 002 FAIL — poprawka tylko 002.
-3. Jeśli 002 PASS — test transportu Codex → istniejący PR #11.
-4. Jeśli transport PASS — wykonanie 003 według zamkniętej specyfikacji.
-5. Merge + LIVE PASS 003.
-6. Dopiero wtedy 004.
-7. 005–010 pozostają STOP do czasu stabilnego CRM MINIMUM LIVE.
+1. Uruchomiono prace bez konsekwentnego zastosowania finalnego UX jako jedynego źródła prawdy i pokazano Tomaszowi stary/uproszczony ekran.
+2. Zamiast widocznego wdrożenia wykonano serię lokalnych prac Codexa, których wynik nie trafiał do repo.
+3. Powtarzano HOTFIX 002 i kolejne warianty bez najpierw rozwiązania transportu Codex → GitHub.
+4. Mieszano 002/003/AKTYWNOŚĆ zamiast utrzymać jedno źródło stanu i jeden wynik biznesowy.
+5. Padły komunikaty sugerujące pracę „w tle” i terminy bez pewnego mechanizmu wykonawczego.
+6. Ustawiono przypomnienie na 16:50, ale powiadomienia były wyłączone; zadanie wykonało się dopiero około 16:52:50 i nie mogło dostarczyć użytkownikowi użytecznego alarmu. Po weryfikacji zostało wyłączone.
+7. Raport Codexa „GOTOWE” był mylony z gotowością produktu. Obowiązuje: raport/test/commit lokalny ≠ LIVE PASS.
+8. Tomasz musiał wielokrotnie przypominać o nowych grafikach; od teraz BRAMKA 0 ma temu zapobiegać.
+9. Nie wolno po raz kolejny przepalać limitu na opisanie tego samego problemu zamiast fizycznego zapisu do repo i testu LIVE.
 
-## STOP
+## LIMITY — OSTATNI POTWIERDZONY STAN
 
-STOP gdy:
-- 002 lub 003 nie ma rzeczywistego LIVE PASS,
-- dwie kolejne próby transportu nie zmieniają head PR,
-- potrzebne jest ryzykowne uprawnienie/decyzja właściciela,
-- limit realnie blokuje pracę,
-- źródła prawdy są sprzeczne.
+Źródło: zrzut panelu Usage przesłany przez Tomasza 26.09.2026 około 16:15–16:17 Europe/Warsaw (dokładna minuta nie była dostępna 01.07 w metadanych czatu).
 
-## NASTĘPNY KROK
+- limit 5-godzinny: 81% pozostało,
+- limit tygodniowy: 97% pozostało.
 
-Do soboty: bez nowego kodu. Przygotowanie repo i dokumentów oraz jedna oszczędna próba rozwiązania transportu Codex → GitHub na PR #11. Po resecie sobotnim zacząć dokładnie od `docs/codex/0107-START-SOBOTA-2026-09-26.md`.
+To jest ostatni potwierdzony odczyt. Nie wolno podawać świeższego procentu bez nowego zrzutu/pomiaru z panelu Usage.
+
+Work użyty dziś do mCRM: NIE.
+Próg STOP z powodu limitu: NIEPOTWIERDZONY; problemem był proces/transport, nie komunikat limitu.
+
+## CODEX — DZISIEJSZE URUCHOMIENIA I PONOWIENIA
+
+Na podstawie potwierdzonych odpowiedzi bota GitHub/Gmail z 26.09:
+- 7 zakończonych uruchomień Codexa dotyczących PR #10/#11,
+- z tego 5 miało charakter ponowienia/iteracji istniejącego celu (3 kolejne iteracje HOTFIX 002 po pierwszej próbie oraz 2 kolejne iteracje AKTYWNOŚCI/odzyskania po pierwszej próbie),
+- 0 potwierdzonych aktywnych zleceń w chwili przekazania,
+- nie uruchamiać kolejnego w ramach starego okna.
+
+## AUTOMATY — STAN FAKTYCZNY
+
+mCRM:
+- `mCRM — ciągłość 002→010` — WYŁĄCZONY; był monitorem/condition-watch, nie niezawodnym silnikiem wdrożenia.
+- `mCRM — nadzór bez Codexa` — WYŁĄCZONY; monitor tylko stanu, nie wykonawca kodu.
+- `Start 7 ekranów mCRM` — WYŁĄCZONY; przypomnienie/startowe, nie wykonawca.
+- `mCRM — STARY monitoring — wyłączony` — WYŁĄCZONY.
+- `mCRM — kontrola pierwszego etapu` — WYŁĄCZONY.
+- jednorazowe `Sprawdź grafikę mCRM` na 16:50 — wykonało się około 16:52:50 przy wyłączonych powiadomieniach; po weryfikacji WYŁĄCZONE. Było tylko przypomnieniem/kontrolą, nie wykonywało wdrożenia.
+
+Wniosek: w chwili przekazania NIE MA aktywnego automatu mCRM, który sam koduje, zapisuje wynik do repo, wdraża i odbiera LIVE. Nie wolno obiecywać autonomicznego wdrożenia na podstawie samych Zaplanowanych zadań ChatGPT.
+
+## DOKŁADNIE CO MA ZOSTAĆ WZNOWIONE
+
+Wyłącznie: istniejąca, już przygotowana AKTYWNOŚĆ zgodna z finalną planszą 08 — odzyskanie kompletnej zmiany z istniejącego wyniku Codexa → fizyczny zapis do GitHuba przez uwierzytelniony konektor → deploy → krótki test LIVE.
+
+Nie projektować ponownie. Nie uruchamiać nowej paczki. Nie przechodzić dalej przed wynikiem tego kroku.
+
+## ŹRÓDŁA PRAWDY DLA NOWEGO OKNA
+
+1. Dokument Drive `01.07 — STRATEGICZNY WDROŻENIOWIEC mCRM AI — ROLA I PROCEDURA PRZEJĘCIA — OBOWIĄZUJE`.
+2. Ten plik `GLOWNY_STAN_WDROZENIA.md`.
+3. Repo `makson-mcrm/wacrm`, rzeczywisty `main` i PR #11.
+4. Drive: `UX FINAL PO AUDYCIE — 9 EKRANÓW — 18.09.2026` + audyt + checklista; plansza 08 dla AKTYWNOŚCI.
+5. Rzeczywiste LIVE Hostinger; bez LIVE nie ma PASS.
+
+## KOMENDA DLA NOWEGO OKNA
+
+PRZEJMIJ WDROŻENIE mCRM OD AKTUALNEGO STANU.
+
+Najpierw odczytaj rolę 01.07, ten plik i finalny UX. Następnie rozpocznij od dokładnie jednego zapisanego następnego kroku. Nie pytaj Tomasza o historię, którą możesz odczytać sam.
