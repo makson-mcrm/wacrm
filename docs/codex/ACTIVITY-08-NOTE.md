@@ -1,0 +1,1 @@
+Nie uruchamiać kolejnych paczek przed LIVE PASS.
