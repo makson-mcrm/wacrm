@@ -1,3 +1,4 @@
-Trigger Hostinger production deployment after auth recovery fix.
-Source commit: dfa2821c97f2c46463f2400a028f7dc31bb16822
-Triggered: 2026-09-20 18:22 UTC
+Trigger Hostinger production deployment for final AKTYWNOŚĆ board 08.
+Source commit: 63e3e8b25317e432a994afaa7a8a529c3fab6101
+Triggered: 2026-09-26
+Goal: LIVE PASS for AKTYWNOŚĆ + durable test record.
