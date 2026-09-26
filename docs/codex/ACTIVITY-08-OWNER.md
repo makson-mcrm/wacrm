@@ -1,0 +1,1 @@
+Właściciel odbioru: Strategiczny Wdrożeniowiec. Tomasz odbiera widoczny efekt, nie wykonuje technicznego transportu.
