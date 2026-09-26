@@ -1,0 +1,1 @@
+Transport kodu: zapis do kanonicznego repozytorium GitHub przez uwierzytelniony konektor. Codex nie jest źródłem dostarczenia kodu.

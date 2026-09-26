@@ -1,0 +1,1 @@
+Źródło: finalna plansza 08 z pakietu UX 18.09.2026. Nie redesignować.
