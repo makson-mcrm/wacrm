@@ -24,12 +24,44 @@ Nie kończyć przebiegu po:
 
 Po PASS jednego elementu natychmiast przejść do następnego krytycznego elementu, dopóki jest dostępny czas/limit i nie ma realnej blokady właścicielskiej.
 
+### 1A. ZAKAZ YIELD/STOP PO RAPORCIE
+Raport statusowy jest wyłącznie informacją pomocniczą w trakcie wykonania. Po napisaniu statusu Work ma W TYM SAMYM PRZEBIEGU dalej wykonywać kolejne wywołania narzędzi i następne kroki.
+
+Nie wolno zakończyć odpowiedzi tylko dlatego, że:
+- opisano blocker,
+- podano `NASTĘPNY KROK`,
+- wykonano diagnostykę,
+- dodano workflow,
+- sprawdzono CI,
+- znaleziono brak dostępu,
+- wskazano czynność właścicielską.
+
+Jeżeli istnieje choć jedna dalsza bezpieczna czynność techniczna możliwa bez Tomasza, Work ma ją wykonać natychmiast w tym samym przebiegu.
+
+Dopuszczalny STOP tylko gdy zachodzi co najmniej jeden warunek:
+1. osiągnięto pełny PASS aktualnego etapu i nie ma kolejnego zakresu,
+2. wyczerpał się limit/system przerwał pracę,
+3. wszystkie bezpieczne ścieżki zostały sprawdzone i pozostała dokładnie jedna niedelegowalna czynność właścicielska, bez której nie da się wykonać żadnej dalszej pracy.
+
+Samo `czekam na odpowiedź`, `następny krok`, `potrzebna decyzja` albo `LIVE niegotowe` nie jest prawidłowym zakończeniem przebiegu.
+
 ## 2. BLOCKER = PODZADANIE, NIE STOP
 Przy blockerze najpierw samodzielnie wyczerpać dostępne bezpieczne ścieżki: repo/GitHub, Actions/CI, istniejące integracje i konektory, konfigurację deploy, Supabase, Hostinger, publiczne endpointy i dokumentację.
 
 Jeżeli jedna droga nie działa, przejść do następnej bez pytania Tomasza o zgodę na każdy krok.
 
 Nie wolno tworzyć sztucznego blockera przez dodanie nowej zależności, sekretu, loginu albo narzędzia, jeśli istnieje prostsza działająca ścieżka. Każdy nowy mechanizm wdrożenia ma najpierw wykazać, że usuwa problem zamiast go przenosić.
+
+### 2A. INCYDENT DEPLOY = ODDZIELNY TOR, NIE PRZEBUDOWA PRODUKTU
+Jeżeli kod i CI są gotowe, a publiczny LIVE nie pokazuje aktualnego `main`, nie wolno dalej poprawiać funkcji/UX pod pozorem wdrożenia.
+
+Wtedy obowiązuje tryb INCYDENT DEPLOY:
+- zamrozić zmiany funkcjonalne aktualnego ekranu,
+- mierzyć wyłącznie publikację `main` na LIVE,
+- nie liczyć kolejnych commitów dokumentacyjnych/diagnostycznych jako postępu biznesowego,
+- doprowadzić kanał publikacji do działania albo jednoznacznie zamknąć nieskuteczną ścieżkę i wybrać jedną docelową ścieżkę infrastrukturalną.
+
+Dla aktualnego 08: kod/funkcje traktować jako roboczo zamknięte do czasu rozwiązania publikacji. Nie wracać do zmian UX 08, chyba że test LIVE po wdrożeniu wykaże konkretną wadę.
 
 ## 3. LOGOWANIA I UPRAWNIENIA
 Na początku aktywnego bloku pracy wykonać jeden zbiorczy preflight dostępów. Preferować istniejące konektory/API/CI i trwałe połączenia nad ręcznym logowaniem w Cloud Browser.
@@ -108,6 +140,8 @@ ETAP / TERAZ ROBIĘ / WYNIK / NASTĘPNY KROK / GOTOWOŚĆ CAŁEGO CRM.
 
 Status nie może zastępować wykonania.
 
+Jeżeli status kończy się `NASTĘPNY KROK`, Work ma ten krok wykonać samodzielnie przed zakończeniem przebiegu, o ile nie jest to czynność wyłącznie właścicielska.
+
 ## 9. ŹRÓDŁA PRAWDY
 - kod i stan wykonawczy: GitHub `main` + aktualny `GLOWNY_STAN_WDROZENIA.md`,
 - wygląd: najnowszy zatwierdzony pakiet UX,
@@ -127,6 +161,17 @@ Obowiązkowy schemat:
 5. dopiero wtedy kontynuuj.
 
 Powtórzenie znanej nieskutecznej ścieżki bez poprawy mechanizmu = BŁĄD PROCESU.
+
+### 10A. EGZEKUCJA WNIOSKU, NIE TYLKO ZAPIS
+Nie uznawać poprawki procesu za wdrożoną tylko dlatego, że dopisano ją do dokumentacji.
+
+Poprawka procesu jest wdrożona dopiero, gdy:
+- znalazła się w aktywnej instrukcji wykonawczej,
+- wykonawca ją przeczytał/stosuje,
+- kolejne zachowanie nie powtarza wcześniejszego błędu,
+- istnieje mierzalny skutek w pracy (mniej przerw, mniej kliknięć Tomasza, usunięty blocker albo LIVE).
+
+Jeżeli zachowanie się nie zmieniło, traktować to jako BRAK WDROŻENIA, nawet jeśli dokument został zmieniony.
 
 ## 11. OGRANICZENIE ZAANGAŻOWANIA TOMASZA
 Celem procesu jest umożliwić Tomaszowi odejście od komputera na długi blok czasu.
@@ -168,3 +213,5 @@ Obowiązuje:
 `wykonuj → rozwiązuj blocker → weryfikuj → zapisuj → idź dalej`.
 
 Nie pytaj „co dalej?”. Nie kończ raportem. Po PASS jednego elementu natychmiast przechodź do następnego. Maksymalizuj liczbę działających elementów CRM na LIVE w dostępnym czasie i limicie.
+
+Jeżeli w odpowiedzi pojawia się `NASTĘPNY KROK`, Work ma go od razu wykonać w tym samym przebiegu, a nie oddawać sterowanie Tomaszowi.
