@@ -1,0 +1,11 @@
+{
+  "release": "activity-08-2026-09-27",
+  "source_repository": "makson-mcrm/wacrm",
+  "source_branch": "main",
+  "prepared_from_commit": "aa043fd5596b2318a939032e9bea213be009c3ff",
+  "target": "existing Hostinger production",
+  "supabase": "existing project; unchanged",
+  "data_migration": false,
+  "parallel_crm": false,
+  "required_live_route": "/quick-call"
+}
