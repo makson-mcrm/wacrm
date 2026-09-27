@@ -1,0 +1,148 @@
+name: Discover existing Hostinger deployment path
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-discovery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover-and-trigger:
+    runs-on: ubuntu-latest
+    env:
+      HOSTINGER_TOKEN_PRIMARY: ${{ secrets.HOSTINGER_API_TOKEN }}
+      HOSTINGER_TOKEN_LEGACY: ${{ secrets.HOSTINGER_TOKEN }}
+      DEPLOY_WEBHOOK_HOSTINGER: ${{ secrets.HOSTINGER_DEPLOY_WEBHOOK }}
+      DEPLOY_WEBHOOK_GENERIC: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+      DEPLOY_HOOK_GENERIC: ${{ secrets.DEPLOY_HOOK_URL }}
+      HOSTINGER_WEBHOOK_GENERIC: ${{ secrets.HOSTINGER_WEBHOOK_URL }}
+      VAR_DEPLOY_WEBHOOK_HOSTINGER: ${{ vars.HOSTINGER_DEPLOY_WEBHOOK }}
+      VAR_DEPLOY_WEBHOOK_GENERIC: ${{ vars.DEPLOY_WEBHOOK_URL }}
+      VAR_DEPLOY_HOOK_GENERIC: ${{ vars.DEPLOY_HOOK_URL }}
+      VAR_HOSTINGER_WEBHOOK_GENERIC: ${{ vars.HOSTINGER_WEBHOOK_URL }}
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_USER: ${{ secrets.FTP_USER }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      SFTP_HOST: ${{ secrets.SFTP_HOST }}
+      SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+      SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      REPOSITORY_VARIABLES: ${{ toJSON(vars) }}
+    steps:
+      - name: Detect configured paths without revealing values
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          present() {
+            if [ -n "${!1:-}" ]; then
+              echo "$1=PRESENT"
+            else
+              echo "$1=ABSENT"
+            fi
+          }
+
+          echo "Repository deployment variables (names only):"
+          printf '%s' "$REPOSITORY_VARIABLES" | jq -r 'keys[]?' | sed 's/^/- /'
+
+          echo "Candidate secret presence:"
+          for name in \
+            HOSTINGER_TOKEN_PRIMARY HOSTINGER_TOKEN_LEGACY \
+            DEPLOY_WEBHOOK_HOSTINGER DEPLOY_WEBHOOK_GENERIC DEPLOY_HOOK_GENERIC HOSTINGER_WEBHOOK_GENERIC \
+            FTP_HOST FTP_SERVER FTP_USERNAME FTP_USER FTP_PASSWORD \
+            SFTP_HOST SFTP_USERNAME SFTP_PASSWORD SSH_HOST SSH_USER SSH_PRIVATE_KEY
+          do
+            present "$name"
+          done
+
+          webhook=""
+          source_name=""
+          for name in \
+            DEPLOY_WEBHOOK_HOSTINGER DEPLOY_WEBHOOK_GENERIC DEPLOY_HOOK_GENERIC HOSTINGER_WEBHOOK_GENERIC \
+            VAR_DEPLOY_WEBHOOK_HOSTINGER VAR_DEPLOY_WEBHOOK_GENERIC VAR_DEPLOY_HOOK_GENERIC VAR_HOSTINGER_WEBHOOK_GENERIC
+          do
+            candidate="${!name:-}"
+            if [ -n "$candidate" ]; then
+              webhook="$candidate"
+              source_name="$name"
+              break
+            fi
+          done
+
+          if [ -n "$webhook" ]; then
+            echo "::add-mask::$webhook"
+            echo "webhook=$webhook" >> "$GITHUB_OUTPUT"
+            echo "source_name=$source_name" >> "$GITHUB_OUTPUT"
+            echo "Existing deployment webhook found in $source_name."
+          else
+            echo "No existing deployment webhook found under supported repository secret/variable names."
+          fi
+
+      - name: Trigger existing deployment webhook
+        if: steps.detect.outputs.webhook != ''
+        env:
+          DEPLOY_WEBHOOK: ${{ steps.detect.outputs.webhook }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$DEPLOY_WEBHOOK"
+          payload=$(jq -nc \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF_NAME" \
+            --arg sha "$GITHUB_SHA" \
+            '{repository:$repository,ref:$ref,sha:$sha}')
+          status=$(curl --retry 2 --retry-all-errors --connect-timeout 15 --max-time 60 \
+            -sS -o /dev/null -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -X POST --data "$payload" "$DEPLOY_WEBHOOK")
+          echo "Deployment webhook HTTP status: $status"
+          case "$status" in
+            2*|3*) echo "Existing deployment webhook accepted the request." ;;
+            *) echo "::error::Existing deployment webhook rejected the request (HTTP $status)."; exit 1 ;;
+          esac
+
+      - name: Record discovery result
+        shell: bash
+        run: |
+          {
+            echo "## Existing Hostinger deployment path discovery"
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- No secret or variable values were printed."
+            if [ -n "${{ steps.detect.outputs.webhook }}" ]; then
+              echo "- Existing webhook: detected and invoked."
+            else
+              echo "- Existing webhook: not detected under the repository-side candidate names."
+            fi
+            if [ -n "$HOSTINGER_TOKEN_PRIMARY" ] || [ -n "$HOSTINGER_TOKEN_LEGACY" ]; then
+              echo "- Existing Hostinger API credential: detected."
+            else
+              echo "- Existing Hostinger API credential: not detected."
+            fi
+            if { [ -n "$FTP_HOST" ] || [ -n "$FTP_SERVER" ]; } && \
+               { [ -n "$FTP_USERNAME" ] || [ -n "$FTP_USER" ]; } && \
+               [ -n "$FTP_PASSWORD" ]; then
+              echo "- Existing FTP transport: complete credential set detected."
+            else
+              echo "- Existing FTP transport: no complete credential set detected."
+            fi
+            if [ -n "$SFTP_HOST" ] && [ -n "$SFTP_USERNAME" ] && [ -n "$SFTP_PASSWORD" ]; then
+              echo "- Existing SFTP transport: complete credential set detected."
+            else
+              echo "- Existing SFTP transport: no complete credential set detected."
+            fi
+            if [ -n "$SSH_HOST" ] && [ -n "$SSH_USER" ] && [ -n "$SSH_PRIVATE_KEY" ]; then
+              echo "- Existing SSH transport: complete credential set detected."
+            else
+              echo "- Existing SSH transport: no complete credential set detected."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
