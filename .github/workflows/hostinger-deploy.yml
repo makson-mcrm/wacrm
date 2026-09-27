@@ -1,0 +1,161 @@
+name: Hostinger Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hostinger-deploy.yml'
+
+concurrency:
+  group: hostinger-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy current main to Hostinger
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HOSTINGER_API_TOKEN: ${{ secrets.HOSTINGER_API_TOKEN }}
+      TARGET_DOMAIN: mediumseagreen-pelican-353577.hostingersite.com
+      TARGET_OWNER: makson-mcrm
+      TARGET_REPOSITORY: wacrm
+      TARGET_BRANCH: main
+
+    steps:
+      - name: Require existing Hostinger connection
+        shell: bash
+        run: |
+          if [ -z "$HOSTINGER_API_TOKEN" ]; then
+            echo "::error::Repository secret HOSTINGER_API_TOKEN is not configured."
+            exit 78
+          fi
+
+      - name: Install verified Hostinger CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=3.36.2
+          curl -fsSL -o /tmp/hostinger.tar.gz "https://github.com/hostinger/api-cli/releases/download/v${version}/hostinger-${version}-linux-amd64.tar.gz"
+          curl -fsSL -o /tmp/hostinger-checksums.txt "https://github.com/hostinger/api-cli/releases/download/v${version}/hostinger-${version}-checksums.sha256"
+          expected="$(awk '/linux-amd64.tar.gz/{print $1}' /tmp/hostinger-checksums.txt)"
+          actual="$(sha256sum /tmp/hostinger.tar.gz | awk '{print $1}')"
+          test "$expected" = "$actual"
+          tar -xzf /tmp/hostinger.tar.gz -C /tmp
+          install /tmp/hostinger /usr/local/bin/hostinger
+          hostinger version
+
+      - name: Resolve website and Git installation
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          hostinger hosting websites list --format json > /tmp/websites.json
+          website="$(jq -c --arg domain "$TARGET_DOMAIN" '.. | objects | select(.domain? == $domain) | select(.username? != null)' /tmp/websites.json | head -n1)"
+          if [ -z "$website" ]; then
+            echo "::error::Target Hostinger website was not found in the connected account."
+            exit 1
+          fi
+          username="$(jq -r '.username' <<<"$website")"
+
+          hostinger hosting git list-installations --provider github --status active --format json > /tmp/installations.json
+          installation="$(jq -c '.. | objects | select(.uuid? != null) | select((.provider? // "github") == "github")' /tmp/installations.json | head -n1)"
+          if [ -z "$installation" ]; then
+            echo "::error::No active Hostinger GitHub installation was found."
+            exit 1
+          fi
+          installation_uuid="$(jq -r '.uuid' <<<"$installation")"
+
+          hostinger hosting git list-installation-repositories "$installation_uuid" --format json > /tmp/repositories.json
+          repository="$(jq -c --arg owner "$TARGET_OWNER" --arg name "$TARGET_REPOSITORY" '.. | objects | select((.owner? == $owner or .owner.login? == $owner) and (.name? == $name))' /tmp/repositories.json | head -n1)"
+          if [ -z "$repository" ]; then
+            echo "::error::The Hostinger Git installation cannot access makson-mcrm/wacrm."
+            exit 1
+          fi
+
+          echo "username=$username" >> "$GITHUB_OUTPUT"
+          echo "installation_uuid=$installation_uuid" >> "$GITHUB_OUTPUT"
+
+      - name: Repair automatic deployment settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          hostinger hosting git update-auto-deployment-settings             "${{ steps.resolve.outputs.username }}" "$TARGET_DOMAIN"             --installation-uuid "${{ steps.resolve.outputs.installation_uuid }}"             --owner "$TARGET_OWNER"             --repository "$TARGET_REPOSITORY"             --branch "$TARGET_BRANCH"             --is-enabled             --format json
+
+      - name: Read existing Node.js build settings
+        id: settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if hostinger hosting nodejs build-settings "${{ steps.resolve.outputs.username }}" "$TARGET_DOMAIN" --format json > /tmp/build-settings.json; then
+            settings="$(jq -c '.. | objects | select(.app_type? != null and .build_script? != null and .node_version? != null) | .' /tmp/build-settings.json | head -n1)"
+          else
+            settings=''
+          fi
+          if [ -z "$settings" ]; then
+            settings='{"app_type":"next","build_script":"npm run build","node_version":20,"output_directory":".next","root_directory":".","package_manager":"npm"}'
+          fi
+          echo "app_type=$(jq -r '.app_type' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "build_script=$(jq -r '.build_script' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "node_version=$(jq -r '.node_version' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "output_directory=$(jq -r '.output_directory // ".next"' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "root_directory=$(jq -r '.root_directory // "."' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "package_manager=$(jq -r '.package_manager // "npm"' <<<"$settings")" >> "$GITHUB_OUTPUT"
+          echo "entry_file=$(jq -r '.entry_file // empty' <<<"$settings")" >> "$GITHUB_OUTPUT"
+
+      - name: Start production build from current main
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_options="$(jq -cn             --arg owner "$TARGET_OWNER"             --arg repository "$TARGET_REPOSITORY"             --arg branch "$TARGET_BRANCH"             --arg installation_uuid "${{ steps.resolve.outputs.installation_uuid }}"             '{owner:$owner,repository:$repository,branch:$branch,installation_uuid:$installation_uuid}')"
+
+          args=(
+            hosting nodejs start-build
+            "${{ steps.resolve.outputs.username }}" "$TARGET_DOMAIN"
+            --app-type "${{ steps.settings.outputs.app_type }}"
+            --build-script "${{ steps.settings.outputs.build_script }}"
+            --node-version "${{ steps.settings.outputs.node_version }}"
+            --output-directory "${{ steps.settings.outputs.output_directory }}"
+            --root-directory "${{ steps.settings.outputs.root_directory }}"
+            --package-manager "${{ steps.settings.outputs.package_manager }}"
+            --source-type git
+            --source-options "$source_options"
+            --format json
+          )
+          if [ -n "${{ steps.settings.outputs.entry_file }}" ]; then
+            args+=(--entry-file "${{ steps.settings.outputs.entry_file }}")
+          fi
+
+          hostinger "${args[@]}" > /tmp/build.json
+          build_uuid="$(jq -r '.. | objects | .uuid? // empty' /tmp/build.json | head -n1)"
+          if [ -z "$build_uuid" ]; then
+            echo "::error::Hostinger did not return a build identifier."
+            jq . /tmp/build.json
+            exit 1
+          fi
+          echo "uuid=$build_uuid" >> "$GITHUB_OUTPUT"
+          echo "Hostinger build started: $build_uuid"
+
+      - name: Wait for Hostinger deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            hostinger hosting nodejs list-builds "${{ steps.resolve.outputs.username }}" "$TARGET_DOMAIN" --per-page 25 --format json > /tmp/builds.json
+            state="$(jq -r --arg uuid "${{ steps.build.outputs.uuid }}" '.. | objects | select(.uuid? == $uuid) | .state? // .status? // empty' /tmp/builds.json | head -n1)"
+            echo "Build state: ${state:-unknown}"
+            case "$state" in
+              completed|success|succeeded)
+                exit 0
+                ;;
+              failed|error|cancelled)
+                hostinger hosting nodejs build-logs "${{ steps.resolve.outputs.username }}" "$TARGET_DOMAIN" "${{ steps.build.outputs.uuid }}" --format json || true
+                exit 1
+                ;;
+            esac
+            sleep 20
+          done
+          echo "::error::Timed out waiting for Hostinger deployment."
+          exit 1
