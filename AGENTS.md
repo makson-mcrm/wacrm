@@ -40,6 +40,15 @@ Jeżeli dostęp działa w bieżącej sesji, nie pytać o niego ponownie. Powtarz
 
 Wszystkie naprawdę niedelegowalne czynności właścicielskie grupować w JEDEN zbiorczy pakiet: CO / GDZIE / PO CO / KOLEJNOŚĆ. W międzyczasie wykonywać całą pozostałą możliwą pracę.
 
+### 3A. HOSTINGER — ZNANA NIEDZIAŁAJĄCA ŚCIEŻKA
+Cloud Browser → auth.hostinger.com / hPanel jest dla tego wdrożenia ścieżką ZNANĄ JAKO NIESKUTECZNA z powodu blokady/Cloudflare i wielokrotnie kończyła się zatrzymaniem pracy.
+
+NIE WOLNO ponownie kierować Tomasza do logowania, autoryzacji, Redeploy ani klikania w Hostinger przez Cloud Browser jako domyślnego rozwiązania.
+
+Jeżeli Work trafia na auth.hostinger.com / Cloudflare, ma natychmiast uznać tę ścieżkę za zamkniętą i wrócić do metod bezobsługowych: istniejące połączenie Hostinger↔GitHub, GitHub Actions/CI, dostępne API/konektory, konfiguracja deploy w repo albo inna trwała ścieżka techniczna.
+
+Dopiero gdy Work wykaże, że wszystkie dostępne ścieżki bezobsługowe zostały faktycznie sprawdzone i żadna nie działa, może zgłosić jedną niedelegowalną czynność właścicielską. Nie wolno ponawiać tej samej prośby, która wcześniej została już wykazana jako nieskuteczna.
+
 ## 4. WIDOCZNY PODGLĄD — OBOWIĄZKOWY
 Przy pracy nad UX podgląd nie jest dodatkiem ani raportem końcowym. Ma być realnym narzędziem pracy.
 
