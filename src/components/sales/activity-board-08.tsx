@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CalendarPlus,
+  ChevronRight,
   CheckSquare,
   FilePlus2,
   Mail,
@@ -395,7 +396,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         <p className="text-sm text-slate-500">Rozmawiaj, notuj i działaj szybciej</p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold">
+      <div className="hidden gap-2 overflow-x-auto pb-1 text-sm font-semibold sm:flex">
         <span className="whitespace-nowrap rounded-lg bg-emerald-50 px-4 py-2 text-emerald-900">Nowa aktywność</span>
         <span className="whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-slate-600">Historia aktywności</span>
         <span className="whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-slate-600">Notatki i pliki</span>
@@ -496,12 +497,12 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         <section className="space-y-4 rounded-xl border bg-white p-4 shadow-sm">
           <div>
             <h2 className="font-black text-[#0b1b55]">2. Zarejestruj rozmowę</h2>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <button type="button" onClick={() => setAction('TELEFON')} className={`min-h-12 rounded-lg border px-2 text-xs font-bold ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><Phone className="mx-auto mb-1 size-4" />Rozmowa telefoniczna</button>
-              <button type="button" onClick={() => setAction('SPOTKANIE')} className={`min-h-12 rounded-lg border px-2 text-xs font-bold ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><CalendarPlus className="mx-auto mb-1 size-4" />Spotkanie</button>
-              <button type="button" onClick={() => setAction('EMAIL')} className={`min-h-12 rounded-lg border px-2 text-xs font-bold ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><Mail className="mx-auto mb-1 size-4" />E-mail</button>
-              <button type="button" onClick={() => setAction('WIADOMOSC')} className={`min-h-12 rounded-lg border px-2 text-xs font-bold ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><MessageSquare className="mx-auto mb-1 size-4" />Wiadomość</button>
-              <button type="button" onClick={() => setAction('INNY_KONTAKT')} className={`min-h-12 rounded-lg border px-2 text-xs font-bold ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><MoreHorizontal className="mx-auto mb-1 size-4" />Inna aktywność</button>
+            <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
+              <button type="button" onClick={() => setAction('TELEFON')} className={`min-h-12 rounded-lg border px-1 text-[10px] font-bold sm:px-2 sm:text-xs ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><Phone className="mx-auto mb-1 size-4" /><span className="sm:hidden">Rozmowa</span><span className="hidden sm:inline">Rozmowa telefoniczna</span></button>
+              <button type="button" onClick={() => setAction('SPOTKANIE')} className={`min-h-12 rounded-lg border px-1 text-[10px] font-bold sm:px-2 sm:text-xs ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><CalendarPlus className="mx-auto mb-1 size-4" />Spotkanie</button>
+              <button type="button" onClick={() => setAction('EMAIL')} className={`min-h-12 rounded-lg border px-1 text-[10px] font-bold sm:px-2 sm:text-xs ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><Mail className="mx-auto mb-1 size-4" />E-mail</button>
+              <button type="button" onClick={() => setAction('WIADOMOSC')} className={`min-h-12 rounded-lg border px-1 text-[10px] font-bold sm:px-2 sm:text-xs ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><MessageSquare className="mx-auto mb-1 size-4" />Wiadomość</button>
+              <button type="button" onClick={() => setAction('INNY_KONTAKT')} className={`min-h-12 rounded-lg border px-1 text-[10px] font-bold sm:px-2 sm:text-xs ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}><MoreHorizontal className="mx-auto mb-1 size-4" /><span className="sm:hidden">Więcej</span><span className="hidden sm:inline">Inna aktywność</span></button>
             </div>
           </div>
 
@@ -536,14 +537,15 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <div className="rounded-xl border border-lime-300 bg-lime-50 p-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex gap-2"><Sparkles className="mt-0.5 size-5 text-lime-700" /><div><p className="font-black text-[#0b1b55]">Asystent AI <span className="rounded bg-lime-200 px-1 text-xs">AI+</span></p><p className="text-xs text-slate-600">Podsumuje rozmowę, wyodrębni kolejne kroki i rozpozna kontekst.</p></div></div>
-              <Button type="button" variant="outline" disabled={!selectedDeal} onClick={() => selectedDeal && router.push(`/assistant?deal=${selectedDeal.id}&feature=prepare`)} className="border-lime-500 bg-white">Przygotuj podsumowanie</Button>
+              <Button type="button" variant="outline" disabled={!selectedDeal} onClick={() => selectedDeal && router.push(`/assistant?deal=${selectedDeal.id}&feature=prepare`)} className="hidden border-lime-500 bg-white sm:inline-flex">Przygotuj podsumowanie</Button>
+              <ChevronRight className="ml-auto size-5 text-lime-800 sm:hidden" />
             </div>
           </div>
 
           <div>
             <h2 className="font-black text-[#0b1b55]">4. Zmień etap lub zamknij deal <span className="font-normal text-slate-500">(opcjonalnie)</span></h2>
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-              <select value={stageId} disabled={!selectedDeal} onChange={(e) => setStageId(e.target.value)} className="min-h-11 rounded-lg border bg-white px-3 text-sm font-bold">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <select value={stageId} disabled={!selectedDeal} onChange={(e) => setStageId(e.target.value)} className="col-span-2 min-h-11 rounded-lg border bg-white px-3 text-sm font-bold sm:col-span-1">
                 <option value="">Etap Deala</option>
                 {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
               </select>
@@ -562,11 +564,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             )}
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button type="button" onClick={() => setFollowUpOpen(true)} className="inline-flex min-h-10 items-center gap-2 text-left text-xs font-semibold text-slate-700">
+              <button type="button" onClick={() => setFollowUpOpen(true)} className="hidden min-h-10 items-center gap-2 text-left text-xs font-semibold text-slate-700 sm:inline-flex">
                 <span className={`grid size-5 place-items-center rounded border ${nextAction ? 'border-emerald-800 bg-emerald-800 text-white' : 'border-slate-300 bg-white'}`}>{nextAction ? '✓' : ''}</span>
                 Utwórz zadanie z kolejnych kroków
               </button>
-              <span className="inline-flex min-h-10 items-center gap-2 text-xs font-semibold text-slate-400 sm:ml-3">
+              <span className="hidden min-h-10 items-center gap-2 text-xs font-semibold text-slate-400 sm:ml-3 sm:inline-flex">
                 <span className="size-5 rounded border border-slate-300 bg-white" /> Wyślij kopię e-maila do klienta
               </span>
               <Button type="button" disabled={!selectedContact || saving} onClick={() => void saveActivity()} className="h-11 w-full bg-emerald-800 font-black sm:ml-auto sm:w-auto">{saving ? 'Zapisuję…' : 'Zapisz aktywność'}</Button>
