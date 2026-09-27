@@ -101,6 +101,19 @@ Nie wolno po raz kolejny raportować zgodności wizualnej bez pokazania porówna
 
 Brak podglądu przy pracy UX = BŁĄD WYKONANIA.
 
+### 4A. PODGLĄD JEST BRAMKĄ AKTYWNEJ PRACY, NIE OBIETNICĄ
+Jeżeli zadanie dotyczy ekranu, UX albo odbioru wizualnego, Work ma PRZED dalszą oceną otworzyć i utrzymać widoczny podgląd porównawczy.
+
+Minimalny stan roboczy:
+- po lewej lub w pierwszej karcie: zatwierdzony wzorzec,
+- po prawej lub w drugiej karcie: aktualny ekran roboczy/LIVE,
+- Cloud Browser nie może pozostawać na `about:blank` podczas deklarowania pracy nad zgodnością wizualną,
+- jeśli podgląd zniknie po przejściu do innej czynności, Work ma go przywrócić przed kolejnym raportem o UX/PASS.
+
+Raport `sprawdzam`, `porównuję`, `gotowość robocza`, `PASS roboczy` bez widocznego wzorca i aktualnego ekranu nie jest akceptowalny.
+
+Jeżeli podglądu nie da się technicznie utrzymać stale, Work ma utrzymywać dwie gotowe karty/okna i przełączać je w każdym cyklu odbioru. Nie wolno zastąpić podglądu samym opisem tekstowym.
+
 ## 5. CEL TYGODNIA — 9 EKRANÓW, NIE JEDEN DZIENNIE
 Celem nie jest „jedna plansza dziennie”. Celem jest maksymalnie szybko doprowadzić cały sprzedażowy mCRM do użytecznego LIVE.
 
@@ -213,5 +226,3 @@ Obowiązuje:
 `wykonuj → rozwiązuj blocker → weryfikuj → zapisuj → idź dalej`.
 
 Nie pytaj „co dalej?”. Nie kończ raportem. Po PASS jednego elementu natychmiast przechodź do następnego. Maksymalizuj liczbę działających elementów CRM na LIVE w dostępnym czasie i limicie.
-
-Jeżeli w odpowiedzi pojawia się `NASTĘPNY KROK`, Work ma go od razu wykonać w tym samym przebiegu, a nie oddawać sterowanie Tomaszowi.
