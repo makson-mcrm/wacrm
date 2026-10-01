@@ -65,6 +65,24 @@ Wniosek procesowy: problemem nigdy nie była publikacja `main` do Hostingera, ty
 
 **Kryterium naprawy infrastruktury (spełnione):** push do `main` sam uruchamia kolejne wdrożenie bez udziału Tomasza.
 
+### 4.5. DRUGI BLOCKER (01.10.2026): AWARIA WARSTWY REST SUPABASE
+Po wejściu na LIVE z zalogowaną sesją AKTYWNOŚĆ 08 renderuje się poprawnie, ale ekran pokazuje czerwony banner:
+`Nie udało się wczytać uprawnień` / `Could not query the database for the schema cache. Retrying.` → aplikacja wpada w tryb tylko-do-odczytu, więc zapisu nie da się wykonać.
+
+Dowody (warstwa po warstwie):
+- publiczne REST API projektu zwraca `PGRST002` / **HTTP 503 dla każdej tabeli** (`/rest/v1/profiles`, `/rest/v1/accounts`, także z kluczem anon), w trzech kolejnych próbach,
+- SQL przez konektor działa bezbłędnie, baza jest zdrowa: `pg_is_in_recovery() = false`, 19/60 połączeń, 0 nieważnych indeksów, PostgreSQL 17.6,
+- PostgREST 14.5 **jest połączony** z bazą (widoczny w `pg_stat_activity` jako `authenticator`),
+- schemat jest odczytywalny w całości: 276 wartości domyślnych, 189 indeksów, 315 więzów — wszystkie deparsują się bez błędu; 0 kolumn bez typu,
+- uprawnienia ról API poprawne: `authenticator` ma USAGE na `public` i może SET ROLE na `anon`/`authenticated`/`service_role`,
+- `NOTIFY pgrst, 'reload schema'` wykonany — **nie pomógł**.
+
+Wniosek: to **awaria instancji PostgREST po stronie platformy Supabase**, niezależna od kodu repo i od danych. Nie da się jej naprawić z poziomu SQL ani z repo.
+
+Skutek dla PASS 08: punkt 7 (poprawny publiczny LIVE) działa na poziomie aplikacji, ale **warstwa danych aplikacji jest niedostępna**, więc punkty 2–6 (przepływ, zapis, wyjście, powrót, trwałość) są niewykonalne do czasu przywrócenia REST.
+
+Naprawa: restart projektu Supabase (panel Supabase → projekt → Restart), ewentualnie zgłoszenie do wsparcia Supabase. Po przywróceniu: powtórzyć test REST, potem przejść przepływ 08.
+
 ## 6. AKTYWNOŚĆ 08 — WARUNEK PASS
 PASS dopiero po wszystkich punktach:
 1. krytyczna zgodność z planszą 08,
