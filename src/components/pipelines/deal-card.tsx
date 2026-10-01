@@ -5,6 +5,8 @@ import { Building2, ExternalLink } from 'lucide-react';
 import { Calendar, Check, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { useTranslations } from 'next-intl';
+import { CallAction } from '@/components/sales/call-action';
+import { SmsAction } from '@/components/sales/sms-action';
 
 interface DealCardProps {
   deal: Deal;
@@ -137,6 +139,24 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
             {contactLabel}
           </span>
         )}
+      </div>
+
+      <div
+        className="mt-2 grid grid-cols-2 gap-1 [&_a]:h-8 [&_a]:px-1 [&_a]:text-[10px] [&_button]:h-8 [&_button]:w-full [&_button]:px-1 [&_button]:text-[10px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <CallAction
+          phone={deal.contact?.phone}
+          contactId={deal.contact_id}
+          dealId={deal.id}
+        />
+        <SmsAction
+          phone={deal.contact?.phone}
+          contactId={deal.contact_id}
+          dealId={deal.id}
+          contactName={deal.contact?.name}
+          label="WIADOMOŚĆ"
+        />
       </div>
 
       {deal.company ? (
