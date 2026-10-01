@@ -69,8 +69,19 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
-  // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/companies', '/submissions', '/deals', '/pipelines', '/calendar', '/notifications', '/broadcasts', '/automations', '/settings']
+  // Protected pages - redirect to login if not authenticated.
+    //
+    // This list must cover EVERY route inside the `(dashboard)` route
+    // group: the group's layout renders the client-side DashboardShell,
+    // which has no session of its own, so a route missing here answers an
+    // unauthenticated visitor with a blank app shell instead of a login
+    // redirect. Keep it in sync when a new dashboard page lands.
+    const protectedPaths = [
+      '/dashboard', '/inbox', '/contacts', '/companies', '/submissions',
+      '/deals', '/pipelines', '/calendar', '/notifications', '/broadcasts',
+      '/automations', '/settings', '/quick-call', '/tasks', '/finances',
+      '/flows', '/agents', '/assistant',
+    ]
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
