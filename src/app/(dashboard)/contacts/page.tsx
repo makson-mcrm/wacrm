@@ -105,8 +105,8 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [desktopSegment, setDesktopSegment] = useState<
-    'all' | 'active' | 'new' | 'potential' | 'companies'
-  >('all');
+      'all' | 'active' | 'new' | 'potential' | 'companies' | 'people'
+    >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -1168,7 +1168,7 @@ export default function ContactsPage() {
 }
 
 type DesktopContactSegment =
-  'all' | 'active' | 'new' | 'potential' | 'companies';
+  'all' | 'active' | 'new' | 'potential' | 'companies' | 'people';
 
 function MobileContactsView({
   contacts,
@@ -1350,15 +1350,17 @@ function DesktopContactsView({
     }
     if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
     if (segment === 'companies') return Boolean(contact.companies?.length);
-    return true;
-  });
-  const segments: Array<[DesktopContactSegment, string]> = [
-    ['all', 'Wszyscy'],
-    ['active', 'Aktywni'],
-    ['new', 'Nowi'],
-    ['potential', 'Potencjalni'],
-    ['companies', 'Firmy'],
-  ];
+        if (segment === 'people') return !(contact.companies?.length);
+        return true;
+      });
+      const segments: Array<[DesktopContactSegment, string]> = [
+        ['all', 'Wszystkie'],
+        ['people', 'Osoby'],
+        ['companies', 'Firmy'],
+        ['active', 'Aktywne deale'],
+        ['new', 'Nowi'],
+        ['potential', 'Potencjalni'],
+      ];
 
   return (
     <section className="hidden lg:block" aria-label="Klienci — pełna lista">
