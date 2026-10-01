@@ -1,4 +1,3 @@
-import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -18,6 +17,13 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
  *   - Permissions-Policy: we don't use camera / microphone / etc, so
  *     deny them. A supply-chain compromise or a forgotten plugin
  *     can't silently opt back in.
+ *
+ * NOTE: this file is `next.config.mjs`, not `next.config.ts`. The
+ * Hostinger Node.js build container runs a glibc older than the
+ * prebuilt @next/swc native binary needs, so Turbopack falls back to
+ * the wasm compiler — which then cannot load a TypeScript config
+ * (`Failed to load next.config.ts` → `Cannot find module ...next.config`).
+ * A plain ESM config removes that compile step entirely.
  */
 const SECURITY_HEADERS = [
   {
@@ -61,10 +67,10 @@ const SECURITY_HEADERS = [
       "form-action 'self'",
     ].join("; "),
   },
-] as const;
+];
 
-const nextConfig: NextConfig = {
-  distDir: process.env.CODEX_DIST_DIR || '.next',
+const nextConfig = {
+  distDir: process.env.CODEX_DIST_DIR || ".next",
   turbopack: {
     root: process.cwd(),
   },
@@ -165,4 +171,3 @@ const nextConfig: NextConfig = {
 };
 
 export default withNextIntl(nextConfig);
-
