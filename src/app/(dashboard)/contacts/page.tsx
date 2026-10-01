@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { CallAction } from '@/components/sales/call-action';
+import { SmsAction } from '@/components/sales/sms-action';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -834,7 +836,7 @@ export default function ContactsPage() {
                 <TableHead className="text-muted-foreground hidden md:table-cell">
                   Następne działanie / termin
                 </TableHead>
-                <TableHead className="text-muted-foreground w-12" />
+                <TableHead className="text-muted-foreground w-52" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -957,7 +959,23 @@ export default function ContactsPage() {
                       </p>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
+                                          <div className="flex items-center justify-end gap-1">
+                                          <CallAction
+                                            phone={contact.phone}
+                                            contactId={contact.id}
+                                            variant="outline"
+                                            size="sm"
+                                            className="whitespace-nowrap text-xs"
+                                          />
+                                          <SmsAction
+                                            phone={contact.phone}
+                                            contactId={contact.id}
+                                            contactName={contact.name}
+                                            variant="outline"
+                                            size="sm"
+                                            label="Wiadomość"
+                                          />
+                                          <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
                             <Button
@@ -997,8 +1015,9 @@ export default function ContactsPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
                 ))
               )}
             </TableBody>

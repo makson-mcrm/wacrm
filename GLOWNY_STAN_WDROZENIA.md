@@ -83,6 +83,27 @@ Skutek dla PASS 08: punkt 7 (poprawny publiczny LIVE) działa na poziomie aplika
 
 Naprawa: restart projektu Supabase (panel Supabase → projekt → Restart), ewentualnie zgłoszenie do wsparcia Supabase. Po przywróceniu: powtórzyć test REST, potem przejść przepływ 08.
 
+**ROZWIĄZANE 01.10.2026:** Tomasz wykonał restart projektu. REST wrócił — zapytanie z kluczem anon zwraca już normalną odpowiedź RLS (`42501 permission denied for table accounts` dla roli anonimowej), a nie `PGRST002`/503. Warstwa danych aplikacji działa.
+
+## 5. PASS AKTYWNOŚCI 08 — 01.10.2026
+
+PASS nadany po realnym sprawdzeniu na zalogowanej sesji LIVE:
+
+1. **Przepływ** — na `/quick-call` wybrano klienta `LIVE_TEST NO_DEAL_03315183` i deal `DEAL-00D056D`, wpisano notatkę, ustawiono wynik rozmowy „Odebrał" i zapisano.
+2. **Zapis testowy** — nowy wiersz `fc167437-b126-4a91-9513-a9cafa6b25f9` w `sales_activities`: `activity_type = telefon`, `call_result = odebral`, `description = „TEST HERMES 01.10 - weryfikacja trwalosci AKTYWNOSC 08"`, `created_at = 2026-10-01 17:23:11`, `deal_id = 00d056d0-…`, `contact_id = ac0fd410-…`.
+3. **Wyjście** — po zapisie aplikacja sama wykonała `router.replace(...)` na stronę dealu.
+4. **Ponowne wejście i trwałość** — odczyt tym samym zapytaniem, którego używa historia (`sales_activities` po `deal_id`, `order by occurred_at desc`) zwraca ten wpis; odczyt powtórzony o 17:43:58 (20 min później) zwraca rekord niezmieniony.
+5. **Zapis objął trzy tabele** — `sales_activities` (insert), `contacts.updated_at` i `deals.updated_at` = 17:23:11.
+6. **Brak regresji** — 115 plików / 1030 testów PASS, typecheck PASS.
+7. **Publiczny LIVE** — marker `/deployment-ready-activity08.json` 200, `/quick-call` → 307 na `/login`, `/dashboard` chroniony.
+
+Lekcja procesowa zapisana w skillu `mcrm-wykonawca`: weryfikacja idzie kolejno **kod → SQL → testy → LIVE → Computer Use raz na końcu**; `set_value` na elemencie HTML `<select>` nie odpala zdarzenia React (zapis był przez to odrzucany), a klikanie w pętli bez zmiany stanu to strata czasu.
+
+## 5A. 003 — PIERWSZA POPRAWKA (01.10.2026)
+W KLIENTACH brakowało wymaganych akcji wiersza (spec 003: główna „Zadzwoń", druga „Wiadomość"). Dodano `CallAction` i `SmsAction` do kolumny akcji w `src/app/(dashboard)/contacts/page.tsx`, szerokość kolumny zwiększona do `w-52`. Typecheck PASS, lint 0 błędów, 1030 testów PASS.
+
+Pozostałe elementy 003 (filtry, tagi, ContextDrawer, rejestr przed Dealem) są w kodzie od wcześniejszych paczek i wymagają odbioru na LIVE.
+
 ## 6. AKTYWNOŚĆ 08 — WARUNEK PASS
 PASS dopiero po wszystkich punktach:
 1. krytyczna zgodność z planszą 08,
