@@ -1,6 +1,6 @@
 # GŁÓWNY STAN WDROŻENIA mCRM AI
 
-Aktualizacja: 2026-09-27 Europe/Warsaw
+Aktualizacja: 2026-10-01 Europe/Warsaw
 Właściciel biznesowy: Tomasz
 Kierownik: 01.07 — Strategiczny Wdrożeniowiec mCRM AI
 Wykonawca: 01.08 — jeden kanoniczny Work `Preflight wdrożenia mCRM`
@@ -30,23 +30,40 @@ Dla aktualnej AKTYWNOŚCI źródłem wizualnym jest plansza 08.
 
 Nie projektować UX od nowa. Nie ufać nazwie commita jako dowodowi zgodności.
 
-## 4. AKTUALNY STAN KODU
-Potwierdzone na `main`:
-- `f6979f247ad723f700613f6c12c7a375506ea8e1` — `fix: dopasuj mobilną AKTYWNOŚĆ 08 do planszy`,
-- `acbcc139bcb31376722395fc38d7c5cc9908f4d8` — dodany workflow `Hostinger Deploy`,
-- `e86e28a52e9843431b2185247f62c2a79df9fbc6` — wzmocniony root `AGENTS.md`: ZERO KURIERA / ciągła praca / obowiązkowy podgląd / 9 ekranów.
+## 4. BLOCKER HOSTINGER — ZDIAGNOZOWANY I ZAMKNIĘTY (01.10.2026)
 
-CI dla commita `acbcc139` zakończył się powodzeniem, ale osobny workflow Hostinger Deploy zakończył się FAIL.
+### 4.1. Błędna diagnoza, którą trzeba wykreślić
+Poprzednie sesje uznawały, że przyczyną jest brak sekretu `HOSTINGER_API_TOKEN` i brak połączenia Hostinger↔GitHub, i kierowały pracę na odtwarzanie integracji oraz na kolejne commity „trigger deploy”.
 
-## 5. AKTUALNY BLOCKER — HOSTINGER
-Workflow Hostinger Deploy został uruchomiony i zatrzymał się natychmiast na kroku `Require existing Hostinger connection`.
+To było **nieprawdą**. Stan faktyczny odczytany z Hostinger API:
 
-Potwierdzona przyczyna z logów GitHub Actions:
-`Repository secret HOSTINGER_API_TOKEN is not configured.`
+- Git auto-deployment **istniał i był włączony**: `makson-mcrm/wacrm`, branch `main`, `is_enabled: true`, installation `019ffb5b-a9aa-713b-ba8d-f1573c872918`.
+- **Każdy push do `main` uruchamiał build** — 158 buildów w historii witryny.
+- **Wszystkie 156 wcześniejszych buildów miały stan `failed`.** Nic nigdy nie zostało opublikowane.
 
-To znaczy, że nowy workflow sam wprowadził zależność od sekretu `HOSTINGER_API_TOKEN`, którego repo obecnie nie ma. Nie wolno traktować tego jako dowodu, że Tomasz musi ręcznie logować się do GitHub. GitHub jest dostępny przez uwierzytelniony konektor.
+Wniosek procesowy: problemem nigdy nie była publikacja `main` do Hostingera, tylko **padający build**. Kolejne commity „trigger” nie mogły pomóc.
 
-Zadanie wykonawcy: sprawdzić wszystkie istniejące ścieżki publikacji Hostinger i usunąć sztuczny blocker. Najpierw wykorzystać istniejące połączenia/konektory/konfigurację Hostinger↔GitHub; nowy sekret tylko wtedy, gdy rzeczywiście jest konieczny i nie istnieje bezpieczna prostsza ścieżka.
+### 4.2. Prawdziwe przyczyny (z logów builda)
+1. Build ustawiony na **Node.js 20**, a pakiety `@supabase/*` wymagają **Node ≥ 22** (`EBADENGINE`).
+2. Błąd krytyczny: `@next/swc-linux-x64-gnu` wymaga **GLIBC 2.29**, którego host Hostingera nie ma. Next spadał na WASM, a Turbopack **wymaga natywnych bindingów**:
+   `Turbopack is not supported on this platform (linux/x64) because native bindings are not available.`
+3. Skutek uboczny: `Failed to load next.config.ts` → `Cannot find module ...next.config` — WASM nie kompiluje configu w TypeScript.
+
+### 4.3. Wykonane poprawki (wszystkie na `main`)
+- `next.config.ts` → **`next.config.mjs`** (usuwa kompilację configu TS) — commit `a899486`.
+- **`build:webpack`** w `package.json` (`next build --webpack`) — commit `5bf26c6`.
+- Ustawienia builda witryny: **Node 22**, `build_script: build:webpack`, `output_directory: .next` (przez Hostinger API).
+- **Middleware nie chronił `/quick-call`** ani `/tasks`, `/finances`, `/flows`, `/agents`, `/assistant` — niezalogowany użytkownik dostawał pustą stronę zamiast logowania. Uzupełnione — commit `865601a`.
+
+### 4.4. Stan po naprawie (potwierdzony)
+- build `5bf26c6` → **completed**, build `865601a` → **completed** (pierwsze udane buildy w historii witryny),
+- LIVE serwuje aktualny `main`,
+- `/deployment-ready-activity08.json` → **HTTP 200 `application/json`** (wcześniej 404),
+- `/quick-call` bez sesji → **307 na `/login`**,
+- `/login` renderuje formularz („Welcome back", Email, Password, Sign in),
+- push do `main` sam uruchamia build i wdrożenie — **bez udziału Tomasza**.
+
+**Kryterium naprawy infrastruktury (spełnione):** push do `main` sam uruchamia kolejne wdrożenie bez udziału Tomasza.
 
 ## 6. AKTYWNOŚĆ 08 — WARUNEK PASS
 PASS dopiero po wszystkich punktach:
@@ -57,6 +74,10 @@ PASS dopiero po wszystkich punktach:
 5. ponowne wejście,
 6. trwałość/historia,
 7. poprawny publiczny LIVE.
+
+Punkt 7 (poprawny publiczny LIVE) jest od 01.10.2026 spełniony i potwierdzony. Punkty 2–6 wymagają przejścia przepływu na **zalogowanej** sesji LIVE.
+
+Jedyna niedelegowalna czynność właścicielska: zalogowanie się do LIVE (sesja użytkownika). Hasła nie przechodzą przez czat ani przez wykonawcę — Tomasz podaje je wyłącznie w maskowanym oknie sejfu Hermesa (`browser_vault_save_login`).
 
 Dodatkowo przy odbiorze wizualnym Work ma utrzymywać widoczny układ: plansza 08 obok aktualnego ekranu roboczego/LIVE. Sam opis zgodności nie wystarcza.
 
@@ -83,6 +104,16 @@ Jeżeli ten sam problem pojawia się drugi raz, nie dopisujemy wyłącznie kolej
 
 Dokumentacja jest użyteczna tylko wtedy, gdy wpływa na zachowanie wykonawcy. Root `AGENTS.md` i ten plik są po to, aby kolejne okno nie odkrywało od zera tych samych zasad.
 
+### 9.1. LEKCJA WDROŻONA 01.10.2026 — DIAGNOZUJ BUILD, NIE POŁĄCZENIE
+Warstwa, która zawiodła: **instrukcja repo + diagnoza wykonawcy**. Przez wiele okien problem „LIVE nie aktualizuje się” był tłumaczony brakiem sekretu i brakiem połączenia, bez przeczytania logów builda — mimo że logi były dostępne przez Hostinger API.
+
+Obowiązująca kolejność diagnozy przy „LIVE nie pokazuje main”:
+1. `List Node.js builds` — czy buildy powstają i w jakim są stanie,
+2. `Get NodeJS build logs` — **przeczytać log ostatniego builda**, to jest źródło prawdy,
+3. dopiero potem badać połączenie Git, sekrety i CI.
+
+Nie wolno tworzyć sekretu, workflow ani nowej integracji, dopóki log builda nie został przeczytany.
+
 ## 11. CZEGO NIE WOLNO RAPORTOWAĆ JAKO POSTĘP
 Nie nazywać postępem:
 - samego planu,
@@ -95,4 +126,4 @@ Nie nazywać postępem:
 Postęp biznesowy = mierzalnie więcej działającego CRM na LIVE albo usunięty realny blocker umożliwiający dalsze wdrożenie.
 
 ## 12. BIEŻĄCY NASTĘPNY KROK
-Naprawić publikację Hostinger bez ręcznego logowania GitHub przez Tomasza, opublikować aktualny `main`, pokazać plansza 08 vs LIVE, wykonać pełny test trwałości i dopiero wtedy uznać PASS 08. Następnie kontynuować kolejne ekrany bez czekania na ręczne „dalej”.
+Wykonać pełny test trwałości AKTYWNOŚCI 08 na zalogowanej sesji LIVE (zapis → wyjście → ponowne wejście → trwałość), pokazać planszę 08 obok LIVE i dopiero wtedy uznać PASS 08. Następnie kontynuować kolejne ekrany bez czekania na ręczne „dalej”.
