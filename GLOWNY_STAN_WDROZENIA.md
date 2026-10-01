@@ -164,5 +164,52 @@ Nie nazywać postępem:
 
 Postęp biznesowy = mierzalnie więcej działającego CRM na LIVE albo usunięty realny blocker umożliwiający dalsze wdrożenie.
 
-## 12. BIEŻĄCY NASTĘPNY KROK
-Wykonać pełny test trwałości AKTYWNOŚCI 08 na zalogowanej sesji LIVE (zapis → wyjście → ponowne wejście → trwałość), pokazać planszę 08 obok LIVE i dopiero wtedy uznać PASS 08. Następnie kontynuować kolejne ekrany bez czekania na ręczne „dalej”.
+## 12. STAN NA KONIEC DNIA — 01.10.2026 (STOP NA POLECENIE TOMASZA)
+
+### 12.1. PASS 08 — ZAMKNIĘTE
+AKTYWNOŚĆ 08 ma PASS z dowodem: zapis `fc167437-b126-4a91-9513-a9cafa6b25f9` w `sales_activities` (telefon, `odebral`, notatka testowa, `created_at` 17:23:11), kontakt i deal zaktualizowane, ponowny odczyt po 20 minutach zwraca rekord 1:1. Szczegóły w sekcji 5.
+
+### 12.2. USUNIĘTE BLOKERY INFRASTRUKTURY
+1. Padający build Hostingera (Node 20 vs `@supabase/*`, brak GLIBC 2.29, Turbopack) — `next.config.mjs`, `build:webpack`, Node 22. Push do `main` sam wdraża.
+2. Awaria warstwy REST Supabase (`PGRST002`/503 na każdej tabeli) — po restarcie projektu przez Tomasza REST wrócił.
+
+### 12.3. COMMITY NA `main` (01.10.2026)
+| Commit | Co wnosi | Build na LIVE |
+|---|---|---|
+| `a899486` | `next.config.ts` → `next.config.mjs` | completed |
+| `5bf26c6` | `build:webpack` (Turbopack bez natywnych bindingów) | completed |
+| `865601a` | middleware chroni wszystkie trasy `(dashboard)` | completed |
+| `12e58df` | dokumentacja: prawdziwa diagnoza blokera Hostingera | completed |
+| `3a407cc` | dokumentacja: awaria PostgREST, dowody warstwa po warstwie | completed |
+| `348045d` | 003: akcje ZADZWOŃ/WIADOMOŚĆ w wierszach KLIENTÓW | completed |
+| `10174b3` | 003: akcje ZADZWOŃ/WIADOMOŚĆ na kartach dealów | completed |
+| `1b1ec07` | 003: filtry KLIENTÓW (Osoby, Firmy, Aktywne deale) | completed |
+
+Każdy commit przeszedł: typecheck PASS, lint 0 błędów, 1030/1030 testów, build `EXIT=0`.
+
+### 12.4. 003 — STATUS: NIEPOTWIERZONE WIZUALNIE
+Kod i filtry są na LIVE, ale **odbiór wizualny 003 nie został domknięty**. Przy otwarciu `/contacts` w istniejącej sesji Tomasza obszar treści był **pusty (biały ekran)** mimo poprawnego adresu. To wymaga ustalenia jako pierwsza rzecz jutro: albo wolne ładowanie danych, albo realny błąd renderowania KLIENTÓW. **PASS 003 NIE ZOSTAŁ NADANY.**
+
+### 12.5. NOWA ZASADA ODBIORU (wprowadzona przez Tomasza 01.10.2026)
+Każdy kolejny ekran obowiązkowo: **kod → LIVE → zrzut ekranu → Telegram → akceptacja Tomasza → dopiero następny ekran**.
+Nie wolno kodować kolejnego ekranu, dopóki poprzedni nie został pokazany i zaakceptowany. Zapisane w skillu `mcrm-wykonawca`.
+
+### 12.6. ZMIANY POZA mCRM (stan na koniec dnia)
+- **Sejf:** login do mCRM zapisany jako `vault_2248ad374770` (origin `https://mediumseagreen-pelican-353577.hostingersite.com`, identyfikator `biuro@makson.space`). Hasło było ujawnione w czacie — do zmiany.
+- **Telegram:** bot `hermes_tomasz_76_bot` sparowany z Tomaszem (`6775574178`), `TELEGRAM_ALLOWED_USERS` i `TELEGRAM_HOME_CHANNEL` ustawione, gateway połączony, autostart zainstalowany, `stt.language=pl`. Wysyłka do Tomasza działa (`hermes send --to telegram`). PASS komunikacji przychodzącej nie został jeszcze potwierdzony.
+- **Nie zrobione:** usunięcie podatności `fast-uri` zgłoszonych przez Hostinger (zakres na jutro).
+
+### 12.7. ZUŻYCIE (odczyt z `state.db`, sesja `20261001_124324_5c2e1a`)
+- Model główny: `deepseek/deepseek-v4.1-flash` — **569 wywołań API**, wejście 5 657 793 tokenów, wyjście 231 017, **cache_read 136 137 728**.
+- `background_review`: 53 wywołania, `approval`: 42, `vision`: 14 (stepfun free + deepseek), `compression`: 1 (59 023 wejścia).
+- Narzędzia: `terminal` 247, **`computer_use` 101**, `execute_sql` 56, `read_file` 34, `search_files` 32, `patch` 21, `browser_exec` 5.
+- Codex: jedno zlecenie, 28 933 tokenów.
+- Saldo Nous: start 13,33 USD → 9,70 USD (dane Tomasza). Limit Codex: 5h — 98% pozostało, tygodniowy — 38% wykorzystane.
+
+**Wniosek kosztowy:** koszt napędzał **rozmiar kontekstu × liczba wywołań** (136 mln tokenów odczytu z cache przy 569 wywołaniach), a nie Codex. 101 wywołań Computer Use i 247 terminala w jednej sesji to główne mnożniki.
+
+### 12.8. NASTĘPNY KROK (jutro, od tego zacząć)
+1. Ustalić i naprawić pusty ekran `/contacts` na LIVE (pierwsza rzecz).
+2. Pokazać KLIENCI i DEAL jako zrzut na Telegram i uzyskać akceptację wizualną 003.
+3. Usunąć podatności `fast-uri` przez repo i normalne wdrożenie.
+4. Nowe zasady pracy: Codex koduje, Hermes steruje, Computer Use tylko do jednego końcowego odbioru ekranu.
