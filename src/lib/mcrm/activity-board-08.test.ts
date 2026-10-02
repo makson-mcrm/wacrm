@@ -9,13 +9,15 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
       'utf8'
     );
     for (const label of [
-      '1. Klient i Deal',
-      '2. Akcja',
+      '1. Wybierz klienta i deal',
+      '2. Zarejestruj rozmowę',
       '3. Wynik rozmowy',
       '4. Notatka lub dyktowanie',
       '5. Następny krok · 6. Termin · 7. Blocker',
       '9. Zmień etap lub zamknij deal',
-      '10. Ostatnie aktywności w tym dealu',
+      'Ostatnie aktywności w tym dealu',
+      'Skróty klawiszowe',
+      'Zobacz wszystkie',
       'Odebrał',
       'Nie odebrał',
       'Oddzwonić',
@@ -54,5 +56,7 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
     );
     expect(source).toContain('if (dealWrite.error) throw dealWrite.error');
     expect(source).toContain('{3,}$');
+    expect(source).toContain(".eq('deal_id', dealId)");
+    expect(source).toContain(".order('occurred_at', { ascending: false })");
   });
 });

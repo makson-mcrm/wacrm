@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CheckSquare,
   FilePlus2,
+  Keyboard,
   Mail,
   MessageSquare,
   MoreHorizontal,
@@ -178,6 +179,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const [creatingContact, setCreatingContact] = useState(false);
   const [createTask, setCreateTask] = useState(false);
   const [emailCopy, setEmailCopy] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const selectedContact = contacts.find((row) => row.id === contactId) ?? null;
   const selectedDeal = deals.find((row) => row.id === dealId) ?? null;
@@ -251,25 +253,23 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         .catch(() => setActivities(ACTIVITY_08_DEMO_HISTORY));
       return;
     }
-    if (!accountId || (!contactId && !dealId)) {
+    if (!accountId || !dealId) {
       setActivities([]);
       return;
     }
-    let request = db
+    const request = db
       .from('sales_activities')
       .select(
         'id,title,occurred_at,activity_type,description,call_result,next_action,next_action_date'
       )
       .eq('account_id', accountId)
+      .eq('deal_id', dealId)
       .order('occurred_at', { ascending: false })
       .limit(5);
-    request = dealId
-      ? request.eq('deal_id', dealId)
-      : request.eq('contact_id', contactId);
     void request.then(({ data }) =>
       setActivities((data ?? []) as ActivityRow[])
     );
-  }, [accountId, contactId, db, dealId, demo]);
+  }, [accountId, db, dealId, demo]);
 
   useEffect(() => {
     if (!selectedDeal) {
@@ -648,14 +648,44 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4 pb-24 text-slate-950 lg:pb-8">
-      <div>
-        <h1 className="text-2xl font-black tracking-tight text-[#0b1b55]">
-          Aktywność
-        </h1>
-        <p className="text-sm text-slate-500">
-          Rozmawiaj, notuj i działaj szybciej
-        </p>
+    <div className="mx-auto w-full max-w-[1480px] space-y-4 pb-24 text-slate-950 lg:pb-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-[#0b1b55]">
+            Aktywność
+          </h1>
+          <p className="text-sm text-slate-500">
+            Rozmawiaj, notuj i działaj szybciej
+          </p>
+        </div>
+        <div className="relative">
+          <Button
+            type="button"
+            variant="outline"
+            aria-expanded={shortcutsOpen}
+            aria-controls="activity-keyboard-shortcuts"
+            onClick={() => setShortcutsOpen((open) => !open)}
+            className="hidden gap-2 border-blue-200 text-blue-700 sm:inline-flex"
+          >
+            <Keyboard className="size-4" /> Skróty klawiszowe
+          </Button>
+          {shortcutsOpen && (
+            <div
+              id="activity-keyboard-shortcuts"
+              className="absolute top-12 right-0 z-30 w-64 rounded-lg border bg-white p-3 text-xs shadow-lg"
+            >
+              <p className="font-black text-[#0b1b55]">Skróty klawiszowe</p>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-slate-600">
+                <dt className="font-mono font-bold">Tab</dt>
+                <dd>Przejdź do kolejnego pola</dd>
+                <dt className="font-mono font-bold">Shift + Tab</dt>
+                <dd>Wróć do poprzedniego pola</dd>
+                <dt className="font-mono font-bold">Enter</dt>
+                <dd>Wybierz podświetloną opcję</dd>
+              </dl>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold">
@@ -673,9 +703,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         </span>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.65fr)] xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.7fr)]">
         <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="font-black text-[#0b1b55]">1. Klient i Deal</h2>
+          <h2 className="font-black text-[#0b1b55]">
+            1. Wybierz klienta i deal
+          </h2>
           <div className="relative">
             <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
             <Input
@@ -774,6 +806,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </div>
                 <button
                   type="button"
+                  aria-label="Usuń wybór klienta"
                   onClick={() => {
                     setContactId('');
                     setDealId('');
@@ -839,20 +872,66 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               )}
             </div>
           )}
-          {selectedContact && (
-            <button
-              type="button"
-              onClick={() => router.push('/deals')}
-              className="min-h-11 self-start text-sm font-bold text-blue-700"
-            >
-              Zobacz wszystkie →
-            </button>
+          {selectedContact && selectedDeal && (
+            <div className="border-t pt-3">
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <h2 className="text-sm font-black text-[#0b1b55]">
+                  Ostatnie aktywności w tym dealu
+                </h2>
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      activityContextReturnPath({
+                        contactId: selectedContact.id,
+                        dealId: selectedDeal.id,
+                      })
+                    )
+                  }
+                  className="min-h-11 text-xs font-semibold text-blue-700"
+                >
+                  Zobacz wszystkie →
+                </button>
+              </div>
+              <div className="space-y-1">
+                {activities.length === 0 ? (
+                  <p className="py-2 text-sm text-slate-600">
+                    Brak zapisanych aktywności w tym dealu.
+                  </p>
+                ) : (
+                  activities.map((row) => (
+                    <article
+                      key={row.id}
+                      className="grid grid-cols-[76px_1fr] gap-2 border-b py-2 text-xs last:border-0"
+                    >
+                      <time className="text-slate-500">
+                        {new Date(row.occurred_at).toLocaleDateString('pl-PL')}
+                      </time>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-[#0b1b55]">
+                          {row.title}
+                        </p>
+                        {(row.description || row.next_action) && (
+                          <p className="mt-0.5 line-clamp-2 text-slate-500">
+                            {[row.description, row.next_action]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </div>
           )}
         </section>
 
         <section className="flex flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm">
           <div className="order-1">
-            <h2 className="font-black text-[#0b1b55]">2. Akcja</h2>
+            <h2 className="font-black text-[#0b1b55]">
+              2. Zarejestruj rozmowę
+            </h2>
             <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
               <button
                 type="button"
@@ -1004,7 +1083,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
           </div>
 
-          <div className="order-6">
+          <div className="order-5">
             <h2 className="font-black text-[#0b1b55]">
               9. Zmień etap lub zamknij deal{' '}
               <span className="font-normal text-slate-500">(opcjonalnie)</span>
@@ -1080,7 +1159,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             </div>
           </div>
-          <div className="sticky bottom-0 z-10 order-5 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+          <div className="sticky bottom-0 z-10 order-6 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
             <span className="text-sm font-black text-[#0b1b55]">8. Zapis</span>
             <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
               <input
@@ -1117,61 +1196,6 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           </div>
         </section>
       </div>
-
-      {selectedContact && (
-        <section className="rounded-xl border bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="font-black text-[#0b1b55]">
-              10. Ostatnie aktywności w tym dealu
-            </h2>
-            <button
-              type="button"
-              onClick={() =>
-                router.push(
-                  activityContextReturnPath({
-                    contactId: selectedContact.id,
-                    dealId: selectedDeal?.id,
-                  })
-                )
-              }
-              className="min-h-11 text-xs font-semibold text-blue-700"
-            >
-              Zobacz wszystkie →
-            </button>
-          </div>
-          <div className="space-y-3">
-            {activities.length === 0 ? (
-              <p className="text-sm text-slate-600">
-                Brak zapisanych aktywności.
-              </p>
-            ) : (
-              activities.map((row) => (
-                <article key={row.id} className="rounded-lg border p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-bold text-[#0b1b55]">
-                      {row.title}
-                    </span>
-                    <time className="text-xs text-slate-500">
-                      {new Date(row.occurred_at).toLocaleString('pl-PL')}
-                    </time>
-                  </div>
-                  {(row.description || row.next_action || row.blocker) && (
-                    <p className="mt-1 text-slate-600">
-                      {[
-                        row.description,
-                        row.next_action ? `Dalej: ${row.next_action}` : '',
-                        row.blocker ? `Blocker: ${row.blocker}` : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                  )}
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
