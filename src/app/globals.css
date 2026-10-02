@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -39,6 +39,15 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-app-surface: var(--app-surface);
+  --color-paid-ai: var(--paid-ai);
+  --color-paid-ai-hover: var(--paid-ai-hover);
+  --color-paid-ai-foreground: var(--paid-ai-foreground);
+  --color-paid-ai-border: var(--paid-ai-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   /* Secondary card surface (tile / hover backgrounds) and the accent
    * extras the Settings redesign leans on. The raw --primary-* vars
    * already exist per-accent below; these mappings expose them (and
@@ -55,6 +64,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --spacing-touch: var(--touch-target);
 }
 
 /* ============================================================
@@ -87,7 +97,8 @@
 /* ---- MODE: neutral surfaces ---- */
 
 :root,
-html[data-mode="dark"] {
+html[data-mode='dark'] {
+  --app-surface: #13242a;
   --background: #1b2730;
   --foreground: #f7f9f5;
   --card: #173a52;
@@ -114,9 +125,14 @@ html[data-mode="dark"] {
   --sidebar-accent: oklch(0.22 0.01 260);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.28 0.01 260);
+  --warning: #fbbf24;
+  --warning-foreground: #1b2730;
+  --info: #60a5fa;
+  --info-foreground: #10233f;
 }
 
-html[data-mode="light"] {
+html[data-mode='light'] {
+  --app-surface: #f4f8f6;
   --background: #f7f9f5;
   --foreground: #1b2730;
   --card: oklch(1 0 0);
@@ -143,25 +159,46 @@ html[data-mode="light"] {
   --sidebar-accent: #245247;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: oklch(0.922 0.004 260);
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --info: #1d4ed8;
+  --info-foreground: #ffffff;
 }
 
 /* ---- ACCENT: primary color ---- */
 
 :root,
-html[data-theme="violet"] {
+html[data-theme='violet'] {
   --primary: #245247;
   --primary-foreground: #ffffff;
   --primary-hover: #173a52;
   --primary-soft: rgb(36 82 71 / 0.12);
-  --primary-soft-2: rgb(183 216 75 / 0.24);
-  --ring: #b7d84b;
+  --primary-soft-2: rgb(36 82 71 / 0.22);
+  --ring: #2f7665;
   --chart-1: #245247;
-  --sidebar-primary: #b7d84b;
+  --sidebar-primary: #d1fae5;
   --sidebar-primary-foreground: #173a52;
-  --sidebar-ring: #b7d84b;
+  --sidebar-ring: #78b9a9;
 }
 
-html[data-theme="emerald"] {
+:root {
+  /* Shared UX foundation: spacing, touch, type, border and paid-AI accent. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --touch-target: 2.75rem;
+  --font-size-supporting: 0.75rem;
+  --border-width-ui: 1px;
+  --paid-ai: #b7d84b;
+  --paid-ai-hover: #a8ca3f;
+  --paid-ai-foreground: #173a52;
+  --paid-ai-border: #8eaf2f;
+}
+
+html[data-theme='emerald'] {
   --primary: oklch(0.62 0.16 162);
   --primary-foreground: oklch(0.16 0.02 162);
   --primary-hover: oklch(0.68 0.15 162);
@@ -175,7 +212,7 @@ html[data-theme="emerald"] {
   --sidebar-ring: oklch(0.62 0.16 162);
 }
 
-html[data-theme="cobalt"] {
+html[data-theme='cobalt'] {
   --primary: oklch(0.585 0.2 254);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.66 0.18 254);
@@ -189,7 +226,7 @@ html[data-theme="cobalt"] {
   --sidebar-ring: oklch(0.585 0.2 254);
 }
 
-html[data-theme="amber"] {
+html[data-theme='amber'] {
   --primary: oklch(0.745 0.16 65);
   --primary-foreground: oklch(0.18 0.03 65);
   --primary-hover: oklch(0.8 0.15 65);
@@ -203,7 +240,7 @@ html[data-theme="amber"] {
   --sidebar-ring: oklch(0.745 0.16 65);
 }
 
-html[data-theme="rose"] {
+html[data-theme='rose'] {
   --primary: oklch(0.645 0.22 16);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.71 0.2 16);
@@ -223,8 +260,46 @@ html[data-theme="rose"] {
   }
   body {
     @apply bg-background text-foreground;
+    min-height: 100dvh;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;
+    min-height: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    min-height: var(--touch-target);
+    font-size: 16px;
+  }
+
+  html[data-keyboard-open='true'] [data-slot='mobile-bottom-nav'] {
+    display: none;
+  }
+
+  html[data-keyboard-open='true'] #main-content {
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  [data-slot='button'],
+  [data-slot='dropdown-menu-trigger'],
+  [data-slot='dropdown-menu-item'],
+  [data-slot='select-trigger'],
+  [data-slot='select-item'],
+  [data-slot='tabs-trigger'],
+  [data-slot='checkbox'],
+  [data-slot='radio-group-item'],
+  [data-slot='switch'] {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
   }
 }

@@ -1,91 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { AuthProvider, useAuth } from '@/hooks/use-auth';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Header } from '@/components/layout/header';
-import { AccountAccessAlert } from '@/components/layout/account-access-alert';
-import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
-import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
-import { DailyStartCard } from '@/components/layout/daily-start-card';
+import { AppShell } from '@/components/layout/app-shell';
+import { AuthProvider } from '@/hooks/use-auth';
 
-// Auth-gated dashboard shell. Extracted from the layout so the layout
-// itself can stay a server component and export metadata (noindex) —
-// client components can't export Next's metadata object.
-
-function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
-  // always visible and this stays at `false` (ignored by the component).
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    const updateViewportHeight = () => {
-      document.documentElement.style.setProperty(
-        '--app-viewport-height',
-        `${viewport?.height ?? window.innerHeight}px`
-      );
-    };
-    updateViewportHeight();
-    viewport?.addEventListener('resize', updateViewportHeight);
-    window.addEventListener('orientationchange', updateViewportHeight);
-    return () => {
-      viewport?.removeEventListener('resize', updateViewportHeight);
-      window.removeEventListener('orientationchange', updateViewportHeight);
-      document.documentElement.style.removeProperty('--app-viewport-height');
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <div className="bg-background flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
-  return (
-    <div className="flex h-[var(--app-viewport-height,100dvh)] overflow-hidden bg-[#f4f8f6]">
-      {/* Reports this tab's online/away presence once we know a user is
-          signed in. Headless — renders nothing. */}
-      <PresenceHeartbeat />
-      <DailyStartCard />
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 lg:px-5 lg:pt-3">
-          {/* Above every page: writes are being rejected and here's why.
-              Renders nothing unless the account/role failed to resolve. */}
-          <AccountAccessAlert />
-          {children}
-        </main>
-        <MobileBottomNav />
-      </div>
-    </div>
-  );
-}
-
+// Keep the route-level boundary small: authenticated screens all render
+// through the one shared AppShell implementation. AppShell owns the
+// window.visualViewport, 100dvh and safe-area-inset-bottom behavior.
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      <AppShell>{children}</AppShell>
     </AuthProvider>
   );
 }

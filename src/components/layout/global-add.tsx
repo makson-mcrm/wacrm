@@ -26,8 +26,8 @@ export function GlobalAdd({ mobile = false }: { mobile?: boolean }) {
         aria-label="Dodaj w mCRM"
         className={cn(
           mobile
-            ? 'flex h-full w-full flex-col items-center justify-center gap-1 px-0.5 text-[8px] font-black tracking-[-0.03em] text-emerald-900'
-            : 'bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold'
+            ? 'flex h-full min-h-11 w-full min-w-11 flex-col items-center justify-center gap-1 px-0.5 text-xs font-black tracking-[-0.03em] text-emerald-900'
+            : 'bg-primary text-primary-foreground hover:bg-primary-hover flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold md:h-9'
         )}
       >
         <span
@@ -39,7 +39,7 @@ export function GlobalAdd({ mobile = false }: { mobile?: boolean }) {
         >
           <Plus className={mobile ? 'size-7' : 'size-4'} />
         </span>
-        <span>{mobile ? 'DODAJ' : 'Dodaj'}</span>
+        <span className={mobile ? 'sr-only' : undefined}>Dodaj</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={mobile ? 'center' : 'end'}

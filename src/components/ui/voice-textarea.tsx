@@ -99,7 +99,8 @@ export function VoiceTextarea({
           // final phrases instead of keying them by index, which used to
           // overwrite the beginning and leave only the last word/fragment.
           if (!finalDictationRef.current.endsWith(transcript))
-            finalDictationRef.current = `${finalDictationRef.current} ${transcript}`.trim();
+            finalDictationRef.current =
+              `${finalDictationRef.current} ${transcript}`.trim();
         } else interim = `${interim} ${transcript}`.trim();
       }
       const spoken = `${finalDictationRef.current} ${interim}`.trim();
@@ -179,37 +180,49 @@ export function VoiceTextarea({
   }
 
   return (
-    <div className={layout === 'side' ? 'grid gap-2 sm:grid-cols-[1fr_112px]' : 'space-y-2'}>
+    <div
+      className={
+        layout === 'side' ? 'grid gap-2 sm:grid-cols-[1fr_112px]' : 'space-y-2'
+      }
+    >
       <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className={className}
       />
-      <div className={layout === 'side' ? 'flex flex-col items-center justify-center rounded-lg bg-slate-50 p-2' : ''}>
+      <div
+        className={
+          layout === 'side'
+            ? 'flex flex-col items-center justify-center rounded-lg bg-slate-50 p-2'
+            : ''
+        }
+      >
         <Button
           type="button"
           size="sm"
           variant={recording ? 'destructive' : 'outline'}
           onClick={toggleRecording}
           disabled={transcribing}
-          className={layout === 'side' ? 'h-auto min-h-16 w-full flex-col border-0 bg-transparent text-emerald-800 shadow-none hover:bg-emerald-50' : ''}
+          className={
+            layout === 'side'
+              ? 'h-auto min-h-16 w-full flex-col border-0 bg-transparent text-emerald-800 shadow-none hover:bg-emerald-50'
+              : ''
+          }
         >
           {recording ? (
             <Square className="h-5 w-5" />
           ) : (
             <Mic className="h-6 w-6" />
           )}
-          {transcribing
-            ? 'Przepisuję…'
-            : recording
-              ? 'Zatrzymaj'
-              : 'Dyktuj'}
+          {transcribing ? 'Przepisuję…' : recording ? 'Zatrzymaj' : 'Dyktuj'}
         </Button>
-        {layout === 'side' && <span className="text-xs font-semibold text-slate-400">00:00</span>}
+        {layout === 'side' && (
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            00:00
+          </span>
+        )}
       </div>
     </div>
   );
 }
-
-

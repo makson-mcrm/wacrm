@@ -225,7 +225,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             close button is hidden since the sidebar is always-visible. */}
         <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123d2b] text-lime-300">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123d2b] text-white">
               <Sparkles className="h-4 w-4" />
             </div>
             <span className="text-foreground text-sm font-black">mCRM AI</span>
@@ -234,7 +234,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             type="button"
             onClick={onClose}
             aria-label={t('closeMenu')}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 items-center justify-center rounded-md lg:hidden"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-lg lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -279,7 +279,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
+                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs font-semibold tracking-wider text-amber-200 uppercase"
                       >
                         {t('beta')}
                       </span>
@@ -300,13 +300,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         aria-label={t('unreadNotifications', {
                           count: unreadNotifications,
                         })}
-                        className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                        className="bg-primary text-primary-foreground flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold"
                       >
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
                     {showSubmissionBadge && (
-                      <span className="min-w-5 rounded-full bg-[#B7D84B] px-1.5 py-0.5 text-center text-[10px] font-bold text-[#173A52]">
+                      <span className="bg-primary text-primary-foreground min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold">
                         {unhandledSubmissions > 99
                           ? '99+'
                           : unhandledSubmissions}
@@ -339,7 +339,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     <Link
                       href={item.href}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                        'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0',
                         isActive
                           ? 'bg-primary/10 text-primary'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -350,7 +350,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         {item.label || t(item.labelKey as string)}
                       </span>
                       {badge > 0 ? (
-                        <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[10px]">
+                        <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs">
                           {badge > 99 ? '99+' : badge}
                         </span>
                       ) : null}
@@ -413,7 +413,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     const Icon = meta.icon;
                     return (
                       <span
-                        className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase ${meta.className}`}
+                        className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs font-medium tracking-wider uppercase ${meta.className}`}
                       >
                         <Icon className="size-3" />
                         {t(meta.labelKey as string)}

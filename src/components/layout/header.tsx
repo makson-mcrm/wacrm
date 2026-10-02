@@ -90,7 +90,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           type="button"
           onClick={onOpenSidebar}
           aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors lg:hidden"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-lg transition-colors lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -99,7 +99,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           className="flex min-w-0 items-center gap-2 lg:hidden"
           aria-label="mCRM AI — DZISIAJ"
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-lime-300">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white">
             <Sparkles className="size-4" />
           </span>
           <span className="text-foreground truncate text-base font-black sm:text-lg">
@@ -116,7 +116,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <Link
           href="/notifications"
           aria-label="Powiadomienia"
-          className="flex size-9 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
+          className="flex size-11 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
         >
           <Bell className="size-4" />
         </Link>
@@ -192,19 +192,6 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           </DropdownMenu>
         </div>
       </div>
-      <style jsx global>{`
-        @media (max-width: 767px) {
-          .mobile-global-search input {
-            min-height: 44px;
-            font-size: 16px;
-          }
-
-          .mobile-global-search > div > div:nth-child(2) {
-            top: 3rem;
-            min-width: 0;
-          }
-        }
-      `}</style>
     </header>
   );
 }

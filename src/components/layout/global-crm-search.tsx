@@ -13,7 +13,7 @@ type Results = {
   companies: Company[];
 };
 
-export function GlobalCrmSearch() {
+export function GlobalSearch() {
   const db = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
   const [query, setQuery] = useState('');
@@ -89,12 +89,21 @@ export function GlobalCrmSearch() {
           onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
           placeholder="Szukaj kontaktu, firmy, telefonu lub Deala…"
           aria-label="Globalna wyszukiwarka CRM"
-          className="border-border bg-muted/40 focus:border-primary h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="global-search-results"
+          aria-expanded={open}
+          className="border-border bg-muted/40 focus:border-primary h-11 w-full rounded-lg border pr-3 pl-9 text-base outline-none md:h-9 md:text-sm"
         />
       </div>
 
       {open && term.length >= 3 && (
-        <div className="bg-popover border-border absolute top-11 right-0 z-50 max-h-[70vh] w-full min-w-[340px] overflow-auto rounded-xl border p-2 shadow-xl">
+        <div
+          id="global-search-results"
+          role="region"
+          aria-label="Wyniki wyszukiwania"
+          className="bg-popover border-border absolute top-12 right-0 left-0 z-50 max-h-[70dvh] w-full min-w-0 overflow-auto rounded-xl border p-2 shadow-xl md:top-11 md:right-0 md:left-auto md:min-w-[340px]"
+        >
           {total === 0 ? (
             <p className="text-muted-foreground px-3 py-4 text-sm">
               Brak wyników dla „{term}”.
@@ -110,7 +119,7 @@ export function GlobalCrmSearch() {
                     rel="noopener noreferrer"
                     title="Otwórz Deal w nowej karcie"
                     onClick={() => setOpen(false)}
-                    className="hover:bg-muted block rounded-lg px-3 py-2"
+                    className="hover:bg-muted block min-h-11 rounded-lg px-3 py-2"
                   >
                     <p className="text-sm font-medium">{deal.title}</p>
                     <p className="text-muted-foreground text-xs">Deal</p>
@@ -127,7 +136,7 @@ export function GlobalCrmSearch() {
                     rel="noopener noreferrer"
                     title="Otwórz Kontakt w nowej karcie"
                     onClick={() => setOpen(false)}
-                    className="hover:bg-muted block rounded-lg px-3 py-2"
+                    className="hover:bg-muted block min-h-11 rounded-lg px-3 py-2"
                   >
                     <p className="text-sm font-medium">
                       {contact.name ||
@@ -150,7 +159,7 @@ export function GlobalCrmSearch() {
                     key={company.id}
                     href={`/companies?open=${company.id}`}
                     onClick={() => setOpen(false)}
-                    className="hover:bg-muted block rounded-lg px-3 py-2"
+                    className="hover:bg-muted block min-h-11 rounded-lg px-3 py-2"
                   >
                     <p className="text-sm font-medium">{company.name}</p>
                     <p className="text-muted-foreground text-xs">
@@ -176,7 +185,7 @@ function Group({
 }) {
   return (
     <section className="mb-2 last:mb-0">
-      <p className="text-muted-foreground px-3 py-1 text-[11px] font-semibold tracking-wide uppercase">
+      <p className="text-muted-foreground px-3 py-1 text-xs font-semibold tracking-wide uppercase">
         {title}
       </p>
       {children}
@@ -184,3 +193,6 @@ function Group({
   );
 }
 
+// Backward-compatible name for any screen that imported the original
+// component before GlobalSearch became the single shell primitive.
+export const GlobalCrmSearch = GlobalSearch;

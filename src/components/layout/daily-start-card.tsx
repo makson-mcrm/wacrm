@@ -33,7 +33,7 @@ export function DailyStartCard() {
         aria-labelledby="mcrm-day-start-title"
         className="w-full max-w-md rounded-[2rem] bg-[#123d2b] p-6 text-white shadow-2xl"
       >
-        <p className="text-xs font-black tracking-[0.2em] text-lime-300 uppercase">
+        <p className="text-xs font-black tracking-[0.2em] text-emerald-100 uppercase">
           mCRM AI · nowy dzień
         </p>
         <h2 id="mcrm-day-start-title" className="sr-only">
@@ -47,7 +47,7 @@ export function DailyStartCard() {
         <Button
           type="button"
           onClick={startDay}
-          className="mt-7 h-14 w-full rounded-2xl bg-lime-300 text-base font-black text-emerald-950 hover:bg-lime-200"
+          className="bg-primary text-primary-foreground hover:bg-primary-hover mt-7 h-14 w-full rounded-2xl text-base font-black"
         >
           ROZPOCZNIJ DZIEŃ
         </Button>
