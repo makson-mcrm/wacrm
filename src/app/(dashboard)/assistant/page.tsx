@@ -13,6 +13,7 @@ type DealOption = {
   product_type: string | null;
   mandatory_bank: string | null;
   preferred_bank: string | null;
+  contact: Array<{ name: string | null }>;
 };
 
 export default function AssistantPage() {
@@ -25,7 +26,9 @@ export default function AssistantPage() {
     if (!accountId) return;
     const result = await db
       .from('deals')
-      .select('id,title,product_type,mandatory_bank,preferred_bank')
+      .select(
+        'id,title,product_type,mandatory_bank,preferred_bank,contact:contacts(name)'
+      )
       .eq('account_id', accountId)
       .eq('status', 'open')
       .order('updated_at', { ascending: false });
@@ -36,9 +39,7 @@ export default function AssistantPage() {
     setDealId((current) => {
       if (current) return current;
       const requested = new URLSearchParams(window.location.search).get('deal');
-      return rows.some((deal) => deal.id === requested)
-        ? requested || ''
-        : rows[0]?.id || '';
+      return rows.some((deal) => deal.id === requested) ? requested || '' : '';
     });
   }, [accountId, db]);
 
@@ -60,7 +61,7 @@ export default function AssistantPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <label htmlFor="assistant-deal" className="text-sm font-black">
-          Aktywny Deal
+          Zmień kontekst
         </label>
         <div className="relative mt-2">
           <BriefcaseBusiness className="absolute top-3 left-3 size-4 text-emerald-900" />
@@ -70,9 +71,11 @@ export default function AssistantPage() {
             onChange={(event) => setDealId(event.target.value)}
             className="h-11 w-full rounded-xl border bg-white pr-3 pl-10 text-sm"
           >
+            <option value="">Wybierz jawnie klienta i Deal</option>
             {deals.map((deal) => (
               <option key={deal.id} value={deal.id}>
-                {deal.title} · {deal.product_type || 'produkt nieustalony'} ·{' '}
+                {deal.contact?.[0]?.name || 'Klient nieustalony'} · {deal.title}{' '}
+                · {deal.product_type || 'produkt nieustalony'} ·{' '}
                 {deal.mandatory_bank ||
                   deal.preferred_bank ||
                   'bank nieustalony'}
@@ -95,6 +98,7 @@ export default function AssistantPage() {
                     Co chcesz zrobić w tej sprawie?
                   </h2>
                   <p className="text-xs text-slate-500">
+                    {selectedDeal?.contact?.[0]?.name || 'Klient nieustalony'} ·{' '}
                     {selectedDeal?.title} ·{' '}
                     {selectedDeal?.product_type || 'produkt nieustalony'}
                   </p>
@@ -136,7 +140,8 @@ export default function AssistantPage() {
         </section>
       ) : (
         <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500">
-          Brak aktywnego Deala do pracy z Asystentem.
+          Wybierz klienta i Deal. Asystent nie odpowiada ogólnie bez jawnego
+          kontekstu.
         </p>
       )}
     </div>

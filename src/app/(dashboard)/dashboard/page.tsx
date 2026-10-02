@@ -1340,15 +1340,13 @@ function DesktopTodayBoard({
                 <p className="truncate text-xs font-black text-slate-950">
                   {metric.label}
                 </p>
-                <p className="truncate text-[10px] text-slate-500">
-                  {metric.note}
-                </p>
+                <p className="truncate text-xs text-slate-500">{metric.note}</p>
               </div>
             </div>
             <p className="mt-2 truncate text-xl font-black text-blue-950">
               {metric.value}
             </p>
-            <p className="mt-0.5 truncate text-[10px] text-blue-800">
+            <p className="mt-0.5 truncate text-xs text-blue-800">
               {metric.detail}
             </p>
           </Link>
@@ -1410,12 +1408,12 @@ function DesktopTodayBoard({
             </div>
             <div>
               <p className="font-black text-emerald-800">Dobry rytm!</p>
-              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+              <p className="mt-1 text-xs leading-4 text-slate-500">
                 Masz zaplanowane {todayPlan.mainCount} kluczowych aktywności.
               </p>
             </div>
           </div>
-          <div className="mt-2 space-y-2 text-[11px]">
+          <div className="mt-2 space-y-2 text-xs">
             {[
               'Poranna analiza',
               'Pierwsze rozmowy',
@@ -1491,12 +1489,12 @@ function DesktopTodayRow({
           {item.title}
           {item.action && item.action !== item.title ? ` — ${item.action}` : ''}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold text-slate-500 uppercase">
+        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500 uppercase">
           {[item.stageName, item.section].filter(Boolean).join(' · ') ||
             item.reason}
         </span>
       </span>
-      <ArrowRight className="size-4 text-slate-400" />
+      <ArrowRight className="size-4 text-slate-600" />
     </div>
   );
   return item.href ? <Link href={item.href}>{content}</Link> : content;
@@ -1520,7 +1518,7 @@ function TodayPanel({
         {action && href ? (
           <Link
             href={href}
-            className="text-[10px] font-bold text-blue-600 hover:underline"
+            className="text-xs font-bold text-blue-600 hover:underline"
           >
             {action} →
           </Link>
@@ -1550,7 +1548,7 @@ function DealStatusPanel({
         <h2 className="text-sm font-black text-blue-950">{title}</h2>
         <Link
           href={href}
-          className="text-[10px] font-bold text-blue-600 hover:underline"
+          className="text-xs font-bold text-blue-600 hover:underline"
         >
           Zobacz wszystkie ({deals.length})
         </Link>
@@ -1566,7 +1564,7 @@ function DealStatusPanel({
               <span className="block truncate text-xs font-bold text-slate-900">
                 {blocker ? deal.blocker : deal.title}
               </span>
-              <span className="block truncate text-[10px] text-slate-500">
+              <span className="block truncate text-xs text-slate-500">
                 {deal.contact?.name ||
                   deal.company?.name ||
                   deal.stage?.name ||
@@ -1574,14 +1572,14 @@ function DealStatusPanel({
               </span>
             </span>
             <span
-              className={`rounded-md px-2 py-1 text-[9px] font-bold ${blocker ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}
+              className={`rounded-md px-2 py-1 text-xs font-bold ${blocker ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}
             >
               {blocker ? 'W trakcie' : 'Brak akcji'}
             </span>
           </Link>
         ))}
         {!deals.length ? (
-          <p className="py-5 text-center text-xs text-slate-400">{empty}</p>
+          <p className="py-5 text-center text-xs text-slate-600">{empty}</p>
         ) : null}
       </div>
     </section>
@@ -1590,7 +1588,7 @@ function DealStatusPanel({
 
 function EmptyTodayState() {
   return (
-    <p className="py-10 text-center text-xs text-slate-400">
+    <p className="py-10 text-center text-xs text-slate-600">
       Brak działań zaplanowanych na dziś.
     </p>
   );
@@ -1648,13 +1646,13 @@ function DesktopWorkspaces({
         <div className="space-y-4">
           {sections.map(([title, items]) => (
             <div key={title}>
-              <p className="mb-1.5 text-[10px] font-black tracking-wide text-emerald-800 uppercase">
+              <p className="mb-1.5 text-xs font-black tracking-wide text-emerald-800 uppercase">
                 {title}
               </p>
               {items[0] ? (
                 <MiniTodayRow item={items[0]} primary={title === 'TERAZ'} />
               ) : (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-600">
                   Brak zaplanowanej sprawy
                 </p>
               )}
@@ -1664,13 +1662,13 @@ function DesktopWorkspaces({
         <div className="mt-auto grid grid-cols-2 gap-1.5 border-t pt-3">
           <Link
             href="/calendar?view=day"
-            className="rounded-lg border px-2 py-2 text-center text-[11px] font-semibold"
+            className="rounded-lg border px-2 py-2 text-center text-xs font-semibold"
           >
             Kalendarz
           </Link>
           <Link
             href="/tasks"
-            className="rounded-lg border px-2 py-2 text-center text-[11px] font-semibold"
+            className="rounded-lg border px-2 py-2 text-center text-xs font-semibold"
           >
             Wszystkie zadania
           </Link>
@@ -1687,7 +1685,7 @@ function DesktopWorkspaces({
               key={stage.name}
               className={`flex min-w-0 flex-col rounded-lg p-1.5 ${index === 0 ? 'bg-emerald-50' : index === 1 ? 'bg-lime-50' : 'bg-amber-50'}`}
             >
-              <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-emerald-950/10 pb-1 text-[9px] font-black">
+              <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-emerald-950/10 pb-1 text-xs font-black">
                 <span className="truncate">{stage.name}</span>
                 <span>{stage.deals.length}</span>
               </div>
@@ -1700,10 +1698,10 @@ function DesktopWorkspaces({
                     rel="noopener noreferrer"
                     className="block rounded-md border bg-white p-1.5 hover:border-emerald-600"
                   >
-                    <span className="line-clamp-2 text-[10px] leading-3.5 font-bold">
+                    <span className="line-clamp-2 text-xs leading-3.5 font-bold">
                       {deal.title}
                     </span>
-                    <span className="mt-0.5 block truncate text-[9px] text-slate-500">
+                    <span className="mt-0.5 block truncate text-xs text-slate-500">
                       {deal.value
                         ? `${Number(deal.value).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`
                         : deal.product_type || '—'}
@@ -1713,7 +1711,7 @@ function DesktopWorkspaces({
               </div>
               <Link
                 href="/pipelines?new=deal"
-                className="mt-auto pt-2 text-center text-[9px] font-black text-emerald-900"
+                className="mt-auto pt-2 text-center text-xs font-black text-emerald-900"
               >
                 + Nowy Deal
               </Link>
@@ -1738,12 +1736,12 @@ function DesktopWorkspaces({
                 >
                   {activeContact.name || activeContact.phone}
                 </Link>
-                <p className="truncate text-[10px] text-slate-500">
+                <p className="truncate text-xs text-slate-500">
                   {activeContact.phone}
                 </p>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] font-bold">
+            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-xs font-bold">
               <a
                 href={`tel:${activeContact.phone}`}
                 className="rounded-lg border px-1 py-2"
@@ -1764,7 +1762,7 @@ function DesktopWorkspaces({
               </Link>
             </div>
             <div className="mt-4 border-t pt-3">
-              <p className="mb-2 text-[10px] font-black text-emerald-800 uppercase">
+              <p className="mb-2 text-xs font-black text-emerald-800 uppercase">
                 Deale ({relatedDeals.length})
               </p>
               <div className="space-y-1.5">
@@ -1779,7 +1777,7 @@ function DesktopWorkspaces({
                     <span className="block truncate text-xs font-bold">
                       {deal.title}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-xs text-slate-500">
                       {deal.stage?.name || 'Etap nieustalony'}
                     </span>
                     <span className="mt-1 block text-xs font-bold">
@@ -1787,11 +1785,11 @@ function DesktopWorkspaces({
                         ? `${Number(deal.value).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`
                         : ''}
                     </span>
-                    <span className="mt-1 block text-[10px] text-slate-500">
+                    <span className="mt-1 block text-xs text-slate-500">
                       Następny krok: {deal.next_action || 'Nie ustalono'}
                     </span>
                     {deal.next_action_at && (
-                      <span className="mt-1 block text-[10px] text-slate-500">
+                      <span className="mt-1 block text-xs text-slate-500">
                         {new Date(deal.next_action_at).toLocaleDateString(
                           'pl-PL'
                         )}
@@ -1803,7 +1801,7 @@ function DesktopWorkspaces({
             </div>
             <Link
               href={`/quick-call?contact=${activeContact.id}&newDeal=1`}
-              className="mt-auto rounded-lg bg-[#123d2b] px-2 py-2 text-center text-[11px] font-black text-white"
+              className="mt-auto rounded-lg bg-[#123d2b] px-2 py-2 text-center text-xs font-black text-white"
             >
               + Nowy Deal
             </Link>
@@ -1847,7 +1845,7 @@ function DesktopWorkspaces({
               />
               <WorkspaceField label="Blocker" value={activeDeal.blocker} />
             </dl>
-            <div className="mt-3 grid grid-cols-2 gap-1 text-center text-[10px] font-bold">
+            <div className="mt-3 grid grid-cols-2 gap-1 text-center text-xs font-bold">
               <Link
                 href={`/quick-call?deal=${activeDeal.id}&action=call`}
                 className="rounded-lg border px-1 py-2"
@@ -1875,7 +1873,7 @@ function DesktopWorkspaces({
             </div>
             <Link
               href={`/assistant?deal=${activeDeal.id}`}
-              className="mt-auto flex items-center justify-center gap-1 rounded-lg bg-[#123d2b] px-2 py-2.5 text-[11px] font-black text-lime-300"
+              className="mt-auto flex items-center justify-center gap-1 rounded-lg bg-[#123d2b] px-2 py-2.5 text-xs font-black text-lime-300"
             >
               <Sparkles className="size-3" /> Asystent AI
             </Link>
@@ -1890,10 +1888,10 @@ function DesktopWorkspaces({
           <Bot className="size-5" />
         </div>
         <h3 className="mt-3 text-sm font-black">Jak mogę Ci dziś pomóc?</h3>
-        <p className="mt-1 text-[11px] leading-4 text-slate-500">
+        <p className="mt-1 text-xs leading-4 text-slate-500">
           Jestem tu, aby przyspieszyć Twoją pracę.
         </p>
-        <div className="mt-4 space-y-1.5 text-[11px]">
+        <div className="mt-4 space-y-1.5 text-xs">
           {[
             'Przygotuj mnie',
             'Kwalifikuj temat',
@@ -1914,7 +1912,7 @@ function DesktopWorkspaces({
         </div>
         <Link
           href={activeDeal ? `/assistant?deal=${activeDeal.id}` : '/assistant'}
-          className="mt-auto rounded-lg border border-lime-400 bg-lime-100 px-2 py-2 text-center text-[11px] font-black text-emerald-950"
+          className="mt-auto rounded-lg border border-lime-400 bg-lime-100 px-2 py-2 text-center text-xs font-black text-emerald-950"
         >
           Napisz pytanie…
         </Link>
@@ -1957,7 +1955,7 @@ function MobileTodayBoard({
           {dayLabel}
         </p>
       </div>
-      <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-white text-[9px] font-bold text-blue-900">
+      <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-bold text-blue-900">
         <span className="bg-emerald-700 px-1 py-2 text-center text-white">
           Moje zadania{' '}
           <b className="ml-0.5 rounded-full bg-rose-500 px-1.5 py-0.5">
@@ -1978,7 +1976,7 @@ function MobileTodayBoard({
           <MobileTodayTaskRow key={item.id} item={item} index={index} />
         ))}
         {!allItems.length ? (
-          <p className="py-12 text-center text-xs text-slate-400">
+          <p className="py-12 text-center text-xs text-slate-600">
             Brak działań zaplanowanych na dziś.
           </p>
         ) : null}
@@ -1992,7 +1990,7 @@ function MobileTodayBoard({
       <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
         <div className="flex items-center gap-2 text-sm font-black text-amber-900">
           <Sparkles className="size-5 text-amber-600" /> Rekomendacja AI
-          <span className="rounded bg-amber-500 px-1 py-0.5 text-[9px] text-white">
+          <span className="rounded bg-amber-500 px-1 py-0.5 text-xs text-white">
             AI
           </span>
         </div>
@@ -2027,16 +2025,14 @@ function MobileTodayTaskRow({
       <span className="size-3.5 rounded border border-slate-300" />
       <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
       <span className="min-w-0">
-        <span className="block truncate text-[11px] font-black text-blue-950">
+        <span className="block truncate text-xs font-black text-blue-950">
           {item.action || item.title}
         </span>
-        <span className="mt-0.5 block truncate text-[9px] font-semibold text-blue-800 uppercase">
+        <span className="mt-0.5 block truncate text-xs font-semibold text-blue-800 uppercase">
           {item.stageName || item.reason || 'Zadanie'}
         </span>
       </span>
-      <span className="text-right text-[10px] font-bold text-blue-900">
-        {time}
-      </span>
+      <span className="text-right text-xs font-bold text-blue-900">{time}</span>
       <ArrowRight className="size-3 text-blue-900" />
     </div>
   );
@@ -2060,7 +2056,7 @@ function WorkspacePanel({
     >
       <div className="mb-3 border-b pb-2">
         <h2 className="text-sm font-black">{title}</h2>
-        <p className="truncate text-[10px] text-slate-500">{subtitle}</p>
+        <p className="truncate text-xs text-slate-500">{subtitle}</p>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
@@ -2082,12 +2078,10 @@ function MiniTodayRow({
         {item.action || item.title}
       </p>
       {item.action && item.action !== item.title ? (
-        <p className="mt-0.5 truncate text-[10px] text-slate-500">
-          {item.title}
-        </p>
+        <p className="mt-0.5 truncate text-xs text-slate-500">{item.title}</p>
       ) : null}
       {primary ? (
-        <span className="mt-2 inline-block rounded-md bg-emerald-700 px-2 py-1 text-[10px] font-black text-white">
+        <span className="mt-2 inline-block rounded-md bg-emerald-700 px-2 py-1 text-xs font-black text-white">
           Rozpocznij
         </span>
       ) : null}
@@ -2105,9 +2099,7 @@ function WorkspaceField({
 }) {
   return (
     <div>
-      <dt className="text-[9px] font-black text-slate-400 uppercase">
-        {label}
-      </dt>
+      <dt className="text-xs font-black text-slate-600 uppercase">{label}</dt>
       <dd className="mt-1 min-h-9 rounded border bg-white p-1.5 font-semibold">
         {value || '—'}
       </dd>
@@ -2136,7 +2128,7 @@ function Metric({
     <div className="bg-card rounded-xl border p-3">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="text-2xl font-bold">{value}</p>
-      {note && <p className="text-muted-foreground text-[10px]">{note}</p>}
+      {note && <p className="text-muted-foreground text-xs">{note}</p>}
     </div>
   );
 }

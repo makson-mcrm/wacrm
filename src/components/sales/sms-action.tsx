@@ -46,6 +46,7 @@ interface SmsActionProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   label?: string;
+  className?: string;
 }
 
 export function SmsAction({
@@ -59,6 +60,7 @@ export function SmsAction({
   variant = 'outline',
   size = 'sm',
   label = 'SMS',
+  className,
 }: SmsActionProps) {
   const db = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
@@ -283,6 +285,7 @@ export function SmsAction({
         type="button"
         variant={variant}
         size={size}
+        className={className}
         onClick={() => setOpen(true)}
       >
         <MessageSquare className="h-4 w-4" /> {label}

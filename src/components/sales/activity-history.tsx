@@ -76,7 +76,7 @@ function AnalyticsSummary({ value }: { value?: string | null }) {
           {analytics.sales_meanings.map((meaning) => (
             <span
               key={meaning}
-              className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-900"
+              className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-900"
             >
               {SALES_MEANING_LABELS[meaning]}
             </span>

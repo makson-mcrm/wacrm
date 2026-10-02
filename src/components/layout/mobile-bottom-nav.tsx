@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bot, GitBranch, House, Users } from 'lucide-react';
+import { Activity, Bot, House, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalAdd } from '@/components/layout/global-add';
 
 const items = [
   { href: '/dashboard', label: 'DZISIAJ', icon: House, primary: false },
-  { href: '/contacts', label: 'KLIENCI', icon: Users, primary: false },
+  { href: '/quick-call', label: 'AKTYWNOŚĆ', icon: Activity, primary: false },
   { href: '/quick-call', label: 'DODAJ', primary: true },
-  { href: '/pipelines', label: 'LEJEK', icon: GitBranch, primary: false },
+  { href: '/contacts', label: 'KLIENCI', icon: Users, primary: false },
   { href: '/assistant', label: 'ASYSTENT', icon: Bot, primary: false },
 ] as const;
 
@@ -19,7 +19,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Główna nawigacja mobilna"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-emerald-950/10 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-emerald-950/10 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid h-16 w-full max-w-lg grid-cols-5 overflow-hidden">
         {items.map((item) => {
@@ -36,7 +36,7 @@ export function MobileBottomNav() {
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-[8px] font-black tracking-[-0.03em]',
+                    'flex h-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-xs font-black tracking-[-0.03em]',
                     primary
                       ? 'text-emerald-900'
                       : active

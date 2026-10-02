@@ -581,7 +581,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-[10px] [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-[10px]">
+                <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -704,7 +704,7 @@ export function ContactDetailView({
                   <div className="space-y-3">
                     <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4">
                       <div>
-                        <dt className="font-black text-slate-400 uppercase">
+                        <dt className="font-black text-slate-600 uppercase">
                           Źródło
                         </dt>
                         <dd className="mt-0.5 font-semibold text-slate-800">
@@ -712,7 +712,7 @@ export function ContactDetailView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="font-black text-slate-400 uppercase">
+                        <dt className="font-black text-slate-600 uppercase">
                           Kategoria
                         </dt>
                         <dd className="mt-0.5 font-semibold text-slate-800">
@@ -720,7 +720,7 @@ export function ContactDetailView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="font-black text-slate-400 uppercase">
+                        <dt className="font-black text-slate-600 uppercase">
                           Następny krok
                         </dt>
                         <dd className="mt-0.5 font-semibold text-slate-800">
@@ -728,7 +728,7 @@ export function ContactDetailView({
                         </dd>
                       </div>
                       <div>
-                        <dt className="font-black text-slate-400 uppercase">
+                        <dt className="font-black text-slate-600 uppercase">
                           Termin
                         </dt>
                         <dd className="mt-0.5 font-semibold text-slate-800">
@@ -1184,7 +1184,7 @@ export function ContactDetailView({
                             </p>
                             {deal.stage && (
                               <span
-                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                className="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium"
                                 style={{
                                   backgroundColor: `${deal.stage.color}20`,
                                   color: deal.stage.color,
@@ -1286,4 +1286,3 @@ export function ContactDetailView({
     </>
   );
 }
-

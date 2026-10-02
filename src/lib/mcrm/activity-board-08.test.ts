@@ -19,4 +19,18 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
       'Blocker',
     ]) expect(source).toContain(label);
   });
+
+  it('zapisuje wymagane tabele w kontekście konta i użytkownika', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'src/components/sales/activity-board-08.tsx'), 'utf8');
+    expect(source).toContain("from('sales_activities').insert");
+    expect(source).toContain("from('contacts')");
+    expect(source).toContain("from('deals')");
+    expect(source).toContain('account_id: accountId');
+    expect(source).toContain('user_id: session.user.id');
+    expect(source).toContain('contactUpdate.updated_at = now');
+    expect(source).toContain('dealUpdate.updated_at = now');
+    expect(source).toContain('if (contactWrite.error) throw contactWrite.error');
+    expect(source).toContain('if (dealWrite.error) throw dealWrite.error');
+    expect(source).toContain("{3,}$");
+  });
 });

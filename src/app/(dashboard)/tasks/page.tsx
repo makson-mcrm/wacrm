@@ -19,15 +19,16 @@ type Task = {
   where: string;
   dueAt: string | null;
   contactId: string | null;
+  companyId: string | null;
   dealId: string | null;
 };
 
 const filters: Array<[Filter, string]> = [
-  ['today', 'DZIŚ'],
-  ['overdue', 'ZALEGŁE'],
-  ['upcoming', 'NADCHODZĄCE'],
-  ['undated', 'BEZ DATY'],
-  ['all', 'WSZYSTKIE'],
+  ['all', 'Wszystkie'],
+  ['today', 'Dziś'],
+  ['overdue', 'Po terminie'],
+  ['upcoming', 'Następne dni'],
+  ['undated', 'Bez terminu'],
 ];
 
 function localDay(value: Date) {
@@ -54,7 +55,9 @@ export default function TasksPage() {
     const [dealRows, contactRows, activityRows] = await Promise.all([
       db
         .from('deals')
-        .select('id,title,next_action,next_action_at,follow_up_at,contact_id')
+        .select(
+          'id,title,next_action,next_action_at,follow_up_at,contact_id,company_id'
+        )
         .eq('account_id', accountId)
         .eq('status', 'open'),
       db
@@ -64,7 +67,7 @@ export default function TasksPage() {
       db
         .from('sales_activities')
         .select(
-          'id,title,next_action,next_action_date,scheduled_at,next_contact_at,contact_id,deal_id'
+          'id,title,next_action,next_action_date,scheduled_at,next_contact_at,contact_id,company_id,deal_id'
         )
         .eq('account_id', accountId)
         .eq('completed', false),
@@ -100,6 +103,7 @@ export default function TasksPage() {
         where: deal.title,
         dueAt: deal.next_action_at || deal.follow_up_at || null,
         contactId: deal.contact_id,
+        companyId: deal.company_id,
         dealId: deal.id,
       });
     }
@@ -118,6 +122,7 @@ export default function TasksPage() {
         where: contact.name || contact.phone || 'Kontakt',
         dueAt: contact.follow_up_at || null,
         contactId: contact.id,
+        companyId: null,
         dealId: null,
       });
     }
@@ -144,6 +149,7 @@ export default function TasksPage() {
           activity.next_contact_at ||
           null,
         contactId: activity.contact_id,
+        companyId: activity.company_id,
         dealId: activity.deal_id,
       });
     }
@@ -358,7 +364,7 @@ export default function TasksPage() {
                       disabled={busy === task.key}
                       onClick={() => void complete(task)}
                       aria-label={`Oznacz jako zrobione: ${task.title}`}
-                      className="flex size-5 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-emerald-700 hover:border-emerald-600"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-emerald-700 hover:border-emerald-600 md:size-8"
                     >
                       <Check className="size-3 opacity-0 group-hover:opacity-100" />
                     </button>
@@ -367,9 +373,27 @@ export default function TasksPage() {
                       <p className="truncate text-sm font-bold text-slate-900">
                         {task.title}
                       </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {task.where}
-                      </p>
+                      <Link
+                        href={
+                          task.dealId
+                            ? `/deals/${task.dealId}`
+                            : task.contactId
+                              ? `/contacts?open=${task.contactId}`
+                              : task.companyId
+                                ? `/companies?open=${task.companyId}`
+                                : '/quick-call'
+                        }
+                        className="block min-h-6 truncate text-xs font-semibold text-emerald-800 hover:underline"
+                      >
+                        {task.source === 'deal'
+                          ? 'Deal'
+                          : task.contactId
+                            ? 'Osoba'
+                            : task.companyId
+                              ? 'Firma'
+                              : 'Aktywność'}{' '}
+                        · {task.where}
+                      </Link>
                     </div>
                     <time className="shrink-0 text-xs font-bold text-slate-500">
                       {task.dueAt
@@ -408,12 +432,14 @@ export default function TasksPage() {
                           ? `/deals/${task.dealId}`
                           : task.contactId
                             ? `/contacts?open=${task.contactId}`
-                            : '/quick-call'
+                            : task.companyId
+                              ? `/companies?open=${task.companyId}`
+                              : '/quick-call'
                       }
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Otwórz sprawę"
-                      className="rounded-full p-2 text-emerald-900 hover:bg-emerald-50"
+                      className="flex size-11 items-center justify-center rounded-full text-emerald-900 hover:bg-emerald-50"
                     >
                       <ExternalLink className="size-4" />
                     </Link>
@@ -428,7 +454,7 @@ export default function TasksPage() {
                             (event.currentTarget as HTMLInputElement).value
                           )
                         }
-                        className="h-9 min-w-0 flex-1 rounded-lg border px-3"
+                        className="h-11 min-w-0 flex-1 rounded-lg border px-3 text-base md:h-9 md:text-sm"
                       />
                       <Button
                         size="sm"

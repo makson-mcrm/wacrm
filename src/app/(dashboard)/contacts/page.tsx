@@ -105,8 +105,8 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [desktopSegment, setDesktopSegment] = useState<
-      'all' | 'active' | 'new' | 'potential' | 'companies' | 'people'
-    >('all');
+    'all' | 'active' | 'new' | 'potential' | 'companies' | 'people'
+  >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -686,7 +686,7 @@ export default function ContactsPage() {
                 <Filter className="size-4" />
                 {t('filterByTags')}
                 {selectedTagIds.length > 0 && (
-                  <span className="bg-primary text-primary-foreground ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
+                  <span className="bg-primary text-primary-foreground ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-xs font-semibold">
                     {selectedTagIds.length}
                   </span>
                 )}
@@ -745,7 +745,7 @@ export default function ContactsPage() {
                 return (
                   <span
                     key={id}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                     style={{
                       backgroundColor: tag.color + '20',
                       color: tag.color,
@@ -959,65 +959,65 @@ export default function ContactsPage() {
                       </p>
                     </TableCell>
                     <TableCell>
-                                          <div className="flex items-center justify-end gap-1">
-                                          <CallAction
-                                            phone={contact.phone}
-                                            contactId={contact.id}
-                                            variant="outline"
-                                            size="sm"
-                                            className="whitespace-nowrap text-xs"
-                                          />
-                                          <SmsAction
-                                            phone={contact.phone}
-                                            contactId={contact.id}
-                                            contactName={contact.name}
-                                            variant="outline"
-                                            size="sm"
-                                            label="Wiadomość"
-                                          />
-                                          <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-muted-foreground hover:text-foreground"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="bg-popover border-border"
-                        >
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditForm(contact);
-                            }}
-                            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                      <div className="flex items-center justify-end gap-1">
+                        <CallAction
+                          phone={contact.phone}
+                          contactId={contact.id}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs whitespace-nowrap"
+                        />
+                        <SmsAction
+                          phone={contact.phone}
+                          contactId={contact.id}
+                          contactName={contact.name}
+                          variant="outline"
+                          size="sm"
+                          label="Wiadomość"
+                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground hover:text-foreground"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            }
                           >
-                            <Pencil className="size-4" />
-                            {t('editAction')}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-border" />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              confirmDelete(contact);
-                            }}
+                            <MoreHorizontal className="size-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-popover border-border"
                           >
-                            <Trash2 className="size-4" />
-                            {t('deleteAction')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                                            </div>
-                                          </TableCell>
-                                        </TableRow>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditForm(contact);
+                              }}
+                              className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                            >
+                              <Pencil className="size-4" />
+                              {t('editAction')}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                confirmDelete(contact);
+                              }}
+                            >
+                              <Trash2 className="size-4" />
+                              {t('deleteAction')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
             </TableBody>
@@ -1214,14 +1214,14 @@ function MobileContactsView({
         <button
           type="button"
           onClick={onAdd}
-          className="flex size-10 items-center justify-center rounded-full bg-emerald-800 text-white"
+          className="flex size-11 items-center justify-center rounded-full bg-emerald-800 text-white"
           aria-label="Dodaj klienta"
         >
           <Plus className="size-5" />
         </button>
       </div>
       <label className="relative block">
-        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
@@ -1229,13 +1229,13 @@ function MobileContactsView({
           className="h-11 rounded-xl border-slate-200 bg-white pl-9"
         />
       </label>
-      <div className="grid w-full grid-cols-4 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1">
+      <div className="grid w-full grid-cols-4 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 md:max-w-xl">
         {segments.map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => onSegmentChange(value)}
-            className={`min-w-0 truncate rounded-lg px-1 py-2 text-[10px] font-bold transition-colors ${
+            className={`min-h-11 min-w-0 truncate rounded-lg px-1 py-2 text-xs font-bold transition-colors ${
               segment === value
                 ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200'
                 : 'text-slate-500'
@@ -1245,7 +1245,7 @@ function MobileContactsView({
           </button>
         ))}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">
             <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
@@ -1265,43 +1265,58 @@ function MobileContactsView({
                 ? 'bg-amber-100 text-amber-800'
                 : 'bg-emerald-100 text-emerald-800';
             return (
-              <button
+              <article
                 key={contact.id}
-                type="button"
-                onClick={() => onOpen(contact.id)}
-                className="flex min-h-16 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm"
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
-                  {(contact.name || 'K')
-                    .split(' ')
-                    .map((part) => part[0])
-                    .join('')
-                    .slice(0, 2)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black text-slate-950">
-                    {contact.name || 'Kontakt bez nazwy'}
+                <button
+                  type="button"
+                  onClick={() => onOpen(contact.id)}
+                  className="flex min-h-16 w-full items-center gap-3 text-left"
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
+                    {(contact.name || 'K')
+                      .split(' ')
+                      .map((part) => part[0])
+                      .join('')
+                      .slice(0, 2)}
                   </span>
-                  <span className="mt-0.5 block truncate text-xs text-slate-500">
-                    {contact.companies?.[0]?.name || contact.phone || 'Klient'}
-                  </span>
-                  <span className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
-                    <span className={`rounded-full px-2 py-0.5 ${statusClass}`}>
-                      {status}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black text-slate-950">
+                      {contact.name || 'Kontakt bez nazwy'}
                     </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                      {contact.dealCount ?? 0}{' '}
-                      {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}
+                    <span className="mt-0.5 block truncate text-xs text-slate-600">
+                      {contact.companies?.[0]?.name ||
+                        contact.phone ||
+                        'Klient'}
+                    </span>
+                    <span className="mt-1 flex items-center gap-1.5 text-xs font-bold">
+                      <span
+                        className={`rounded-full px-2 py-0.5 ${statusClass}`}
+                      >
+                        {status}
+                      </span>
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">
+                        {contact.dealCount ?? 0}{' '}
+                        {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}
+                      </span>
                     </span>
                   </span>
-                </span>
-                <span className="shrink-0 text-[10px] text-slate-400">
-                  {contact.lastActivityAt
-                    ? formatCrmDate(contact.lastActivityAt)
-                    : ''}
-                </span>
-                <ChevronRight className="size-4 text-slate-400" />
-              </button>
+                  <ChevronRight className="size-5 text-slate-600" />
+                </button>
+                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
+                  <CallAction
+                    phone={contact.phone}
+                    className="h-11 w-full bg-emerald-800 text-white"
+                  />
+                  <SmsAction phone={contact.phone} className="h-11 w-full" />
+                </div>
+                {contact.lastActivityAt ? (
+                  <p className="mt-2 text-xs text-slate-600">
+                    Ostatni kontakt: {formatCrmDate(contact.lastActivityAt)}
+                  </p>
+                ) : null}
+              </article>
             );
           })}
         {!loading && !filtered.length ? (
@@ -1350,17 +1365,17 @@ function DesktopContactsView({
     }
     if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
     if (segment === 'companies') return Boolean(contact.companies?.length);
-        if (segment === 'people') return !(contact.companies?.length);
-        return true;
-      });
-      const segments: Array<[DesktopContactSegment, string]> = [
-        ['all', 'Wszystkie'],
-        ['people', 'Osoby'],
-        ['companies', 'Firmy'],
-        ['active', 'Aktywne deale'],
-        ['new', 'Nowi'],
-        ['potential', 'Potencjalni'],
-      ];
+    if (segment === 'people') return !contact.companies?.length;
+    return true;
+  });
+  const segments: Array<[DesktopContactSegment, string]> = [
+    ['all', 'Wszystkie'],
+    ['people', 'Osoby'],
+    ['companies', 'Firmy'],
+    ['active', 'Aktywne deale'],
+    ['new', 'Nowi'],
+    ['potential', 'Potencjalni'],
+  ];
 
   return (
     <section className="hidden lg:block" aria-label="Klienci — pełna lista">
@@ -1402,7 +1417,7 @@ function DesktopContactsView({
             ))}
           </div>
           <label className="relative w-full max-w-xs">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
             <Input
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -1477,7 +1492,7 @@ function DesktopContactsView({
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}
+                          className={`rounded-full px-2.5 py-1 text-xs font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}
                         >
                           {status}
                         </span>
@@ -1491,7 +1506,7 @@ function DesktopContactsView({
                           : 'Brak'}
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="inline-flex size-8 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-800">
+                        <span className="inline-flex size-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-800">
                           TM
                         </span>
                       </TableCell>

@@ -77,6 +77,8 @@ export function PipelineBoard({
   const activeDeal = activeDealId
     ? (deals.find((d) => d.id === activeDealId) ?? null)
     : null;
+  const mobileStage =
+    sortedStages.find((stage) => stage.id === openStageId) ?? sortedStages[0];
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDealId(String(event.active.id));
@@ -109,84 +111,102 @@ export function PipelineBoard({
       onDragCancel={handleDragCancel}
     >
       <div className="space-y-2 lg:hidden">
-        {sortedStages.map((stage) => {
-          const stageDeals = dealsByStage.get(stage.id) ?? [];
-          const totalValue = stageDeals.reduce(
-            (sum, deal) => sum + Number(deal.value || 0),
-            0
-          );
-          const open = openStageId
-            ? openStageId === stage.id
-            : stage.id === sortedStages[0]?.id;
-          return (
-            <section
+        <nav
+          className="flex gap-2 overflow-x-auto pb-1"
+          aria-label="Etapy lejka 1–6"
+        >
+          {sortedStages.map((stage, index) => (
+            <button
               key={stage.id}
-              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+              type="button"
+              onClick={() => setOpenStageId(stage.id)}
+              className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border px-3 text-xs font-black ${mobileStage?.id === stage.id ? 'border-emerald-800 bg-emerald-800 text-white' : 'border-slate-200 bg-white text-slate-700'}`}
+              aria-current={mobileStage?.id === stage.id ? 'step' : undefined}
             >
-              <button
-                type="button"
-                onClick={() => setOpenStageId(open ? '__none__' : stage.id)}
-                aria-expanded={open}
-                className="flex w-full items-center gap-3 px-3 py-3 text-left"
+              {index + 1}
+            </button>
+          ))}
+        </nav>
+        {sortedStages
+          .filter((stage) => stage.id === mobileStage?.id)
+          .map((stage) => {
+            const stageDeals = dealsByStage.get(stage.id) ?? [];
+            const totalValue = stageDeals.reduce(
+              (sum, deal) => sum + Number(deal.value || 0),
+              0
+            );
+            const open = openStageId
+              ? openStageId === stage.id
+              : stage.id === sortedStages[0]?.id;
+            return (
+              <section
+                key={stage.id}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
-                <span
-                  className="h-10 w-1 shrink-0 rounded-full"
-                  style={{
-                    backgroundColor:
-                      BRAND_STAGE_COLORS[
-                        stage.position % BRAND_STAGE_COLORS.length
-                      ],
-                  }}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-black text-slate-900">
-                    {stage.name}
+                <button
+                  type="button"
+                  onClick={() => setOpenStageId(open ? '__none__' : stage.id)}
+                  aria-expanded={open}
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left"
+                >
+                  <span
+                    className="h-10 w-1 shrink-0 rounded-full"
+                    style={{
+                      backgroundColor:
+                        BRAND_STAGE_COLORS[
+                          stage.position % BRAND_STAGE_COLORS.length
+                        ],
+                    }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-black text-slate-900">
+                      {stage.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-slate-600">
+                      {formatCurrency(totalValue, defaultCurrency)}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-slate-500">
-                    {formatCurrency(totalValue, defaultCurrency)}
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-700">
+                    {stageDeals.length}
                   </span>
-                </span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-700">
-                  {stageDeals.length}
-                </span>
-                <ChevronDown
-                  className={`size-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {open ? (
-                <div className="border-t border-slate-100 p-2">
-                  <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                    {stageDeals.length ? (
-                      stageDeals.map((deal) => (
-                        <DealCard
-                          key={deal.id}
-                          deal={deal}
-                          stage={stage}
-                          onEdit={onEditDeal}
-                        />
-                      ))
-                    ) : (
-                      <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-500">
-                        Brak Dealów na tym etapie.
-                      </p>
-                    )}
+                  <ChevronDown
+                    className={`size-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {open ? (
+                  <div className="border-t border-slate-100 p-2">
+                    <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+                      {stageDeals.length ? (
+                        stageDeals.map((deal) => (
+                          <DealCard
+                            key={deal.id}
+                            deal={deal}
+                            stage={stage}
+                            onEdit={onEditDeal}
+                          />
+                        ))
+                      ) : (
+                        <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-500">
+                          Brak Dealów na tym etapie.
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onAddDeal(stage.id)}
+                      className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
+                    >
+                      <Plus className="mr-1 size-3" /> Dodaj Deal
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onAddDeal(stage.id)}
-                    className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
-                  >
-                    <Plus className="mr-1 size-3" /> Dodaj Deal
-                  </Button>
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
+                ) : null}
+              </section>
+            );
+          })}
       </div>
 
-      <div className="pipeline-scroll hidden min-w-0 gap-2 overflow-x-auto pb-2 lg:flex">
+      <div className="pipeline-scroll hidden min-w-0 gap-2 pb-2 lg:flex">
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(
@@ -305,7 +325,7 @@ function StageColumn({
     // restore the flex-1 share-the-row behavior. The droppable ref is
     // on the inner messages region below — intentionally NOT here, so
     // a drag over the column header doesn't highlight the whole column.
-    <div className="border-border bg-card/60 flex h-[calc(100vh-245px)] min-h-[480px] w-[264px] min-w-[264px] shrink-0 flex-col overflow-hidden rounded-lg border p-1.5">
+    <div className="border-border bg-card/60 flex h-[calc(100dvh-245px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border p-1.5">
       {/* 3px colored top border — sits above the column's padding */}
       <div
         className="-mx-1.5 -mt-1.5 h-[3px]"
@@ -315,14 +335,14 @@ function StageColumn({
         }}
       />
       <div className="bg-card/95 sticky top-0 z-10 flex items-center justify-between pt-1.5 backdrop-blur">
-        <h3 className="text-foreground truncate text-[11px] font-bold">
+        <h3 className="text-foreground truncate text-xs font-bold">
           {stage.name}
         </h3>
-        <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0 text-[10px] font-medium">
+        <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0 text-xs font-medium">
           {deals.length}
         </span>
       </div>
-      <p className="text-muted-foreground text-[10px]">
+      <p className="text-muted-foreground text-xs">
         {formatCurrency(totalValue, currency)}
       </p>
 
@@ -387,4 +407,3 @@ function DraggableDealCard({
     </div>
   );
 }
-

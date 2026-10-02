@@ -81,7 +81,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       />
 
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-black text-slate-600">
           {probability}%
         </span>
         {!isOverlay && (
@@ -98,13 +98,13 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </a>
         )}
         {deal.status === 'won' && (
-          <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+          <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold">
             <Check className="h-3 w-3" />
             {t('won')}
           </span>
         )}
         {deal.status === 'lost' && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-400">
             <X className="h-3 w-3" />
             {t('lost')}
           </span>
@@ -115,14 +115,14 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         href={`/deals/${deal.id}`}
         onClick={(event) => event.stopPropagation()}
         title={deal.title}
-        className="line-clamp-2 break-words text-xs leading-tight font-black text-slate-950 hover:underline"
+        className="line-clamp-2 text-xs leading-tight font-black break-words text-slate-950 hover:underline"
       >
         {deal.title}
       </a>
 
       {/* Contact row */}
       <div className="mt-1 flex items-center gap-1">
-        <span className="bg-muted text-foreground flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-semibold">
+        <span className="bg-muted text-foreground flex h-4 w-4 items-center justify-center rounded-full text-xs font-semibold">
           {initials(deal.contact?.name, deal.contact?.phone)}
         </span>
         {deal.contact_id ? (
@@ -135,14 +135,17 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
             {contactLabel}
           </a>
         ) : (
-          <span title={contactLabel} className="min-w-0 truncate text-xs text-slate-600">
+          <span
+            title={contactLabel}
+            className="min-w-0 truncate text-xs text-slate-600"
+          >
             {contactLabel}
           </span>
         )}
       </div>
 
       <div
-        className="mt-2 grid grid-cols-2 gap-1 [&_a]:h-8 [&_a]:px-1 [&_a]:text-[10px] [&_button]:h-8 [&_button]:w-full [&_button]:px-1 [&_button]:text-[10px]"
+        className="mt-2 grid grid-cols-2 gap-1 [&_a]:h-8 [&_a]:px-1 [&_a]:text-xs [&_button]:h-8 [&_button]:w-full [&_button]:px-1 [&_button]:text-xs"
         onClick={(event) => event.stopPropagation()}
       >
         <CallAction
@@ -164,7 +167,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           href={`/companies?open=${deal.company.id}`}
           onClick={(event) => event.stopPropagation()}
           title={deal.company.name}
-          className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-500 hover:underline"
+          className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500 hover:underline"
         >
           <Building2 className="size-3 shrink-0" />
           <span className="truncate">{deal.company.name}</span>
@@ -172,34 +175,37 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       ) : null}
 
       <div className="mt-1 flex items-center justify-between">
-        <span className="text-primary text-[11px] font-bold">
+        <span className="text-primary text-xs font-bold">
           {formatCurrency(deal.value, deal.currency)}
         </span>
         {deal.expected_close_date && (
-          <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
             <Calendar className="h-3 w-3" />
             {formatDate(deal.expected_close_date)}
           </span>
         )}
       </div>
 
-      <p className="mt-1 text-[10px] text-slate-400">
+      <p className="mt-1 text-xs text-slate-600">
         Ostatnia aktywność: {formatDate(activityDate)}
       </p>
 
       {deal.product_type && (
-        <span className="bg-primary/10 text-primary mt-1 inline-flex rounded-full px-1.5 py-0 text-[9px] font-semibold">
+        <span className="bg-primary/10 text-primary mt-1 inline-flex rounded-full px-1.5 py-0 text-xs font-semibold">
           {deal.product_type}
         </span>
       )}
 
       {deal.next_action && (
         <div className="border-border/60 mt-1 border-t pt-1">
-          <p title={deal.next_action} className="line-clamp-2 break-words text-[11px] font-medium leading-4">
+          <p
+            title={deal.next_action}
+            className="line-clamp-2 text-xs leading-4 font-medium break-words"
+          >
             Następnie: {deal.next_action}
           </p>
           {deal.next_action_at && (
-            <p className="text-muted-foreground text-[10px]">
+            <p className="text-muted-foreground text-xs">
               {new Date(deal.next_action_at).toLocaleString('pl-PL')}
             </p>
           )}
@@ -210,7 +216,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         <div className="mt-1 flex items-center justify-end">
           <span
             title={assigneeLabel}
-            className="bg-primary/15 text-primary flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold"
+            className="bg-primary/15 text-primary flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold"
           >
             {initials(assigneeLabel)}
           </span>
@@ -219,4 +225,3 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
     </div>
   );
 }
-

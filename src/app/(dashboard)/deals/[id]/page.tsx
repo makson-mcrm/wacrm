@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -99,6 +99,7 @@ type StageHistory = {
 };
 export default function DealPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { accountId } = useAuth();
   const db = useMemo(() => createClient(), []);
   const [deal, setDeal] = useState<Deal | null>(null),
@@ -432,6 +433,17 @@ export default function DealPage() {
     });
   return (
     <div className="space-y-3 sm:space-y-4">
+      <nav className="flex flex-wrap gap-2" aria-label="Akcje Deala">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          <ArrowLeft className="size-4" /> Cofnij
+        </Button>
+        <Button variant="outline" render={<Link href="/deals" />}>
+          Zmień Deal
+        </Button>
+        <Button render={<Link href="/pipelines?new=deal" />}>
+          + Nowy Deal
+        </Button>
+      </nav>
       <Link
         href="/pipelines"
         className="text-muted-foreground inline-flex items-center gap-2 text-sm lg:hidden"
@@ -452,14 +464,14 @@ export default function DealPage() {
         <h1 className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">
           {deal.title}
         </h1>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-800">
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">
           {deal.product_type || 'Kategoria nieustalona'}
         </span>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
           {deal.stage?.name || 'Etap nieustalony'}
         </span>
         {Number(deal.value) > 0 ? (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-700">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
             {money(deal.value)} {deal.currency || 'PLN'}
           </span>
         ) : null}
@@ -534,7 +546,7 @@ export default function DealPage() {
                 <select
                   value={deal.stage_id}
                   onChange={(event) => void changeStage(event.target.value)}
-                  className="h-8 max-w-40 rounded-md border bg-white px-2 text-[11px] font-semibold"
+                  className="h-8 max-w-40 rounded-md border bg-white px-2 text-xs font-semibold"
                 >
                   {stages.map((stage) => (
                     <option key={stage.id} value={stage.id}>
@@ -580,7 +592,7 @@ export default function DealPage() {
         </aside>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 pb-2 text-[10px] font-bold text-slate-500">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 pb-2 text-xs font-bold text-slate-600">
             <span className="rounded-md bg-slate-100 px-2 py-1 whitespace-nowrap text-slate-900">
               OŚ CZASU
             </span>
@@ -619,7 +631,7 @@ export default function DealPage() {
                 className="grid grid-cols-[28px_1fr] gap-3 py-3"
               >
                 <span
-                  className={`flex size-7 items-center justify-center rounded-full text-[10px] font-black ${index % 3 === 0 ? 'bg-emerald-100 text-emerald-800' : index % 3 === 1 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
+                  className={`flex size-7 items-center justify-center rounded-full text-xs font-black ${index % 3 === 0 ? 'bg-emerald-100 text-emerald-800' : index % 3 === 1 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}
                 >
                   {(entry.author_name || 'U')
                     .split(' ')
@@ -628,9 +640,9 @@ export default function DealPage() {
                     .slice(0, 2)}
                 </span>
                 <div>
-                  <p className="text-[11px] font-bold text-slate-700">
+                  <p className="text-xs font-bold text-slate-700">
                     {entry.author_name || 'Użytkownik'}{' '}
-                    <span className="ml-2 font-normal text-slate-400">
+                    <span className="ml-2 font-normal text-slate-600">
                       {dt(entry.created_at)}
                     </span>
                   </p>
@@ -711,7 +723,7 @@ export default function DealPage() {
           <h3 className="mt-5 text-xs font-black tracking-wide text-slate-500 uppercase">
             Szybkie działania
           </h3>
-          <div className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-10 [&_a]:text-[11px] [&_button]:h-10 [&_button]:w-full [&_button]:px-2 [&_button]:text-[11px]">
+          <div className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-10 [&_a]:text-xs [&_button]:h-10 [&_button]:w-full [&_button]:px-2 [&_button]:text-xs">
             {actionContact?.phone ? (
               <CallAction
                 phone={actionContact.phone}
@@ -767,7 +779,7 @@ export default function DealPage() {
               </p>
             )}
           </div>
-          <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800">
+          <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">
             {deal.status === 'open' ? 'AKTYWNY' : deal.status}
           </span>
         </div>
@@ -842,9 +854,7 @@ export default function DealPage() {
           <span className="flex items-center gap-2 text-sm font-bold">
             <Sparkles className="size-4" /> ASYSTENT AI
           </span>
-          <span className="mt-0.5 text-[11px]">
-            Przygotuj, sprawdź, podpowiedz
-          </span>
+          <span className="mt-0.5 text-xs">Przygotuj, sprawdź, podpowiedz</span>
         </Link>
       </header>
       <div
@@ -1473,7 +1483,7 @@ function Grid({ children }: { children: React.ReactNode }) {
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-muted-foreground text-[11px] uppercase">{label}</p>
+      <p className="text-muted-foreground text-xs uppercase">{label}</p>
       <p className="text-sm">{value || '—'}</p>
     </div>
   );
@@ -1497,7 +1507,7 @@ function LinkRow({
 }) {
   const c = (
     <div>
-      <p className="text-muted-foreground text-[11px] uppercase">{label}</p>
+      <p className="text-muted-foreground text-xs uppercase">{label}</p>
       <p className="text-sm font-medium">{value}</p>
     </div>
   );
@@ -1729,7 +1739,7 @@ function NextActionEditor({
       </h2>
       <div className={`mt-3 grid gap-3 ${compact ? '' : 'sm:grid-cols-2'}`}>
         <label className={compact ? 'block' : 'block sm:col-span-2'}>
-          <span className="text-[11px] font-bold text-slate-600">
+          <span className="text-xs font-bold text-slate-600">
             Co robimy dalej?
           </span>
           <Textarea
@@ -1740,7 +1750,7 @@ function NextActionEditor({
           />
         </label>
         <label className="block">
-          <span className="text-[11px] font-bold text-slate-600">Termin</span>
+          <span className="text-xs font-bold text-slate-600">Termin</span>
           <Input
             type="datetime-local"
             value={nextActionAt}
@@ -1749,7 +1759,7 @@ function NextActionEditor({
           />
         </label>
         <label className="block">
-          <span className="text-[11px] font-bold text-slate-600">
+          <span className="text-xs font-bold text-slate-600">
             Blocker (jeśli jest)
           </span>
           <Input

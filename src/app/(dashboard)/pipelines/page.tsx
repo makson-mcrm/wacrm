@@ -353,14 +353,15 @@ export default function PipelinesPage() {
   }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
-  const operationalStages = useMemo(
-    () =>
-      stages.filter(
-        (stage) =>
-          includeArchive || !stage.name.toUpperCase().includes('ARCHIWUM')
-      ),
-    [includeArchive, stages]
-  );
+  const operationalStages = useMemo(() => {
+    const active = stages.filter(
+      (stage) => !stage.name.toUpperCase().includes('ARCHIWUM')
+    );
+    const archive = stages.filter((stage) =>
+      stage.name.toUpperCase().includes('ARCHIWUM')
+    );
+    return includeArchive ? archive : active.slice(0, 6);
+  }, [includeArchive, stages]);
   const operationalDeals = useMemo(
     () => deals.filter((deal) => !isOperationalTestRecord(deal.title)),
     [deals]
@@ -600,7 +601,7 @@ export default function PipelinesPage() {
           onChange={setStatusFilter}
           options={['open', 'won', 'lost']}
         />
-        <label className="col-span-2 min-w-0 text-[10px] font-black tracking-wide text-slate-500 uppercase lg:col-span-2">
+        <label className="col-span-2 min-w-0 text-xs font-black tracking-wide text-slate-500 uppercase lg:col-span-2">
           Sortowanie
           <select
             value={sortBy}
@@ -628,7 +629,7 @@ export default function PipelinesPage() {
                 checked={includeArchive}
                 onChange={(event) => setIncludeArchive(event.target.checked)}
               />
-              Pokaż widok archiwalny
+              Pokaż archiwum poza etapami 1–6
             </label>
             <button
               type="button"
@@ -767,7 +768,7 @@ function FilterSelect({
   options: string[];
 }) {
   return (
-    <label className="min-w-0 text-[10px] font-black tracking-wide text-slate-500 uppercase">
+    <label className="min-w-0 text-xs font-black tracking-wide text-slate-500 uppercase">
       {label}
       <select
         value={value}

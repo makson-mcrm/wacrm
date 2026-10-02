@@ -50,6 +50,7 @@ export default function CalendarPage() {
     [deals, setDeals] = useState<Deal[]>([]);
   const [view, setView] = useState<View>('week'),
     [cursor, setCursor] = useState(new Date()),
+    [showWeekends, setShowWeekends] = useState(false),
     [open, setOpen] = useState(false),
     [editing, setEditing] = useState<Item | null>(null),
     [loaded, setLoaded] = useState(false);
@@ -416,12 +417,23 @@ export default function CalendarPage() {
               {v === 'day' ? 'Dzień' : v === 'week' ? 'Tydzień' : 'Miesiąc'}
             </Button>
           ))}
+          {view === 'week' ? (
+            <Button
+              size="sm"
+              variant={showWeekends ? 'default' : 'outline'}
+              onClick={() => setShowWeekends((current) => !current)}
+              aria-pressed={showWeekends}
+            >
+              {showWeekends ? 'Ukryj weekend' : 'Pokaż weekend'}
+            </Button>
+          ) : null}
         </div>
       </div>
       {view === 'week' ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <WeekGrid
             days={days}
+            showWeekends={showWeekends}
             items={visible}
             names={names}
             onAdd={(day, hour) => {
@@ -658,12 +670,14 @@ const WEEK_HOURS = Array.from({ length: 11 }, (_, index) => index + 8);
 
 function WeekGrid({
   days,
+  showWeekends,
   items,
   names,
   onAdd,
   onOpen,
 }: {
   days: Date[];
+  showWeekends: boolean;
   items: Item[];
   names: {
     contacts: Map<string, string>;
@@ -673,12 +687,16 @@ function WeekGrid({
   onAdd: (day: Date, hour: number) => void;
   onOpen: (item: Item) => void;
 }) {
-  const workDays = days.slice(0, 5);
+  const workDays = days.slice(0, showWeekends ? 7 : 5);
+  const columns = `64px repeat(${workDays.length}, minmax(0, 1fr))`;
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <div className="min-w-[720px]">
-          <div className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-200 bg-slate-50/70">
+        <div className={showWeekends ? 'min-w-[960px]' : 'min-w-[720px]'}>
+          <div
+            className="grid border-b border-slate-200 bg-slate-50/70"
+            style={{ gridTemplateColumns: columns }}
+          >
             <div aria-hidden="true" />
             {workDays.map((day) => (
               <button
@@ -687,7 +705,7 @@ function WeekGrid({
                 className="border-l border-slate-200 px-2 py-3 text-center hover:bg-slate-100"
                 onClick={() => onAdd(day, 9)}
               >
-                <span className="block text-[11px] font-semibold text-slate-500 uppercase">
+                <span className="block text-xs font-semibold text-slate-600 uppercase">
                   {day.toLocaleDateString('pl-PL', { weekday: 'short' })}
                 </span>
                 <span className="text-sm font-bold text-slate-900">
@@ -704,7 +722,8 @@ function WeekGrid({
             {WEEK_HOURS.map((hour) => (
               <div
                 key={hour}
-                className="grid min-h-[54px] grid-cols-[64px_repeat(5,minmax(0,1fr))] border-b border-slate-100 last:border-b-0"
+                className="grid min-h-[54px] border-b border-slate-100 last:border-b-0"
+                style={{ gridTemplateColumns: columns }}
               >
                 <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
                   {String(hour).padStart(2, '0')}:00
@@ -738,7 +757,7 @@ function WeekGrid({
                             onClick={() => onOpen(item)}
                             className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-left hover:border-emerald-400 hover:bg-emerald-100"
                           >
-                            <span className="block truncate text-[11px] font-bold text-slate-900">
+                            <span className="block truncate text-xs font-bold text-slate-900">
                               {new Date(item.startsAt).toLocaleTimeString(
                                 'pl-PL',
                                 {
@@ -749,7 +768,7 @@ function WeekGrid({
                               )}{' '}
                               {item.title}
                             </span>
-                            <span className="block truncate text-[10px] text-slate-500">
+                            <span className="block truncate text-xs text-slate-600">
                               {item.dealId
                                 ? names.deals.get(item.dealId)
                                 : item.contactId
@@ -832,7 +851,7 @@ function Day({
               {x.title}
             </p>
             {!month && (
-              <p className="text-muted-foreground truncate text-[11px]">
+              <p className="text-muted-foreground truncate text-xs">
                 {x.dealId
                   ? names.deals.get(x.dealId)
                   : x.contactId
@@ -921,4 +940,3 @@ function defaultInput() {
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
   return toWarsawDateTimeInput(d);
 }
-

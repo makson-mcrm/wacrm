@@ -16,7 +16,7 @@ describe('Lejek sprzedaży — odbiór desktop i mobile', () => {
       'Ostatnia aktywność — najnowsze',
       'Największa kwota',
       'Najbliższy next action',
-      'Pokaż widok archiwalny',
+      'Pokaż archiwum poza etapami 1–6',
     ]) {
       expect(page).toContain(label);
     }
@@ -44,9 +44,12 @@ describe('Lejek sprzedaży — odbiór desktop i mobile', () => {
     }
   });
 
-  it('udostępnia LEJEK jako piątą zakładkę mobile', () => {
+  it('udostępnia wymagany układ nawigacji mobile', () => {
     const nav = source('src/components/layout/mobile-bottom-nav.tsx');
-    expect(nav).toContain("label: 'LEJEK'");
+    for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'DODAJ', 'KLIENCI', 'ASYSTENT']) {
+      expect(nav).toContain(`label: '${label}'`);
+    }
+    expect(nav).not.toContain("label: 'LEJEK'");
     expect(nav).toContain('grid-cols-5');
   });
 });

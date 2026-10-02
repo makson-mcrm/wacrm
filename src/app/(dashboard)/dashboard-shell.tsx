@@ -24,6 +24,24 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      document.documentElement.style.setProperty(
+        '--app-viewport-height',
+        `${viewport?.height ?? window.innerHeight}px`
+      );
+    };
+    updateViewportHeight();
+    viewport?.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    return () => {
+      viewport?.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      document.documentElement.style.removeProperty('--app-viewport-height');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
@@ -43,7 +61,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="bg-background flex h-screen overflow-hidden lg:bg-[#f4f8f6]">
+    <div className="flex h-[var(--app-viewport-height,100dvh)] overflow-hidden bg-[#f4f8f6]">
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />
@@ -52,7 +70,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24 lg:px-5 lg:pt-3 lg:pb-6">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 lg:px-5 lg:pt-3">
           {/* Above every page: writes are being rejected and here's why.
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />

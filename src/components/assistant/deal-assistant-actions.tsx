@@ -41,7 +41,7 @@ type StateResponse = {
   paidApiConfigured?: boolean;
 };
 
-// prettier-ignore -- UX contract test intentionally guards this exact token sequence.
+// prettier-ignore
 const AI_BUTTON = 'border-lime-400 bg-lime-300 text-[#123d2b] hover:bg-lime-200 shadow-sm';
 
 export function DealAssistantActions({
@@ -189,7 +189,7 @@ export function DealAssistantActions({
           <h3 className="flex items-center gap-2 font-semibold text-[#123d2b]">
             <Sparkles className="size-4" /> ASYSTENT DEALA
           </h3>
-          <span className="rounded-full bg-lime-300 px-2 py-1 text-[10px] font-black text-[#123d2b]">
+          <span className="rounded-full bg-lime-300 px-2 py-1 text-xs font-black text-[#123d2b]">
             AI — ŚWIADOME URUCHOMIENIE
           </span>
         </div>
@@ -374,7 +374,7 @@ function ResultCard({
           <h3 className="font-bold">{result.title}</h3>
           <p className="mt-1 text-sm">{result.summary}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">
           {result.sourceQuality} · {result.confidence}
         </span>
       </div>
