@@ -53,7 +53,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { formatWarsawDateTime } from '@/lib/date-time';
-import { SmsAction } from '@/components/sales/sms-action';
+import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
 
@@ -590,15 +590,9 @@ export function ContactDetailView({
                         ?.company_id ?? contactCompanies[0]?.company_id
                     }
                   />
-                  <SmsAction
+                  <WhatsAppAction
                     phone={contact.phone}
-                    contactName={contact.name}
                     contactId={contact.id}
-                    companyId={
-                      contactCompanies.find((link) => link.is_primary)
-                        ?.company_id ?? contactCompanies[0]?.company_id
-                    }
-                    label="WIADOMOŚĆ"
                   />
                   <Button
                     size="sm"

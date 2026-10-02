@@ -95,7 +95,10 @@ describe('plansza UX mCRM AI 10.09', () => {
   });
 
   it('Klient i Deal utrzymują hierarchię akcja, kontekst, szczegóły', () => {
-    const contact = source('src/components/contacts/contact-detail-view.tsx');
+    const contact = [
+      source('src/components/contacts/contact-detail-view.tsx'),
+      source('src/components/sales/whatsapp-action.tsx'),
+    ].join('\n');
     const deal = source('src/app/(dashboard)/deals/[id]/page.tsx');
     for (const label of ['WIADOMOŚĆ', 'DYKTUJ', 'WIĘCEJ', '+ NOWY DEAL']) {
       expect(contact).toContain(label);

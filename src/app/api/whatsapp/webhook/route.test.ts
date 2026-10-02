@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
     replyContextParent: null as { id: string } | null,
     conversation: { id: 'conv-1', unread_count: 0, account_id: 'acc-1' },
     upsertCalls: [] as { row: Record<string, unknown>; options: unknown }[],
+    activityInserts: [] as Record<string, unknown>[],
     rpcCalls: [] as { name: string; args: Record<string, unknown> }[],
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
@@ -104,6 +105,27 @@ vi.mock('@supabase/supabase-js', () => ({
                 }),
               }),
             }),
+          };
+        case 'deals':
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    order: () => ({
+                      limit: () => Promise.resolve({ data: [], error: null }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        case 'sales_activities':
+          return {
+            insert: (row: Record<string, unknown>) => {
+              h.state.activityInserts.push(row);
+              return Promise.resolve({ data: null, error: null });
+            },
           };
         case 'messages':
           return {
@@ -264,6 +286,7 @@ beforeEach(() => {
   h.state.replyContextParent = null;
   h.state.conversation = { id: 'conv-1', unread_count: 0, account_id: 'acc-1' };
   h.state.upsertCalls = [];
+  h.state.activityInserts = [];
   h.state.rpcCalls = [];
   h.state.afterCallbacks = [];
   h.state.automationStarted = 0;
@@ -336,6 +359,16 @@ describe('inbound webhook: idempotent insert (#367)', () => {
     expect(h.state.rpcCalls).toHaveLength(1);
     expect(h.dispatchInboundToFlows).toHaveBeenCalledTimes(1);
     expect(h.dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    expect(h.state.activityInserts).toHaveLength(1);
+    expect(h.state.activityInserts[0]).toMatchObject({
+      contact_id: 'contact-1',
+      activity_type: 'wiadomosc',
+      channel: 'WHATSAPP',
+      message_direction: 'inbound',
+      delivery_status: 'delivered',
+      external_message_id: 'wamid.TEST1',
+      requires_deal_assignment: false,
+    });
   });
 
   it('a replayed delivery is a no-op: no unread bump, no fan-out', async () => {
@@ -351,6 +384,7 @@ describe('inbound webhook: idempotent insert (#367)', () => {
     expect(h.runAutomationsForTrigger).not.toHaveBeenCalled();
     expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled();
     expect(h.dispatchWebhookEvent).not.toHaveBeenCalled();
+    expect(h.state.activityInserts).toHaveLength(0);
   });
 });
 

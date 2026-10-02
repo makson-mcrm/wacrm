@@ -1,9 +1,9 @@
 import { NextResponse, after } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api';
+import { getMediaUrl } from '@/lib/whatsapp/meta-api';
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media';
-import { normalizePhone } from '@/lib/whatsapp/phone-utils';
+import { normalizeWhatsAppE164 } from '@/lib/whatsapp/phone-utils';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { reopenClosedConversation } from '@/lib/conversations/reopen';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
@@ -13,8 +13,12 @@ import {
 } from '@/lib/whatsapp/webhook-verify-token';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
-import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
+import {
+  resolveWhatsAppDealContext,
+  whatsappActivityDescription,
+  whatsappActivityTitle,
+} from '@/lib/whatsapp/sales-history';
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
@@ -27,8 +31,7 @@ import {
 export const maxDuration = 60;
 
 // Lazy-initialized to avoid build-time crash when env vars are missing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
+let _adminClient: SupabaseClient | null = null;
 function supabaseAdmin() {
   if (!_adminClient) {
     _adminClient = createClient(
@@ -171,8 +174,7 @@ export async function GET(request: Request) {
     // Check if any config's verify_token matches. Also collect the
     // matching row so we can opportunistically upgrade its token to
     // GCM if it was still in the legacy CBC format.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let matchedConfig: any = null;
+    let matchedConfig: { id: string; verify_token: string } | null = null;
     for (const config of configs) {
       if (!config.verify_token) continue;
       try {
@@ -292,7 +294,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       // Handle status updates
       if (value.statuses) {
         for (const status of value.statuses) {
-          await handleStatusUpdate(status);
+          await handleStatusUpdate(status, value.metadata.phone_number_id);
         }
       }
 
@@ -410,12 +412,15 @@ function isValidStatusTransition(current: string, incoming: string): boolean {
   return ii > ci;
 }
 
-async function handleStatusUpdate(status: {
-  id: string;
-  status: string;
-  timestamp: string;
-  recipient_id: string;
-}) {
+async function handleStatusUpdate(
+  status: {
+    id: string;
+    status: string;
+    timestamp: string;
+    recipient_id: string;
+  },
+  phoneNumberId: string
+) {
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status. No
   //    `.select()`: message_id is NOT unique (migration 009 — Meta ids
@@ -428,6 +433,29 @@ async function handleStatusUpdate(status: {
 
   if (msgErr) {
     console.error('Error updating message status:', msgErr);
+  }
+
+  const { data: statusConfig } = await supabaseAdmin()
+    .from('whatsapp_config')
+    .select('account_id')
+    .eq('phone_number_id', phoneNumberId)
+    .maybeSingle();
+  if (
+    statusConfig?.account_id &&
+    ['sent', 'delivered', 'read', 'failed'].includes(status.status)
+  ) {
+    const { error: activityStatusError } = await supabaseAdmin()
+      .from('sales_activities')
+      .update({ delivery_status: status.status })
+      .eq('account_id', statusConfig.account_id)
+      .eq('external_message_id', status.id)
+      .eq('channel', 'WHATSAPP');
+    if (activityStatusError) {
+      console.error(
+        'Error updating WhatsApp activity status:',
+        activityStatusError
+      );
+    }
   }
 
   // Webhook fan-out for this status change happens at the END of this
@@ -482,8 +510,11 @@ async function handleStatusUpdate(status: {
     .maybeSingle();
 
   if (msgRow) {
-    const conv = msgRow.conversations as { account_id: string } | null;
-    const accountId = conv?.account_id;
+    const relation = msgRow.conversations as unknown as
+      { account_id: string } | { account_id: string }[] | null;
+    const accountId = Array.isArray(relation)
+      ? relation[0]?.account_id
+      : relation?.account_id;
     if (accountId) {
       await dispatchWebhookEvent(
         supabaseAdmin(),
@@ -635,7 +666,7 @@ async function processMessage(
   // See parseMessageContent for what it turns off.
   mirrorMedia: boolean
 ) {
-  const senderPhone = normalizePhone(message.from);
+  const senderPhone = normalizeWhatsAppE164(message.from);
   const contactName = contact.profile.name;
 
   // Find or create contact
@@ -797,6 +828,47 @@ async function processMessage(
     return;
   }
 
+  try {
+    const dealContext = await resolveWhatsAppDealContext(
+      supabaseAdmin(),
+      accountId,
+      contactRecord.id
+    );
+    const occurredAt = new Date(
+      parseInt(message.timestamp, 10) * 1000
+    ).toISOString();
+    const { error: activityError } = await supabaseAdmin()
+      .from('sales_activities')
+      .insert({
+        account_id: accountId,
+        user_id: configOwnerUserId,
+        activity_type: 'wiadomosc',
+        activity_status: 'WYKONANE',
+        contact_id: contactRecord.id,
+        company_id: dealContext.companyId,
+        deal_id: dealContext.dealId,
+        title: whatsappActivityTitle('inbound'),
+        description: whatsappActivityDescription(contentText, contentType),
+        occurred_at: occurredAt,
+        completed_at: occurredAt,
+        completed: true,
+        call_channel: 'whatsapp',
+        channel: 'WHATSAPP',
+        message_direction: 'inbound',
+        delivery_status: 'delivered',
+        external_message_id: message.id,
+        requires_deal_assignment: dealContext.requiresAssignment,
+      });
+    if (activityError) {
+      console.error(
+        '[webhook] inbound sales history write failed:',
+        activityError.message
+      );
+    }
+  } catch (error) {
+    console.error('[webhook] inbound Deal context resolution failed:', error);
+  }
+
   // Update conversation. The unread bump is done DB-side (migration 037's
   // bump_conversation_on_inbound) rather than as a read-modify-write of the
   // snapshot loaded above: two inbound messages for the same conversation
@@ -923,20 +995,6 @@ async function processMessage(
         interactive_reply_id: interactiveReplyId ?? undefined,
       },
     }).catch((err) => console.error('[automations] dispatch failed:', err));
-  }
-
-  // AI auto-reply. Runs only for plain-text inbound the deterministic
-  // flow runner did NOT consume (flows win over the LLM), and only when
-  // the account has enabled it. Awaited inside `after()` (same reason as
-  // the webhook dispatch below); `dispatchInboundToAiReply` owns its
-  // eligibility gates + try/catch and never throws.
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
-    await dispatchInboundToAiReply({
-      accountId,
-      conversationId: conversation.id,
-      contactId: contactRecord.id,
-      configOwnerUserId,
-    });
   }
 
   // message.received webhook (public API). Awaited — not fire-and-forget
@@ -1165,8 +1223,11 @@ async function parseMessageContent(
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ContactRow = any;
+interface ContactRow {
+  id: string;
+  name?: string | null;
+  phone?: string | null;
+}
 
 interface ContactOutcome {
   contact: ContactRow;

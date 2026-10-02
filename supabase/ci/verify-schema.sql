@@ -59,6 +59,22 @@ BEGIN
     RAISE EXCEPTION 'public.deals.company_id is missing — migration 040 did not apply';
   END IF;
 
+  -- P1 WhatsApp messages must share the sales timeline and delivery state.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'sales_activities'
+      AND column_name = 'external_message_id'
+  ) THEN
+    RAISE EXCEPTION 'public.sales_activities.external_message_id is missing — WhatsApp history migration did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'deals'
+      AND column_name = 'next_action_date'
+  ) THEN
+    RAISE EXCEPTION 'public.deals.next_action_date is missing — activity P1 migration did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

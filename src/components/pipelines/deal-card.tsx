@@ -6,7 +6,7 @@ import { Calendar, Check, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { useTranslations } from 'next-intl';
 import { CallAction } from '@/components/sales/call-action';
-import { SmsAction } from '@/components/sales/sms-action';
+import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 
 interface DealCardProps {
   deal: Deal;
@@ -153,12 +153,10 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           contactId={deal.contact_id}
           dealId={deal.id}
         />
-        <SmsAction
+        <WhatsAppAction
           phone={deal.contact?.phone}
           contactId={deal.contact_id}
           dealId={deal.id}
-          contactName={deal.contact?.name}
-          label="WIADOMOŚĆ"
         />
       </div>
 

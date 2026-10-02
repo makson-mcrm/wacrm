@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarPlus,
   ChevronRight,
@@ -142,6 +142,7 @@ function actionDbType(action: ActionKind) {
 
 export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = useMemo(() => createClient(), []);
   const { accountId: authenticatedAccountId } = useAuth();
   const accountId = demo ? ACTIVITY_08_DEMO_ACCOUNT_ID : authenticatedAccountId;
@@ -175,6 +176,8 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [creatingContact, setCreatingContact] = useState(false);
+  const [createTask, setCreateTask] = useState(false);
+  const [emailCopy, setEmailCopy] = useState(false);
 
   const selectedContact = contacts.find((row) => row.id === contactId) ?? null;
   const selectedDeal = deals.find((row) => row.id === dealId) ?? null;
@@ -207,6 +210,36 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   }, [accountId, db, demo]);
 
   useEffect(() => void load(), [load]);
+
+  useEffect(() => {
+    if (demo) return;
+    const requestedDealId = searchParams.get('deal');
+    const requestedContactId = searchParams.get('contact');
+    const requestedAction = searchParams.get('action');
+    if (requestedAction === 'message') setAction('WIADOMOSC');
+    if (requestedAction === 'call') setAction('TELEFON');
+
+    if (requestedDealId) {
+      const requestedDeal = deals.find((deal) => deal.id === requestedDealId);
+      if (requestedDeal) {
+        setDealId(requestedDeal.id);
+        if (requestedDeal.contact_id) setContactId(requestedDeal.contact_id);
+        return;
+      }
+    }
+    if (
+      requestedContactId &&
+      contacts.some((contact) => contact.id === requestedContactId)
+    ) {
+      const active = deals.filter(
+        (deal) =>
+          deal.contact_id === requestedContactId && deal.status === 'open'
+      );
+      setContactId(requestedContactId);
+      setDealId(active.length === 1 ? active[0].id : '');
+      setQuery('');
+    }
+  }, [contacts, deals, demo, searchParams]);
 
   useEffect(() => {
     if (demo) {
@@ -390,6 +423,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
       return toast.error('Wybierz konkretny Deal.');
     if (action === 'TELEFON' && !result)
       return toast.error('Wybierz wynik rozmowy.');
+    if (action === 'WIADOMOSC' && !note.trim())
+      return toast.error('Wpisz treść wiadomości WhatsApp.');
+    let whatsappSent = false;
     setSaving(true);
     try {
       const now = new Date().toISOString();
@@ -425,43 +461,67 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
 
       const session = (await db.auth.getSession()).data.session;
       if (!session?.user) return;
-      const { error } = await db.from('sales_activities').insert({
-        account_id: accountId,
-        user_id: session.user.id,
-        activity_type: actionDbType(action),
-        activity_status: 'WYKONANE',
-        objective_type: 'NOWE_POZYSKANIE',
-        contact_id: selectedContact.id,
-        company_id: selectedDeal?.company_id || null,
-        deal_id: selectedDeal?.id || null,
-        phone_number: selectedContact.phone || null,
-        title: `${action.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
-        description: note.trim() || null,
-        occurred_at: now,
-        completed_at: now,
-        completed: true,
-        call_result: action === 'TELEFON' ? result : null,
-        call_channel:
-          action === 'TELEFON'
-            ? 'telefon'
-            : action === 'SPOTKANIE'
-              ? 'spotkanie'
-              : action === 'EMAIL'
-                ? 'email'
-                : action === 'WIADOMOSC'
-                  ? 'wiadomosc'
+      if (action === 'WIADOMOSC') {
+        const response = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contact_id: selectedContact.id,
+            deal_id: selectedDeal?.id || null,
+            message_type: 'text',
+            content_text: note.trim(),
+          }),
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          history_saved?: boolean;
+        };
+        if (!response.ok) {
+          throw new Error(payload.error || 'Nie wysłano wiadomości WhatsApp.');
+        }
+        whatsappSent = true;
+        if (payload.history_saved === false) {
+          toast.warning(
+            'WhatsApp wysłany, ale zapis historii wymaga ponowienia przez system.'
+          );
+        }
+      } else {
+        const { error } = await db.from('sales_activities').insert({
+          account_id: accountId,
+          user_id: session.user.id,
+          activity_type: actionDbType(action),
+          activity_status: 'WYKONANE',
+          objective_type: 'NOWE_POZYSKANIE',
+          contact_id: selectedContact.id,
+          company_id: selectedDeal?.company_id || null,
+          deal_id: selectedDeal?.id || null,
+          phone_number: selectedContact.phone || null,
+          title: `${action.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
+          description: note.trim() || null,
+          occurred_at: now,
+          completed_at: now,
+          completed: true,
+          call_result: action === 'TELEFON' ? result : null,
+          call_channel:
+            action === 'TELEFON'
+              ? 'telefon'
+              : action === 'SPOTKANIE'
+                ? 'spotkanie'
+                : action === 'EMAIL'
+                  ? 'email'
                   : 'inny',
-        source: selectedDeal?.source || selectedContact.source || null,
-        product_group:
-          selectedDeal?.product_type ||
-          selectedContact.product_category ||
-          null,
-        next_action: nextAction.trim() || null,
-        next_action_date: nextIso,
-        next_contact_at: nextIso,
-        next_contact_reason: nextAction.trim() || note.trim() || null,
-      });
-      if (error) throw error;
+          source: selectedDeal?.source || selectedContact.source || null,
+          product_group:
+            selectedDeal?.product_type ||
+            selectedContact.product_category ||
+            null,
+          next_action: nextAction.trim() || null,
+          next_action_date: nextIso,
+          next_contact_at: nextIso,
+          next_contact_reason: nextAction.trim() || note.trim() || null,
+        });
+        if (error) throw error;
+      }
 
       const contactUpdate = buildContactActivityUpdate({
         contactResult: action === 'TELEFON' ? result : 'WYKONANE',
@@ -485,6 +545,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             blockerSince: selectedDeal.blocker_since || now,
           });
         dealUpdate.updated_at = now;
+        dealUpdate.next_action_date = nextIso;
         if (stageId && stageId !== selectedDeal.stage_id)
           dealUpdate.stage_id = stageId;
         const dealWrite = await db
@@ -495,7 +556,41 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         if (dealWrite.error) throw dealWrite.error;
       }
 
-      toast.success('Aktywność zapisana.');
+      if (createTask && nextAction.trim()) {
+        const taskWrite = await db.from('sales_activities').insert({
+          account_id: accountId,
+          user_id: session.user.id,
+          activity_type: 'zadanie',
+          activity_status: 'PLANOWANE',
+          contact_id: selectedContact.id,
+          company_id: selectedDeal?.company_id || null,
+          deal_id: selectedDeal?.id || null,
+          title: nextAction.trim(),
+          description: note.trim() || null,
+          occurred_at: now,
+          scheduled_at: nextIso,
+          completed: false,
+        });
+        if (taskWrite.error) throw taskWrite.error;
+      }
+
+      if (emailCopy && selectedContact.email) {
+        const subject = encodeURIComponent(
+          selectedDeal ? `Podsumowanie — ${selectedDeal.title}` : 'Podsumowanie'
+        );
+        const body = encodeURIComponent(note.trim());
+        window.open(
+          `mailto:${encodeURIComponent(selectedContact.email)}?subject=${subject}&body=${body}`,
+          '_blank',
+          'noopener,noreferrer'
+        );
+      }
+
+      toast.success(
+        action === 'WIADOMOSC'
+          ? 'Wiadomość WhatsApp wysłana i zapisana w historii.'
+          : 'Aktywność zapisana.'
+      );
       router.replace(
         activityContextReturnPath({
           contactId: selectedContact.id,
@@ -503,6 +598,18 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         })
       );
     } catch (error) {
+      if (whatsappSent) {
+        toast.warning(
+          'WhatsApp został wysłany. Nie wysyłaj ponownie — system nie domknął danych kolejnego kroku.'
+        );
+        router.replace(
+          activityContextReturnPath({
+            contactId: selectedContact.id,
+            dealId: selectedDeal?.id,
+          })
+        );
+        return;
+      }
       toast.error(
         error instanceof Error ? error.message : 'Nie zapisano aktywności.'
       );
@@ -551,7 +658,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         </p>
       </div>
 
-      <div className="hidden gap-2 overflow-x-auto pb-1 text-sm font-semibold sm:flex">
+      <div className="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold">
         <span className="rounded-lg bg-emerald-50 px-4 py-2 whitespace-nowrap text-emerald-900">
           Nowa aktywność
         </span>
@@ -566,11 +673,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="grid gap-4">
         <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="font-black text-[#0b1b55]">
-            1. Wybierz klienta i deal
-          </h2>
+          <h2 className="font-black text-[#0b1b55]">1. Klient i Deal</h2>
           <div className="relative">
             <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
             <Input
@@ -734,57 +839,20 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               )}
             </div>
           )}
-
           {selectedContact && (
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-black text-[#0b1b55]">
-                  Ostatnie aktywności w tym dealu
-                </p>
-                <span className="text-xs font-semibold text-blue-700">
-                  Zobacz wszystkie →
-                </span>
-              </div>
-              <div className="space-y-2">
-                {activities.length === 0 ? (
-                  <p className="text-xs text-slate-600">
-                    Brak zapisanych aktywności.
-                  </p>
-                ) : (
-                  activities.map((row) => (
-                    <div key={row.id} className="text-xs">
-                      <div className="flex gap-2">
-                        <span className="shrink-0 text-slate-600">
-                          {new Date(row.occurred_at).toLocaleDateString(
-                            'pl-PL'
-                          )}
-                        </span>
-                        <span className="truncate">{row.title}</span>
-                      </div>
-                      {(row.description || row.next_action || row.blocker) && (
-                        <p className="mt-0.5 line-clamp-2 pl-[76px] text-xs text-slate-600">
-                          {[
-                            row.description,
-                            row.next_action ? `Dalej: ${row.next_action}` : '',
-                            row.blocker ? `Bloker: ${row.blocker}` : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => router.push('/deals')}
+              className="min-h-11 self-start text-sm font-bold text-blue-700"
+            >
+              Zobacz wszystkie →
+            </button>
           )}
         </section>
 
-        <section className="space-y-4 rounded-xl border bg-white p-4 shadow-sm">
-          <div>
-            <h2 className="font-black text-[#0b1b55]">
-              2. Zarejestruj rozmowę
-            </h2>
+        <section className="flex flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm">
+          <div className="order-1">
+            <h2 className="font-black text-[#0b1b55]">2. Akcja</h2>
             <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
               <button
                 type="button"
@@ -831,7 +899,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
           </div>
 
-          <div>
+          <div className="order-2">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-black text-[#0b1b55]">3. Wynik rozmowy</h2>
               {action === 'TELEFON' && (
@@ -850,6 +918,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </select>
               )}
             </div>
+            <h2 className="mt-3 font-black text-[#0b1b55]">
+              4. Notatka lub dyktowanie
+            </h2>
             <div className="mt-2 [&_textarea]:min-h-28 [&_textarea]:text-base">
               <VoiceTextarea
                 value={note}
@@ -898,7 +969,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-lime-300 bg-lime-50 p-3">
+          <div className="order-4 rounded-xl border border-lime-300 bg-lime-50 p-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex gap-2">
                 <Sparkles className="mt-0.5 size-5 text-lime-700" />
@@ -933,9 +1004,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
           </div>
 
-          <div>
+          <div className="order-6">
             <h2 className="font-black text-[#0b1b55]">
-              4. Zmień etap lub zamknij deal{' '}
+              9. Zmień etap lub zamknij deal{' '}
               <span className="font-normal text-slate-500">(opcjonalnie)</span>
             </h2>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -972,8 +1043,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
           </div>
 
-          <div>
-            <h2 className="font-black text-[#0b1b55]">5. Zapisz aktywność</h2>
+          <div className="order-3">
+            <h2 className="font-black text-[#0b1b55]">
+              5. Następny krok · 6. Termin · 7. Blocker
+            </h2>
             <div className="mt-2 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-3">
               <div>
                 <Label htmlFor="activity-next">Następny krok</Label>
@@ -1006,35 +1079,99 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 />
               </div>
             </div>
-            <div className="sticky bottom-0 z-10 -mx-2 mt-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
-              <button
-                type="button"
-                onClick={() => setFollowUpOpen(true)}
-                className="hidden min-h-10 items-center gap-2 text-left text-xs font-semibold text-slate-700 sm:inline-flex"
-              >
-                <span
-                  className={`grid size-5 place-items-center rounded border ${nextAction ? 'border-emerald-800 bg-emerald-800 text-white' : 'border-slate-300 bg-white'}`}
-                >
-                  {nextAction ? '✓' : ''}
-                </span>
-                Utwórz zadanie z kolejnych kroków
-              </button>
-              <span className="hidden min-h-10 items-center gap-2 text-xs font-semibold text-slate-600 sm:ml-3 sm:inline-flex">
-                <span className="size-5 rounded border border-slate-300 bg-white" />{' '}
-                Wyślij kopię e-maila do klienta
-              </span>
-              <Button
-                type="button"
-                disabled={!selectedContact || saving}
-                onClick={() => void saveActivity()}
-                className="h-11 w-full bg-emerald-800 font-black sm:ml-auto sm:w-auto"
-              >
-                {saving ? 'Zapisuję…' : 'Zapisz aktywność'}
-              </Button>
-            </div>
+          </div>
+          <div className="sticky bottom-0 z-10 order-5 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+            <span className="text-sm font-black text-[#0b1b55]">8. Zapis</span>
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={createTask}
+                onChange={(event) => setCreateTask(event.target.checked)}
+                disabled={!nextAction.trim()}
+                className="size-5 accent-emerald-800"
+              />
+              Utwórz zadanie z kolejnych kroków
+            </label>
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 sm:ml-3">
+              <input
+                type="checkbox"
+                checked={emailCopy}
+                onChange={(event) => setEmailCopy(event.target.checked)}
+                disabled={!selectedContact?.email}
+                className="size-5 accent-emerald-800"
+              />
+              Przygotuj kopię e-mail do klienta
+            </label>
+            <Button
+              type="button"
+              disabled={!selectedContact || saving}
+              onClick={() => void saveActivity()}
+              className="h-11 w-full bg-emerald-800 font-black sm:ml-auto sm:w-auto"
+            >
+              {saving
+                ? 'Zapisuję…'
+                : action === 'WIADOMOSC'
+                  ? 'Wyślij WhatsApp i zapisz'
+                  : 'Zapisz aktywność'}
+            </Button>
           </div>
         </section>
       </div>
+
+      {selectedContact && (
+        <section className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-black text-[#0b1b55]">
+              10. Ostatnie aktywności w tym dealu
+            </h2>
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  activityContextReturnPath({
+                    contactId: selectedContact.id,
+                    dealId: selectedDeal?.id,
+                  })
+                )
+              }
+              className="min-h-11 text-xs font-semibold text-blue-700"
+            >
+              Zobacz wszystkie →
+            </button>
+          </div>
+          <div className="space-y-3">
+            {activities.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Brak zapisanych aktywności.
+              </p>
+            ) : (
+              activities.map((row) => (
+                <article key={row.id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-[#0b1b55]">
+                      {row.title}
+                    </span>
+                    <time className="text-xs text-slate-500">
+                      {new Date(row.occurred_at).toLocaleString('pl-PL')}
+                    </time>
+                  </div>
+                  {(row.description || row.next_action || row.blocker) && (
+                    <p className="mt-1 text-slate-600">
+                      {[
+                        row.description,
+                        row.next_action ? `Dalej: ${row.next_action}` : '',
+                        row.blocker ? `Blocker: ${row.blocker}` : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

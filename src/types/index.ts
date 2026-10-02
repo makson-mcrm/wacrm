@@ -473,6 +473,7 @@ export interface Deal {
   meeting_place?: string;
   next_action?: string;
   next_action_at?: string;
+  next_action_date?: string;
   follow_up_at?: string;
   expected_commission?: number;
   whatsapp_sent_status?: string;
@@ -835,5 +836,3 @@ export interface QuickReply {
   created_at: string;
   updated_at: string;
 }
-
-

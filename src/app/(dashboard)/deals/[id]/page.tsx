@@ -19,7 +19,7 @@ import {
   Upload,
   UserPlus,
 } from 'lucide-react';
-import { SmsAction } from '@/components/sales/sms-action';
+import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
 import { createClient } from '@/lib/supabase/client';
@@ -734,13 +734,10 @@ export default function DealPage() {
               />
             ) : null}
             {actionContact?.phone ? (
-              <SmsAction
+              <WhatsAppAction
                 phone={actionContact.phone}
-                contactName={actionContact.name}
                 contactId={actionContact.id}
-                companyId={deal.company_id}
                 dealId={deal.id}
-                label="WIADOMOŚĆ"
               />
             ) : null}
             <Button
@@ -820,13 +817,10 @@ export default function DealPage() {
                 dealId={deal.id}
                 className="w-full"
               />
-              <SmsAction
+              <WhatsAppAction
                 phone={actionContact.phone}
-                contactName={actionContact.name}
                 contactId={actionContact.id}
-                companyId={deal.company_id}
                 dealId={deal.id}
-                label="WIADOMOŚĆ"
               />
             </>
           )}
