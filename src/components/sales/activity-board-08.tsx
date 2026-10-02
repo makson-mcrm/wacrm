@@ -545,7 +545,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             blockerSince: selectedDeal.blocker_since || now,
           });
         dealUpdate.updated_at = now;
-        dealUpdate.next_action_date = nextIso;
+        dealUpdate.next_action_at = nextIso;
         if (stageId && stageId !== selectedDeal.stage_id)
           dealUpdate.stage_id = stageId;
         const dealWrite = await db
