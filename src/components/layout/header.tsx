@@ -7,7 +7,6 @@ import {
   Bell,
   LogOut,
   Menu,
-  Search,
   Settings as SettingsIcon,
   Sparkles,
   User,
@@ -84,7 +83,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     'U';
 
   return (
-    <header className="border-border bg-background flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 lg:px-6">
+    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 md:h-14 md:flex-nowrap md:gap-3 md:py-0 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
         <button
@@ -109,18 +108,11 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         </Link>
       </div>
 
-      <div className="hidden min-w-0 flex-1 justify-center px-3 md:flex">
+      <div className="mobile-global-search order-last flex min-w-0 basis-full justify-center md:order-none md:flex-1 md:basis-auto md:px-3">
         <GlobalCrmSearch />
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
-        <Link
-          href="/contacts"
-          aria-label="Wyszukaj klienta lub Deal"
-          className="flex size-9 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
-        >
-          <Search className="size-4" />
-        </Link>
         <Link
           href="/notifications"
           aria-label="Powiadomienia"
@@ -200,6 +192,19 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           </DropdownMenu>
         </div>
       </div>
+      <style jsx global>{`
+        @media (max-width: 767px) {
+          .mobile-global-search input {
+            min-height: 44px;
+            font-size: 16px;
+          }
+
+          .mobile-global-search > div > div:nth-child(2) {
+            top: 3rem;
+            min-width: 0;
+          }
+        }
+      `}</style>
     </header>
   );
 }
