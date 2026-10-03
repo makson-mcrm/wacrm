@@ -25,6 +25,10 @@ describe('Europe/Warsaw date time', () => {
 
   it('formats with Polish date and Warsaw hour', () => {
     expect(formatWarsawDateTime('2026-08-31T19:46:00.000Z')).toContain('21:46');
+    expect(formatWarsawDateTime('2026-10-06T08:00:00.000Z')).toContain('10:00');
+    expect(toWarsawDateTimeInput('2026-10-06T08:00:00.000Z')).toBe(
+      '2026-10-06T10:00'
+    );
   });
 
   it('uses the Warsaw date when UTC is still on the previous day', () => {

@@ -213,7 +213,9 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
   });
 
   it('creates a conversation for a contact with none, then sends the template', async () => {
-    const res = await postContactTemplate();
+    const res = await postContactTemplate({
+      activity_occurred_at: '2026-10-06T08:00:00.000Z',
+    });
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -253,6 +255,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
       delivery_status: 'sent',
       external_message_id: 'wamid-1',
       contact_id: 'contact-1',
+      occurred_at: '2026-10-06T08:00:00.000Z',
     });
     expect(json.history_saved).toBe(true);
   });

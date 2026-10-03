@@ -27,7 +27,11 @@ import { Label } from '@/components/ui/label';
 import { VoiceTextarea } from '@/components/ui/voice-textarea';
 import { CallAction } from '@/components/sales/call-action';
 import type { Contact, Deal, PipelineStage } from '@/types';
-import { warsawDateTimeInputToIso } from '@/lib/date-time';
+import {
+  formatWarsawDateTime,
+  toWarsawDateTimeInput,
+  warsawDateTimeInputToIso,
+} from '@/lib/date-time';
 import {
   activityContextReturnPath,
   buildContactActivityUpdate,
@@ -47,7 +51,18 @@ type ActivityRow = {
   next_action?: string | null;
   next_action_date?: string | null;
   blocker?: string | null;
+  activity_status?: string | null;
+  scheduled_at?: string | null;
 };
+
+type DocumentRow = {
+  id: string;
+  name: string;
+  document_type?: string | null;
+  received_at: string;
+};
+
+type ActivityView = 'new' | 'history' | 'documents' | 'tasks';
 
 const ACTIVITY_08_DEMO_ACCOUNT_ID = '00000000-0000-4000-8000-000000000008';
 const ACTIVITY_08_DEMO_CONTACT: Contact = {
@@ -159,6 +174,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const [activities, setActivities] = useState<ActivityRow[]>(
     demo ? ACTIVITY_08_DEMO_HISTORY : []
   );
+  const [fullActivities, setFullActivities] = useState<ActivityRow[]>(
+    demo ? ACTIVITY_08_DEMO_HISTORY : []
+  );
+  const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [activeView, setActiveView] = useState<ActivityView>('new');
   const [query, setQuery] = useState('');
   const [contactId, setContactId] = useState(
     demo ? ACTIVITY_08_DEMO_CONTACT.id : ''
@@ -169,8 +189,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const [note, setNote] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [nextAt, setNextAt] = useState('');
+  const [occurredAt, setOccurredAt] = useState('');
+  const [showOccurredAt, setShowOccurredAt] = useState(false);
   const [blocker, setBlocker] = useState('');
-  const [, setFollowUpOpen] = useState(false);
   const [stageId, setStageId] = useState(demo ? ACTIVITY_08_DEMO_STAGE.id : '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -247,29 +268,50 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
     if (demo) {
       void fetch('/api/activity08-demo')
         .then((response) => (response.ok ? response.json() : null))
-        .then((saved: ActivityRow[] | null) =>
-          setActivities(saved ?? ACTIVITY_08_DEMO_HISTORY)
-        )
-        .catch(() => setActivities(ACTIVITY_08_DEMO_HISTORY));
+        .then((saved: ActivityRow[] | null) => {
+          const rows = saved ?? ACTIVITY_08_DEMO_HISTORY;
+          setFullActivities(rows);
+          setActivities(rows.slice(0, 5));
+        })
+        .catch(() => {
+          setFullActivities(ACTIVITY_08_DEMO_HISTORY);
+          setActivities(ACTIVITY_08_DEMO_HISTORY);
+        });
       return;
     }
-    if (!accountId || !dealId) {
+    if (!accountId || (!dealId && !contactId)) {
       setActivities([]);
+      setFullActivities([]);
+      setDocuments([]);
       return;
     }
-    const request = db
+    let activityRequest = db
       .from('sales_activities')
       .select(
-        'id,title,occurred_at,activity_type,description,call_result,next_action,next_action_date'
+        'id,title,occurred_at,activity_type,activity_status,scheduled_at,description,call_result,next_action,next_action_date'
       )
       .eq('account_id', accountId)
-      .eq('deal_id', dealId)
-      .order('occurred_at', { ascending: false })
-      .limit(5);
-    void request.then(({ data }) =>
-      setActivities((data ?? []) as ActivityRow[])
+      .order('occurred_at', { ascending: false });
+    activityRequest = dealId
+      ? activityRequest.eq('deal_id', dealId)
+      : activityRequest.eq('contact_id', contactId);
+    const documentRequest = dealId
+      ? db
+          .from('deal_documents')
+          .select('id,name,document_type,received_at')
+          .eq('account_id', accountId)
+          .eq('deal_id', dealId)
+          .order('received_at', { ascending: false })
+      : Promise.resolve({ data: [] });
+    void Promise.all([activityRequest, documentRequest]).then(
+      ([activityRows, documentRows]) => {
+        const rows = (activityRows.data ?? []) as ActivityRow[];
+        setFullActivities(rows);
+        setActivities(rows.slice(0, 5));
+        setDocuments((documentRows.data ?? []) as DocumentRow[]);
+      }
     );
-  }, [accountId, db, dealId, demo]);
+  }, [accountId, contactId, db, dealId, demo]);
 
   useEffect(() => {
     if (!selectedDeal) {
@@ -282,10 +324,15 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
     setNextAction(selectedDeal.next_action || '');
     setNextAt(
       selectedDeal.next_action_at
-        ? selectedDeal.next_action_at.slice(0, 16)
+        ? toWarsawDateTimeInput(selectedDeal.next_action_at)
         : ''
     );
   }, [selectedDeal]);
+
+  const plannedTasks = fullActivities.filter(
+    (row) =>
+      row.activity_type === 'zadanie' && row.activity_status === 'PLANOWANE'
+  );
 
   const matches = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('pl');
@@ -393,18 +440,23 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         .upload(storagePath, file);
       if (uploaded.error) throw uploaded.error;
       if (dealId) {
-        const row = await db.from('deal_documents').insert({
-          account_id: accountId,
-          deal_id: dealId,
-          user_id: session.user.id,
-          name: file.name,
-          storage_path: storagePath,
-          status: 'otrzymany',
-          document_type: file.type || 'plik',
-          received_at: new Date().toISOString(),
-          source_channel: 'activity',
-        });
+        const row = await db
+          .from('deal_documents')
+          .insert({
+            account_id: accountId,
+            deal_id: dealId,
+            user_id: session.user.id,
+            name: file.name,
+            storage_path: storagePath,
+            status: 'otrzymany',
+            document_type: file.type || 'plik',
+            received_at: new Date().toISOString(),
+            source_channel: 'activity',
+          })
+          .select('id,name,document_type,received_at')
+          .single();
         if (row.error) throw row.error;
+        setDocuments((items) => [row.data as DocumentRow, ...items]);
       }
       toast.success('Dokument dodany.');
     } catch (error) {
@@ -429,6 +481,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      const occurredIso = occurredAt
+        ? warsawDateTimeInputToIso(occurredAt)
+        : now;
       const nextIso = nextAt ? warsawDateTimeInputToIso(nextAt) : null;
       if (demo) {
         const row: ActivityRow = {
@@ -437,7 +492,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               ? crypto.randomUUID()
               : `demo-${Date.now()}`,
           title: `${action.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
-          occurred_at: now,
+          occurred_at: occurredIso,
           activity_type: actionDbType(action),
           description: note.trim() || null,
           call_result: action === 'TELEFON' ? result : null,
@@ -470,6 +525,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             deal_id: selectedDeal?.id || null,
             message_type: 'text',
             content_text: note.trim(),
+            activity_occurred_at: occurredIso,
           }),
         });
         const payload = (await response.json()) as {
@@ -498,7 +554,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           phone_number: selectedContact.phone || null,
           title: `${action.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
           description: note.trim() || null,
-          occurred_at: now,
+          occurred_at: occurredIso,
           completed_at: now,
           completed: true,
           call_result: action === 'TELEFON' ? result : null,
@@ -567,7 +623,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           deal_id: selectedDeal?.id || null,
           title: nextAction.trim(),
           description: note.trim() || null,
-          occurred_at: now,
+          occurred_at: occurredIso,
           scheduled_at: nextIso,
           completed: false,
         });
@@ -583,6 +639,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           `mailto:${encodeURIComponent(selectedContact.email)}?subject=${subject}&body=${body}`,
           '_blank',
           'noopener,noreferrer'
+        );
+      }
+      if (emailCopy && !selectedContact.email) {
+        toast.warning(
+          'Klient nie ma adresu e-mail. Aktywność zapisano bez kopii e-mail.'
         );
       }
 
@@ -688,514 +749,685 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold">
-        <span className="rounded-lg bg-emerald-50 px-4 py-2 whitespace-nowrap text-emerald-900">
-          Nowa aktywność
-        </span>
-        <span className="rounded-lg bg-slate-100 px-4 py-2 whitespace-nowrap text-slate-600">
-          Historia aktywności
-        </span>
-        <span className="rounded-lg bg-slate-100 px-4 py-2 whitespace-nowrap text-slate-600">
-          Notatki i pliki
-        </span>
-        <span className="rounded-lg bg-slate-100 px-4 py-2 whitespace-nowrap text-slate-600">
-          Zadania po rozmowie
-        </span>
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold"
+        role="tablist"
+        aria-label="Widoki aktywności"
+      >
+        {(
+          [
+            ['new', 'Nowa aktywność'],
+            ['history', 'Historia aktywności'],
+            ['documents', 'Notatki i pliki'],
+            ['tasks', 'Zadania po rozmowie'],
+          ] as const
+        ).map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            role="tab"
+            aria-selected={activeView === view}
+            onClick={() => setActiveView(view)}
+            className={`rounded-lg px-4 py-2 whitespace-nowrap ${
+              activeView === view
+                ? 'bg-emerald-50 text-emerald-900'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.65fr)] xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.7fr)]">
-        <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
-          <h2 className="font-black text-[#0b1b55]">
-            1. Wybierz klienta i deal
-          </h2>
-          <div className="relative">
-            <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Szukaj klienta, wpisz numer telefonu..."
-              className="h-12 pl-10 text-base"
-            />
-          </div>
-          {matches.length > 0 && (
-            <div className="overflow-hidden rounded-lg border">
-              {matches.map((match) => (
-                <button
-                  key={`${match.kind}-${match.id}`}
-                  type="button"
-                  onClick={() =>
-                    match.kind === 'contact'
-                      ? chooseContact(match.id)
-                      : chooseDeal(match.id)
-                  }
-                  className="block min-h-12 w-full border-b px-3 py-2 text-left last:border-0 hover:bg-emerald-50"
-                >
-                  <span className="block font-bold">{match.label}</span>
-                  <span className="block text-xs text-slate-500">
-                    {match.sub}
-                  </span>
-                </button>
-              ))}
+      {activeView !== 'new' && (
+        <section className="rounded-xl border bg-white p-4 shadow-sm">
+          {!selectedContact ? (
+            <p className="py-10 text-center text-sm text-slate-600">
+              Wybierz klienta w zakładce „Nowa aktywność”, aby zobaczyć ten
+              widok.
+            </p>
+          ) : activeView === 'history' ? (
+            <div className="space-y-2">
+              <h2 className="font-black text-[#0b1b55]">
+                Pełna historia aktywności
+              </h2>
+              {!fullActivities.length ? (
+                <p className="py-8 text-sm text-slate-600">
+                  Brak zapisanych aktywności dla wybranego klienta lub deala.
+                </p>
+              ) : (
+                fullActivities.map((row) => (
+                  <article key={row.id} className="rounded-lg border p-3">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <p className="font-semibold text-[#0b1b55]">
+                        {row.title}
+                      </p>
+                      <time className="text-xs text-slate-500">
+                        {formatWarsawDateTime(row.occurred_at)}
+                      </time>
+                    </div>
+                    {(row.description || row.next_action) && (
+                      <p className="mt-1 text-sm whitespace-pre-wrap text-slate-600">
+                        {[row.description, row.next_action]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    )}
+                  </article>
+                ))
+              )}
             </div>
-          )}
-
-          {!selectedContact && rawPhone && matches.length === 0 && (
-            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs font-bold text-amber-900">
-                Nowy numer — możesz zadzwonić przed utworzeniem Kontaktu.
-              </p>
-              <CallAction
-                phone={rawPhone}
-                size="lg"
-                className="h-11 w-full bg-emerald-800 text-white"
-              />
-              <Input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Imię i nazwisko po rozmowie"
-              />
-              <Input
-                value={newPhone || rawPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="Telefon"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void createContactFromPhone()}
-                className="w-full"
-              >
-                Utwórz Kontakt
-              </Button>
+          ) : activeView === 'documents' ? (
+            <div className="space-y-2">
+              <h2 className="font-black text-[#0b1b55]">Notatki i pliki</h2>
+              {!selectedDeal ? (
+                <p className="py-8 text-sm text-slate-600">
+                  Wybierz deal, aby zobaczyć powiązane dokumenty.
+                </p>
+              ) : !documents.length ? (
+                <p className="py-8 text-sm text-slate-600">
+                  Brak dokumentów powiązanych z tym dealem.
+                </p>
+              ) : (
+                documents.map((document) => (
+                  <article
+                    key={document.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+                  >
+                    <div>
+                      <p className="font-semibold text-[#0b1b55]">
+                        {document.name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {document.document_type || 'Plik'}
+                      </p>
+                    </div>
+                    <time className="text-xs text-slate-500">
+                      {formatWarsawDateTime(document.received_at)}
+                    </time>
+                  </article>
+                ))
+              )}
             </div>
-          )}
-
-          {selectedContact && (
-            <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar className="size-12 border-2 border-white shadow-sm">
-                    {selectedContact.avatar_url ? (
-                      <AvatarImage
-                        src={selectedContact.avatar_url}
-                        alt={contactName(selectedContact)}
-                      />
-                    ) : null}
-                    <AvatarFallback className="bg-emerald-100 font-black text-emerald-900">
-                      {contactName(selectedContact)
-                        .split(/\s+/)
-                        .map((part) => part[0])
-                        .join('')
-                        .slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate font-black text-[#0b1b55]">
-                      {contactName(selectedContact)}
+          ) : (
+            <div className="space-y-2">
+              <h2 className="font-black text-[#0b1b55]">Zadania po rozmowie</h2>
+              {!plannedTasks.length ? (
+                <p className="py-8 text-sm text-slate-600">
+                  Brak planowanych zadań dla wybranego klienta lub deala.
+                </p>
+              ) : (
+                plannedTasks.map((task) => (
+                  <article key={task.id} className="rounded-lg border p-3">
+                    <p className="font-semibold text-[#0b1b55]">{task.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Termin:{' '}
+                      {task.scheduled_at
+                        ? formatWarsawDateTime(task.scheduled_at)
+                        : 'nie ustawiono'}
                     </p>
-                    <a
-                      href={`tel:${selectedContact.phone}`}
-                      className="inline-flex min-h-11 items-center text-sm text-blue-700 hover:underline"
-                    >
-                      {selectedContact.phone}
-                    </a>
-                    <p className="truncate text-xs text-slate-500">
-                      {selectedContact.company || selectedContact.email || ''}
+                  </article>
+                ))
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeView === 'new' && (
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.65fr)] xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.7fr)]">
+          <section className="space-y-3 rounded-xl border bg-white p-4 shadow-sm">
+            <h2 className="font-black text-[#0b1b55]">
+              1. Wybierz klienta i deal
+            </h2>
+            <div className="relative">
+              <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Szukaj klienta, wpisz numer telefonu..."
+                className="h-12 pl-10 text-base"
+              />
+            </div>
+            {matches.length > 0 && (
+              <div className="overflow-hidden rounded-lg border">
+                {matches.map((match) => (
+                  <button
+                    key={`${match.kind}-${match.id}`}
+                    type="button"
+                    onClick={() =>
+                      match.kind === 'contact'
+                        ? chooseContact(match.id)
+                        : chooseDeal(match.id)
+                    }
+                    className="block min-h-12 w-full border-b px-3 py-2 text-left last:border-0 hover:bg-emerald-50"
+                  >
+                    <span className="block font-bold">{match.label}</span>
+                    <span className="block text-xs text-slate-500">
+                      {match.sub}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!selectedContact && rawPhone && matches.length === 0 && (
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-bold text-amber-900">
+                  Nowy numer — możesz zadzwonić przed utworzeniem Kontaktu.
+                </p>
+                <CallAction
+                  phone={rawPhone}
+                  size="lg"
+                  className="h-11 w-full bg-emerald-800 text-white"
+                />
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Imię i nazwisko po rozmowie"
+                />
+                <Input
+                  value={newPhone || rawPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="Telefon"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void createContactFromPhone()}
+                  className="w-full"
+                >
+                  Utwórz Kontakt
+                </Button>
+              </div>
+            )}
+
+            {selectedContact && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="size-12 border-2 border-white shadow-sm">
+                      {selectedContact.avatar_url ? (
+                        <AvatarImage
+                          src={selectedContact.avatar_url}
+                          alt={contactName(selectedContact)}
+                        />
+                      ) : null}
+                      <AvatarFallback className="bg-emerald-100 font-black text-emerald-900">
+                        {contactName(selectedContact)
+                          .split(/\s+/)
+                          .map((part) => part[0])
+                          .join('')
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-[#0b1b55]">
+                        {contactName(selectedContact)}
+                      </p>
+                      <a
+                        href={`tel:${selectedContact.phone}`}
+                        className="inline-flex min-h-11 items-center text-sm text-blue-700 hover:underline"
+                      >
+                        {selectedContact.phone}
+                      </a>
+                      <p className="truncate text-xs text-slate-500">
+                        {selectedContact.company || selectedContact.email || ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Usuń wybór klienta"
+                    onClick={() => {
+                      setContactId('');
+                      setDealId('');
+                    }}
+                    className="flex size-11 items-center justify-center rounded-lg text-slate-600"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedContact && contactDeals.length > 0 && (
+              <div className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500">
+                      Deal
+                    </span>
+                    {selectedDeal && (
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-black text-[#0b1b55]">
+                        {selectedDeal.tracking_number ||
+                          `DEAL-${selectedDeal.id.slice(0, 7).toUpperCase()}`}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) setDealId(e.target.value);
+                    }}
+                    aria-label="Zmień Deal"
+                    className="min-h-11 max-w-[140px] rounded-md border bg-white px-2 py-1 text-base font-bold text-blue-700 md:min-h-0 md:text-xs"
+                  >
+                    <option value="">Zmień ›</option>
+                    {contactDeals.map((deal) => (
+                      <option key={deal.id} value={deal.id}>
+                        {deal.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedDeal && (
+                  <>
+                    <p className="mt-2 font-black text-[#0b1b55]">
+                      {selectedDeal.title}
+                    </p>
+                    <dl className="mt-2 grid grid-cols-[90px_1fr] gap-y-1 text-sm">
+                      <dt className="text-slate-500">Produkt</dt>
+                      <dd className="font-semibold">
+                        {selectedDeal.product_type || '—'}
+                      </dd>
+                      <dt className="text-slate-500">Wartość</dt>
+                      <dd className="font-semibold">
+                        {Number(selectedDeal.value || 0).toLocaleString(
+                          'pl-PL'
+                        )}{' '}
+                        {selectedDeal.currency || 'PLN'}
+                      </dd>
+                      <dt className="text-slate-500">Etap</dt>
+                      <dd className="font-semibold">
+                        {stages.find((s) => s.id === selectedDeal.stage_id)
+                          ?.name || '—'}
+                      </dd>
+                    </dl>
+                  </>
+                )}
+              </div>
+            )}
+            {selectedContact && selectedDeal && (
+              <div className="border-t pt-3">
+                <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <h2 className="text-sm font-black text-[#0b1b55]">
+                    Ostatnie aktywności w tym dealu
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        activityContextReturnPath({
+                          contactId: selectedContact.id,
+                          dealId: selectedDeal.id,
+                        })
+                      )
+                    }
+                    className="min-h-11 text-xs font-semibold text-blue-700"
+                  >
+                    Zobacz wszystkie →
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {activities.length === 0 ? (
+                    <p className="py-2 text-sm text-slate-600">
+                      Brak zapisanych aktywności w tym dealu.
+                    </p>
+                  ) : (
+                    activities.map((row) => (
+                      <article
+                        key={row.id}
+                        className="grid grid-cols-[76px_1fr] gap-2 border-b py-2 text-xs last:border-0"
+                      >
+                        <time className="text-slate-500">
+                          {new Date(row.occurred_at).toLocaleDateString(
+                            'pl-PL'
+                          )}
+                        </time>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-[#0b1b55]">
+                            {row.title}
+                          </p>
+                          {(row.description || row.next_action) && (
+                            <p className="mt-0.5 line-clamp-2 text-slate-500">
+                              {[row.description, row.next_action]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm">
+            <div className="order-1">
+              <h2 className="font-black text-[#0b1b55]">
+                2. Zarejestruj rozmowę
+              </h2>
+              <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAction('TELEFON')}
+                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                >
+                  <Phone className="mx-auto mb-1 size-4" />
+                  <span className="sm:hidden">Rozmowa</span>
+                  <span className="hidden sm:inline">Rozmowa telefoniczna</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAction('SPOTKANIE')}
+                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                >
+                  <CalendarPlus className="mx-auto mb-1 size-4" />
+                  Spotkanie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAction('EMAIL')}
+                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                >
+                  <Mail className="mx-auto mb-1 size-4" />
+                  E-mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAction('WIADOMOSC')}
+                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                >
+                  <MessageSquare className="mx-auto mb-1 size-4" />
+                  Wiadomość
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAction('INNY_KONTAKT')}
+                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                >
+                  <MoreHorizontal className="mx-auto mb-1 size-4" />
+                  <span className="sm:hidden">Więcej</span>
+                  <span className="hidden sm:inline">Inna aktywność</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="order-2">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-black text-[#0b1b55]">3. Wynik rozmowy</h2>
+                {action === 'TELEFON' && (
+                  <select
+                    aria-label="Wynik rozmowy"
+                    value={result}
+                    onChange={(event) => setResult(event.target.value)}
+                    className="h-11 rounded-md border border-slate-200 bg-white px-2 text-base font-semibold text-slate-600 md:h-8 md:text-xs"
+                  >
+                    <option value="">Wybierz wynik</option>
+                    {OUTCOMES.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <h2 className="mt-3 font-black text-[#0b1b55]">
+                4. Notatka lub dyktowanie
+              </h2>
+              <div className="mt-2 [&_textarea]:min-h-28 [&_textarea]:text-base">
+                <VoiceTextarea
+                  value={note}
+                  onChange={setNote}
+                  placeholder="Wpisz notatkę z rozmowy lub użyj dyktowania..."
+                  layout="side"
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold">
+                  <FilePlus2 className="size-4" />{' '}
+                  {uploading ? 'Dodaję…' : 'Dodaj załącznik'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={!selectedContact || uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadDocument(file);
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNextAction((v) => v || 'Zadanie po rozmowie');
+                    setCreateTask(true);
+                    requestAnimationFrame(() =>
+                      document.getElementById('activity-task-title')?.focus()
+                    );
+                  }}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold"
+                >
+                  <CheckSquare className="size-4" /> Dodaj zadanie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOccurredAt(true);
+                    setOccurredAt(
+                      (value) => value || toWarsawDateTimeInput(new Date())
+                    );
+                    requestAnimationFrame(() =>
+                      document.getElementById('activity-occurred-at')?.focus()
+                    );
+                  }}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold"
+                >
+                  <CalendarPlus className="size-4" /> Dodaj datę
+                </button>
+              </div>
+              {showOccurredAt && (
+                <div className="mt-2 max-w-sm rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <Label htmlFor="activity-occurred-at">Data aktywności</Label>
+                  <Input
+                    id="activity-occurred-at"
+                    type="datetime-local"
+                    value={occurredAt}
+                    onChange={(event) => setOccurredAt(event.target.value)}
+                    className="mt-1 h-11 bg-white text-base md:h-10"
+                  />
+                </div>
+              )}
+              {createTask && (
+                <div className="mt-2 grid gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="activity-task-title">Treść zadania</Label>
+                    <Input
+                      id="activity-task-title"
+                      value={nextAction}
+                      onChange={(event) => setNextAction(event.target.value)}
+                      placeholder="Co trzeba zrobić?"
+                      className="mt-1 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="activity-task-at">Termin zadania</Label>
+                    <Input
+                      id="activity-task-at"
+                      type="datetime-local"
+                      value={nextAt}
+                      onChange={(event) => setNextAt(event.target.value)}
+                      className="mt-1 bg-white text-base"
+                    />
+                  </div>
+                  <p className="text-xs text-emerald-900 sm:col-span-2">
+                    Zadanie zostanie utworzone razem z zapisem aktywności.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="order-4 rounded-xl border border-lime-300 bg-lime-50 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-2">
+                  <Sparkles className="mt-0.5 size-5 text-lime-700" />
+                  <div>
+                    <p className="font-black text-[#0b1b55]">
+                      Asystent AI{' '}
+                      <span className="rounded bg-lime-200 px-1 text-xs">
+                        AI+
+                      </span>
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Podsumuje rozmowę, wyodrębni kolejne kroki i rozpozna
+                      kontekst.
                     </p>
                   </div>
                 </div>
-                <button
+                <Button
                   type="button"
-                  aria-label="Usuń wybór klienta"
-                  onClick={() => {
-                    setContactId('');
-                    setDealId('');
-                  }}
-                  className="flex size-11 items-center justify-center rounded-lg text-slate-600"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {selectedContact && contactDeals.length > 0 && (
-            <div className="rounded-lg border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500">Deal</span>
-                  {selectedDeal && (
-                    <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-black text-[#0b1b55]">
-                      {selectedDeal.tracking_number ||
-                        `DEAL-${selectedDeal.id.slice(0, 7).toUpperCase()}`}
-                    </span>
-                  )}
-                </div>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) setDealId(e.target.value);
-                  }}
-                  aria-label="Zmień Deal"
-                  className="min-h-11 max-w-[140px] rounded-md border bg-white px-2 py-1 text-base font-bold text-blue-700 md:min-h-0 md:text-xs"
-                >
-                  <option value="">Zmień ›</option>
-                  {contactDeals.map((deal) => (
-                    <option key={deal.id} value={deal.id}>
-                      {deal.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {selectedDeal && (
-                <>
-                  <p className="mt-2 font-black text-[#0b1b55]">
-                    {selectedDeal.title}
-                  </p>
-                  <dl className="mt-2 grid grid-cols-[90px_1fr] gap-y-1 text-sm">
-                    <dt className="text-slate-500">Produkt</dt>
-                    <dd className="font-semibold">
-                      {selectedDeal.product_type || '—'}
-                    </dd>
-                    <dt className="text-slate-500">Wartość</dt>
-                    <dd className="font-semibold">
-                      {Number(selectedDeal.value || 0).toLocaleString('pl-PL')}{' '}
-                      {selectedDeal.currency || 'PLN'}
-                    </dd>
-                    <dt className="text-slate-500">Etap</dt>
-                    <dd className="font-semibold">
-                      {stages.find((s) => s.id === selectedDeal.stage_id)
-                        ?.name || '—'}
-                    </dd>
-                  </dl>
-                </>
-              )}
-            </div>
-          )}
-          {selectedContact && selectedDeal && (
-            <div className="border-t pt-3">
-              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                <h2 className="text-sm font-black text-[#0b1b55]">
-                  Ostatnie aktywności w tym dealu
-                </h2>
-                <button
-                  type="button"
+                  variant="outline"
+                  disabled={!selectedDeal}
                   onClick={() =>
+                    selectedDeal &&
                     router.push(
-                      activityContextReturnPath({
-                        contactId: selectedContact.id,
-                        dealId: selectedDeal.id,
-                      })
+                      `/assistant?deal=${selectedDeal.id}&feature=prepare`
                     )
                   }
-                  className="min-h-11 text-xs font-semibold text-blue-700"
+                  className="hidden border-lime-500 bg-white sm:inline-flex"
                 >
-                  Zobacz wszystkie →
-                </button>
-              </div>
-              <div className="space-y-1">
-                {activities.length === 0 ? (
-                  <p className="py-2 text-sm text-slate-600">
-                    Brak zapisanych aktywności w tym dealu.
-                  </p>
-                ) : (
-                  activities.map((row) => (
-                    <article
-                      key={row.id}
-                      className="grid grid-cols-[76px_1fr] gap-2 border-b py-2 text-xs last:border-0"
-                    >
-                      <time className="text-slate-500">
-                        {new Date(row.occurred_at).toLocaleDateString('pl-PL')}
-                      </time>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-[#0b1b55]">
-                          {row.title}
-                        </p>
-                        {(row.description || row.next_action) && (
-                          <p className="mt-0.5 line-clamp-2 text-slate-500">
-                            {[row.description, row.next_action]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                    </article>
-                  ))
-                )}
+                  Przygotuj podsumowanie
+                </Button>
+                <ChevronRight className="ml-auto size-5 text-lime-800 sm:hidden" />
               </div>
             </div>
-          )}
-        </section>
 
-        <section className="flex flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm">
-          <div className="order-1">
-            <h2 className="font-black text-[#0b1b55]">
-              2. Zarejestruj rozmowę
-            </h2>
-            <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setAction('TELEFON')}
-                className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
-              >
-                <Phone className="mx-auto mb-1 size-4" />
-                <span className="sm:hidden">Rozmowa</span>
-                <span className="hidden sm:inline">Rozmowa telefoniczna</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAction('SPOTKANIE')}
-                className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
-              >
-                <CalendarPlus className="mx-auto mb-1 size-4" />
-                Spotkanie
-              </button>
-              <button
-                type="button"
-                onClick={() => setAction('EMAIL')}
-                className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
-              >
-                <Mail className="mx-auto mb-1 size-4" />
-                E-mail
-              </button>
-              <button
-                type="button"
-                onClick={() => setAction('WIADOMOSC')}
-                className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
-              >
-                <MessageSquare className="mx-auto mb-1 size-4" />
-                Wiadomość
-              </button>
-              <button
-                type="button"
-                onClick={() => setAction('INNY_KONTAKT')}
-                className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
-              >
-                <MoreHorizontal className="mx-auto mb-1 size-4" />
-                <span className="sm:hidden">Więcej</span>
-                <span className="hidden sm:inline">Inna aktywność</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="order-2">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-black text-[#0b1b55]">3. Wynik rozmowy</h2>
-              {action === 'TELEFON' && (
+            <div className="order-5">
+              <h2 className="font-black text-[#0b1b55]">
+                9. Zmień etap lub zamknij deal{' '}
+                <span className="font-normal text-slate-500">
+                  (opcjonalnie)
+                </span>
+              </h2>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_auto_auto]">
                 <select
-                  aria-label="Wynik rozmowy"
-                  value={result}
-                  onChange={(event) => setResult(event.target.value)}
-                  className="h-11 rounded-md border border-slate-200 bg-white px-2 text-base font-semibold text-slate-600 md:h-8 md:text-xs"
+                  value={stageId}
+                  disabled={!selectedDeal}
+                  onChange={(e) => setStageId(e.target.value)}
+                  className="col-span-2 min-h-11 rounded-lg border bg-white px-3 text-sm font-bold sm:col-span-1"
                 >
-                  <option value="">Wybierz wynik</option>
-                  {OUTCOMES.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
+                  <option value="">Etap Deala</option>
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
                     </option>
                   ))}
                 </select>
-              )}
+                <Button
+                  type="button"
+                  disabled={!selectedDeal}
+                  onClick={() => void closeDeal('won')}
+                  className="bg-emerald-800"
+                >
+                  <Trophy className="size-4" /> Wygrana
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!selectedDeal}
+                  variant="outline"
+                  onClick={() => void closeDeal('lost')}
+                  className="border-red-400 text-red-700"
+                >
+                  Przegrana
+                </Button>
+              </div>
             </div>
-            <h2 className="mt-3 font-black text-[#0b1b55]">
-              4. Notatka lub dyktowanie
-            </h2>
-            <div className="mt-2 [&_textarea]:min-h-28 [&_textarea]:text-base">
-              <VoiceTextarea
-                value={note}
-                onChange={setNote}
-                placeholder="Wpisz notatkę z rozmowy lub użyj dyktowania..."
-                layout="side"
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold">
-                <FilePlus2 className="size-4" />{' '}
-                {uploading ? 'Dodaję…' : 'Dodaj załącznik'}
-                <input
-                  type="file"
-                  className="hidden"
-                  disabled={!selectedContact || uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void uploadDocument(file);
-                    e.currentTarget.value = '';
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setNextAction((v) => v || 'Zadanie po rozmowie');
-                  setFollowUpOpen(true);
-                }}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold"
-              >
-                <CheckSquare className="size-4" /> Dodaj zadanie
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFollowUpOpen(true);
-                  requestAnimationFrame(() =>
-                    document.getElementById('activity-next-at')?.focus()
-                  );
-                }}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold"
-              >
-                <CalendarPlus className="size-4" /> Dodaj datę
-              </button>
-            </div>
-          </div>
 
-          <div className="order-4 rounded-xl border border-lime-300 bg-lime-50 p-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-2">
-                <Sparkles className="mt-0.5 size-5 text-lime-700" />
+            <div className="order-3">
+              <h2 className="font-black text-[#0b1b55]">
+                5. Następny krok · 6. Termin · 7. Blocker
+              </h2>
+              <div className="mt-2 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-3">
                 <div>
-                  <p className="font-black text-[#0b1b55]">
-                    Asystent AI{' '}
-                    <span className="rounded bg-lime-200 px-1 text-xs">
-                      AI+
-                    </span>
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    Podsumuje rozmowę, wyodrębni kolejne kroki i rozpozna
-                    kontekst.
-                  </p>
+                  <Label htmlFor="activity-next">Następny krok</Label>
+                  <Input
+                    id="activity-next"
+                    value={nextAction}
+                    onChange={(e) => setNextAction(e.target.value)}
+                    placeholder="Co dalej?"
+                    className="mt-1 h-11 bg-white md:h-10"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="activity-next-at">Termin</Label>
+                  <Input
+                    id="activity-next-at"
+                    type="datetime-local"
+                    value={nextAt}
+                    onChange={(e) => setNextAt(e.target.value)}
+                    className="mt-1 h-11 bg-white text-base md:h-10"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="activity-blocker">Bloker</Label>
+                  <Input
+                    id="activity-blocker"
+                    value={blocker}
+                    onChange={(e) => setBlocker(e.target.value)}
+                    placeholder="Co blokuje?"
+                    className="mt-1 h-11 bg-white md:h-10"
+                  />
                 </div>
               </div>
+            </div>
+            <div className="sticky bottom-0 z-10 order-6 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+              <span className="text-sm font-black text-[#0b1b55]">
+                8. Zapis
+              </span>
+              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={createTask}
+                  onChange={(event) => setCreateTask(event.target.checked)}
+                  disabled={!nextAction.trim()}
+                  className="size-5 accent-emerald-800"
+                />
+                Utwórz zadanie z kolejnych kroków
+              </label>
+              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 sm:ml-3">
+                <input
+                  type="checkbox"
+                  checked={emailCopy}
+                  onChange={(event) => setEmailCopy(event.target.checked)}
+                  className="size-5 accent-emerald-800"
+                />
+                Wyślij kopię e-maila do klienta
+              </label>
+              {selectedContact && !selectedContact.email && (
+                <span className="text-xs text-amber-700">
+                  Brak adresu e-mail klienta — aktywność zapisze się bez kopii.
+                </span>
+              )}
               <Button
                 type="button"
-                variant="outline"
-                disabled={!selectedDeal}
-                onClick={() =>
-                  selectedDeal &&
-                  router.push(
-                    `/assistant?deal=${selectedDeal.id}&feature=prepare`
-                  )
-                }
-                className="hidden border-lime-500 bg-white sm:inline-flex"
+                disabled={!selectedContact || saving}
+                onClick={() => void saveActivity()}
+                className="h-11 w-full bg-emerald-800 font-black sm:ml-auto sm:w-auto"
               >
-                Przygotuj podsumowanie
-              </Button>
-              <ChevronRight className="ml-auto size-5 text-lime-800 sm:hidden" />
-            </div>
-          </div>
-
-          <div className="order-5">
-            <h2 className="font-black text-[#0b1b55]">
-              9. Zmień etap lub zamknij deal{' '}
-              <span className="font-normal text-slate-500">(opcjonalnie)</span>
-            </h2>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_auto_auto]">
-              <select
-                value={stageId}
-                disabled={!selectedDeal}
-                onChange={(e) => setStageId(e.target.value)}
-                className="col-span-2 min-h-11 rounded-lg border bg-white px-3 text-sm font-bold sm:col-span-1"
-              >
-                <option value="">Etap Deala</option>
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                disabled={!selectedDeal}
-                onClick={() => void closeDeal('won')}
-                className="bg-emerald-800"
-              >
-                <Trophy className="size-4" /> Wygrana
-              </Button>
-              <Button
-                type="button"
-                disabled={!selectedDeal}
-                variant="outline"
-                onClick={() => void closeDeal('lost')}
-                className="border-red-400 text-red-700"
-              >
-                Przegrana
+                {saving
+                  ? 'Zapisuję…'
+                  : action === 'WIADOMOSC'
+                    ? 'Wyślij WhatsApp i zapisz'
+                    : 'Zapisz aktywność'}
               </Button>
             </div>
-          </div>
-
-          <div className="order-3">
-            <h2 className="font-black text-[#0b1b55]">
-              5. Następny krok · 6. Termin · 7. Blocker
-            </h2>
-            <div className="mt-2 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="activity-next">Następny krok</Label>
-                <Input
-                  id="activity-next"
-                  value={nextAction}
-                  onChange={(e) => setNextAction(e.target.value)}
-                  placeholder="Co dalej?"
-                  className="mt-1 h-11 bg-white md:h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="activity-next-at">Termin</Label>
-                <Input
-                  id="activity-next-at"
-                  type="datetime-local"
-                  value={nextAt}
-                  onChange={(e) => setNextAt(e.target.value)}
-                  className="mt-1 h-11 bg-white text-base md:h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="activity-blocker">Bloker</Label>
-                <Input
-                  id="activity-blocker"
-                  value={blocker}
-                  onChange={(e) => setBlocker(e.target.value)}
-                  placeholder="Co blokuje?"
-                  className="mt-1 h-11 bg-white md:h-10"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="sticky bottom-0 z-10 order-6 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
-            <span className="text-sm font-black text-[#0b1b55]">8. Zapis</span>
-            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={createTask}
-                onChange={(event) => setCreateTask(event.target.checked)}
-                disabled={!nextAction.trim()}
-                className="size-5 accent-emerald-800"
-              />
-              Utwórz zadanie z kolejnych kroków
-            </label>
-            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 sm:ml-3">
-              <input
-                type="checkbox"
-                checked={emailCopy}
-                onChange={(event) => setEmailCopy(event.target.checked)}
-                disabled={!selectedContact?.email}
-                className="size-5 accent-emerald-800"
-              />
-              Przygotuj kopię e-mail do klienta
-            </label>
-            <Button
-              type="button"
-              disabled={!selectedContact || saving}
-              onClick={() => void saveActivity()}
-              className="h-11 w-full bg-emerald-800 font-black sm:ml-auto sm:w-auto"
-            >
-              {saving
-                ? 'Zapisuję…'
-                : action === 'WIADOMOSC'
-                  ? 'Wyślij WhatsApp i zapisz'
-                  : 'Zapisz aktywność'}
-            </Button>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

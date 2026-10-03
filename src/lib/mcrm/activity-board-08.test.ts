@@ -59,4 +59,21 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
     expect(source).toContain(".eq('deal_id', dealId)");
     expect(source).toContain(".order('occurred_at', { ascending: false })");
   });
+
+  it('domyka interakcje P1c bez duplikowania zadania', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/components/sales/activity-board-08.tsx'),
+      'utf8'
+    );
+    expect(source).toContain("type ActivityView = 'new' | 'history' | 'documents' | 'tasks'");
+    expect(source).toContain('setCreateTask(true)');
+    expect(source).toContain('id="activity-task-title"');
+    expect(source).toContain('id="activity-occurred-at"');
+    expect(source).toContain('occurred_at: occurredIso');
+    expect(source).toContain("activity_type: 'zadanie'");
+    expect(source).toContain("activity_status: 'PLANOWANE'");
+    expect(source).toContain('scheduled_at: nextIso');
+    expect(source).toContain('Wyślij kopię e-maila do klienta');
+    expect(source).toContain('toWarsawDateTimeInput(selectedDeal.next_action_at)');
+  });
 });

@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       interactive_payload,
       reply_to_message_id,
       deal_id,
+      activity_occurred_at,
     } = body;
 
     if ((!conversationIdInput && !contact_id) || !message_type) {
@@ -207,7 +208,14 @@ export async function POST(request: Request) {
         replyToMessageId: reply_to_message_id,
       });
 
-      const occurredAt = new Date().toISOString();
+      const requestedOccurredAt =
+        typeof activity_occurred_at === 'string'
+          ? new Date(activity_occurred_at)
+          : null;
+      const occurredAt =
+        requestedOccurredAt && !Number.isNaN(requestedOccurredAt.getTime())
+          ? requestedOccurredAt.toISOString()
+          : new Date().toISOString();
       const { data: activity, error: historyError } = await supabase
         .from('sales_activities')
         .insert({
