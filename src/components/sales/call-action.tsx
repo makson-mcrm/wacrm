@@ -5,16 +5,30 @@ import { useRouter } from 'next/navigation';
 import { Phone } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { buildAfterCallUrl, buildTelHref, type CallContext } from '@/lib/sales/call';
+import {
+  buildAfterCallUrl,
+  buildTelHref,
+  type CallContext,
+} from '@/lib/sales/call';
 
 type CallActionProps = CallContext & {
   phone?: string | null;
+  label?: string;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
 };
 
-export function CallAction({ phone, contactId, companyId, dealId, className, variant = 'outline', size = 'sm' }: CallActionProps) {
+export function CallAction({
+  phone,
+  contactId,
+  companyId,
+  dealId,
+  label = 'ZADZWOŃ',
+  className,
+  variant = 'outline',
+  size = 'sm',
+}: CallActionProps) {
   const router = useRouter();
   const leftPage = useRef(false);
 
@@ -37,16 +51,22 @@ export function CallAction({ phone, contactId, companyId, dealId, className, var
     leftPage.current = false;
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', finish);
-    window.setTimeout(() => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', finish);
-    }, 10 * 60 * 1000);
+    window.setTimeout(
+      () => {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        window.removeEventListener('focus', finish);
+      },
+      10 * 60 * 1000
+    );
   }
 
   return (
-    <a href={buildTelHref(phone)} onClick={armResultForm} className={cn(buttonVariants({ variant, size }), className)}>
-      <Phone className="size-4" /> ZADZWOŃ
+    <a
+      href={buildTelHref(phone)}
+      onClick={armResultForm}
+      className={cn(buttonVariants({ variant, size }), className)}
+    >
+      <Phone className="size-4" /> {label}
     </a>
   );
 }
-

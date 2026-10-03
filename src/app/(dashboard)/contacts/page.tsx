@@ -121,7 +121,9 @@ export default function ContactsPage() {
   >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  const [segmentCounts, setSegmentCounts] = useState<Record<DesktopContactSegment, number>>({
+  const [segmentCounts, setSegmentCounts] = useState<
+    Record<DesktopContactSegment, number>
+  >({
     all: 0,
     people: 0,
     companies: 0,
@@ -346,11 +348,19 @@ export default function ContactsPage() {
     }));
 
     const counts: Record<DesktopContactSegment, number> = {
-      all: enriched.filter((contact) => contactMatchesSegment(contact, 'all')).length,
-      people: enriched.filter((contact) => contactMatchesSegment(contact, 'people')).length,
-      companies: enriched.filter((contact) => contactMatchesSegment(contact, 'companies')).length,
-      key: enriched.filter((contact) => contactMatchesSegment(contact, 'key')).length,
-      active: enriched.filter((contact) => contactMatchesSegment(contact, 'active')).length,
+      all: enriched.filter((contact) => contactMatchesSegment(contact, 'all'))
+        .length,
+      people: enriched.filter((contact) =>
+        contactMatchesSegment(contact, 'people')
+      ).length,
+      companies: enriched.filter((contact) =>
+        contactMatchesSegment(contact, 'companies')
+      ).length,
+      key: enriched.filter((contact) => contactMatchesSegment(contact, 'key'))
+        .length,
+      active: enriched.filter((contact) =>
+        contactMatchesSegment(contact, 'active')
+      ).length,
     };
     const segmented = enriched.filter((contact) =>
       contactMatchesSegment(contact, desktopSegment)
@@ -516,7 +526,15 @@ export default function ContactsPage() {
 
   async function exportContactsCsv() {
     const visible = exportRows;
-    const headers = ['klient', 'telefon', 'firmy', 'aktywna_sprawa', 'etap', 'ostatnia_aktywnosc', 'tagi'];
+    const headers = [
+      'klient',
+      'telefon',
+      'firmy',
+      'aktywna_sprawa',
+      'etap',
+      'ostatnia_aktywnosc',
+      'tagi',
+    ];
     const quote = (value: unknown) =>
       `"${String(value ?? '').replaceAll('"', '""')}"`;
     const rows = visible.map((row) =>
@@ -542,9 +560,7 @@ export default function ContactsPage() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-    toast.success(
-      `Wyeksportowano klientów: ${visible.length}`
-    );
+    toast.success(`Wyeksportowano klientów: ${visible.length}`);
   }
 
   async function resolveUnknownPhone() {
@@ -611,6 +627,10 @@ export default function ContactsPage() {
         }}
         onOpen={openDetail}
         onAdd={openAddForm}
+        allTags={allTags}
+        selectedTagIds={selectedTagIds}
+        onToggleTag={toggleTagFilter}
+        onClearTags={clearTagFilters}
       />
       <DesktopContactsView
         contacts={contacts}
@@ -644,6 +664,14 @@ export default function ContactsPage() {
           setUnknownContactId(null);
         }}
         onResolveUnknownPhone={() => void resolveUnknownPhone()}
+        onCloseUnknownPhone={() => {
+          setUnknownPhone('');
+          setUnknownContactId(null);
+        }}
+        allTags={allTags}
+        selectedTagIds={selectedTagIds}
+        onToggleTag={toggleTagFilter}
+        onClearTags={clearTagFilters}
       />
       <div className="hidden">
         {/* Header */}
@@ -1210,8 +1238,7 @@ export default function ContactsPage() {
   );
 }
 
-type DesktopContactSegment =
-  'all' | 'active' | 'key' | 'companies' | 'people';
+type DesktopContactSegment = 'all' | 'active' | 'key' | 'companies' | 'people';
 
 function contactMatchesSegment(
   contact: ContactWithTags,
@@ -1228,6 +1255,97 @@ function contactMatchesSegment(
   return true;
 }
 
+function TagFilterControl({
+  allTags,
+  selectedTagIds,
+  onToggleTag,
+  onClearTags,
+  compact = false,
+}: {
+  allTags: Tag[];
+  selectedTagIds: string[];
+  onToggleTag: (tagId: string) => void;
+  onClearTags: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size={compact ? 'icon-lg' : 'default'}
+            className="relative border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            aria-label={compact ? 'Filtruj według tagów' : undefined}
+          />
+        }
+      >
+        <Filter className="size-4" />
+        {compact ? null : 'Tagi'}
+        {selectedTagIds.length > 0 ? (
+          <span
+            className={
+              compact
+                ? 'absolute -top-1 -right-1 flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-[10px] font-bold text-white'
+                : 'ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 text-xs font-bold text-white'
+            }
+          >
+            {selectedTagIds.length}
+          </span>
+        ) : null}
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-64 gap-0 border border-slate-200 bg-white p-0"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+          <span className="text-sm font-bold text-slate-900">
+            Filtruj według tagów
+          </span>
+          {selectedTagIds.length > 0 ? (
+            <button
+              type="button"
+              onClick={onClearTags}
+              className="text-xs font-semibold text-emerald-800 hover:text-emerald-950"
+            >
+              Wyczyść
+            </button>
+          ) : null}
+        </div>
+        {allTags.length > 0 ? (
+          <div className="max-h-64 overflow-y-auto py-1">
+            {allTags.map((tag) => (
+              <label
+                key={tag.id}
+                className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-emerald-50/60"
+              >
+                <Checkbox
+                  checked={selectedTagIds.includes(tag.id)}
+                  onCheckedChange={() => onToggleTag(tag.id)}
+                  className="data-[checked]:border-emerald-700 data-[checked]:bg-emerald-700"
+                  aria-label={`Filtruj według tagu ${tag.name}`}
+                />
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: tag.color }}
+                />
+                <span className="truncate text-sm text-slate-700">
+                  {tag.name}
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="px-3 py-4 text-center text-sm text-slate-500">
+            Brak tagów.
+          </p>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function MobileContactsView({
   contacts,
   loading,
@@ -1238,6 +1356,10 @@ function MobileContactsView({
   onSegmentChange,
   onOpen,
   onAdd,
+  allTags,
+  selectedTagIds,
+  onToggleTag,
+  onClearTags,
 }: {
   contacts: ContactWithTags[];
   loading: boolean;
@@ -1248,6 +1370,10 @@ function MobileContactsView({
   onSegmentChange: (segment: DesktopContactSegment) => void;
   onOpen: (contactId: string) => void;
   onAdd: () => void;
+  allTags: Tag[];
+  selectedTagIds: string[];
+  onToggleTag: (tagId: string) => void;
+  onClearTags: () => void;
 }) {
   const filtered = contacts.filter((contact) =>
     contactMatchesSegment(contact, segment)
@@ -1266,14 +1392,23 @@ function MobileContactsView({
         <h1 className="text-xl font-black tracking-tight text-slate-950">
           KLIENCI
         </h1>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="flex size-11 items-center justify-center rounded-full bg-emerald-800 text-white"
-          aria-label="Dodaj klienta"
-        >
-          <Plus className="size-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <TagFilterControl
+            allTags={allTags}
+            selectedTagIds={selectedTagIds}
+            onToggleTag={onToggleTag}
+            onClearTags={onClearTags}
+            compact
+          />
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex size-11 items-center justify-center rounded-full bg-emerald-800 text-white"
+            aria-label="Dodaj klienta"
+          >
+            <Plus className="size-5" />
+          </button>
+        </div>
       </div>
       <label className="relative block">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
@@ -1407,6 +1542,11 @@ function DesktopContactsView({
   resolvingUnknownPhone,
   onUnknownPhoneChange,
   onResolveUnknownPhone,
+  onCloseUnknownPhone,
+  allTags,
+  selectedTagIds,
+  onToggleTag,
+  onClearTags,
 }: {
   contacts: ContactWithTags[];
   loading: boolean;
@@ -1430,6 +1570,11 @@ function DesktopContactsView({
   resolvingUnknownPhone: boolean;
   onUnknownPhoneChange: (value: string) => void;
   onResolveUnknownPhone: () => void;
+  onCloseUnknownPhone: () => void;
+  allTags: Tag[];
+  selectedTagIds: string[];
+  onToggleTag: (tagId: string) => void;
+  onClearTags: () => void;
 }) {
   const filtered = contacts.filter((contact) =>
     contactMatchesSegment(contact, segment)
@@ -1482,19 +1627,28 @@ function DesktopContactsView({
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {label} <span className="opacity-75">{segmentCounts[value]}</span>
+                {label}{' '}
+                <span className="opacity-75">{segmentCounts[value]}</span>
               </button>
             ))}
           </div>
-          <label className="relative w-full max-w-xs">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
-            <Input
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Szukaj klienta…"
-              className="border-slate-200 bg-white pl-9"
+          <div className="flex w-full max-w-md items-center gap-2">
+            <label className="relative min-w-0 flex-1">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
+              <Input
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Szukaj klienta…"
+                className="border-slate-200 bg-white pl-9"
+              />
+            </label>
+            <TagFilterControl
+              allTags={allTags}
+              selectedTagIds={selectedTagIds}
+              onToggleTag={onToggleTag}
+              onClearTags={onClearTags}
             />
-          </label>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -1502,7 +1656,14 @@ function DesktopContactsView({
             <TableHeader>
               <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
                 <TableHead className="w-10">
-                  <Checkbox checked={filtered.length > 0 && filtered.every((contact) => selected.has(contact.id))} onCheckedChange={onToggleSelectAll} aria-label="Zaznacz wszystkie widoczne kontakty" />
+                  <Checkbox
+                    checked={
+                      filtered.length > 0 &&
+                      filtered.every((contact) => selected.has(contact.id))
+                    }
+                    onCheckedChange={onToggleSelectAll}
+                    aria-label="Zaznacz wszystkie widoczne kontakty"
+                  />
                 </TableHead>
                 <TableHead>Firma / Osoba</TableHead>
                 <TableHead>Powiązania</TableHead>
@@ -1570,20 +1731,40 @@ function DesktopContactsView({
                         {contact.companies?.length ? (
                           <div className="space-y-1">
                             {contact.companies.map((company) => (
-                              <Link key={company.id} href={`/companies?open=${company.id}`} className="block text-xs font-semibold text-emerald-800 hover:underline">
+                              <Link
+                                key={company.id}
+                                href={`/companies?open=${company.id}`}
+                                className="block text-xs font-semibold text-emerald-800 hover:underline"
+                              >
                                 {company.name}
                               </Link>
                             ))}
                           </div>
-                        ) : <span className="text-xs text-slate-500">Osoba indywidualna</span>}
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            Osoba indywidualna
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="max-w-52">
                         {contact.activeDeal ? (
-                          <Link href={`/deals/${contact.activeDeal.id}`} className="block text-xs font-semibold text-slate-900 hover:underline">
-                            <span className="block truncate">{contact.activeDeal.title}</span>
-                            <span className="text-slate-500">{contact.activeDeal.stage?.name || 'Etap nieustalony'}</span>
+                          <Link
+                            href={`/deals/${contact.activeDeal.id}`}
+                            className="block text-xs font-semibold text-slate-900 hover:underline"
+                          >
+                            <span className="block truncate">
+                              {contact.activeDeal.title}
+                            </span>
+                            <span className="text-slate-500">
+                              {contact.activeDeal.stage?.name ||
+                                'Etap nieustalony'}
+                            </span>
                           </Link>
-                        ) : <span className="text-xs text-slate-500">Brak aktywnej sprawy</span>}
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            Brak aktywnej sprawy
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-slate-500">
                         {contact.lastActivityAt
@@ -1592,16 +1773,43 @@ function DesktopContactsView({
                       </TableCell>
                       <TableCell>
                         <div className="flex max-w-44 flex-wrap gap-1">
-                          {contact.tags?.length ? contact.tags.map((tag) => (
-                            <span key={tag.id} className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${tag.color}20`, color: tag.color }}>{tag.name}</span>
-                          )) : <span className="text-xs text-slate-500">—</span>}
+                          {contact.tags?.length ? (
+                            contact.tags.map((tag) => (
+                              <span
+                                key={tag.id}
+                                className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                                style={{
+                                  backgroundColor: `${tag.color}20`,
+                                  color: tag.color,
+                                }}
+                              >
+                                {tag.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500">—</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <CallAction phone={contact.phone} contactId={contact.id} className="bg-emerald-800 text-white" />
-                          <SmsAction phone={contact.phone} contactId={contact.id} contactName={contact.name} label="Wiadomość" />
-                          <Button variant="ghost" size="icon-sm" onClick={() => onOpen(contact.id)} aria-label={`Więcej akcji: ${contact.name || 'kontakt'}`}>
+                          <CallAction
+                            phone={contact.phone}
+                            contactId={contact.id}
+                            className="bg-emerald-800 text-white"
+                          />
+                          <SmsAction
+                            phone={contact.phone}
+                            contactId={contact.id}
+                            contactName={contact.name}
+                            label="Wiadomość"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onOpen(contact.id)}
+                            aria-label={`Więcej akcji: ${contact.name || 'kontakt'}`}
+                          >
                             <MoreHorizontal className="size-4" />
                           </Button>
                         </div>
@@ -1624,22 +1832,63 @@ function DesktopContactsView({
         </div>
         <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
           <div>
-            <p className="text-sm font-black text-slate-900">Nowy kontakt / nieznany numer</p>
-            <div className="mt-2 flex max-w-xl gap-2">
-              <Input value={unknownPhone} onChange={(event) => onUnknownPhoneChange(event.target.value)} placeholder="Wpisz numer telefonu…" />
+            <p className="text-sm font-black text-slate-900">
+              Nowy kontakt / nieznany numer
+            </p>
+            <div className="mt-2 flex max-w-3xl flex-wrap gap-2">
+              <Input
+                value={unknownPhone}
+                onChange={(event) => onUnknownPhoneChange(event.target.value)}
+                placeholder="Wpisz numer telefonu…"
+              />
               {unknownContactId ? (
-                <CallAction phone={unknownPhone} contactId={unknownContactId} className="bg-emerald-800 text-white" />
+                <>
+                  <CallAction
+                    phone={unknownPhone}
+                    contactId={unknownContactId}
+                    label="Odzwoń"
+                    className="bg-emerald-800 text-white"
+                  />
+                  <Button
+                    variant="outline"
+                    render={
+                      <Link
+                        href={`/pipelines?new=deal&contact=${encodeURIComponent(unknownContactId)}`}
+                      />
+                    }
+                    className="border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                  >
+                    Utwórz deal
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={onCloseUnknownPhone}
+                    className="text-slate-600"
+                  >
+                    Zamknij
+                  </Button>
+                </>
               ) : (
-                <Button onClick={onResolveUnknownPhone} disabled={resolvingUnknownPhone || !unknownPhone.trim()}>
-                  {resolvingUnknownPhone ? <Loader2 className="size-4 animate-spin" /> : null} Zadzwoń
+                <Button
+                  onClick={onResolveUnknownPhone}
+                  disabled={resolvingUnknownPhone || !unknownPhone.trim()}
+                >
+                  {resolvingUnknownPhone ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : null}{' '}
+                  Zadzwoń
                 </Button>
               )}
             </div>
           </div>
-          <div className="flex items-end text-xs text-slate-500">Kontakt jest odnajdywany lub tworzony przed połączeniem.</div>
+          <div className="flex items-end text-xs text-slate-500">
+            Kontakt jest odnajdywany lub tworzony przed połączeniem.
+          </div>
         </div>
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-          <span>Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}</span>
+          <span>
+            Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}
+          </span>
           <div className="flex items-center gap-1">
             <Button
               size="sm"
@@ -1649,7 +1898,9 @@ function DesktopContactsView({
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="px-2 font-bold text-slate-700">{page + 1} / {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}</span>
+            <span className="px-2 font-bold text-slate-700">
+              {page + 1} / {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+            </span>
             <Button
               size="sm"
               variant="outline"
