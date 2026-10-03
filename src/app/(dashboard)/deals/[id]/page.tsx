@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   Mail,
+  MoreHorizontal,
   Mic,
   Pencil,
   Save,
@@ -119,6 +120,7 @@ export default function DealPage() {
     [nextActionDraft, setNextActionDraft] = useState(''),
     [nextActionAtDraft, setNextActionAtDraft] = useState(''),
     [blockerDraft, setBlockerDraft] = useState(''),
+    [deadlineDraft, setDeadlineDraft] = useState(''),
     [savingNextAction, setSavingNextAction] = useState(false),
     [uploading, setUploading] = useState(false),
     [documentName, setDocumentName] = useState(''),
@@ -130,14 +132,16 @@ export default function DealPage() {
     [documentRequirementId, setDocumentRequirementId] = useState(''),
     [creatingFolder, setCreatingFolder] = useState(false);
   const [loadError, setLoadError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('summary');
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
     setActiveTab(
-      requestedTab === 'files' || requestedTab === 'activity-history'
-        ? requestedTab
-        : 'overview'
+      requestedTab === 'files'
+        ? 'files'
+        : requestedTab === 'activity-history'
+          ? 'activity'
+          : 'summary'
     );
   }, [id]);
   const load = useCallback(async () => {
@@ -194,6 +198,7 @@ export default function DealPage() {
     setNextActionDraft(d.data?.next_action ?? '');
     setNextActionAtDraft(toDateTimeLocal(d.data?.next_action_at));
     setBlockerDraft(d.data?.blocker ?? '');
+    setDeadlineDraft(d.data?.expected_close_date ?? '');
     setPeople((p.data ?? []) as unknown as DealPerson[]);
     const authorByUser = new Map(
       (profileRows.data ?? []).map((row) => [
@@ -381,6 +386,7 @@ export default function DealPage() {
         next_action: nextActionDraft.trim() || null,
         next_action_at: nextActionAt,
         blocker: blockerDraft.trim() || null,
+        expected_close_date: deadlineDraft || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', deal.id);
@@ -431,6 +437,173 @@ export default function DealPage() {
       invoiceStatus: deal.invoice_status,
       settlementVerified: deal.settlement_verified,
     });
+  const orderedStages = [...stages].sort((a, b) => a.position - b.position);
+  const currentStageIndex = Math.max(
+    0,
+    orderedStages.findIndex((stage) => stage.id === deal.stage_id)
+  );
+  const probability = Math.round(
+    ((currentStageIndex + 1) / Math.max(orderedStages.length, 1)) * 100
+  );
+  const p2Tabs = [
+    ['summary', 'Podsumowanie'],
+    ['activity', 'Aktywność'],
+    ['banks', 'Banki'],
+    ['documents', 'Dokumenty'],
+    ['files', 'Pliki'],
+    ['stage-history', 'Historia etapów'],
+    ['assistant', 'Asystent AI'],
+  ] as const;
+
+  if (isP2DealView(activeTab))
+    return (
+      <div className="space-y-4">
+        <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Link href="/pipelines" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-emerald-800">
+                <ArrowLeft className="size-4" /> Deal
+              </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-black text-slate-950">{deal.title}</h1>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                  {deal.status === 'open' ? 'Aktywny' : deal.status === 'won' ? 'Wygrany' : 'Zamknięty'}
+                </span>
+                <Button variant="ghost" size="icon-sm" onClick={() => setEdit(true)} aria-label="Więcej akcji Deala">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                DEAL-{deal.id.slice(0, 8).toUpperCase()} · Klient od {deal.contact?.created_at ? dt(deal.contact.created_at) : '—'} · Utworzono {dt(deal.created_at)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-semibold text-slate-500">Wartość sprawy</p>
+              <p className="text-2xl font-black text-emerald-900">{money(deal.value)} {deal.currency || 'PLN'}</p>
+            </div>
+          </div>
+        </header>
+
+        <nav className="flex flex-wrap gap-2" aria-label="Akcje Deala">
+          <Button type="button" variant="outline" onClick={() => router.back()}><ArrowLeft className="size-4" /> Cofnij</Button>
+          <Button variant="outline" render={<Link href="/deals" />}>Zmień deal</Button>
+          <Button render={<Link href="/pipelines?new=deal" />}>+ Nowy deal</Button>
+        </nav>
+
+        <section className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Etapy Deala">
+          <div className="flex min-w-[760px] items-start">
+            {orderedStages.slice(0, 7).map((stage, index) => {
+              const reached = index <= currentStageIndex;
+              return (
+                <button key={stage.id} type="button" onClick={() => void changeStage(stage.id)} className="group relative flex flex-1 flex-col items-center px-1 text-center">
+                  <span className={`absolute top-3 right-1/2 left-0 h-1 ${index === 0 ? 'hidden' : reached ? 'bg-emerald-700' : 'bg-slate-200'}`} />
+                  <span className={`relative z-10 flex size-7 items-center justify-center rounded-full border-2 text-xs font-black ${reached ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-300 bg-white text-slate-500'}`}>
+                    {index + 1}
+                  </span>
+                  <span className={`mt-2 text-xs font-bold ${index === currentStageIndex ? 'text-emerald-800' : 'text-slate-600'}`}>{stage.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-3">
+          <StatusCard title="Następny krok">
+            <Input value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} placeholder="Ustal następny krok" />
+            <Input type="datetime-local" value={nextActionAtDraft} onChange={(event) => setNextActionAtDraft(event.target.value)} />
+          </StatusCard>
+          <StatusCard title="Blocker">
+            <Textarea value={blockerDraft} onChange={(event) => setBlockerDraft(event.target.value)} placeholder="Brak blockera" className="min-h-20" />
+          </StatusCard>
+          <StatusCard title="Termin główny">
+            <Input type="date" value={deadlineDraft} onChange={(event) => setDeadlineDraft(event.target.value)} />
+            <Button onClick={() => void saveNextAction()} disabled={savingNextAction} className="w-full">
+              {savingNextAction ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Zapisz status
+            </Button>
+          </StatusCard>
+        </section>
+
+        <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm" aria-label="Sekcje Deala">
+          {p2Tabs.map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setActiveTab(value)} className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold ${activeTab === value ? 'bg-emerald-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {activeTab === 'summary' ? (
+          <main className="space-y-4">
+            <Panel title="Powiązana osoba">
+              {actionContact ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Link href={`/contacts?open=${actionContact.id}`} className="font-bold text-emerald-900 hover:underline">
+                    {actionContact.name || actionContact.phone}
+                    <span className="mt-1 block text-xs font-normal text-slate-500">{actionContact.phone} · {actionContact.email || 'Brak e-maila'}</span>
+                  </Link>
+                  <div className="flex gap-2">
+                    <CallAction phone={actionContact.phone} contactId={actionContact.id} dealId={deal.id} className="bg-emerald-800 text-white" />
+                    <WhatsAppAction phone={actionContact.phone} contactId={actionContact.id} dealId={deal.id} />
+                  </div>
+                </div>
+              ) : <p className="text-sm text-slate-500">Brak powiązanej osoby.</p>}
+            </Panel>
+            <Panel title="Powiązana firma">
+              {deal.company ? (
+                <Link href={`/companies?open=${deal.company.id}`} className="block font-bold text-emerald-900 hover:underline">
+                  {deal.company.name}
+                  <span className="mt-1 block text-xs font-normal text-slate-500">NIP: {deal.company.nip || '—'} · Powiązane osoby: {people.length}</span>
+                </Link>
+              ) : <p className="text-sm text-slate-500">Brak powiązanej firmy.</p>}
+            </Panel>
+            <Panel title="Kluczowe informacje">
+              <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Row label="Typ finansowania" value={deal.product_type} />
+                <Row label="Wartość" value={`${money(deal.value)} ${deal.currency || 'PLN'}`} />
+                <Row label="Źródło" value={deal.source} />
+                <Row label="Etap" value={deal.stage?.name} />
+                <Row label="Opiekun" value={deal.assignee?.full_name || 'Tomasz'} />
+                <Row label="Data utworzenia" value={dt(deal.created_at)} />
+                <Row label="Planowana finalizacja" value={deal.expected_close_date ? dt(deal.expected_close_date) : undefined} />
+              </div>
+              <div className="mt-4">
+                <div className="mb-1 flex justify-between text-xs font-bold text-slate-600"><span>Prawdopodobieństwo</span><span>{probability}%</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-700" style={{ width: `${probability}%` }} /></div>
+              </div>
+              <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm whitespace-pre-wrap text-slate-700"><b>Notatka:</b> {deal.notes || deal.description || 'Brak notatki'}</div>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => setEdit(true)}><Pencil className="size-4" /> Edytuj</Button>
+            </Panel>
+            <Panel title="Lista dokumentów">
+              <DocumentList docs={docs} onOpen={openDoc} />
+              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-bold text-white">
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />} Dodaj
+                <input type="file" className="sr-only" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.currentTarget.value = ''; }} />
+              </label>
+            </Panel>
+            <section className="rounded-xl border border-lime-300 bg-lime-50 p-4">
+              <h2 className="font-black text-emerald-950">Asystent AI</h2>
+              <p className="mt-1 text-sm text-slate-600">Przygotuj krótkie podsumowanie, ryzyka i następny krok dla tej sprawy.</p>
+              <Button className="mt-3 bg-lime-300 text-emerald-950 hover:bg-lime-400" render={<Link href={`/assistant?deal=${deal.id}&feature=prepare`} />}><Sparkles className="size-4" /> Przygotuj podsumowanie sprawy</Button>
+            </section>
+          </main>
+        ) : null}
+        {activeTab === 'activity' ? <Panel title="Aktywność"><ActivityHistory dealId={deal.id} /></Panel> : null}
+        {activeTab === 'banks' ? <Panel title="Banki"><DealBankingKnowledge dealId={deal.id} /></Panel> : null}
+        {activeTab === 'documents' || activeTab === 'files' ? (
+          <Panel title={activeTab === 'documents' ? 'Dokumenty' : 'Pliki'}>
+            <DocumentList docs={docs} onOpen={openDoc} />
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_220px_auto]">
+              <Input value={documentName} onChange={(event) => setDocumentName(event.target.value)} placeholder="Nazwa dokumentu" />
+              <select value={documentStatus} onChange={(event) => setDocumentStatus(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="otrzymany">Otrzymany</option><option value="brak">Brak</option><option value="do_poprawy">Do poprawy</option></select>
+              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-bold text-white"><Upload className="size-4" /> Dodaj<input type="file" className="sr-only" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.currentTarget.value = ''; }} /></label>
+            </div>
+          </Panel>
+        ) : null}
+        {activeTab === 'stage-history' ? <Panel title="Historia etapów"><div className="space-y-2">{stageHistory.map((entry) => <div key={entry.id} className="rounded-lg border p-3 text-sm"><b>{entry.from_stage?.name || 'Start'}</b> → <b>{entry.to_stage?.name || 'Etap'}</b><span className="mt-1 block text-xs text-slate-500">{dt(entry.changed_at)} · {entry.author_name}</span></div>)}{!stageHistory.length ? <p className="text-sm text-slate-500">Brak zapisanych zmian etapu.</p> : null}</div></Panel> : null}
+        {activeTab === 'assistant' ? <Panel title="Asystent AI"><DealAssistantActions dealId={deal.id} /></Panel> : null}
+
+        <DealForm open={edit} onOpenChange={setEdit} deal={deal} pipelineId={deal.pipeline_id} stages={stages} onSaved={() => { setEdit(false); void load(); }} />
+      </div>
+    );
   return (
     <div className="space-y-3 sm:space-y-4">
       <nav className="flex flex-wrap gap-2" aria-label="Akcje Deala">
@@ -1441,6 +1614,33 @@ export default function DealPage() {
     </div>
   );
 }
+function isP2DealView(tab: string) {
+  return tab !== '__legacy';
+}
+
+function StatusCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-black text-slate-950">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function DocumentList({ docs, onOpen }: { docs: Doc[]; onOpen: (doc: Doc) => Promise<void> }) {
+  if (!docs.length) return <p className="text-sm text-slate-500">Brak dokumentów.</p>;
+  return (
+    <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+      {docs.map((doc) => (
+        <button key={doc.id} type="button" onClick={() => void onOpen(doc)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50">
+          <span className="min-w-0"><span className="block truncate text-sm font-bold text-slate-900">{doc.name}</span><span className="text-xs text-slate-500">{doc.status} · {dt(doc.created_at)}</span></span>
+          <FileText className="size-4 shrink-0 text-emerald-800" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Panel({
   title,
   children,

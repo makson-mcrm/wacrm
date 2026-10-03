@@ -5,18 +5,58 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string) =>
   readFileSync(join(process.cwd(), path), 'utf8');
 
-describe('Lejek sprzedaży — odbiór desktop i mobile', () => {
-  it('ma filtry, sortowanie i odseparowanie danych testowych', () => {
+describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
+  it('Klienci mają kontraktowe zakładki, kolumny, eksport i nieznany numer', () => {
+    const page = source('src/app/(dashboard)/contacts/page.tsx');
+    for (const label of [
+      'Wszyscy',
+      'Osoby',
+      'Firmy',
+      'Kluczowi',
+      'Aktywni',
+      'Eksportuj',
+      'Firma / Osoba',
+      'Powiązania',
+      'Aktywna sprawa / etap',
+      'Ostatnia aktywność',
+      'Nowy kontakt / nieznany numer',
+      'Na stronie:',
+    ]) expect(page).toContain(label);
+    expect(page).toContain('const PAGE_SIZE = 20');
+  });
+
+  it('Deal ma dokładny zestaw zakładek, stepper i karty podsumowania', () => {
+    const page = source('src/app/(dashboard)/deals/[id]/page.tsx');
+    for (const label of [
+      "['summary', 'Podsumowanie']",
+      "['activity', 'Aktywność']",
+      "['banks', 'Banki']",
+      "['documents', 'Dokumenty']",
+      "['files', 'Pliki']",
+      "['stage-history', 'Historia etapów']",
+      "['assistant', 'Asystent AI']",
+      'Powiązana osoba',
+      'Powiązana firma',
+      'Kluczowe informacje',
+      'Lista dokumentów',
+      'Termin główny',
+    ]) expect(page).toContain(label);
+  });
+
+  it('Lejek ma kontraktowe filtry, statystyki i odseparowanie danych testowych', () => {
     const page = source('src/app/(dashboard)/pipelines/page.tsx');
     for (const label of [
       'Produkt',
-      'Opiekun',
-      'Źródło',
-      'Status',
-      'Ostatnia aktywność — najnowsze',
-      'Największa kwota',
-      'Najbliższy next action',
-      'Pokaż archiwum poza etapami 1–6',
+      'Tag',
+      'Bank',
+      'Priorytet',
+      'Tylko przeterminowane',
+      'Bez next action',
+      'Aktywne sprawy',
+      'Przychód TERAZ',
+      'Przychód PÓŹNIEJ',
+      'Asystent AI — Przeanalizuj lejek',
+      'Archiwum (',
     ]) {
       expect(page).toContain(label);
     }
@@ -33,12 +73,8 @@ describe('Lejek sprzedaży — odbiór desktop i mobile', () => {
   it('pokazuje wymagane informacje i aktywne powiązania karty', () => {
     const card = source('src/components/pipelines/deal-card.tsx');
     for (const token of [
-      'probability',
       'Ostatnia aktywność:',
-      '/contacts?open=',
-      '/companies?open=',
       '/deals/',
-      'Następnie:',
     ]) {
       expect(card).toContain(token);
     }

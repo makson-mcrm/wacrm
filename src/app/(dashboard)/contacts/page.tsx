@@ -59,12 +59,14 @@ import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
+import { useAuth } from '@/hooks/use-auth';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { formatCrmDate } from '@/lib/crm/format';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
+import { parseCrmPhone } from '@/lib/contacts/phone';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20;
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
@@ -73,6 +75,11 @@ interface ContactWithTags extends Contact {
   nextAction?: string | null;
   nextActionAt?: string | null;
   dealCount?: number;
+  activeDeal?: {
+    id: string;
+    title: string;
+    stage?: { name: string } | null;
+  } | null;
 }
 
 interface ContactCompanyRow {
@@ -88,11 +95,14 @@ interface ContactActivityRow {
 }
 
 interface ContactDealRow {
+  id: string;
+  title: string;
   contact_id: string | null;
   next_action: string | null;
   next_action_at: string | null;
   follow_up_at: string | null;
   status: string | null;
+  stage: { name: string } | null;
 }
 
 export default function ContactsPage() {
@@ -100,12 +110,13 @@ export default function ContactsPage() {
   const supabase = useMemo(() => createClient(), []);
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const { accountId } = useAuth();
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [desktopSegment, setDesktopSegment] = useState<
-    'all' | 'active' | 'new' | 'potential' | 'companies' | 'people'
+    'all' | 'active' | 'key' | 'companies' | 'people'
   >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -123,6 +134,9 @@ export default function ContactsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [unknownPhone, setUnknownPhone] = useState('');
+  const [unknownContactId, setUnknownContactId] = useState<string | null>(null);
+  const [resolvingUnknownPhone, setResolvingUnknownPhone] = useState(false);
 
   // Bulk selection (page-scoped — only the loaded rows are selectable)
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -248,7 +262,9 @@ export default function ContactsPage() {
         .order('occurred_at', { ascending: false }),
       supabase
         .from('deals')
-        .select('contact_id,next_action,next_action_at,follow_up_at,status')
+        .select(
+          'id,title,contact_id,next_action,next_action_at,follow_up_at,status,stage:pipeline_stages(name)'
+        )
         .in('contact_id', contactIds),
     ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
@@ -313,6 +329,13 @@ export default function ContactsPage() {
         nextDealByContact[c.id]?.follow_up_at ||
         null,
       dealCount: dealCountByContact[c.id] ?? 0,
+      activeDeal: nextDealByContact[c.id]
+        ? {
+            id: nextDealByContact[c.id].id,
+            title: nextDealByContact[c.id].title,
+            stage: nextDealByContact[c.id].stage,
+          }
+        : null,
       tags: (tagsByContact[c.id] ?? [])
         .map((tid) => tagsMap[tid])
         .filter(Boolean),
@@ -468,89 +491,21 @@ export default function ContactsPage() {
   }
 
   async function exportContactsCsv() {
-    if (!canEditSettings) return;
-    const [contactsResult, companiesResult, dealsResult, dealLinksResult] =
-      await Promise.all([
-        supabase
-          .from('contacts')
-          .select(
-            'id,first_name,last_name,phone,phone_secondary,email,source,preferred_contact_channel,contact_consent,marketing_consent,created_at'
-          )
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('contact_companies')
-          .select(
-            'contact_id,company:companies!contact_companies_company_id_fkey(name)'
-          ),
-        supabase.from('deals').select('id,title,contact_id'),
-        supabase.from('deal_contacts').select('deal_id,contact_id'),
-      ]);
-    if (
-      contactsResult.error ||
-      companiesResult.error ||
-      dealsResult.error ||
-      dealLinksResult.error
-    ) {
-      toast.error('Nie udało się wyeksportować Kontaktów.');
-      return;
-    }
-    const companyNames = new Map<string, Set<string>>();
-    for (const link of companiesResult.data ?? []) {
-      const company = Array.isArray(link.company)
-        ? link.company[0]
-        : link.company;
-      if (!company?.name) continue;
-      const names = companyNames.get(link.contact_id) ?? new Set<string>();
-      names.add(company.name);
-      companyNames.set(link.contact_id, names);
-    }
-    const dealsById = new Map(
-      (dealsResult.data ?? []).map((deal) => [deal.id, deal])
+    const visible = contacts.filter((contact) =>
+      contactMatchesSegment(contact, desktopSegment)
     );
-    const dealNames = new Map<string, Set<string>>();
-    for (const deal of dealsResult.data ?? []) {
-      if (!deal.contact_id) continue;
-      const names = dealNames.get(deal.contact_id) ?? new Set<string>();
-      names.add(deal.title);
-      dealNames.set(deal.contact_id, names);
-    }
-    for (const link of dealLinksResult.data ?? []) {
-      const deal = dealsById.get(link.deal_id);
-      if (!deal) continue;
-      const names = dealNames.get(link.contact_id) ?? new Set<string>();
-      names.add(deal.title);
-      dealNames.set(link.contact_id, names);
-    }
-    const headers = [
-      'imie',
-      'nazwisko',
-      'telefon',
-      'telefon_dodatkowy',
-      'email',
-      'firmy',
-      'deale',
-      'zrodlo',
-      'preferowany_kanal',
-      'zgoda_kontakt',
-      'zgoda_marketing',
-      'utworzono',
-    ];
+    const headers = ['klient', 'telefon', 'firmy', 'aktywna_sprawa', 'etap', 'ostatnia_aktywnosc', 'tagi'];
     const quote = (value: unknown) =>
       `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const rows = (contactsResult.data ?? []).map((row) =>
+    const rows = visible.map((row) =>
       [
-        row.first_name,
-        row.last_name,
+        row.name,
         row.phone,
-        row.phone_secondary,
-        row.email,
-        [...(companyNames.get(row.id) ?? [])].join(' | '),
-        [...(dealNames.get(row.id) ?? [])].join(' | '),
-        row.source,
-        row.preferred_contact_channel,
-        row.contact_consent ? 'tak' : 'nie',
-        row.marketing_consent ? 'tak' : 'nie',
-        row.created_at,
+        row.companies?.map((company) => company.name).join(' | '),
+        row.activeDeal?.title,
+        row.activeDeal?.stage?.name,
+        row.lastActivityAt,
+        row.tags?.map((tag) => tag.name).join(' | '),
       ]
         .map(quote)
         .join(',')
@@ -566,8 +521,54 @@ export default function ContactsPage() {
     anchor.remove();
     URL.revokeObjectURL(url);
     toast.success(
-      `Wyeksportowano Kontaktów: ${contactsResult.data?.length ?? 0}`
+      `Wyeksportowano klientów: ${visible.length}`
     );
+  }
+
+  async function resolveUnknownPhone() {
+    const parsed = parseCrmPhone(unknownPhone);
+    if (!parsed.valid) {
+      toast.error(parsed.reason);
+      return;
+    }
+    setResolvingUnknownPhone(true);
+    const existing = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('phone_normalized', parsed.digits)
+      .maybeSingle();
+    if (existing.data?.id) {
+      setUnknownContactId(existing.data.id);
+      setUnknownPhone(parsed.canonical);
+      setResolvingUnknownPhone(false);
+      return;
+    }
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user || !accountId) {
+      toast.error('Nie można utworzyć kontaktu bez aktywnego konta.');
+      setResolvingUnknownPhone(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        user_id: auth.user.id,
+        account_id: accountId,
+        phone: parsed.canonical,
+        name: `Nowy kontakt ${parsed.canonical}`,
+        source: 'telefon',
+      })
+      .select('id')
+      .single();
+    setResolvingUnknownPhone(false);
+    if (error || !data) {
+      toast.error('Nie udało się utworzyć kontaktu dla tego numeru.');
+      return;
+    }
+    setUnknownContactId(data.id);
+    setUnknownPhone(parsed.canonical);
+    await fetchContacts();
+    toast.success('Kontakt utworzony. Możesz rozpocząć połączenie.');
   }
 
   return (
@@ -601,6 +602,18 @@ export default function ContactsPage() {
         onOpen={openDetail}
         page={page}
         onPageChange={setPage}
+        selected={selected}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
+        onExport={() => void exportContactsCsv()}
+        unknownPhone={unknownPhone}
+        unknownContactId={unknownContactId}
+        resolvingUnknownPhone={resolvingUnknownPhone}
+        onUnknownPhoneChange={(value) => {
+          setUnknownPhone(value);
+          setUnknownContactId(null);
+        }}
+        onResolveUnknownPhone={() => void resolveUnknownPhone()}
       />
       <div className="hidden">
         {/* Header */}
@@ -1168,7 +1181,22 @@ export default function ContactsPage() {
 }
 
 type DesktopContactSegment =
-  'all' | 'active' | 'new' | 'potential' | 'companies' | 'people';
+  'all' | 'active' | 'key' | 'companies' | 'people';
+
+function contactMatchesSegment(
+  contact: ContactWithTags,
+  segment: DesktopContactSegment
+) {
+  if (isOperationalTestRecord(contact.name)) return false;
+  if (segment === 'active') return (contact.dealCount ?? 0) > 0;
+  if (segment === 'key')
+    return Boolean(
+      contact.tags?.some((tag) => /klucz|vip|key/i.test(tag.name))
+    );
+  if (segment === 'companies') return Boolean(contact.companies?.length);
+  if (segment === 'people') return !contact.companies?.length;
+  return true;
+}
 
 function MobileContactsView({
   contacts,
@@ -1189,20 +1217,15 @@ function MobileContactsView({
   onOpen: (contactId: string) => void;
   onAdd: () => void;
 }) {
-  const now = Date.now();
-  const filtered = contacts.filter((contact) => {
-    if (isOperationalTestRecord(contact.name)) return false;
-    if (segment === 'active') return (contact.dealCount ?? 0) > 0;
-    if (segment === 'new')
-      return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
-    if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
-    return true;
-  });
+  const filtered = contacts.filter((contact) =>
+    contactMatchesSegment(contact, segment)
+  );
   const segments: Array<[DesktopContactSegment, string]> = [
     ['all', 'Wszyscy'],
+    ['people', 'Osoby'],
+    ['companies', 'Firmy'],
+    ['key', 'Kluczowi'],
     ['active', 'Aktywni'],
-    ['potential', 'Ciepli'],
-    ['new', 'Nowi'],
   ];
 
   return (
@@ -1229,7 +1252,7 @@ function MobileContactsView({
           className="h-11 rounded-xl border-slate-200 bg-white pl-9"
         />
       </label>
-      <div className="grid w-full grid-cols-4 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 md:max-w-xl">
+      <div className="grid w-full grid-cols-5 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 md:max-w-xl">
         {segments.map(([value, label]) => (
           <button
             key={value}
@@ -1342,6 +1365,15 @@ function DesktopContactsView({
   onOpen,
   page,
   onPageChange,
+  selected,
+  onToggleSelect,
+  onToggleSelectAll,
+  onExport,
+  unknownPhone,
+  unknownContactId,
+  resolvingUnknownPhone,
+  onUnknownPhoneChange,
+  onResolveUnknownPhone,
 }: {
   contacts: ContactWithTags[];
   loading: boolean;
@@ -1355,47 +1387,53 @@ function DesktopContactsView({
   onOpen: (contactId: string) => void;
   page: number;
   onPageChange: (page: number) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  onExport: () => void;
+  unknownPhone: string;
+  unknownContactId: string | null;
+  resolvingUnknownPhone: boolean;
+  onUnknownPhoneChange: (value: string) => void;
+  onResolveUnknownPhone: () => void;
 }) {
-  const now = Date.now();
-  const filtered = contacts.filter((contact) => {
-    if (isOperationalTestRecord(contact.name)) return false;
-    if (segment === 'active') return (contact.dealCount ?? 0) > 0;
-    if (segment === 'new') {
-      return now - new Date(contact.created_at).getTime() <= 30 * 86_400_000;
-    }
-    if (segment === 'potential') return (contact.dealCount ?? 0) === 0;
-    if (segment === 'companies') return Boolean(contact.companies?.length);
-    if (segment === 'people') return !contact.companies?.length;
-    return true;
-  });
+  const filtered = contacts.filter((contact) =>
+    contactMatchesSegment(contact, segment)
+  );
   const segments: Array<[DesktopContactSegment, string]> = [
-    ['all', 'Wszystkie'],
+    ['all', 'Wszyscy'],
     ['people', 'Osoby'],
     ['companies', 'Firmy'],
-    ['active', 'Aktywne deale'],
-    ['new', 'Nowi'],
-    ['potential', 'Potencjalni'],
+    ['key', 'Kluczowi'],
+    ['active', 'Aktywni'],
   ];
+  const segmentCount = (value: DesktopContactSegment) =>
+    contacts.filter((contact) => contactMatchesSegment(contact, value)).length;
 
   return (
     <section className="hidden lg:block" aria-label="Klienci — pełna lista">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
-            KLIENCI
+            Klienci
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {totalCount} kontaktów w mCRM AI
+            Osoby, firmy i powiązania.
           </p>
         </div>
-        <GatedButton
-          canAct={canEdit}
-          gateReason="add contacts"
-          onClick={onAdd}
-          className="bg-emerald-800 text-white hover:bg-emerald-900"
-        >
-          <Plus className="size-4" /> Dodaj klienta
-        </GatedButton>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onExport}>
+            <Download className="size-4" /> Eksportuj
+          </Button>
+          <GatedButton
+            canAct={canEdit}
+            gateReason="add contacts"
+            onClick={onAdd}
+            className="bg-emerald-800 text-white hover:bg-emerald-900"
+          >
+            <Plus className="size-4" /> Dodaj klienta
+          </GatedButton>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1412,7 +1450,7 @@ function DesktopContactsView({
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {label}
+                {label} <span className="opacity-75">{segmentCount(value)}</span>
               </button>
             ))}
           </div>
@@ -1432,22 +1470,21 @@ function DesktopContactsView({
             <TableHeader>
               <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
                 <TableHead className="w-10">
-                  <Checkbox aria-label="Zaznacz wszystkie widoczne kontakty" />
+                  <Checkbox checked={filtered.length > 0 && filtered.every((contact) => selected.has(contact.id))} onCheckedChange={onToggleSelectAll} aria-label="Zaznacz wszystkie widoczne kontakty" />
                 </TableHead>
-                <TableHead>Klient / Firma</TableHead>
-                <TableHead>Telefon</TableHead>
-                <TableHead>E-mail</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Deale</TableHead>
-                <TableHead>Ostatni kontakt</TableHead>
-                <TableHead className="w-20 text-center">Opiekun</TableHead>
+                <TableHead>Firma / Osoba</TableHead>
+                <TableHead>Powiązania</TableHead>
+                <TableHead>Aktywna sprawa / etap</TableHead>
+                <TableHead>Ostatnia aktywność</TableHead>
+                <TableHead>Tagi</TableHead>
+                <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={7}
                     className="h-48 text-center text-slate-500"
                   >
                     <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
@@ -1456,8 +1493,6 @@ function DesktopContactsView({
                 </TableRow>
               ) : filtered.length ? (
                 filtered.map((contact) => {
-                  const status =
-                    (contact.dealCount ?? 0) > 0 ? 'AKTYWNY' : 'POTENCJAŁ';
                   return (
                     <TableRow
                       key={contact.id}
@@ -1465,6 +1500,8 @@ function DesktopContactsView({
                     >
                       <TableCell>
                         <Checkbox
+                          checked={selected.has(contact.id)}
+                          onCheckedChange={() => onToggleSelect(contact.id)}
                           aria-label={`Zaznacz ${contact.name || 'kontakt'}`}
                         />
                       </TableCell>
@@ -1484,31 +1521,45 @@ function DesktopContactsView({
                           </span>
                         </button>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-600">
-                        {contact.phone || '—'}
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600">
-                        {contact.email || '—'}
-                      </TableCell>
                       <TableCell>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-black ${status === 'AKTYWNY' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}
-                        >
-                          {status}
-                        </span>
+                        {contact.companies?.length ? (
+                          <div className="space-y-1">
+                            {contact.companies.map((company) => (
+                              <Link key={company.id} href={`/companies?open=${company.id}`} className="block text-xs font-semibold text-emerald-800 hover:underline">
+                                {company.name}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : <span className="text-xs text-slate-500">Osoba indywidualna</span>}
                       </TableCell>
-                      <TableCell className="font-bold text-slate-800">
-                        {contact.dealCount ?? 0}
+                      <TableCell className="max-w-52">
+                        {contact.activeDeal ? (
+                          <Link href={`/deals/${contact.activeDeal.id}`} className="block text-xs font-semibold text-slate-900 hover:underline">
+                            <span className="block truncate">{contact.activeDeal.title}</span>
+                            <span className="text-slate-500">{contact.activeDeal.stage?.name || 'Etap nieustalony'}</span>
+                          </Link>
+                        ) : <span className="text-xs text-slate-500">Brak aktywnej sprawy</span>}
                       </TableCell>
                       <TableCell className="text-sm text-slate-500">
                         {contact.lastActivityAt
                           ? formatCrmDate(contact.lastActivityAt)
                           : 'Brak'}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="inline-flex size-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-800">
-                          TM
-                        </span>
+                      <TableCell>
+                        <div className="flex max-w-44 flex-wrap gap-1">
+                          {contact.tags?.length ? contact.tags.map((tag) => (
+                            <span key={tag.id} className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${tag.color}20`, color: tag.color }}>{tag.name}</span>
+                          )) : <span className="text-xs text-slate-500">—</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <CallAction phone={contact.phone} contactId={contact.id} className="bg-emerald-800 text-white" />
+                          <SmsAction phone={contact.phone} contactId={contact.id} contactName={contact.name} label="Wiadomość" />
+                          <Button variant="ghost" size="icon-sm" onClick={() => onOpen(contact.id)} aria-label={`Więcej akcji: ${contact.name || 'kontakt'}`}>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -1516,7 +1567,7 @@ function DesktopContactsView({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={7}
                     className="h-48 text-center text-slate-500"
                   >
                     Brak klientów w tym widoku.
@@ -1526,11 +1577,24 @@ function DesktopContactsView({
             </TableBody>
           </Table>
         </div>
+        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
+          <div>
+            <p className="text-sm font-black text-slate-900">Nowy kontakt / nieznany numer</p>
+            <div className="mt-2 flex max-w-xl gap-2">
+              <Input value={unknownPhone} onChange={(event) => onUnknownPhoneChange(event.target.value)} placeholder="Wpisz numer telefonu…" />
+              {unknownContactId ? (
+                <CallAction phone={unknownPhone} contactId={unknownContactId} className="bg-emerald-800 text-white" />
+              ) : (
+                <Button onClick={onResolveUnknownPhone} disabled={resolvingUnknownPhone || !unknownPhone.trim()}>
+                  {resolvingUnknownPhone ? <Loader2 className="size-4 animate-spin" /> : null} Zadzwoń
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-end text-xs text-slate-500">Kontakt jest odnajdywany lub tworzony przed połączeniem.</div>
+        </div>
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-          <span>
-            Pokazuję {totalCount ? page * PAGE_SIZE + 1 : 0}–
-            {Math.min((page + 1) * PAGE_SIZE, totalCount)} z {totalCount}
-          </span>
+          <span>Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}</span>
           <div className="flex items-center gap-1">
             <Button
               size="sm"
@@ -1538,15 +1602,16 @@ function DesktopContactsView({
               disabled={page === 0}
               onClick={() => onPageChange(Math.max(0, page - 1))}
             >
-              <ChevronLeft className="size-4" /> Poprzednia
+              <ChevronLeft className="size-4" />
             </Button>
+            <span className="px-2 font-bold text-slate-700">{page + 1} / {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}</span>
             <Button
               size="sm"
               variant="outline"
               disabled={(page + 1) * PAGE_SIZE >= totalCount}
               onClick={() => onPageChange(page + 1)}
             >
-              Następna <ChevronRight className="size-4" />
+              <ChevronRight className="size-4" />
             </Button>
           </div>
         </div>

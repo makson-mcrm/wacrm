@@ -1,10 +1,7 @@
 'use client';
 
 import type { Deal, PipelineStage } from '@/types';
-import { Building2, ExternalLink } from 'lucide-react';
-import { Calendar, Check, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
-import { useTranslations } from 'next-intl';
 import { CallAction } from '@/components/sales/call-action';
 import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 
@@ -15,211 +12,46 @@ interface DealCardProps {
   isOverlay?: boolean;
 }
 
-const BRAND_STAGE_COLORS = [
-  '#173A52',
-  '#245247',
-  '#B7D84B',
-  '#173A52',
-  '#245247',
-  '#B7D84B',
-  '#1B2730',
-];
+const BRAND_STAGE_COLORS = ['#173A52', '#245247', '#B7D84B', '#173A52', '#245247', '#B7D84B', '#1B2730'];
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pl-PL', {
-    month: 'short',
-    day: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   });
 }
 
-function initials(name?: string, fallback?: string) {
-  const source = (name || fallback || '?').trim();
-  if (!source) return '?';
-  return source.charAt(0).toUpperCase();
-}
-
 export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
-  const t = useTranslations('Pipelines.card');
-  const contactLabel =
-    deal.contact?.name || deal.contact?.phone || t('noContact');
-  const assigneeLabel = deal.assignee?.full_name || null;
-  const probability = [10, 25, 40, 60, 80, 95][stage?.position ?? 0] ?? 10;
   const activityDate = deal.updated_at || deal.created_at;
-
   return (
-    <div
+    <article
       role="button"
       tabIndex={0}
-      onClick={(e) => {
-        // `onClick` still fires after a non-drag tap because the PointerSensor
-        // requires 5px movement before it counts as a drag.
+      onClick={(event) => {
         if (isOverlay) return;
-        e.stopPropagation();
+        event.stopPropagation();
         onEdit(deal);
       }}
       onKeyDown={(event) => {
-        if (isOverlay) return;
-        if (event.key === 'Enter' || event.key === ' ') onEdit(deal);
+        if (!isOverlay && (event.key === 'Enter' || event.key === ' ')) onEdit(deal);
       }}
-      className={`group border-border/60 relative w-full cursor-pointer rounded-lg border bg-white py-2 pr-2 pl-3 text-left shadow-sm transition-all ${
-        isOverlay
-          ? 'shadow-xl'
-          : 'hover:border-border hover:bg-muted hover:-translate-y-0.5 hover:shadow-lg'
-      }`}
+      className={`relative w-full cursor-pointer rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition ${isOverlay ? 'opacity-90 shadow-xl' : 'hover:border-emerald-700 hover:shadow-md'}`}
     >
-      {/* 4px left accent bar using stage color */}
       <span
         aria-hidden
-        className="absolute top-0 left-0 h-full w-0.5"
-        style={{
-          backgroundColor:
-            stage == null
-              ? '#173A52'
-              : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length],
-        }}
+        className="absolute top-0 left-0 h-full w-1 rounded-l-lg"
+        style={{ backgroundColor: stage == null ? '#173A52' : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length] }}
       />
-
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-black text-slate-600">
-          {probability}%
-        </span>
-        {!isOverlay && (
-          <a
-            href={`/deals/${deal.id}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Otwórz Deal w nowej karcie"
-            aria-label="Otwórz Deal w nowej karcie"
-            className="text-muted-foreground hover:bg-background hover:text-foreground rounded p-0.5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ExternalLink className="size-3" />
-          </a>
-        )}
-        {deal.status === 'won' && (
-          <span className="bg-primary/15 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold">
-            <Check className="h-3 w-3" />
-            {t('won')}
-          </span>
-        )}
-        {deal.status === 'lost' && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-400">
-            <X className="h-3 w-3" />
-            {t('lost')}
-          </span>
-        )}
-      </div>
-
-      <a
-        href={`/deals/${deal.id}`}
-        onClick={(event) => event.stopPropagation()}
-        title={deal.title}
-        className="line-clamp-2 text-xs leading-tight font-black break-words text-slate-950 hover:underline"
-      >
+      <a href={`/deals/${deal.id}`} onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-black text-slate-950 hover:underline">
         {deal.title}
       </a>
-
-      {/* Contact row */}
-      <div className="mt-1 flex items-center gap-1">
-        <span className="bg-muted text-foreground flex h-4 w-4 items-center justify-center rounded-full text-xs font-semibold">
-          {initials(deal.contact?.name, deal.contact?.phone)}
-        </span>
-        {deal.contact_id ? (
-          <a
-            href={`/contacts?open=${deal.contact_id}`}
-            onClick={(event) => event.stopPropagation()}
-            title={contactLabel}
-            className="min-w-0 truncate text-xs text-slate-600 hover:underline"
-          >
-            {contactLabel}
-          </a>
-        ) : (
-          <span
-            title={contactLabel}
-            className="min-w-0 truncate text-xs text-slate-600"
-          >
-            {contactLabel}
-          </span>
-        )}
+      <p className="mt-2 text-sm font-bold text-emerald-800">{formatCurrency(deal.value, deal.currency)}</p>
+      <p className="mt-1 text-xs text-slate-600">Ostatnia aktywność: {formatDate(activityDate)}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-9 [&_a]:px-2 [&_a]:text-xs [&_button]:h-9 [&_button]:w-full [&_button]:px-2 [&_button]:text-xs" onClick={(event) => event.stopPropagation()}>
+        <CallAction phone={deal.contact?.phone} contactId={deal.contact_id} dealId={deal.id} className="bg-emerald-800 text-white" />
+        <WhatsAppAction phone={deal.contact?.phone} contactId={deal.contact_id} dealId={deal.id} />
       </div>
-
-      <div
-        className="mt-2 grid grid-cols-2 gap-1 [&_a]:h-8 [&_a]:px-1 [&_a]:text-xs [&_button]:h-8 [&_button]:w-full [&_button]:px-1 [&_button]:text-xs"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <CallAction
-          phone={deal.contact?.phone}
-          contactId={deal.contact_id}
-          dealId={deal.id}
-        />
-        <WhatsAppAction
-          phone={deal.contact?.phone}
-          contactId={deal.contact_id}
-          dealId={deal.id}
-        />
-      </div>
-
-      {deal.company ? (
-        <a
-          href={`/companies?open=${deal.company.id}`}
-          onClick={(event) => event.stopPropagation()}
-          title={deal.company.name}
-          className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500 hover:underline"
-        >
-          <Building2 className="size-3 shrink-0" />
-          <span className="truncate">{deal.company.name}</span>
-        </a>
-      ) : null}
-
-      <div className="mt-1 flex items-center justify-between">
-        <span className="text-primary text-xs font-bold">
-          {formatCurrency(deal.value, deal.currency)}
-        </span>
-        {deal.expected_close_date && (
-          <span className="text-muted-foreground flex items-center gap-1 text-xs">
-            <Calendar className="h-3 w-3" />
-            {formatDate(deal.expected_close_date)}
-          </span>
-        )}
-      </div>
-
-      <p className="mt-1 text-xs text-slate-600">
-        Ostatnia aktywność: {formatDate(activityDate)}
-      </p>
-
-      {deal.product_type && (
-        <span className="bg-primary/10 text-primary mt-1 inline-flex rounded-full px-1.5 py-0 text-xs font-semibold">
-          {deal.product_type}
-        </span>
-      )}
-
-      {deal.next_action && (
-        <div className="border-border/60 mt-1 border-t pt-1">
-          <p
-            title={deal.next_action}
-            className="line-clamp-2 text-xs leading-4 font-medium break-words"
-          >
-            Następnie: {deal.next_action}
-          </p>
-          {deal.next_action_at && (
-            <p className="text-muted-foreground text-xs">
-              {new Date(deal.next_action_at).toLocaleString('pl-PL')}
-            </p>
-          )}
-        </div>
-      )}
-
-      {assigneeLabel && (
-        <div className="mt-1 flex items-center justify-end">
-          <span
-            title={assigneeLabel}
-            className="bg-primary/15 text-primary flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold"
-          >
-            {initials(assigneeLabel)}
-          </span>
-        </div>
-      )}
-    </div>
+    </article>
   );
 }

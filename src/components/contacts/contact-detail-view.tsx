@@ -76,7 +76,7 @@ export function ContactDetailView({
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('deals');
+  const [activeTab, setActiveTab] = useState('overview');
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Send template — lets the business initiate (or re-open) a conversation
@@ -129,7 +129,7 @@ export function ContactDetailView({
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
 
   useEffect(() => {
-    if (open && contactId) setActiveTab('deals');
+    if (open && contactId) setActiveTab('overview');
   }, [contactId, open]);
   const [companyRole, setCompanyRole] = useState('');
   const [savingCompanyLink, setSavingCompanyLink] = useState(false);
@@ -642,6 +642,7 @@ export function ContactDetailView({
                 className="flex min-h-0 flex-1 flex-col"
               >
                 <TabsList className="mx-4 mt-2 grid h-10 grid-cols-3 rounded-none border-b bg-transparent p-0">
+                  <TabsTrigger value="overview">Podsumowanie</TabsTrigger>
                   <TabsTrigger value="deals">
                     Deale ({deals.length})
                   </TabsTrigger>
@@ -689,6 +690,34 @@ export function ContactDetailView({
                     </TabsTrigger>
                   </TabsList>
                 </details>
+
+                <TabsContent value="overview" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Powiązane osoby</h3>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
+                      <div className="rounded-lg bg-slate-50 p-2"><b className="block text-lg">1</b>Osoby</div>
+                      <div className="rounded-lg bg-slate-50 p-2"><b className="block text-lg">{deals.length}</b>Deale</div>
+                    </div>
+                    <div className="mt-3 flex gap-2"><CallAction phone={contact.phone} contactId={contact.id} /><WhatsAppAction phone={contact.phone} contactId={contact.id} /></div>
+                  </section>
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Informacje</h3>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div><dt className="text-slate-500">NIP</dt><dd className="font-semibold">{contactCompanies[0]?.company?.nip || '—'}</dd></div>
+                      <div><dt className="text-slate-500">Branża</dt><dd className="font-semibold">{contact.product_category || '—'}</dd></div>
+                      <div><dt className="text-slate-500">Lokalizacja</dt><dd className="font-semibold">{contact.city || contact.address || '—'}</dd></div>
+                      <div><dt className="text-slate-500">Tagi</dt><dd className="font-semibold">{contactTagIds.length}</dd></div>
+                    </dl>
+                  </section>
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Aktywne sprawy</h3>
+                    <div className="mt-2 space-y-2">{deals.filter((deal) => deal.status === 'open').map((deal) => <Link key={deal.id} href={`/deals/${deal.id}`} className="block rounded-lg bg-slate-50 p-2 text-sm font-semibold hover:text-emerald-800 hover:underline">{deal.title}<span className="block text-xs font-normal text-slate-500">{deal.stage?.name || 'Etap nieustalony'}</span></Link>)}{!deals.some((deal) => deal.status === 'open') ? <p className="text-xs text-slate-500">Brak aktywnych spraw.</p> : null}</div>
+                  </section>
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Ostatnia aktywność</h3>
+                    <div className="mt-2"><ActivityHistory contactId={contact.id} /></div>
+                  </section>
+                </TabsContent>
 
                 {/* Details Tab */}
                 <TabsContent

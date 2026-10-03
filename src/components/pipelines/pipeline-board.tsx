@@ -197,7 +197,7 @@ export function PipelineBoard({
                       onClick={() => onAddDeal(stage.id)}
                       className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
                     >
-                      <Plus className="mr-1 size-3" /> Dodaj Deal
+                      <Plus className="mr-1 size-3" /> Dodaj sprawę
                     </Button>
                   </div>
                 ) : null}
@@ -377,7 +377,7 @@ function StageColumn({
         className="border-border text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground mt-1 h-7 w-full justify-start border border-dashed bg-transparent px-2 text-xs"
       >
         <Plus className="mr-1 h-3 w-3" />
-        {t('addDeal')}
+        Dodaj sprawę
       </Button>
     </div>
   );

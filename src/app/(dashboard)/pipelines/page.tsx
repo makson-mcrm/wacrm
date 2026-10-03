@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GitBranch, Plus, ChevronDown, Settings } from 'lucide-react';
+import { GitBranch, Plus, ChevronDown, Settings, Sparkles, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
 import { useAuth } from '@/hooks/use-auth';
@@ -32,7 +33,10 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 
-type DealSort = 'recent' | 'oldest' | 'value' | 'next_action';
+interface PipelineDeal extends Deal {
+  tagNames: string[];
+  bankNames: string[];
+}
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -55,22 +59,21 @@ export default function PipelinesPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const canEditSettings = useCan('edit-settings');
-  const canCreateDeals = useCan('send-messages');
   const { accountId } = useAuth();
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
   const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
+  const [deals, setDeals] = useState<PipelineDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [productFilter, setProductFilter] = useState('all');
-  const [ownerFilter, setOwnerFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<DealSort>('recent');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [bankFilter, setBankFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [onlyOverdue, setOnlyOverdue] = useState(false);
+  const [withoutNextAction, setWithoutNextAction] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [includeArchive, setIncludeArchive] = useState(false);
-  const filterPipelineRef = useRef('');
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -127,7 +130,46 @@ export default function PipelinesPage() {
       if (data === null) {
         console.error('Failed to load deals for pipeline:', pipelineId);
       }
-      return (data ?? []) as Deal[];
+      const rows = (data ?? []) as Deal[];
+      const ids = rows.map((deal) => deal.id);
+      if (!ids.length) return [] as PipelineDeal[];
+      const [{ data: tagLinks }, { data: bankRows }] = await Promise.all([
+        supabase
+          .from('entity_tag_links')
+          .select('entity_id,tag:entity_tags(name)')
+          .eq('entity_type', 'deal')
+          .in('entity_id', ids),
+        supabase
+          .from('bank_processes')
+          .select('deal_id,bank_name')
+          .in('deal_id', ids),
+      ]);
+      const tagsByDeal = new Map<string, string[]>();
+      for (const raw of tagLinks ?? []) {
+        const row = raw as unknown as {
+          entity_id: string;
+          tag: { name: string } | { name: string }[] | null;
+        };
+        const tag = Array.isArray(row.tag) ? row.tag[0] : row.tag;
+        if (!tag?.name) continue;
+        tagsByDeal.set(row.entity_id, [
+          ...(tagsByDeal.get(row.entity_id) ?? []),
+          tag.name,
+        ]);
+      }
+      const banksByDeal = new Map<string, string[]>();
+      for (const row of bankRows ?? []) {
+        if (!row.bank_name) continue;
+        banksByDeal.set(row.deal_id, [
+          ...(banksByDeal.get(row.deal_id) ?? []),
+          row.bank_name,
+        ]);
+      }
+      return rows.map((deal) => ({
+        ...deal,
+        tagNames: tagsByDeal.get(deal.id) ?? [],
+        bankNames: banksByDeal.get(deal.id) ?? [],
+      }));
     },
     [supabase]
   );
@@ -373,16 +415,8 @@ export default function PipelinesPage() {
           operationalDeals.map((deal) => deal.product_type).filter(Boolean)
         ),
       ] as string[],
-      owners: [
-        ...new Set(
-          operationalDeals
-            .map((deal) => deal.assignee?.full_name)
-            .filter(Boolean)
-        ),
-      ] as string[],
-      sources: [
-        ...new Set(operationalDeals.map((deal) => deal.source).filter(Boolean)),
-      ] as string[],
+      tags: [...new Set(operationalDeals.flatMap((deal) => deal.tagNames))],
+      banks: [...new Set(operationalDeals.flatMap((deal) => deal.bankNames))],
     }),
     [operationalDeals]
   );
@@ -390,94 +424,49 @@ export default function PipelinesPage() {
     const rows = operationalDeals.filter((deal) => {
       if (productFilter !== 'all' && deal.product_type !== productFilter)
         return false;
-      if (ownerFilter !== 'all' && deal.assignee?.full_name !== ownerFilter)
+      if (tagFilter !== 'all' && !deal.tagNames.includes(tagFilter))
         return false;
-      if (sourceFilter !== 'all' && deal.source !== sourceFilter) return false;
-      if (statusFilter !== 'all' && deal.status !== statusFilter) return false;
+      if (bankFilter !== 'all' && !deal.bankNames.includes(bankFilter))
+        return false;
+      if (priorityFilter === 'blocker' && !deal.blocker?.trim()) return false;
+      if (priorityFilter === 'pilne' && (!deal.next_action_at || +new Date(deal.next_action_at) >= Date.now())) return false;
+      if (onlyOverdue && (!deal.next_action_at || +new Date(deal.next_action_at) >= Date.now())) return false;
+      if (withoutNextAction && deal.next_action?.trim()) return false;
       return true;
     });
-    return [...rows].sort((a, b) => {
-      if (sortBy === 'oldest')
-        return (
-          +new Date(a.updated_at || a.created_at) -
-          +new Date(b.updated_at || b.created_at)
-        );
-      if (sortBy === 'value')
-        return Number(b.value || 0) - Number(a.value || 0);
-      if (sortBy === 'next_action') {
-        const av = a.next_action_at
-          ? +new Date(a.next_action_at)
-          : Number.MAX_SAFE_INTEGER;
-        const bv = b.next_action_at
-          ? +new Date(b.next_action_at)
-          : Number.MAX_SAFE_INTEGER;
-        return av - bv;
-      }
-      return (
-        +new Date(b.updated_at || b.created_at) -
-        +new Date(a.updated_at || a.created_at)
-      );
-    });
+    return rows;
   }, [
+    bankFilter,
     operationalDeals,
-    ownerFilter,
+    onlyOverdue,
+    priorityFilter,
     productFilter,
-    sortBy,
-    sourceFilter,
-    statusFilter,
+    tagFilter,
+    withoutNextAction,
   ]);
-
-  useEffect(() => {
-    if (!selectedPipelineId) return;
-    const saved = window.localStorage.getItem(
-      `mcrm:pipeline-view:${selectedPipelineId}`
+  const archiveCount = useMemo(() => {
+    const archiveStageIds = new Set(
+      stages
+        .filter((stage) => stage.name.toUpperCase().includes('ARCHIWUM'))
+        .map((stage) => stage.id)
     );
-    if (!saved) {
-      filterPipelineRef.current = selectedPipelineId;
-      return;
-    }
-    try {
-      const value = JSON.parse(saved) as Partial<{
-        product: string;
-        owner: string;
-        source: string;
-        status: string;
-        sort: DealSort;
-      }>;
-      setProductFilter(value.product || 'all');
-      setOwnerFilter(value.owner || 'all');
-      setSourceFilter(value.source || 'all');
-      setStatusFilter(value.status || 'all');
-      setSortBy(value.sort || 'recent');
-    } catch {
-      window.localStorage.removeItem(
-        `mcrm:pipeline-view:${selectedPipelineId}`
-      );
-    }
-    filterPipelineRef.current = selectedPipelineId;
-  }, [selectedPipelineId]);
-
-  useEffect(() => {
-    if (!selectedPipelineId || filterPipelineRef.current !== selectedPipelineId)
-      return;
-    window.localStorage.setItem(
-      `mcrm:pipeline-view:${selectedPipelineId}`,
-      JSON.stringify({
-        product: productFilter,
-        owner: ownerFilter,
-        source: sourceFilter,
-        status: statusFilter,
-        sort: sortBy,
-      })
-    );
-  }, [
-    ownerFilter,
-    productFilter,
-    selectedPipelineId,
-    sortBy,
-    sourceFilter,
-    statusFilter,
-  ]);
+    return operationalDeals.filter(
+      (deal) => deal.status !== 'open' || archiveStageIds.has(deal.stage_id)
+    ).length;
+  }, [operationalDeals, stages]);
+  const activeDeals = visibleDeals.filter((deal) => deal.status === 'open');
+  const revenueNow = activeDeals.reduce(
+    (sum, deal) => sum + Number(deal.expected_commission || 0),
+    0
+  );
+  const revenueLater = activeDeals.reduce(
+    (sum, deal) => sum + Number(deal.value || 0),
+    0
+  );
+  const withBlocker = activeDeals.filter((deal) => deal.blocker?.trim()).length;
+  const withNextAction = activeDeals.filter((deal) =>
+    deal.next_action?.trim()
+  ).length;
 
   if (loading) {
     return (
@@ -500,83 +489,17 @@ export default function PipelinesPage() {
 
   return (
     <div className="min-w-0 space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="mr-2 text-2xl font-black tracking-tight text-slate-950">
-            LEJEK SPRZEDAŻY
-          </h1>
-          {/* Pipeline selector dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="border-border bg-card text-foreground hover:bg-muted data-[popup-open]:bg-muted inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors">
-              <GitBranch className="text-primary h-4 w-4" />
-              <span className="font-semibold">
-                {selectedPipeline?.name ?? t('selectPipeline')}
-              </span>
-              <ChevronDown className="text-muted-foreground h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover text-popover-foreground w-64"
-            >
-              {pipelines.length === 0 && (
-                <DropdownMenuItem disabled className="text-muted-foreground">
-                  {t('noPipelinesYet')}
-                </DropdownMenuItem>
-              )}
-              {pipelines.map((p) => (
-                <DropdownMenuItem
-                  key={p.id}
-                  onClick={() => setSelectedPipelineId(p.id)}
-                  className={
-                    p.id === selectedPipelineId
-                      ? 'text-primary'
-                      : 'text-popover-foreground'
-                  }
-                >
-                  <GitBranch className="mr-2 h-3.5 w-3.5" />
-                  {p.name}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator className="bg-border" />
-              {selectedPipeline && (
-                <DropdownMenuItem
-                  onClick={() => setSettingsOpen(true)}
-                  className="text-popover-foreground"
-                >
-                  <Settings className="mr-2 h-3.5 w-3.5" />
-                  {t('managePipelines')}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek</h1>
+          <p className="mt-1 text-sm text-slate-500">Wszystkie aktywne sprawy (Tomasz)</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <GatedButton
-            variant="outline"
-            canAct={canEditSettings}
-            gateReason="create pipelines"
-            onClick={() => setNewPipelineOpen(true)}
-            className="border-border bg-card text-foreground hover:bg-muted hidden"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t('addPipeline')}
-          </GatedButton>
-          <GatedButton
-            canAct={canCreateDeals}
-            gateReason="create deals"
-            disabled={!selectedPipelineId || stages.length === 0}
-            onClick={() => handleAddDeal()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t('addDeal')}
-          </GatedButton>
-        </div>
+        <Button variant={includeArchive ? 'default' : 'outline'} onClick={() => setIncludeArchive((value) => !value)}>
+          <Archive className="size-4" /> Archiwum ({archiveCount})
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-4 lg:grid-cols-7">
         <FilterSelect
           label="Produkt"
           value={productFilter}
@@ -584,35 +507,28 @@ export default function PipelinesPage() {
           options={filterOptions.products}
         />
         <FilterSelect
-          label="Opiekun"
-          value={ownerFilter}
-          onChange={setOwnerFilter}
-          options={filterOptions.owners}
+          label="Tag"
+          value={tagFilter}
+          onChange={setTagFilter}
+          options={filterOptions.tags}
         />
         <FilterSelect
-          label="Źródło"
-          value={sourceFilter}
-          onChange={setSourceFilter}
-          options={filterOptions.sources}
+          label="Bank"
+          value={bankFilter}
+          onChange={setBankFilter}
+          options={filterOptions.banks}
         />
         <FilterSelect
-          label="Status"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={['open', 'won', 'lost']}
+          label="Priorytet"
+          value={priorityFilter}
+          onChange={setPriorityFilter}
+          options={['pilne', 'blocker']}
         />
-        <label className="col-span-2 min-w-0 text-xs font-black tracking-wide text-slate-500 uppercase lg:col-span-2">
-          Sortowanie
-          <select
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value as DealSort)}
-            className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800"
-          >
-            <option value="recent">Ostatnia aktywność — najnowsze</option>
-            <option value="oldest">Ostatnia aktywność — najstarsze</option>
-            <option value="value">Największa kwota</option>
-            <option value="next_action">Najbliższy next action</option>
-          </select>
+        <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
+          <input type="checkbox" checked={onlyOverdue} onChange={(event) => setOnlyOverdue(event.target.checked)} /> Tylko przeterminowane
+        </label>
+        <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
+          <input type="checkbox" checked={withoutNextAction} onChange={(event) => setWithoutNextAction(event.target.checked)} /> Bez next action
         </label>
         <button
           type="button"
@@ -623,23 +539,24 @@ export default function PipelinesPage() {
         </button>
         {showMoreFilters ? (
           <div className="col-span-full flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs">
-            <label className="flex items-center gap-2 font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={includeArchive}
-                onChange={(event) => setIncludeArchive(event.target.checked)}
-              />
-              Pokaż archiwum poza etapami 1–6
-            </label>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 font-semibold">
+                <GitBranch className="size-4" /> {selectedPipeline?.name ?? t('selectPipeline')} <ChevronDown className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {pipelines.map((pipeline) => <DropdownMenuItem key={pipeline.id} onClick={() => setSelectedPipelineId(pipeline.id)}>{pipeline.name}</DropdownMenuItem>)}
+                {selectedPipeline ? <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings className="size-4" /> Zarządzaj lejkami</DropdownMenuItem></> : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <button
               type="button"
               onClick={() => {
                 setProductFilter('all');
-                setOwnerFilter('all');
-                setSourceFilter('all');
-                setStatusFilter('all');
-                setSortBy('recent');
-                setIncludeArchive(false);
+                setTagFilter('all');
+                setBankFilter('all');
+                setPriorityFilter('all');
+                setOnlyOverdue(false);
+                setWithoutNextAction(false);
               }}
               className="font-bold text-emerald-800 hover:underline"
             >
@@ -648,6 +565,18 @@ export default function PipelinesPage() {
           </div>
         ) : null}
       </div>
+
+      <section className="grid grid-cols-2 gap-2 md:grid-cols-5" aria-label="Statystyki lejka">
+        <Stat label="Aktywne sprawy" value={String(activeDeals.length)} />
+        <Stat label="Przychód TERAZ" value={`${revenueNow.toLocaleString('pl-PL')} PLN`} />
+        <Stat label="Przychód PÓŹNIEJ" value={`${revenueLater.toLocaleString('pl-PL')} PLN`} />
+        <Stat label="Z blockerem" value={String(withBlocker)} />
+        <Stat label="Z next action" value={String(withNextAction)} />
+      </section>
+
+      <Button className="bg-lime-300 text-emerald-950 hover:bg-lime-400" render={<Link href="/assistant?feature=pipeline" />}>
+        <Sparkles className="size-4" /> Asystent AI — Przeanalizuj lejek
+      </Button>
 
       {/* Board */}
       {pipelines.length === 0 ? (
@@ -752,6 +681,15 @@ export default function PipelinesPage() {
         defaultQuestionnaireId={defaultQuestionnaireId}
         onSaved={refreshDeals}
       />
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
 }
