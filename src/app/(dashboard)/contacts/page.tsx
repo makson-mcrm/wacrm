@@ -113,6 +113,7 @@ export default function ContactsPage() {
   const { accountId } = useAuth();
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
+  const [exportRows, setExportRows] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [desktopSegment, setDesktopSegment] = useState<
@@ -120,6 +121,13 @@ export default function ContactsPage() {
   >('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [segmentCounts, setSegmentCounts] = useState<Record<DesktopContactSegment, number>>({
+    all: 0,
+    people: 0,
+    companies: 0,
+    key: 0,
+    active: 0,
+  });
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
@@ -179,8 +187,6 @@ export default function ContactsPage() {
     const term = search.trim();
 
     let contactRows: Contact[];
-    let count: number;
-
     if (selectedTagIds.length > 0) {
       // Tag filter active — resolve it server-side (join + distinct +
       // windowed total count + pagination) so a tag covering many
@@ -189,8 +195,8 @@ export default function ContactsPage() {
       const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
         p_tag_ids: selectedTagIds,
         p_search: term || null,
-        p_limit: PAGE_SIZE,
-        p_offset: from,
+        p_limit: 1000,
+        p_offset: 0,
       });
       if (seq !== fetchSeq.current) return; // superseded by a newer fetch
       if (error) {
@@ -200,13 +206,11 @@ export default function ContactsPage() {
       }
       const rows = (data ?? []) as { contact: Contact; total_count: number }[];
       contactRows = rows.map((r) => r.contact);
-      count = rows.length > 0 ? Number(rows[0].total_count) : 0;
     } else {
       let query = supabase
         .from('contacts')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (term) {
         const like = `%${term}%`;
@@ -215,7 +219,7 @@ export default function ContactsPage() {
         );
       }
 
-      const { data, count: exactCount, error } = await query;
+      const { data, error } = await query;
       if (seq !== fetchSeq.current) return; // superseded by a newer fetch
       if (error) {
         toast.error(t('toastFailedLoad'));
@@ -223,13 +227,13 @@ export default function ContactsPage() {
         return;
       }
       contactRows = data ?? [];
-      count = exactCount ?? 0;
     }
 
-    setTotalCount(count);
-
     if (contactRows.length === 0) {
+      setTotalCount(0);
+      setSegmentCounts({ all: 0, people: 0, companies: 0, key: 0, active: 0 });
       setContacts([]);
+      setExportRows([]);
       setLoading(false);
       return;
     }
@@ -341,9 +345,22 @@ export default function ContactsPage() {
         .filter(Boolean),
     }));
 
-    setContacts(enriched);
+    const counts: Record<DesktopContactSegment, number> = {
+      all: enriched.filter((contact) => contactMatchesSegment(contact, 'all')).length,
+      people: enriched.filter((contact) => contactMatchesSegment(contact, 'people')).length,
+      companies: enriched.filter((contact) => contactMatchesSegment(contact, 'companies')).length,
+      key: enriched.filter((contact) => contactMatchesSegment(contact, 'key')).length,
+      active: enriched.filter((contact) => contactMatchesSegment(contact, 'active')).length,
+    };
+    const segmented = enriched.filter((contact) =>
+      contactMatchesSegment(contact, desktopSegment)
+    );
+    setSegmentCounts(counts);
+    setTotalCount(segmented.length);
+    setExportRows(segmented);
+    setContacts(segmented.slice(from, to + 1));
     setLoading(false);
-  }, [supabase, page, search, selectedTagIds, tagsMap, t]);
+  }, [supabase, page, search, selectedTagIds, tagsMap, t, desktopSegment]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -491,9 +508,7 @@ export default function ContactsPage() {
   }
 
   async function exportContactsCsv() {
-    const visible = contacts.filter((contact) =>
-      contactMatchesSegment(contact, desktopSegment)
-    );
+    const visible = exportRows;
     const headers = ['klient', 'telefon', 'firmy', 'aktywna_sprawa', 'etap', 'ostatnia_aktywnosc', 'tagi'];
     const quote = (value: unknown) =>
       `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -582,7 +597,11 @@ export default function ContactsPage() {
           setPage(0);
         }}
         segment={desktopSegment}
-        onSegmentChange={setDesktopSegment}
+        segmentCounts={segmentCounts}
+        onSegmentChange={(value) => {
+          setDesktopSegment(value);
+          setPage(0);
+        }}
         onOpen={openDetail}
         onAdd={openAddForm}
       />
@@ -596,7 +615,11 @@ export default function ContactsPage() {
           setPage(0);
         }}
         segment={desktopSegment}
-        onSegmentChange={setDesktopSegment}
+        segmentCounts={segmentCounts}
+        onSegmentChange={(value) => {
+          setDesktopSegment(value);
+          setPage(0);
+        }}
         onAdd={openAddForm}
         canEdit={canEdit}
         onOpen={openDetail}
@@ -1204,6 +1227,7 @@ function MobileContactsView({
   search,
   onSearchChange,
   segment,
+  segmentCounts,
   onSegmentChange,
   onOpen,
   onAdd,
@@ -1213,6 +1237,7 @@ function MobileContactsView({
   search: string;
   onSearchChange: (value: string) => void;
   segment: DesktopContactSegment;
+  segmentCounts: Record<DesktopContactSegment, number>;
   onSegmentChange: (segment: DesktopContactSegment) => void;
   onOpen: (contactId: string) => void;
   onAdd: () => void;
@@ -1264,7 +1289,7 @@ function MobileContactsView({
                 : 'text-slate-500'
             }`}
           >
-            {label}
+            {label} {segmentCounts[value]}
           </button>
         ))}
       </div>
@@ -1359,6 +1384,7 @@ function DesktopContactsView({
   search,
   onSearchChange,
   segment,
+  segmentCounts,
   onSegmentChange,
   onAdd,
   canEdit,
@@ -1381,6 +1407,7 @@ function DesktopContactsView({
   search: string;
   onSearchChange: (value: string) => void;
   segment: DesktopContactSegment;
+  segmentCounts: Record<DesktopContactSegment, number>;
   onSegmentChange: (segment: DesktopContactSegment) => void;
   onAdd: () => void;
   canEdit: boolean;
@@ -1407,8 +1434,6 @@ function DesktopContactsView({
     ['key', 'Kluczowi'],
     ['active', 'Aktywni'],
   ];
-  const segmentCount = (value: DesktopContactSegment) =>
-    contacts.filter((contact) => contactMatchesSegment(contact, value)).length;
 
   return (
     <section className="hidden lg:block" aria-label="Klienci — pełna lista">
@@ -1450,7 +1475,7 @@ function DesktopContactsView({
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {label} <span className="opacity-75">{segmentCount(value)}</span>
+                {label} <span className="opacity-75">{segmentCounts[value]}</span>
               </button>
             ))}
           </div>
