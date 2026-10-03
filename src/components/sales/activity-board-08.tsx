@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CheckSquare,
   FilePlus2,
-  Keyboard,
   Mail,
   MessageSquare,
   MoreHorizontal,
@@ -200,7 +199,6 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
   const [creatingContact, setCreatingContact] = useState(false);
   const [createTask, setCreateTask] = useState(false);
   const [emailCopy, setEmailCopy] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const selectedContact = contacts.find((row) => row.id === contactId) ?? null;
   const selectedDeal = deals.find((row) => row.id === dealId) ?? null;
@@ -718,34 +716,6 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <p className="text-sm text-slate-500">
             Rozmawiaj, notuj i działaj szybciej
           </p>
-        </div>
-        <div className="relative">
-          <Button
-            type="button"
-            variant="outline"
-            aria-expanded={shortcutsOpen}
-            aria-controls="activity-keyboard-shortcuts"
-            onClick={() => setShortcutsOpen((open) => !open)}
-            className="hidden gap-2 border-blue-200 text-blue-700 sm:inline-flex"
-          >
-            <Keyboard className="size-4" /> Skróty klawiszowe
-          </Button>
-          {shortcutsOpen && (
-            <div
-              id="activity-keyboard-shortcuts"
-              className="absolute top-12 right-0 z-30 w-64 rounded-lg border bg-white p-3 text-xs shadow-lg"
-            >
-              <p className="font-black text-[#0b1b55]">Skróty klawiszowe</p>
-              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-slate-600">
-                <dt className="font-mono font-bold">Tab</dt>
-                <dd>Przejdź do kolejnego pola</dd>
-                <dt className="font-mono font-bold">Shift + Tab</dt>
-                <dd>Wróć do poprzedniego pola</dd>
-                <dt className="font-mono font-bold">Enter</dt>
-                <dd>Wybierz podświetloną opcję</dd>
-              </dl>
-            </div>
-          )}
         </div>
       </div>
 

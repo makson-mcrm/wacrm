@@ -16,7 +16,6 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
       '5. Następny krok · 6. Termin · 7. Blocker',
       '9. Zmień etap lub zamknij deal',
       'Ostatnie aktywności w tym dealu',
-      'Skróty klawiszowe',
       'Zobacz wszystkie',
       'Odebrał',
       'Nie odebrał',
