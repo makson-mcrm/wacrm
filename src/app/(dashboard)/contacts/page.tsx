@@ -403,13 +403,20 @@ export default function ContactsPage() {
       if (query.get('new') === 'contact') {
         openAddForm();
         window.history.replaceState({}, '', '/contacts');
-      } else if (query.get('open')) {
-        openDetail(query.get('open')!);
-        window.history.replaceState({}, '', '/contacts');
+      } else {
+        const contactId = query.get('open');
+        if (contactId) openDetail(contactId);
       }
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  function handleDetailOpenChange(open: boolean) {
+    setDetailOpen(open);
+    if (!open && new URLSearchParams(window.location.search).has('open')) {
+      window.history.replaceState({}, '', '/contacts');
+    }
+  }
 
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
@@ -1116,7 +1123,7 @@ export default function ContactsPage() {
       {/* Contact Detail Sheet */}
       <ContactDetailView
         open={detailOpen}
-        onOpenChange={setDetailOpen}
+        onOpenChange={handleDetailOpenChange}
         contactId={detailContactId}
         onUpdated={fetchContacts}
       />
@@ -1521,7 +1528,20 @@ function DesktopContactsView({
                   return (
                     <TableRow
                       key={contact.id}
-                      className="h-16 border-slate-200 hover:bg-emerald-50/40"
+                      className="h-16 cursor-pointer border-slate-200 hover:bg-emerald-50/40"
+                      tabIndex={0}
+                      aria-label={`Otwórz kartę klienta ${contact.name || contact.phone}`}
+                      onClick={(event) => {
+                        if (isInteractiveContactRowTarget(event.target)) return;
+                        onOpen(contact.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onOpen(contact.id);
+                        }
+                      }}
                     >
                       <TableCell>
                         <Checkbox
@@ -1642,5 +1662,13 @@ function DesktopContactsView({
         </div>
       </div>
     </section>
+  );
+}
+
+function isInteractiveContactRowTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    target.closest('a, button, input, select, textarea, [role="button"]') !==
+      null
   );
 }

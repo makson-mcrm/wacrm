@@ -23,6 +23,9 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
       'Na stronie:',
     ]) expect(page).toContain(label);
     expect(page).toContain('const PAGE_SIZE = 20');
+    expect(page).toContain("const contactId = query.get('open')");
+    expect(page).toContain('if (contactId) openDetail(contactId)');
+    expect(page).toContain('isInteractiveContactRowTarget(event.target)');
   });
 
   it('Deal ma dokładny zestaw zakładek, stepper i karty podsumowania', () => {
@@ -40,6 +43,8 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
       'Kluczowe informacje',
       'Lista dokumentów',
       'Termin główny',
+      'probability',
+      '/contacts?open=',
     ]) expect(page).toContain(label);
   });
 
