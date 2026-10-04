@@ -733,12 +733,12 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         >
         {(
           [
-            ['new', 'Nowa aktywność'],
-            ['history', 'Historia aktywności'],
-            ['documents', 'Notatki i pliki'],
-            ['tasks', 'Zadania po rozmowie'],
+            ['new', 'Nowa aktywność', 'Nowa'],
+            ['history', 'Historia aktywności', 'Historia'],
+            ['documents', 'Notatki i pliki', 'Notatki'],
+            ['tasks', 'Zadania po rozmowie', 'Zadania'],
           ] as const
-        ).map(([view, label]) => (
+        ).map(([view, label, shortLabel]) => (
           <button
             key={view}
             type="button"
@@ -751,7 +751,8 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
             }`}
           >
-            {label}
+            <span className="lg:hidden">{shortLabel}</span>
+            <span className="hidden lg:inline">{label}</span>
           </button>
           ))}
         </div>
