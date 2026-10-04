@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { CallAction } from '@/components/sales/call-action';
+import { SmsAction } from '@/components/sales/sms-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -642,18 +643,38 @@ export default function DealPage() {
                       {actionContact.email || 'Brak e-maila'}
                     </span>
                   </Link>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <CallAction
                       phone={actionContact.phone}
                       contactId={actionContact.id}
                       dealId={deal.id}
                       className="bg-emerald-800 text-white"
                     />
+                    <SmsAction
+                      phone={actionContact.phone}
+                      contactName={actionContact.name}
+                      contactId={actionContact.id}
+                      companyId={deal.company_id}
+                      dealId={deal.id}
+                      productCategory={deal.product_type}
+                      customerSource={deal.source}
+                      label="SMS"
+                    />
                     <WhatsAppAction
                       phone={actionContact.phone}
                       contactId={actionContact.id}
                       dealId={deal.id}
+                      className="h-7"
                     />
+                    {actionContact.email ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={<a href={`mailto:${actionContact.email}`} />}
+                      >
+                        <Mail className="size-4" /> E-mail
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               ) : (
