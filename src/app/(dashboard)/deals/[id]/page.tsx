@@ -37,9 +37,11 @@ import { DealAssistantActions } from '@/components/assistant/deal-assistant-acti
 import { DealBankingKnowledge } from '@/components/banking-knowledge/deal-banking-knowledge';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { toast } from 'sonner';
-import type { Deal, PipelineStage } from '@/types';
+import type { ContactSpouseLink, Deal, PipelineStage } from '@/types';
 import { buildClientJourneyChecks } from '@/lib/mcrm/client-journey';
 import { formatWarsawDateTime, toWarsawDateTimeInput } from '@/lib/date-time';
+import { SpouseLinks } from '@/components/relationships/spouse-links';
+import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 
 type Note = {
   id: string;
@@ -122,6 +124,7 @@ export default function DealPage() {
     [requirements, setRequirements] = useState<Requirement[]>([]),
     [stageHistory, setStageHistory] = useState<StageHistory[]>([]),
     [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]),
+    [spouseLinks, setSpouseLinks] = useState<ContactSpouseLink[]>([]),
     [missingRequiredDocuments, setMissingRequiredDocuments] = useState(0),
     [requiredDocumentsCount, setRequiredDocumentsCount] = useState(0),
     [stages, setStages] = useState<PipelineStage[]>([]),
@@ -219,7 +222,17 @@ export default function DealPage() {
     setNextActionAtDraft(toDateTimeLocal(d.data?.next_action_at));
     setBlockerDraft(d.data?.blocker ?? '');
     setDeadlineDraft(d.data?.expected_close_date ?? '');
-    setPeople((p.data ?? []) as unknown as DealPerson[]);
+    const dealPeople = (p.data ?? []) as unknown as DealPerson[];
+    setPeople(dealPeople);
+    const relatedContactIds = [
+      d.data?.contact_id,
+      ...dealPeople.map((person) => person.contact_id),
+    ].filter((contactId): contactId is string => Boolean(contactId));
+    try {
+      setSpouseLinks(await loadSpouseLinks(db, relatedContactIds));
+    } catch {
+      setSpouseLinks([]);
+    }
     const authorByUser = new Map(
       (profileRows.data ?? []).map((row) => [
         row.user_id,
@@ -697,6 +710,7 @@ export default function DealPage() {
                 <p className="text-sm text-slate-500">Brak powiązanej firmy.</p>
               )}
             </Panel>
+            <SpouseLinks links={spouseLinks} />
             <Panel title="Kluczowe informacje">
               <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Typ finansowania" value={deal.product_type} />
@@ -947,6 +961,9 @@ export default function DealPage() {
               Zobacz pełny profil
             </Link>
           ) : null}
+          <div className="mt-4">
+            <SpouseLinks links={spouseLinks} />
+          </div>
           <dl className="mt-4 space-y-2.5 border-t border-slate-100 pt-4 text-xs">
             <p className="mb-3 font-black text-slate-900">Szczegóły sprawy</p>
             <div className="flex justify-between gap-3">
@@ -1282,6 +1299,9 @@ export default function DealPage() {
           <span className="mt-0.5 text-xs">Przygotuj, sprawdź, podpowiedz</span>
         </Link>
       </header>
+      <div className="lg:hidden">
+        <SpouseLinks links={spouseLinks} />
+      </div>
       <div
         className={
           activeTab === 'case'

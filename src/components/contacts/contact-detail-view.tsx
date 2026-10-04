@@ -16,6 +16,7 @@ import type {
   CustomField,
   Deal,
   MessageTemplate,
+  ContactSpouseLink,
 } from '@/types';
 import {
   TemplatePicker,
@@ -56,6 +57,11 @@ import { formatWarsawDateTime } from '@/lib/date-time';
 import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
+import { SpouseLinks } from '@/components/relationships/spouse-links';
+import {
+  canonicalSpousePair,
+  loadSpouseLinks,
+} from '@/lib/mcrm/spouse-relations';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -133,6 +139,10 @@ export function ContactDetailView({
   }, [contactId, open]);
   const [companyRole, setCompanyRole] = useState('');
   const [savingCompanyLink, setSavingCompanyLink] = useState(false);
+  const [spouseLinks, setSpouseLinks] = useState<ContactSpouseLink[]>([]);
+  const [spouseCandidates, setSpouseCandidates] = useState<Contact[]>([]);
+  const [selectedSpouseId, setSelectedSpouseId] = useState('');
+  const [savingSpouse, setSavingSpouse] = useState(false);
 
   const fetchContact = useCallback(async () => {
     if (!contactId) return;
@@ -263,6 +273,16 @@ export function ContactDetailView({
     setContactCompanies((linksRes.data ?? []) as ContactCompany[]);
   }, [contactId, supabase]);
 
+  const fetchSpouse = useCallback(async () => {
+    if (!contactId) return;
+    const [links, contactsResult] = await Promise.all([
+      loadSpouseLinks(supabase, [contactId]),
+      supabase.from('contacts').select('*').neq('id', contactId).order('name'),
+    ]);
+    setSpouseLinks(links);
+    setSpouseCandidates((contactsResult.data ?? []) as Contact[]);
+  }, [contactId, supabase]);
+
   useEffect(() => {
     if (open && contactId) {
       fetchContact();
@@ -271,6 +291,7 @@ export function ContactDetailView({
       fetchCustomFields();
       fetchDeals();
       fetchCompanies();
+      void fetchSpouse();
     }
   }, [
     open,
@@ -281,7 +302,41 @@ export function ContactDetailView({
     fetchCustomFields,
     fetchDeals,
     fetchCompanies,
+    fetchSpouse,
   ]);
+
+  async function linkSpouse() {
+    if (!contactId || !selectedSpouseId || !accountId) return;
+    setSavingSpouse(true);
+    const { error } = await supabase.from('contact_spouses').insert({
+      ...canonicalSpousePair(contactId, selectedSpouseId),
+      account_id: accountId,
+    });
+    setSavingSpouse(false);
+    if (error) {
+      toast.error(
+        error.code === '23505' || error.message.includes('only one spouse')
+          ? 'Jeden z Kontaktów ma już przypisanego współmałżonka.'
+          : 'Nie udało się zapisać współmałżonka.'
+      );
+      return;
+    }
+    setSelectedSpouseId('');
+    await fetchSpouse();
+    toast.success('Współmałżonek został powiązany.');
+  }
+
+  async function unlinkSpouse() {
+    if (!contactId || !spouseLinks[0]) return;
+    const pair = canonicalSpousePair(contactId, spouseLinks[0].spouse.id);
+    const { error } = await supabase
+      .from('contact_spouses')
+      .delete()
+      .eq('contact_a_id', pair.contact_a_id)
+      .eq('contact_b_id', pair.contact_b_id);
+    if (error) toast.error('Nie udało się odłączyć współmałżonka.');
+    else await fetchSpouse();
+  }
 
   async function linkCompany() {
     if (!contactId || !selectedCompanyId || !accountId) return;
@@ -732,12 +787,6 @@ export function ContactDetailView({
                           )}
                         </dd>
                       </div>
-                      <div className="rounded-lg bg-slate-50 p-2">
-                        <dt className="font-bold text-slate-500">
-                          Współmałżonek
-                        </dt>
-                        <dd className="mt-1 text-slate-600">Brak powiązania</dd>
-                      </div>
                     </dl>
                     <div className="mt-3 flex gap-2">
                       <CallAction
@@ -749,6 +798,47 @@ export function ContactDetailView({
                         contactId={contact.id}
                       />
                     </div>
+                  </section>
+                  <SpouseLinks links={spouseLinks} />
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Relacja małżeńska</h3>
+                    {spouseLinks.length ? (
+                      <Button
+                        className="mt-2 min-h-10"
+                        variant="outline"
+                        onClick={() => void unlinkSpouse()}
+                      >
+                        Odłącz współmałżonka
+                      </Button>
+                    ) : (
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <select
+                          value={selectedSpouseId}
+                          onChange={(event) =>
+                            setSelectedSpouseId(event.target.value)
+                          }
+                          className="min-h-10 flex-1 rounded-md border bg-white px-3 text-sm"
+                          aria-label="Wybierz współmałżonka"
+                        >
+                          <option value="">Wybierz Kontakt</option>
+                          {spouseCandidates.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.name || candidate.phone}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          className="min-h-10"
+                          disabled={!selectedSpouseId || savingSpouse}
+                          onClick={() => void linkSpouse()}
+                        >
+                          {savingSpouse ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : null}
+                          Powiąż
+                        </Button>
+                      </div>
+                    )}
                   </section>
                   <section className="rounded-xl border border-slate-200 p-3">
                     <h3 className="text-sm font-black">Informacje</h3>

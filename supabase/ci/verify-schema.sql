@@ -52,6 +52,17 @@ BEGIN
   IF to_regclass('public.contact_companies') IS NULL THEN
     RAISE EXCEPTION 'public.contact_companies is missing — migration 040 did not apply';
   END IF;
+  IF to_regclass('public.contact_spouses') IS NULL THEN
+    RAISE EXCEPTION 'public.contact_spouses is missing — spouse relationship migration did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'contact_spouses'
+      AND policyname = 'contact_spouses_select'
+  ) THEN
+    RAISE EXCEPTION 'public.contact_spouses RLS policy is missing';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'deals' AND column_name = 'company_id'

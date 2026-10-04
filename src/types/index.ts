@@ -178,6 +178,17 @@ export interface ContactCompany {
   contact?: Contact;
 }
 
+export interface SpouseContact {
+  id: string;
+  name?: string;
+  phone: string;
+}
+
+export interface ContactSpouseLink {
+  contactId: string;
+  spouse: SpouseContact;
+}
+
 export interface DealContact {
   deal_id: string;
   contact_id: string;

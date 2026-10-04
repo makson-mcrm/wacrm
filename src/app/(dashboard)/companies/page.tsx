@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
-import type { Company, Contact, Deal } from '@/types';
+import type { Company, Contact, ContactSpouseLink, Deal } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,6 +34,8 @@ import { ActivityHistory } from '@/components/sales/activity-history';
 import { formatCrmDate } from '@/lib/crm/format';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Plus, Search, Users } from 'lucide-react';
+import { SpouseLinks } from '@/components/relationships/spouse-links';
+import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 
 interface LinkedContactRow {
   contact_id: string;
@@ -371,6 +373,7 @@ function CompanySheet({
   const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContactRow[]>([]);
+  const [spouseLinks, setSpouseLinks] = useState<ContactSpouseLink[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contactId, setContactId] = useState('');
   const [contactRole, setContactRole] = useState('');
@@ -382,6 +385,7 @@ function CompanySheet({
   const loadRelations = useCallback(async () => {
     if (!company) {
       setLinkedContacts([]);
+      setSpouseLinks([]);
       setDeals([]);
       return;
     }
@@ -398,7 +402,14 @@ function CompanySheet({
         .eq('company_id', company.id)
         .order('created_at', { ascending: false }),
     ]);
-    setLinkedContacts((links.data ?? []) as unknown as LinkedContactRow[]);
+    const linked = (links.data ?? []) as unknown as LinkedContactRow[];
+    setLinkedContacts(linked);
+    setSpouseLinks(
+      await loadSpouseLinks(
+        supabase,
+        linked.map((link) => link.contact_id)
+      )
+    );
     setDeals((companyDeals.data ?? []) as Deal[]);
   }, [company, supabase]);
 
@@ -844,6 +855,7 @@ function CompanySheet({
 
               {company && (
                 <>
+                  <SpouseLinks links={spouseLinks} />
                   <section className="border-border space-y-3 border-t pt-5">
                     <div className="flex items-center justify-between">
                       <h3 className="flex items-center gap-2 font-medium">
