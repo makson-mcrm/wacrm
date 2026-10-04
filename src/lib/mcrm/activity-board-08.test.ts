@@ -64,7 +64,9 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
       path.join(process.cwd(), 'src/components/sales/activity-board-08.tsx'),
       'utf8'
     );
-    expect(source).toContain("type ActivityView = 'new' | 'history' | 'documents' | 'tasks'");
+    expect(source).toContain(
+      "type ActivityView = 'new' | 'history' | 'documents' | 'tasks'"
+    );
     expect(source).toContain('setCreateTask(true)');
     expect(source).toContain('id="activity-task-title"');
     expect(source).toContain('id="activity-occurred-at"');
@@ -73,6 +75,22 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
     expect(source).toContain("activity_status: 'PLANOWANE'");
     expect(source).toContain('scheduled_at: nextIso');
     expect(source).toContain('Wyślij kopię e-maila do klienta');
-    expect(source).toContain('toWarsawDateTimeInput(selectedDeal.next_action_at)');
+    expect(source).toContain(
+      'toWarsawDateTimeInput(selectedDeal.next_action_at)'
+    );
+  });
+
+  it('utrzymuje szybki mobile core, schowane opcje i zapis bez position fixed', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/components/sales/activity-board-08.tsx'),
+      'utf8'
+    );
+    expect(source).toContain('WIĘCEJ / OPCJE');
+    expect(source).toContain('data-slot="activity-mobile-save"');
+    expect(source).toContain('sticky bottom-');
+    expect(source).not.toContain('className="fixed inset-x-3');
+    expect(source).toContain('AI: rozpoznaj z notatki');
+    expect(source).toContain('activity-blocker-mobile');
+    expect(source).toContain('activity-stage-mobile');
   });
 });

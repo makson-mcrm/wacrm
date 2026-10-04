@@ -661,7 +661,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -678,7 +678,19 @@ export function ContactDetailView({
                   />
                   <Button
                     size="sm"
+                    render={
+                      <Link
+                        href={`/pipelines?new=deal&contact=${contact.id}`}
+                      />
+                    }
+                    className="bg-emerald-800 text-white hover:bg-emerald-700"
+                  >
+                    + NOWY DEAL
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="outline"
+                    className="hidden sm:inline-flex"
                     render={
                       <Link
                         href={`/quick-call?contact=${contact.id}&action=dictate`}
@@ -690,6 +702,7 @@ export function ContactDetailView({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="hidden sm:inline-flex"
                     render={
                       <Link
                         href={`/calendar?new=event&contact=${contact.id}`}
@@ -701,6 +714,7 @@ export function ContactDetailView({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="hidden sm:inline-flex"
                     onClick={() => {
                       setActiveTab('details');
                       window.setTimeout(() => {
@@ -886,7 +900,7 @@ export function ContactDetailView({
                       id="mobile-contact-deals"
                       className="text-sm font-black tracking-wide text-slate-950 uppercase"
                     >
-                      Deale ({deals.length})
+                      Deale
                     </h3>
                     {loadingDeals ? (
                       <div className="flex justify-center py-6">
@@ -901,29 +915,20 @@ export function ContactDetailView({
                             className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
                           >
                             <span className="block text-sm font-black">
-                              {deal.title}
+                              {deal.title} ·{' '}
+                              {formatCurrency(
+                                deal.value ?? 0,
+                                deal.currency || defaultCurrency
+                              )}{' '}
+                              · {deal.stage?.name || 'Etap nieustalony'}
                             </span>
-                            <span className="mt-1 block text-xs font-bold text-slate-800">
-                              {deal.stage?.name || 'Etap nieustalony'}
-                              {deal.value != null
-                                ? ` · ${formatCurrency(
-                                    deal.value,
-                                    deal.currency || defaultCurrency
-                                  )}`
-                                : ''}
+                            <span className="mt-1 block text-xs text-slate-700">
+                              następny krok:{' '}
+                              {deal.next_action || 'nie ustalono'} · termin:{' '}
+                              {deal.next_action_at
+                                ? formatWarsawDateTime(deal.next_action_at)
+                                : 'nie ustalono'}
                             </span>
-                            {(deal.next_action || deal.next_action_at) && (
-                              <span className="mt-1 block text-xs text-slate-700">
-                                {deal.next_action
-                                  ? `Następny krok: ${deal.next_action}`
-                                  : 'Termin następnego kroku'}
-                                {deal.next_action_at
-                                  ? ` · ${formatWarsawDateTime(
-                                      deal.next_action_at
-                                    )}`
-                                  : ''}
-                              </span>
-                            )}
                           </Link>
                         ))}
                       </div>
@@ -942,7 +947,7 @@ export function ContactDetailView({
                       id="mobile-contact-activities"
                       className="text-sm font-black tracking-wide text-slate-950 uppercase"
                     >
-                      Aktywności
+                      Ostatnie aktywności
                     </h3>
                     <ActivityHistory contactId={contact.id} className="mt-2" />
                   </section>
@@ -1662,16 +1667,16 @@ export function ContactDetailView({
                 </TabsContent>
               </Tabs>
               <div className="shrink-0 border-t bg-white p-3">
-                  <Button
-                    aria-label="+ UTWÓRZ NOWY DEAL"
-                    className="w-full bg-emerald-800 text-white"
-                    render={
-                      <Link
-                        href={`/quick-call?contact=${contact.id}&newDeal=1`}
-                      />
-                    }
-                  >
-                    + NOWY DEAL
+                <Button
+                  aria-label="+ UTWÓRZ NOWY DEAL"
+                  className="w-full bg-emerald-800 text-white"
+                  render={
+                    <Link
+                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
+                    />
+                  }
+                >
+                  + NOWY DEAL
                 </Button>
               </div>
             </div>

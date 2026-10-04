@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
+const source = (path: string) =>
+  readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
   it('wspólny shell obsługuje telefon, tablet, klawiaturę i safe area', () => {
@@ -13,13 +14,22 @@ describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
     expect(shell).toContain('safe-area-inset-bottom');
     expect(nav).toContain('md:hidden');
     expect(nav).toContain('safe-area-inset-bottom');
+    expect(nav).toContain('grid-cols-5');
+    expect(nav).toContain('<GlobalAdd mobile />');
   });
 
   it('Deal wymaga jawnego wyboru, ma akcje sterujące i kontekst nad foldem', () => {
     const quickActivity = source('src/lib/sales/quick-activity.ts');
     const deal = source('src/app/(dashboard)/deals/[id]/page.tsx');
     expect(quickActivity).toContain('activeDealCount > 1');
-    for (const label of ['Cofnij', 'Zmień Deal', '+ Nowy Deal', 'Następny krok', 'Termin', 'Blocker']) {
+    for (const label of [
+      'Cofnij',
+      'Zmień Deal',
+      '+ Nowy Deal',
+      'Następny krok',
+      'Termin',
+      'Blocker',
+    ]) {
       expect(deal).toContain(label);
     }
   });
@@ -42,7 +52,16 @@ describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
 
   it('Zadania mają pełny zestaw filtrów i klikalne relacje', () => {
     const tasks = source('src/app/(dashboard)/tasks/page.tsx');
-    for (const label of ['Wszystkie', 'Dziś', 'Po terminie', 'Następne dni', 'Bez terminu', 'Osoba', 'Firma', 'Deal']) {
+    for (const label of [
+      'Wszystkie',
+      'Dziś',
+      'Po terminie',
+      'Następne dni',
+      'Bez terminu',
+      'Osoba',
+      'Firma',
+      'Deal',
+    ]) {
       expect(tasks).toContain(label);
     }
     expect(tasks).toContain('/companies?open=');
@@ -52,7 +71,22 @@ describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
 
   it('Finanse są jednym shellem operacyjnym z importem i zamknięciem miesiąca', () => {
     const finances = source('src/app/(dashboard)/finances/page.tsx');
-    for (const label of ['Firma', 'Prywatne', 'Razem', 'Przychody', 'Koszty', 'Wynik', 'VAT', 'Dokumenty i wyciągi', 'Import pliku', 'Status miesiąca', 'ZUS', 'PIT', 'Historia zamknięć', 'Zamknij miesiąc']) {
+    for (const label of [
+      'Firma',
+      'Prywatne',
+      'Razem',
+      'Przychody',
+      'Koszty',
+      'Wynik',
+      'VAT',
+      'Dokumenty i wyciągi',
+      'Import pliku',
+      'Status miesiąca',
+      'ZUS',
+      'PIT',
+      'Historia zamknięć',
+      'Zamknij miesiąc',
+    ]) {
       expect(finances).toContain(label);
     }
     expect(finances).toContain("from('deal_documents')");
@@ -65,6 +99,6 @@ describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
     expect(assistant).toContain('Zmień kontekst');
     expect(assistant).toContain('Wybierz jawnie klienta i Deal');
     expect(assistant).toContain('nie odpowiada ogólnie bez jawnego');
-    expect(assistant).not.toContain("rows[0]?.id");
+    expect(assistant).not.toContain('rows[0]?.id');
   });
 });

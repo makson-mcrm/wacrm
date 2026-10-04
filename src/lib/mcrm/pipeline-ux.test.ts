@@ -21,7 +21,8 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
       'Ostatnia aktywność',
       'Nowy kontakt / nieznany numer',
       'Na stronie:',
-    ]) expect(page).toContain(label);
+    ])
+      expect(page).toContain(label);
     expect(page).toContain('const PAGE_SIZE = 20');
     expect(page).toContain("const contactId = query.get('open')");
     expect(page).toContain('if (contactId) openDetail(contactId)');
@@ -45,7 +46,8 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
       'Termin główny',
       'probability',
       '/contacts?open=',
-    ]) expect(page).toContain(label);
+    ])
+      expect(page).toContain(label);
   });
 
   it('Lejek ma kontraktowe filtry, statystyki i odseparowanie danych testowych', () => {
@@ -81,10 +83,7 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
 
   it('pokazuje wymagane informacje i aktywne powiązania karty', () => {
     const card = source('src/components/pipelines/deal-card.tsx');
-    for (const token of [
-      'Ostatnia aktywność:',
-      '/deals/',
-    ]) {
+    for (const token of ['Ostatnia aktywność:', '/deals/']) {
       expect(card).toContain(token);
     }
   });
@@ -94,8 +93,9 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
     for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'KLIENCI', 'ASYSTENT']) {
       expect(nav).toContain(`label: '${label}'`);
     }
-    expect(nav).not.toContain("label: 'DODAJ'");
+    expect(nav).toContain("label: '+'");
     expect(nav).not.toContain("label: 'LEJEK'");
-    expect(nav).toContain('grid-cols-4');
+    expect(nav).toContain('grid-cols-5');
+    expect(nav).toContain('<GlobalAdd mobile />');
   });
 });

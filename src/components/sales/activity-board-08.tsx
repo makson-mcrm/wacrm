@@ -241,6 +241,8 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
     const requestedAction = searchParams.get('action');
     if (requestedAction === 'message') setAction('WIADOMOSC');
     if (requestedAction === 'call') setAction('TELEFON');
+    if (requestedAction === 'meeting') setAction('SPOTKANIE');
+    if (requestedAction === 'document') setAction('INNY_KONTAKT');
 
     if (requestedDealId) {
       const requestedDeal = deals.find((deal) => deal.id === requestedDealId);
@@ -1129,7 +1131,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           </section>
 
           <section className="flex flex-col gap-4 rounded-xl border border-slate-300 bg-white p-3 shadow-sm lg:p-4">
-            <div className="order-1">
+            <div className="order-1 hidden lg:block">
               <h2 className="font-black text-[#0b1b55]">
                 <span className="lg:hidden">Akcja</span>
                 <span className="hidden lg:inline">2. Zarejestruj rozmowę</span>
@@ -1180,8 +1182,8 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             </div>
 
-            <div className="order-2">
-              <div className="flex items-center justify-between gap-3">
+            <div className="order-2 flex flex-col">
+              <div className="order-2 mt-4 flex items-center justify-between gap-3 lg:order-1 lg:mt-0">
                 <h2 className="font-black text-[#0b1b55]">
                   <span className="lg:hidden">Wynik</span>
                   <span className="hidden lg:inline">3. Wynik rozmowy</span>
@@ -1191,7 +1193,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     aria-label="Wynik rozmowy"
                     value={result}
                     onChange={(event) => setResult(event.target.value)}
-                    className="h-11 rounded-md border border-slate-200 bg-white px-2 text-base font-semibold text-slate-600 md:h-8 md:text-xs"
+                    className="hidden h-11 rounded-md border border-slate-200 bg-white px-2 text-base font-semibold text-slate-700 lg:block lg:h-8 lg:text-xs"
                   >
                     <option value="">Wybierz wynik</option>
                     {OUTCOMES.map(([value, label]) => (
@@ -1202,13 +1204,32 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   </select>
                 )}
               </div>
-              <h2 className="mt-4 font-black text-[#0b1b55]">
+              {action === 'TELEFON' && (
+                <div className="order-2 mt-2 grid grid-cols-3 gap-2 lg:hidden">
+                  {OUTCOMES.map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={result === value}
+                      onClick={() => setResult(value)}
+                      className={`min-h-11 rounded-lg border px-2 text-xs font-black ${
+                        result === value
+                          ? 'border-emerald-900 bg-emerald-800 text-white'
+                          : 'border-slate-300 bg-white text-slate-950'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <h2 className="order-1 font-black text-[#0b1b55] lg:order-2 lg:mt-4">
                 <span className="lg:hidden">Notatka / dyktuj</span>
                 <span className="hidden lg:inline">
                   4. Notatka lub dyktowanie
                 </span>
               </h2>
-              <div className="mt-2 [&_textarea]:min-h-48 [&_textarea]:border-slate-300 [&_textarea]:bg-white [&_textarea]:text-base sm:[&_textarea]:min-h-28">
+              <div className="order-1 mt-2 lg:order-2 [&_textarea]:min-h-48 [&_textarea]:border-slate-300 [&_textarea]:bg-white [&_textarea]:text-base sm:[&_textarea]:min-h-28">
                 <VoiceTextarea
                   value={note}
                   onChange={setNote}
@@ -1216,7 +1237,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   layout="side"
                 />
               </div>
-              <div className="mt-2 hidden flex-wrap gap-2 lg:flex">
+              <div className="order-3 mt-2 hidden flex-wrap gap-2 lg:flex">
                 <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold">
                   <FilePlus2 className="size-4" />{' '}
                   {uploading ? 'Dodaję…' : 'Dodaj załącznik'}
@@ -1261,7 +1282,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </button>
               </div>
               {showOccurredAt && (
-                <div className="mt-2 max-w-sm rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="order-4 mt-2 hidden max-w-sm rounded-lg border border-blue-200 bg-blue-50 p-3 lg:block">
                   <Label htmlFor="activity-occurred-at">Data aktywności</Label>
                   <Input
                     id="activity-occurred-at"
@@ -1273,7 +1294,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </div>
               )}
               {createTask && (
-                <div className="mt-2 grid gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-2">
+                <div className="order-4 mt-2 hidden gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-2 lg:grid">
                   <div>
                     <Label htmlFor="activity-task-title">Treść zadania</Label>
                     <Input
@@ -1301,7 +1322,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               )}
             </div>
 
-            <div className="order-3 rounded-xl border border-lime-400 bg-lime-100 p-3">
+            <div className="order-3 hidden rounded-xl border border-lime-400 bg-lime-100 p-3 lg:block">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-2">
                   <Sparkles className="mt-0.5 size-5 text-lime-700" />
@@ -1385,7 +1406,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               <h2 className="hidden font-black text-[#0b1b55] lg:block">
                 5. Następny krok · 6. Termin · 7. Blocker
               </h2>
-              <div className="mt-2 grid gap-3 rounded-lg border border-slate-300 bg-slate-50/80 p-3 sm:grid-cols-3">
+              <div className="mt-2 grid gap-3 rounded-lg border border-slate-300 bg-slate-50/80 p-3 lg:grid-cols-3">
                 <div>
                   <Label htmlFor="activity-next">Następny krok</Label>
                   <Input
@@ -1418,7 +1439,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </div>
               </div>
             </div>
-            <div className="order-5 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white p-2 sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+            <div
+              data-slot="activity-mobile-save"
+              className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 order-5 -mx-2 flex flex-col gap-2 rounded-xl border border-emerald-900/20 bg-white/97 p-2 shadow-[0_-8px_30px_rgba(15,23,42,0.12)] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
+            >
               <span className="text-sm font-black text-[#0b1b55]">
                 <span className="lg:hidden">Zapis</span>
                 <span className="hidden lg:inline">8. Zapis</span>
@@ -1569,28 +1593,50 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   />
                   Wyślij kopię e-maila do klienta
                 </label>
+                {createTask && (
+                  <div className="grid gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <div>
+                      <Label htmlFor="activity-task-title-mobile">
+                        Treść zadania
+                      </Label>
+                      <Input
+                        id="activity-task-title-mobile"
+                        value={nextAction}
+                        onChange={(event) => setNextAction(event.target.value)}
+                        placeholder="Co trzeba zrobić?"
+                        className="mt-1 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="activity-task-at-mobile">
+                        Termin zadania
+                      </Label>
+                      <Input
+                        id="activity-task-at-mobile"
+                        type="datetime-local"
+                        value={nextAt}
+                        onChange={(event) => setNextAt(event.target.value)}
+                        className="mt-1 bg-white text-base"
+                      />
+                    </div>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!selectedDeal || !note.trim()}
+                  onClick={() =>
+                    selectedDeal &&
+                    router.push(
+                      `/assistant?deal=${selectedDeal.id}&feature=prepare`
+                    )
+                  }
+                  className="min-h-11 w-full border-lime-600 bg-lime-100 font-black text-slate-950"
+                >
+                  <Sparkles className="size-4" /> AI: rozpoznaj z notatki
+                </Button>
               </div>
             </details>
-            <div
-              data-slot="activity-mobile-save"
-              className="fixed inset-x-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-xl border border-emerald-900/20 bg-white/97 p-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur sm:hidden"
-            >
-              <span className="pl-1 text-xs font-black text-[#071747]">
-                Zapis
-              </span>
-              <Button
-                type="button"
-                disabled={!selectedContact || saving}
-                onClick={() => void saveActivity()}
-                className="ml-auto h-11 min-w-48 bg-emerald-800 px-4 font-black text-white"
-              >
-                {saving
-                  ? 'Zapisuję…'
-                  : action === 'WIADOMOSC'
-                    ? 'Wyślij i zapisz'
-                    : 'Zapisz aktywność'}
-              </Button>
-            </div>
           </section>
         </div>
       )}

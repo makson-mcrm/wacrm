@@ -36,16 +36,17 @@ describe('plansza UX mCRM AI 10.09', () => {
     ).not.toContain("label: 'AKTYWNOŚĆ'");
   });
 
-  it('AppShell udostępnia GlobalSearch, a mobile cztery stałe wejścia', () => {
+  it('AppShell udostępnia GlobalSearch, a mobile cztery wejścia i centralny GlobalAdd', () => {
     const header = source('src/components/layout/header.tsx');
     const mobile = source('src/components/layout/mobile-bottom-nav.tsx');
     expect(header).toContain('<GlobalCrmSearch />');
     expect(header).toContain('<GlobalAdd />');
-    expect(mobile).toContain('grid-cols-4');
+    expect(mobile).toContain('grid-cols-5');
     for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'KLIENCI', 'ASYSTENT']) {
       expect(mobile).toContain(`label: '${label}'`);
     }
-    expect(mobile).not.toContain("label: 'DODAJ'");
+    expect(mobile).toContain("label: '+'");
+    expect(mobile).toContain('<GlobalAdd mobile />');
   });
 
   it('nie pokazuje pustego DZISIAJ podczas ładowania albo błędu danych', () => {

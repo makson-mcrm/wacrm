@@ -45,31 +45,62 @@ export function GlobalAdd({ mobile = false }: { mobile?: boolean }) {
         align={mobile ? 'center' : 'end'}
         className="min-w-52"
       >
-        <DropdownMenuItem render={<Link href="/quick-call" />}>
-          <Activity className="size-4" />
-          Aktywność
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
-          <BriefcaseBusiness className="size-4" />
-          Deal
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
-          <UserPlus className="size-4" />
-          Kontakt
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/companies?new=company" />}>
-          <Building2 className="size-4" />
-          Firma
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/tasks?new=task" />}>
-          <ListTodo className="size-4" />
-          Zadanie
-        </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/calendar?new=event" />}>
-          <CalendarPlus className="size-4" />
-          Spotkanie
-        </DropdownMenuItem>
+        {mobile ? (
+          <>
+            <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
+              <UserPlus className="size-4" />
+              Kontakt
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
+              <BriefcaseBusiness className="size-4" />
+              Deal
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/tasks?new=task" />}>
+              <ListTodo className="size-4" />
+              Zadanie
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={<Link href="/quick-call?action=meeting" />}
+            >
+              <CalendarPlus className="size-4" />
+              Spotkanie-Aktywność
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={<Link href="/quick-call?action=document" />}
+            >
+              <Activity className="size-4" />
+              Notatka-Dokument
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem render={<Link href="/quick-call" />}>
+              <Activity className="size-4" />
+              Aktywność
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/pipelines?new=deal" />}>
+              <BriefcaseBusiness className="size-4" />
+              Deal
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/contacts?new=contact" />}>
+              <UserPlus className="size-4" />
+              Kontakt
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/companies?new=company" />}>
+              <Building2 className="size-4" />
+              Firma
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/tasks?new=task" />}>
+              <ListTodo className="size-4" />
+              Zadanie
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/calendar?new=event" />}>
+              <CalendarPlus className="size-4" />
+              Spotkanie
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

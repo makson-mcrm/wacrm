@@ -492,7 +492,96 @@ export default function DealPage() {
   if (isP2DealView(activeTab))
     return (
       <div className="space-y-4">
-        <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section
+          className="space-y-4 rounded-xl border border-slate-300 bg-white p-3 shadow-sm md:hidden"
+          aria-label="Najważniejsze informacje o Dealu"
+        >
+          <div>
+            <p className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Nazwa Deala
+            </p>
+            <h1 className="mt-1 text-xl leading-tight font-black text-slate-950">
+              {deal.title}
+            </h1>
+          </div>
+
+          <label className="block">
+            <span className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Etap
+            </span>
+            <select
+              value={deal.stage_id}
+              onChange={(event) => void changeStage(event.target.value)}
+              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base font-bold text-slate-950"
+            >
+              {orderedStages.slice(0, 7).map((stage, index) => (
+                <option key={stage.id} value={stage.id}>
+                  {index + 1}. {stage.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <p className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Wartość
+            </p>
+            <p className="mt-1 text-lg font-black text-emerald-900">
+              {money(deal.value)} {deal.currency || 'PLN'}
+            </p>
+          </div>
+
+          <label className="block">
+            <span className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Następny krok
+            </span>
+            <Textarea
+              value={nextActionDraft}
+              onChange={(event) => setNextActionDraft(event.target.value)}
+              placeholder="Co robimy dalej?"
+              className="mt-1 min-h-20 resize-none bg-white text-base"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Termin
+            </span>
+            <Input
+              type="datetime-local"
+              value={nextActionAtDraft}
+              onChange={(event) => setNextActionAtDraft(event.target.value)}
+              className="mt-1 bg-white text-base"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-black tracking-wide text-slate-700 uppercase">
+              Blocker
+            </span>
+            <Input
+              value={blockerDraft}
+              onChange={(event) => setBlockerDraft(event.target.value)}
+              placeholder="Brak blockera"
+              className="mt-1 bg-white text-base"
+            />
+          </label>
+
+          <Button
+            onClick={() => void saveNextAction()}
+            disabled={savingNextAction}
+            className="min-h-11 w-full bg-emerald-800 font-black text-white"
+          >
+            {savingNextAction ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}{' '}
+            Zapisz status
+          </Button>
+        </section>
+
+        <header className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:block">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <Link
@@ -551,7 +640,7 @@ export default function DealPage() {
         </nav>
 
         <section
-          className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:block"
           aria-label="Etapy Deala"
         >
           <div className="flex min-w-[760px] items-start">
@@ -583,7 +672,7 @@ export default function DealPage() {
           </div>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="hidden gap-3 md:grid md:grid-cols-3">
           <StatusCard title="Następny krok">
             <Input
               value={nextActionDraft}
