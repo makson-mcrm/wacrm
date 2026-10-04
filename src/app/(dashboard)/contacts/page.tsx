@@ -65,6 +65,7 @@ import { useTranslations } from 'next-intl';
 import { formatCrmDate } from '@/lib/crm/format';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { parseCrmPhone } from '@/lib/contacts/phone';
+import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 
 const PAGE_SIZE = 20;
 
@@ -75,6 +76,7 @@ interface ContactWithTags extends Contact {
   nextAction?: string | null;
   nextActionAt?: string | null;
   dealCount?: number;
+  spouses?: { id: string; name: string | null; phone: string }[];
   activeDeal?: {
     id: string;
     title: string;
@@ -248,6 +250,7 @@ export default function ContactsPage() {
       { data: companyLinks },
       { data: activityRows },
       { data: dealRows },
+      spouseLinks,
     ] = await Promise.all([
       supabase
         .from('contact_tags')
@@ -272,6 +275,7 @@ export default function ContactsPage() {
           'id,title,contact_id,next_action,next_action_at,follow_up_at,status,stage:pipeline_stages(name)'
         )
         .in('contact_id', contactIds),
+      loadSpouseLinks(supabase, contactIds),
     ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
 
@@ -300,6 +304,19 @@ export default function ContactsPage() {
     (activityRows as ContactActivityRow[] | null)?.forEach((activity) => {
       if (!lastActivityByContact[activity.contact_id])
         lastActivityByContact[activity.contact_id] = activity.occurred_at;
+    });
+
+    const spousesByContact: Record<
+      string,
+      { id: string; name: string | null; phone: string }[]
+    > = {};
+    spouseLinks.forEach((link) => {
+      if (!spousesByContact[link.contactId])
+        spousesByContact[link.contactId] = [];
+      spousesByContact[link.contactId].push({
+        ...link.spouse,
+        name: link.spouse.name ?? null,
+      });
     });
 
     const nextDealByContact: Record<string, ContactDealRow> = {};
@@ -335,6 +352,7 @@ export default function ContactsPage() {
         nextDealByContact[c.id]?.follow_up_at ||
         null,
       dealCount: dealCountByContact[c.id] ?? 0,
+      spouses: spousesByContact[c.id] ?? [],
       activeDeal: nextDealByContact[c.id]
         ? {
             id: nextDealByContact[c.id].id,
@@ -1387,9 +1405,13 @@ function MobileContactsView({
   ];
 
   return (
-    <section className="space-y-3 lg:hidden" aria-label="Klienci">
+    <section
+      className="space-y-2.5 text-slate-950 lg:hidden"
+      aria-label="Klienci"
+      data-mobile-page="contacts"
+    >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black tracking-tight text-slate-950">
+        <h1 className="text-2xl font-black tracking-tight text-[#071747]">
           KLIENCI
         </h1>
         <div className="flex items-center gap-2">
@@ -1419,23 +1441,29 @@ function MobileContactsView({
           className="h-11 rounded-xl border-slate-200 bg-white pl-9"
         />
       </label>
-      <div className="-mx-3 flex [scrollbar-width:none] gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:max-w-xl md:px-0 [&::-webkit-scrollbar]:hidden">
-        {segments.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => onSegmentChange(value)}
-            className={`min-h-11 shrink-0 rounded-lg border px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors ${
-              segment === value
-                ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm'
-                : 'border-slate-200 bg-slate-50 text-slate-700'
-            }`}
-          >
-            {label} {segmentCounts[value]}
-          </button>
-        ))}
+      <div className="relative -mx-3">
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#f5f8fb] to-transparent" />
+        <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-2 pr-10 [scrollbar-color:#047857_#dbe5ea] [scrollbar-width:thin]">
+          {segments.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onSegmentChange(value)}
+              className={`min-h-10 shrink-0 snap-start rounded-lg border px-3.5 py-1.5 text-sm font-bold whitespace-nowrap transition-colors ${
+                segment === value
+                  ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm'
+                  : 'border-slate-300 bg-white text-slate-800'
+              }`}
+            >
+              {label} <span className="ml-1 opacity-80">{segmentCounts[value]}</span>
+            </button>
+          ))}
+        </div>
+        <span className="pointer-events-none absolute right-3 -bottom-2 z-20 rounded-full bg-white px-1.5 text-[9px] font-bold text-emerald-800 shadow-sm">
+          przesuń →
+        </span>
       </div>
-      <div className="space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
+      <div className="space-y-2 pt-1 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">
             <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
@@ -1457,15 +1485,15 @@ function MobileContactsView({
             return (
               <article
                 key={contact.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)]"
               >
                 <button
                   type="button"
                   onClick={() => onOpen(contact.id)}
-                  className="block min-h-16 w-full p-3 text-left transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50/40"
+                  className="block w-full px-3 pt-2.5 pb-2 text-left transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50/40"
                 >
-                  <span className="flex items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
+                  <span className="flex items-start gap-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[11px] font-black text-blue-800">
                       {(contact.name || 'K')
                         .split(' ')
                         .map((part) => part[0])
@@ -1473,46 +1501,72 @@ function MobileContactsView({
                         .slice(0, 2)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-base font-black text-slate-950">
+                      <span className="block truncate text-[15px] leading-5 font-black text-[#071747]">
                         {contact.name || 'Kontakt bez nazwy'}
                       </span>
-                      <span className="mt-0.5 block truncate text-sm font-semibold text-slate-700">
+                      <span className="block truncate text-[13px] leading-5 font-semibold text-slate-800">
                         {contact.phone || 'Brak numeru telefonu'}
                       </span>
-                      {contact.companies?.[0]?.name ? (
-                        <span className="mt-0.5 block truncate text-xs text-slate-600">
-                          {contact.companies[0].name}
-                        </span>
-                      ) : null}
                     </span>
-                    <ChevronRight className="mt-2 size-5 shrink-0 text-slate-600" />
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${statusClass}`}>
+                        {status}
+                      </span>
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-900">
+                        {contact.dealCount ?? 0} deal
+                      </span>
+                    </span>
+                    <ChevronRight className="mt-2 size-4 shrink-0 text-slate-600" />
                   </span>
-                  <span className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-bold">
-                    <span className={`rounded-full px-2 py-1 ${statusClass}`}>
-                      {status}
-                    </span>
-                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-800">
-                      {contact.dealCount ?? 0}{' '}
-                      {(contact.dealCount ?? 0) === 1 ? 'deal' : 'deale'}
-                    </span>
-                  </span>
-                  <span className="mt-3 block border-t border-slate-100 pt-2 text-xs text-slate-600">
+                  <span className="mt-1.5 block border-t border-slate-100 pt-1.5 text-[11px] text-slate-700">
                     Ostatni kontakt:{' '}
-                    <b className="font-semibold text-slate-800">
+                    <b className="font-bold text-slate-950">
                       {contact.lastActivityAt
                         ? formatCrmDate(contact.lastActivityAt)
                         : 'brak aktywności'}
                     </b>
                   </span>
                 </button>
-                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 p-2">
+                <nav
+                  aria-label={`Powiązania: ${contact.name || contact.phone}`}
+                  className="grid grid-cols-3 border-y border-slate-200 bg-slate-50"
+                >
+                  <Link
+                    href={contact.companies?.[0] ? `/companies?open=${contact.companies[0].id}` : `/companies?contact=${contact.id}`}
+                    className="min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                  >
+                    <span className="block truncate">Firma</span>
+                    <span className="block truncate font-semibold text-slate-700">
+                      {contact.companies?.[0]?.name || 'Brak'} · {contact.companies?.length ?? 0}
+                    </span>
+                  </Link>
+                  <Link
+                    href={contact.spouses?.[0] ? `/contacts?open=${contact.spouses[0].id}` : `/contacts?open=${contact.id}`}
+                    className="min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                  >
+                    <span className="block truncate">Współmałżonek</span>
+                    <span className="block truncate font-semibold text-slate-700">
+                      {contact.spouses?.[0]?.name || 'Brak'} · {contact.spouses?.length ?? 0}
+                    </span>
+                  </Link>
+                  <Link
+                    href={contact.activeDeal ? `/deals/${contact.activeDeal.id}` : `/pipelines?new=deal&contact=${contact.id}`}
+                    className="min-w-0 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                  >
+                    <span className="block truncate">Deal</span>
+                    <span className="block truncate font-semibold text-slate-700">
+                      {contact.activeDeal?.title || 'Dodaj'} · {contact.dealCount ?? 0}
+                    </span>
+                  </Link>
+                </nav>
+                <div className="grid grid-cols-2 gap-1.5 bg-white p-1.5">
                   <CallAction
                     phone={contact.phone}
-                    className="h-11 w-full bg-emerald-800 text-white"
+                    className="h-9 min-h-9 w-full bg-emerald-800 text-[11px] font-black text-white"
                   />
                   <SmsAction
                     phone={contact.phone}
-                    className="h-11 w-full !border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-100"
+                    className="h-9 min-h-9 w-full !border-slate-300 !bg-white text-[11px] font-black !text-slate-900 hover:!bg-slate-100"
                   />
                 </div>
               </article>
@@ -1737,23 +1791,31 @@ function DesktopContactsView({
                         </button>
                       </TableCell>
                       <TableCell>
-                        {contact.companies?.length ? (
-                          <div className="space-y-1">
-                            {contact.companies.map((company) => (
-                              <Link
-                                key={company.id}
-                                href={`/companies?open=${company.id}`}
-                                className="block text-xs font-semibold text-emerald-800 hover:underline"
-                              >
-                                {company.name}
-                              </Link>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-500">
-                            Osoba indywidualna
-                          </span>
-                        )}
+                        <div className="flex max-w-64 flex-wrap gap-1.5">
+                          <Link
+                            href={
+                              contact.companies?.[0]
+                                ? `/companies?open=${contact.companies[0].id}`
+                                : `/companies?contact=${contact.id}`
+                            }
+                            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-emerald-900 hover:border-emerald-400 hover:bg-emerald-50"
+                          >
+                            Firma: {contact.companies?.[0]?.name || 'brak'} ·{' '}
+                            {contact.companies?.length ?? 0}
+                          </Link>
+                          <Link
+                            href={
+                              contact.spouses?.[0]
+                                ? `/contacts?open=${contact.spouses[0].id}`
+                                : `/contacts?open=${contact.id}`
+                            }
+                            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-emerald-900 hover:border-emerald-400 hover:bg-emerald-50"
+                          >
+                            Współmałżonek:{' '}
+                            {contact.spouses?.[0]?.name || 'brak'} ·{' '}
+                            {contact.spouses?.length ?? 0}
+                          </Link>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-52">
                         {contact.activeDeal ? (
@@ -1762,7 +1824,8 @@ function DesktopContactsView({
                             className="block text-xs font-semibold text-slate-900 hover:underline"
                           >
                             <span className="block truncate">
-                              {contact.activeDeal.title}
+                              Deal: {contact.activeDeal.title} ·{' '}
+                              {contact.dealCount ?? 0}
                             </span>
                             <span className="text-slate-500">
                               {contact.activeDeal.stage?.name ||

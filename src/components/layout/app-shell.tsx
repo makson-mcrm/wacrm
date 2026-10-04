@@ -42,17 +42,40 @@ export function AppShell({ children }: AppShellProps) {
       root.dataset.keyboardOpen = String(keyboardHeight > 120);
     };
 
+    const keepFocusedFieldVisible = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.matches('input, textarea, select, [contenteditable="true"]')
+      )
+        return;
+
+      window.setTimeout(() => {
+        const rect = target.getBoundingClientRect();
+        const visibleHeight = viewport?.height ?? window.innerHeight;
+        const saveBar = document.querySelector<HTMLElement>(
+          '[data-slot="activity-mobile-save"]'
+        );
+        const reservedBottom = saveBar?.offsetHeight ?? 16;
+        if (rect.bottom > visibleHeight - reservedBottom - 16 || rect.top < 8) {
+          target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }, 180);
+    };
+
     updateViewport();
     viewport?.addEventListener('resize', updateViewport);
     viewport?.addEventListener('scroll', updateViewport);
     window.addEventListener('resize', updateViewport);
     window.addEventListener('orientationchange', updateViewport);
+    document.addEventListener('focusin', keepFocusedFieldVisible);
 
     return () => {
       viewport?.removeEventListener('resize', updateViewport);
       viewport?.removeEventListener('scroll', updateViewport);
       window.removeEventListener('resize', updateViewport);
       window.removeEventListener('orientationchange', updateViewport);
+      document.removeEventListener('focusin', keepFocusedFieldVisible);
       root.style.removeProperty('--app-viewport-height');
       root.style.removeProperty('--app-viewport-offset-top');
       root.style.removeProperty('--keyboard-height');
@@ -90,7 +113,7 @@ export function AppShell({ children }: AppShellProps) {
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           id="main-content"
-          className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-3 pb-[calc(5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 lg:px-5 lg:pt-3"
+          className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#f5f8fb] px-3 pt-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-slate-950 md:bg-transparent md:p-6 md:pb-6 lg:px-5 lg:pt-3"
         >
           <AccountAccessAlert />
           {children}

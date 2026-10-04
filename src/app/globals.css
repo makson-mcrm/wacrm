@@ -272,7 +272,8 @@ html[data-theme='rose'] {
 
 @media (max-width: 767px) {
   #main-content {
-    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    scroll-padding-top: 0.75rem;
+    scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
   }
 
   #main-content > * {
@@ -296,7 +297,12 @@ html[data-theme='rose'] {
   }
 
   html[data-keyboard-open='true'] #main-content {
-    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    scroll-padding-bottom: 6rem;
+  }
+
+  html[data-keyboard-open='true'] [data-slot='activity-mobile-save'] {
+    bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
 }
 
