@@ -83,7 +83,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     'U';
 
   return (
-    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 md:h-14 md:flex-nowrap md:gap-3 md:py-0 lg:px-6">
+    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-1.5 border-b px-3 py-1.5 md:h-14 md:flex-nowrap md:gap-3 md:px-4 md:py-0 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
         <button

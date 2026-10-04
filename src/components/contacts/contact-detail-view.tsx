@@ -531,9 +531,9 @@ export function ContactDetailView({
               <Loader2 className="text-primary size-6 animate-spin" />
             </div>
           ) : (
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-w-0 flex-col">
               {/* Header */}
-              <SheetHeader className="border-border/50 shrink-0 border-b p-4 pr-10">
+              <SheetHeader className="border-border/50 shrink-0 border-b p-3 pr-12 sm:p-4 sm:pr-10">
                 <div className="flex items-center gap-3">
                   <Avatar className="bg-muted border-border size-12 border">
                     <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
@@ -581,7 +581,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-5 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -641,8 +641,11 @@ export function ContactDetailView({
                 onValueChange={setActiveTab}
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="mx-4 mt-2 grid h-10 grid-cols-3 rounded-none border-b bg-transparent p-0">
+                <TabsList className="mx-3 mt-2 flex h-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0 pb-1 sm:mx-4 sm:grid sm:h-10 sm:grid-cols-3 sm:gap-0 sm:overflow-visible sm:pb-0 [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&::-webkit-scrollbar]:hidden">
                   <TabsTrigger value="overview">Podsumowanie</TabsTrigger>
+                  <TabsTrigger value="companies" className="sm:hidden">
+                    Osoby i firmy ({contactCompanies.length})
+                  </TabsTrigger>
                   <TabsTrigger value="deals">
                     Deale ({deals.length})
                   </TabsTrigger>
@@ -691,31 +694,120 @@ export function ContactDetailView({
                   </TabsList>
                 </details>
 
-                <TabsContent value="overview" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+                <TabsContent
+                  value="overview"
+                  className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
+                >
                   <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">Powiązane osoby</h3>
+                    <h3 className="text-sm font-black">
+                      <span className="sm:hidden">Osoby i powiązania</span>
+                      <span className="hidden sm:inline">Powiązane osoby</span>
+                    </h3>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-                      <div className="rounded-lg bg-slate-50 p-2"><b className="block text-lg">1</b>Osoby</div>
-                      <div className="rounded-lg bg-slate-50 p-2"><b className="block text-lg">{deals.length}</b>Deale</div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <b className="block text-lg">1</b>Osoby
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <b className="block text-lg">{deals.length}</b>Deale
+                      </div>
                     </div>
-                    <div className="mt-3 flex gap-2"><CallAction phone={contact.phone} contactId={contact.id} /><WhatsAppAction phone={contact.phone} contactId={contact.id} /></div>
+                    <dl className="mt-3 space-y-2 text-xs sm:hidden">
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <dt className="font-bold text-slate-500">Firma</dt>
+                        <dd className="mt-1">
+                          {contactCompanies.length ? (
+                            contactCompanies.map((link) => (
+                              <Link
+                                key={link.company_id}
+                                href={`/companies?open=${link.company_id}`}
+                                className="block min-h-8 font-semibold text-emerald-800 hover:underline"
+                              >
+                                {link.company?.name || 'Firma bez nazwy'}
+                              </Link>
+                            ))
+                          ) : (
+                            <span className="text-slate-600">
+                              Brak powiązanej firmy
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <dt className="font-bold text-slate-500">
+                          Współmałżonek
+                        </dt>
+                        <dd className="mt-1 text-slate-600">Brak powiązania</dd>
+                      </div>
+                    </dl>
+                    <div className="mt-3 flex gap-2">
+                      <CallAction
+                        phone={contact.phone}
+                        contactId={contact.id}
+                      />
+                      <WhatsAppAction
+                        phone={contact.phone}
+                        contactId={contact.id}
+                      />
+                    </div>
                   </section>
                   <section className="rounded-xl border border-slate-200 p-3">
                     <h3 className="text-sm font-black">Informacje</h3>
                     <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div><dt className="text-slate-500">NIP</dt><dd className="font-semibold">{contactCompanies[0]?.company?.nip || '—'}</dd></div>
-                      <div><dt className="text-slate-500">Branża</dt><dd className="font-semibold">{contact.product_category || '—'}</dd></div>
-                      <div><dt className="text-slate-500">Lokalizacja</dt><dd className="font-semibold">{contact.city || contact.address || '—'}</dd></div>
-                      <div><dt className="text-slate-500">Tagi</dt><dd className="font-semibold">{contactTagIds.length}</dd></div>
+                      <div>
+                        <dt className="text-slate-500">NIP</dt>
+                        <dd className="font-semibold">
+                          {contactCompanies[0]?.company?.nip || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">Branża</dt>
+                        <dd className="font-semibold">
+                          {contact.product_category || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">Lokalizacja</dt>
+                        <dd className="font-semibold">
+                          {contact.city || contact.address || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">Tagi</dt>
+                        <dd className="font-semibold">
+                          {contactTagIds.length}
+                        </dd>
+                      </div>
                     </dl>
                   </section>
                   <section className="rounded-xl border border-slate-200 p-3">
                     <h3 className="text-sm font-black">Aktywne sprawy</h3>
-                    <div className="mt-2 space-y-2">{deals.filter((deal) => deal.status === 'open').map((deal) => <Link key={deal.id} href={`/deals/${deal.id}`} className="block rounded-lg bg-slate-50 p-2 text-sm font-semibold hover:text-emerald-800 hover:underline">{deal.title}<span className="block text-xs font-normal text-slate-500">{deal.stage?.name || 'Etap nieustalony'}</span></Link>)}{!deals.some((deal) => deal.status === 'open') ? <p className="text-xs text-slate-500">Brak aktywnych spraw.</p> : null}</div>
+                    <div className="mt-2 space-y-2">
+                      {deals
+                        .filter((deal) => deal.status === 'open')
+                        .map((deal) => (
+                          <Link
+                            key={deal.id}
+                            href={`/deals/${deal.id}`}
+                            className="block rounded-lg bg-slate-50 p-2 text-sm font-semibold hover:text-emerald-800 hover:underline"
+                          >
+                            {deal.title}
+                            <span className="block text-xs font-normal text-slate-500">
+                              {deal.stage?.name || 'Etap nieustalony'}
+                            </span>
+                          </Link>
+                        ))}
+                      {!deals.some((deal) => deal.status === 'open') ? (
+                        <p className="text-xs text-slate-500">
+                          Brak aktywnych spraw.
+                        </p>
+                      ) : null}
+                    </div>
                   </section>
                   <section className="rounded-xl border border-slate-200 p-3">
                     <h3 className="text-sm font-black">Ostatnia aktywność</h3>
-                    <div className="mt-2"><ActivityHistory contactId={contact.id} /></div>
+                    <div className="mt-2">
+                      <ActivityHistory contactId={contact.id} />
+                    </div>
                   </section>
                 </TabsContent>
 

@@ -20,7 +20,7 @@ export function MobileBottomNav() {
     <nav
       aria-label="Główna nawigacja mobilna"
       data-slot="mobile-bottom-nav"
-      className="absolute inset-x-0 bottom-0 z-30 border-t border-emerald-950/10 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur md:hidden"
+      className="absolute inset-x-0 bottom-0 z-30 border-t border-emerald-950/10 bg-white/95 pb-[env(safe-area-inset-bottom)] text-slate-700 shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid h-16 w-full max-w-lg grid-cols-5 overflow-hidden">
         {items.map((item) => {
@@ -38,7 +38,7 @@ export function MobileBottomNav() {
                   href={href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-full min-h-11 min-w-11 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-xs font-black tracking-[-0.03em]',
+                    'flex h-full min-h-11 min-w-11 flex-col items-center justify-center gap-1 overflow-hidden px-0.5 text-[10px] font-black tracking-[-0.03em] sm:text-xs',
                     active ? 'text-emerald-950' : 'text-slate-600'
                   )}
                 >

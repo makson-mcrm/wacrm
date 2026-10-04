@@ -90,7 +90,7 @@ export function AppShell({ children }: AppShellProps) {
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           id="main-content"
-          className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 lg:px-5 lg:pt-3"
+          className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-3 pb-[calc(5rem+env(safe-area-inset-bottom))] md:p-6 md:pb-6 lg:px-5 lg:pt-3"
         >
           <AccountAccessAlert />
           {children}

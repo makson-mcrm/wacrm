@@ -1419,16 +1419,16 @@ function MobileContactsView({
           className="h-11 rounded-xl border-slate-200 bg-white pl-9"
         />
       </label>
-      <div className="grid w-full grid-cols-5 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 md:max-w-xl">
+      <div className="-mx-3 flex [scrollbar-width:none] gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:max-w-xl md:px-0 [&::-webkit-scrollbar]:hidden">
         {segments.map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => onSegmentChange(value)}
-            className={`min-h-11 min-w-0 truncate rounded-lg px-1 py-2 text-xs font-bold transition-colors ${
+            className={`min-h-11 shrink-0 rounded-lg border px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors ${
               segment === value
-                ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500'
+                ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
             }`}
           >
             {label} {segmentCounts[value]}
@@ -1457,55 +1457,64 @@ function MobileContactsView({
             return (
               <article
                 key={contact.id}
-                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
                 <button
                   type="button"
                   onClick={() => onOpen(contact.id)}
-                  className="flex min-h-16 w-full items-center gap-3 text-left"
+                  className="block min-h-16 w-full p-3 text-left transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50/40"
                 >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
-                    {(contact.name || 'K')
-                      .split(' ')
-                      .map((part) => part[0])
-                      .join('')
-                      .slice(0, 2)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black text-slate-950">
-                      {contact.name || 'Kontakt bez nazwy'}
+                  <span className="flex items-start gap-3">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-700">
+                      {(contact.name || 'K')
+                        .split(' ')
+                        .map((part) => part[0])
+                        .join('')
+                        .slice(0, 2)}
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-slate-600">
-                      {contact.companies?.[0]?.name ||
-                        contact.phone ||
-                        'Klient'}
-                    </span>
-                    <span className="mt-1 flex items-center gap-1.5 text-xs font-bold">
-                      <span
-                        className={`rounded-full px-2 py-0.5 ${statusClass}`}
-                      >
-                        {status}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-base font-black text-slate-950">
+                        {contact.name || 'Kontakt bez nazwy'}
                       </span>
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                        {contact.dealCount ?? 0}{' '}
-                        {(contact.dealCount ?? 0) === 1 ? 'Deal' : 'Deale'}
+                      <span className="mt-0.5 block truncate text-sm font-semibold text-slate-700">
+                        {contact.phone || 'Brak numeru telefonu'}
                       </span>
+                      {contact.companies?.[0]?.name ? (
+                        <span className="mt-0.5 block truncate text-xs text-slate-600">
+                          {contact.companies[0].name}
+                        </span>
+                      ) : null}
+                    </span>
+                    <ChevronRight className="mt-2 size-5 shrink-0 text-slate-600" />
+                  </span>
+                  <span className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                    <span className={`rounded-full px-2 py-1 ${statusClass}`}>
+                      {status}
+                    </span>
+                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-800">
+                      {contact.dealCount ?? 0}{' '}
+                      {(contact.dealCount ?? 0) === 1 ? 'deal' : 'deale'}
                     </span>
                   </span>
-                  <ChevronRight className="size-5 text-slate-600" />
+                  <span className="mt-3 block border-t border-slate-100 pt-2 text-xs text-slate-600">
+                    Ostatni kontakt:{' '}
+                    <b className="font-semibold text-slate-800">
+                      {contact.lastActivityAt
+                        ? formatCrmDate(contact.lastActivityAt)
+                        : 'brak aktywności'}
+                    </b>
+                  </span>
                 </button>
-                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 p-2">
                   <CallAction
                     phone={contact.phone}
                     className="h-11 w-full bg-emerald-800 text-white"
                   />
-                  <SmsAction phone={contact.phone} className="h-11 w-full" />
+                  <SmsAction
+                    phone={contact.phone}
+                    className="h-11 w-full !border-slate-300 !bg-white !text-slate-800 hover:!bg-slate-100"
+                  />
                 </div>
-                {contact.lastActivityAt ? (
-                  <p className="mt-2 text-xs text-slate-600">
-                    Ostatni kontakt: {formatCrmDate(contact.lastActivityAt)}
-                  </p>
-                ) : null}
               </article>
             );
           })}

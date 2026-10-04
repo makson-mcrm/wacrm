@@ -271,6 +271,19 @@ html[data-theme='rose'] {
 }
 
 @media (max-width: 767px) {
+  #main-content {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  #main-content > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #main-content :where(p, dd, li) {
+    overflow-wrap: anywhere;
+  }
+
   input,
   select,
   textarea {

@@ -1,49 +1,40 @@
-# Design QA — P1 ekran 08 AKTYWNOŚĆ
+# Design QA — MOBILE 02 KLIENCI + 08 AKTYWNOŚĆ
 
-- Source visual truth: `C:/Users/HP/AppData/Local/hermes/cache/scratch/centrum/ux/para_08.png`
-- Implementation screenshot: `C:/Users/HP/AppData/Local/hermes/cache/scratch/centrum/ux/P1_08_implementation_desktop.png`
-- Combined comparison: `C:/Users/HP/AppData/Local/hermes/cache/scratch/centrum/ux/P1_08_comparison.png`
-- Mobile screenshot: `C:/Users/HP/AppData/Local/hermes/cache/scratch/centrum/ux/P1_08_implementation_mobile.png`
-- Desktop viewport: 1440 × 1000 CSS px, device scale factor 1; screenshot 1440 × 1000 px.
-- Mobile viewport: 390 × 844 CSS px, device scale factor 1; screenshot 390 × 844 px.
-- State: demo data odpowiadające planszy — wybrany klient, aktywny deal i pięć wpisów osi czasu.
+- Source visual truth: `C:/Users/HP/AppData/Local/hermes/cache/scratch/ux9/wzorzec_02.png` i `wzorzec_08.png` (1920 × 1081 px; prawa, mobilna część planszy).
+- Browser-rendered implementation: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-viewport.png`, `wacrm-mobile-08-viewport.png` oraz pełne przewinięcia `wacrm-mobile-02-full.png`, `wacrm-mobile-08-full.png`.
+- Combined comparisons: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-comparison.png` i `wacrm-mobile-08-comparison.png`.
+- Viewport: 390 × 844 CSS px, device scale factor 1. Implementacja viewport 390 × 844 px; źródłowy telefon został wykadrowany i znormalizowany do 390 px szerokości.
+- State: 02 z trzema realistycznymi kartami; 08 z wybranym klientem, dealem i pięcioma ostatnimi aktywnościami.
 
 ## Full-view comparison evidence
 
-Plansza i render zostały zestawione w jednym obrazie `P1_08_comparison.png`. Implementacja zachowuje krytyczną kompozycję: lewa kolumna zawiera wybór klienta, kartę dealu i ostatnie aktywności; prawa kolumna zawiera rejestrację rozmowy, wynik, notatkę, kolejne kroki, Asystenta AI, wtórną zmianę etapu/zamknięcie i główny zapis na końcu.
+Oba wzorce i oba rendery zostały zestawione parami w jednym obrazie. 02 zachowuje mobilną hierarchię: wyszukiwarka, przewijane filtry, karty zamiast tabeli, status/deale/ostatni kontakt i duże akcje telefon/SMS. 08 zachowuje jednokolumnowy przepływ i czytelną hierarchię kart; pełny zrzut potwierdza kolejność kroków 1–12 oraz opcjonalną zmianę etapu dopiero po zapisie.
 
 ## Focused region comparison evidence
 
-Sprawdzono osobno lewą kolumnę oraz dolną część formularza. Historia jest pobierana wyłącznie po `deal_id`, sortowana malejąco po `occurred_at`, a link „Zobacz wszystkie” znajduje się przy osi czasu pod kartą sprawy. Na szerokości 390 px sekcje układają się pionowo; po pierwszej iteracji usunięto obcinanie linku historii.
+- 02: sprawdzono wyszukiwarkę, poziome filtry oraz trzy pełne karty. Przy szerokości 390 px dokument ma `scrollWidth = clientWidth = 390`, a dalsze filtry przewijają się wyłącznie we własnym kontenerze.
+- 08: sprawdzono osobno górny kontekst klient/deal/historia i dolny formularz. Pięć typów rozmowy układa się 2 + 2 + 1, notatka ma duże pole i działające dyktowanie, a zapis nie jest zasłaniany ani przez formularz, ani przez dolną nawigację.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: istniejąca typografia produktu i hierarchia wag zachowane; nagłówki sekcji odpowiadają planszy.
-- Spacing and layout rhythm: dwukolumnowy desktop oraz jednokolumnowy mobile bez krytycznego przepełnienia; akcja główna kończy prawą ścieżkę.
-- Colors and visual tokens: istniejące tokeny produktu zachowane; bez polerowania kolorów i pikseli zgodnie z zakresem.
-- Image quality and asset fidelity: ekran nie wymaga nowych obrazów; używa istniejącego avatara/fallbacku i biblioteki ikon.
-- Copy and content: dodano „Skróty klawiszowe”, „Ostatnie aktywności w tym dealu” oraz „Zobacz wszystkie”; nazwy sekcji 1–2 są zgodne z planszą.
+- Fonts and typography: zachowano istniejącą rodzinę, wagi i granatową hierarchię produktu; rozmiary mobilne nie wymagają pomniejszania tekstu.
+- Spacing and layout rhythm: karty mają 12 px wewnętrznego odstępu, kontrolki co najmniej 44 px, sekcje nie wychodzą poza viewport; globalny shell ma bezpieczny odstęp od dolnej nawigacji i paska systemowego.
+- Colors and visual tokens: zachowano produktowe kolory; poprawiono wyłącznie kontrast SMS w ciemnym motywie i tekst dolnej nawigacji.
+- Image quality and assets: nowe obrazy nie były potrzebne; użyto istniejących avatarów/fallbacków i ikon biblioteki.
+- Copy and content: 02 pokazuje nazwę, telefon, status, liczbę deali i ostatni kontakt. 08 pokazuje dokładne kroki 1–12 wymagane kontraktem.
 
 ## Interaction evidence
 
-Browserowy test CDP potwierdził: render bez error overlay, otwarcie skrótów, usunięcie klienta, wyszukiwanie od trzech cyfr telefonu, ponowny wybór klienta i dealu, wybór wszystkich typów aktywności, wynik rozmowy, notatkę, dodanie zadania i daty, obecność dyktowania i załącznika, dropdown etapu, link historii, kopię e-mail, zamknięcie dealu oraz zapis. Zapis pojawił się w osi czasu po ponownym wejściu. Konsola: 0 błędów.
+W przeglądarce sprawdzono: zmianę filtra 02, wpisywanie w wyszukiwarkę, aktywne karty i akcje; w 08 wybór typu rozmowy, wyniku, wpisanie notatki, następnego kroku i blockera oraz przełączenie zakładek historia/nowa aktywność. Brak framework error overlay i brak błędów konsoli; jedyne żądanie 404 dotyczyło nieprodukcyjnego endpointu tymczasowego podglądu demo.
 
 ## Comparison history
 
-1. P2: mobilny nagłówek historii i link były szersze niż kolumna. Fix: na mobile układ pionowy, od `sm` układ poziomy. Post-fix: `P1_08_implementation_mobile.png`, brak obcięcia.
-2. P1/P2 po poprawce: brak.
+1. P1: cały blok zapisu 08 był `sticky` i zasłaniał typ rozmowy. Fix: zapis wrócił do końca sekwencji, a ochronę przed dolną nawigacją zapewnia globalny padding i safe area. Post-fix: `wacrm-mobile-08-full.png`.
+2. P2: przycisk SMS w ciemnym motywie miał ciemne tło i niski kontrast. Fix: jawne białe tło, ciemny tekst i obramowanie. Post-fix: `wacrm-mobile-02-full.png`.
+3. P0/P1/P2 po poprawkach: brak.
 
 ## Findings
 
-Brak otwartych P0/P1/P2. Różnice P3 ograniczają się do świadomie zachowanych pól następnego kroku/terminu/blockera wymaganych przez brief oraz do braku shellu aplikacji w lokalnym ujęciu komponentu; nie zmieniają kolejności ani działania formularza.
-
-## Primary checks
-
-- Page loads: passed.
-- Meaningful content: passed.
-- Framework error overlay: absent.
-- Browser console errors: 0.
-- Desktop and mobile layout: passed.
-- Primary interactions and local roundtrip: passed.
+Brak otwartych P0/P1/P2. Różnice względem plansz są akceptowalne: implementacja 08 jest dłuższa, ponieważ kontrakt wymaga dodatkowych pól następnego kroku, terminu i blockera oraz pełnej kolejności 1–12.
 
 final result: passed

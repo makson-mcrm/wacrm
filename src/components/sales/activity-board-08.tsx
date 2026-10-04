@@ -140,6 +140,8 @@ const OUTCOMES = [
   ['oddzwonic', 'Oddzwonić'],
 ] as const;
 
+const RECENT_ACTIVITIES_LABEL = 'Ostatnie aktywności w tym dealu';
+
 function contactName(contact?: Contact | null) {
   if (!contact) return '';
   return (
@@ -913,116 +915,129 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             )}
 
             {selectedContact && (
-              <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="size-12 border-2 border-white shadow-sm">
-                      {selectedContact.avatar_url ? (
-                        <AvatarImage
-                          src={selectedContact.avatar_url}
-                          alt={contactName(selectedContact)}
-                        />
-                      ) : null}
-                      <AvatarFallback className="bg-emerald-100 font-black text-emerald-900">
-                        {contactName(selectedContact)
-                          .split(/\s+/)
-                          .map((part) => part[0])
-                          .join('')
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="truncate font-black text-[#0b1b55]">
-                        {contactName(selectedContact)}
-                      </p>
-                      <a
-                        href={`tel:${selectedContact.phone}`}
-                        className="inline-flex min-h-11 items-center text-sm text-blue-700 hover:underline"
-                      >
-                        {selectedContact.phone}
-                      </a>
-                      <p className="truncate text-xs text-slate-500">
-                        {selectedContact.company || selectedContact.email || ''}
-                      </p>
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-[#0b1b55] lg:hidden">
+                  2. Karta klienta
+                </h3>
+                <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar className="size-12 border-2 border-white shadow-sm">
+                        {selectedContact.avatar_url ? (
+                          <AvatarImage
+                            src={selectedContact.avatar_url}
+                            alt={contactName(selectedContact)}
+                          />
+                        ) : null}
+                        <AvatarFallback className="bg-emerald-100 font-black text-emerald-900">
+                          {contactName(selectedContact)
+                            .split(/\s+/)
+                            .map((part) => part[0])
+                            .join('')
+                            .slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-[#0b1b55]">
+                          {contactName(selectedContact)}
+                        </p>
+                        <a
+                          href={`tel:${selectedContact.phone}`}
+                          className="inline-flex min-h-11 items-center text-sm text-blue-700 hover:underline"
+                        >
+                          {selectedContact.phone}
+                        </a>
+                        <p className="truncate text-xs text-slate-500">
+                          {selectedContact.company ||
+                            selectedContact.email ||
+                            ''}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      aria-label="Usuń wybór klienta"
+                      onClick={() => {
+                        setContactId('');
+                        setDealId('');
+                      }}
+                      className="flex size-11 items-center justify-center rounded-lg text-slate-600"
+                    >
+                      <X className="size-4" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Usuń wybór klienta"
-                    onClick={() => {
-                      setContactId('');
-                      setDealId('');
-                    }}
-                    className="flex size-11 items-center justify-center rounded-lg text-slate-600"
-                  >
-                    <X className="size-4" />
-                  </button>
                 </div>
               </div>
             )}
 
             {selectedContact && contactDeals.length > 0 && (
-              <div className="rounded-lg border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500">
-                      Deal
-                    </span>
-                    {selectedDeal && (
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-black text-[#0b1b55]">
-                        {selectedDeal.tracking_number ||
-                          `DEAL-${selectedDeal.id.slice(0, 7).toUpperCase()}`}
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-[#0b1b55] lg:hidden">
+                  3. Karta deala
+                </h3>
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500">
+                        Deal
                       </span>
-                    )}
+                      {selectedDeal && (
+                        <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-black text-[#0b1b55]">
+                          {selectedDeal.tracking_number ||
+                            `DEAL-${selectedDeal.id.slice(0, 7).toUpperCase()}`}
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) setDealId(e.target.value);
+                      }}
+                      aria-label="Zmień Deal"
+                      className="min-h-11 max-w-[140px] rounded-md border bg-white px-2 py-1 text-base font-bold text-blue-700 md:min-h-0 md:text-xs"
+                    >
+                      <option value="">Zmień ›</option>
+                      {contactDeals.map((deal) => (
+                        <option key={deal.id} value={deal.id}>
+                          {deal.title}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) setDealId(e.target.value);
-                    }}
-                    aria-label="Zmień Deal"
-                    className="min-h-11 max-w-[140px] rounded-md border bg-white px-2 py-1 text-base font-bold text-blue-700 md:min-h-0 md:text-xs"
-                  >
-                    <option value="">Zmień ›</option>
-                    {contactDeals.map((deal) => (
-                      <option key={deal.id} value={deal.id}>
-                        {deal.title}
-                      </option>
-                    ))}
-                  </select>
+                  {selectedDeal && (
+                    <>
+                      <p className="mt-2 font-black text-[#0b1b55]">
+                        {selectedDeal.title}
+                      </p>
+                      <dl className="mt-2 grid grid-cols-[90px_1fr] gap-y-1 text-sm">
+                        <dt className="text-slate-500">Produkt</dt>
+                        <dd className="font-semibold">
+                          {selectedDeal.product_type || '—'}
+                        </dd>
+                        <dt className="text-slate-500">Wartość</dt>
+                        <dd className="font-semibold">
+                          {Number(selectedDeal.value || 0).toLocaleString(
+                            'pl-PL'
+                          )}{' '}
+                          {selectedDeal.currency || 'PLN'}
+                        </dd>
+                        <dt className="text-slate-500">Etap</dt>
+                        <dd className="font-semibold">
+                          {stages.find((s) => s.id === selectedDeal.stage_id)
+                            ?.name || '—'}
+                        </dd>
+                      </dl>
+                    </>
+                  )}
                 </div>
-                {selectedDeal && (
-                  <>
-                    <p className="mt-2 font-black text-[#0b1b55]">
-                      {selectedDeal.title}
-                    </p>
-                    <dl className="mt-2 grid grid-cols-[90px_1fr] gap-y-1 text-sm">
-                      <dt className="text-slate-500">Produkt</dt>
-                      <dd className="font-semibold">
-                        {selectedDeal.product_type || '—'}
-                      </dd>
-                      <dt className="text-slate-500">Wartość</dt>
-                      <dd className="font-semibold">
-                        {Number(selectedDeal.value || 0).toLocaleString(
-                          'pl-PL'
-                        )}{' '}
-                        {selectedDeal.currency || 'PLN'}
-                      </dd>
-                      <dt className="text-slate-500">Etap</dt>
-                      <dd className="font-semibold">
-                        {stages.find((s) => s.id === selectedDeal.stage_id)
-                          ?.name || '—'}
-                      </dd>
-                    </dl>
-                  </>
-                )}
               </div>
             )}
             {selectedContact && selectedDeal && (
               <div className="border-t pt-3">
                 <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <h2 className="text-sm font-black text-[#0b1b55]">
-                    Ostatnie aktywności w tym dealu
+                    <span className="lg:hidden">4. </span>
+                    {RECENT_ACTIVITIES_LABEL}
                   </h2>
                   <button
                     type="button"
@@ -1078,13 +1093,14 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <section className="flex flex-col gap-4 rounded-xl border bg-white p-4 shadow-sm">
             <div className="order-1">
               <h2 className="font-black text-[#0b1b55]">
-                2. Zarejestruj rozmowę
+                <span className="lg:hidden">5. Typ rozmowy</span>
+                <span className="hidden lg:inline">2. Zarejestruj rozmowę</span>
               </h2>
-              <div className="mt-2 grid grid-cols-5 gap-1.5 sm:gap-2">
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <button
                   type="button"
                   onClick={() => setAction('TELEFON')}
-                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                  className={`min-h-16 rounded-lg border px-2 text-xs font-bold sm:min-h-12 ${action === 'TELEFON' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
                 >
                   <Phone className="mx-auto mb-1 size-4" />
                   <span className="sm:hidden">Rozmowa</span>
@@ -1093,7 +1109,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setAction('SPOTKANIE')}
-                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                  className={`min-h-16 rounded-lg border px-2 text-xs font-bold sm:min-h-12 ${action === 'SPOTKANIE' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
                 >
                   <CalendarPlus className="mx-auto mb-1 size-4" />
                   Spotkanie
@@ -1101,7 +1117,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setAction('EMAIL')}
-                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                  className={`min-h-16 rounded-lg border px-2 text-xs font-bold sm:min-h-12 ${action === 'EMAIL' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
                 >
                   <Mail className="mx-auto mb-1 size-4" />
                   E-mail
@@ -1109,7 +1125,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setAction('WIADOMOSC')}
-                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                  className={`min-h-16 rounded-lg border px-2 text-xs font-bold sm:min-h-12 ${action === 'WIADOMOSC' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
                 >
                   <MessageSquare className="mx-auto mb-1 size-4" />
                   Wiadomość
@@ -1117,7 +1133,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setAction('INNY_KONTAKT')}
-                  className={`min-h-12 rounded-lg border px-1 text-xs font-bold sm:px-2 ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
+                  className={`col-span-2 min-h-16 rounded-lg border px-2 text-xs font-bold sm:col-span-1 sm:min-h-12 ${action === 'INNY_KONTAKT' ? 'bg-emerald-800 text-white' : 'bg-slate-50'}`}
                 >
                   <MoreHorizontal className="mx-auto mb-1 size-4" />
                   <span className="sm:hidden">Więcej</span>
@@ -1128,7 +1144,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
 
             <div className="order-2">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="font-black text-[#0b1b55]">3. Wynik rozmowy</h2>
+                <h2 className="font-black text-[#0b1b55]">
+                  <span className="lg:hidden">6. Wynik rozmowy</span>
+                  <span className="hidden lg:inline">3. Wynik rozmowy</span>
+                </h2>
                 {action === 'TELEFON' && (
                   <select
                     aria-label="Wynik rozmowy"
@@ -1145,10 +1164,13 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   </select>
                 )}
               </div>
-              <h2 className="mt-3 font-black text-[#0b1b55]">
-                4. Notatka lub dyktowanie
+              <h2 className="mt-4 font-black text-[#0b1b55]">
+                <span className="lg:hidden">7. Notatka lub dyktowanie</span>
+                <span className="hidden lg:inline">
+                  4. Notatka lub dyktowanie
+                </span>
               </h2>
-              <div className="mt-2 [&_textarea]:min-h-28 [&_textarea]:text-base">
+              <div className="mt-2 [&_textarea]:min-h-36 [&_textarea]:text-base sm:[&_textarea]:min-h-28">
                 <VoiceTextarea
                   value={note}
                   onChange={setNote}
@@ -1247,7 +1269,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   <Sparkles className="mt-0.5 size-5 text-lime-700" />
                   <div>
                     <p className="font-black text-[#0b1b55]">
-                      Asystent AI{' '}
+                      <span className="lg:hidden">11. </span>Asystent AI{' '}
                       <span className="rounded bg-lime-200 px-1 text-xs">
                         AI+
                       </span>
@@ -1276,9 +1298,14 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             </div>
 
-            <div className="order-5">
+            <div className="order-7 lg:order-5">
               <h2 className="font-black text-[#0b1b55]">
-                9. Zmień etap lub zamknij deal{' '}
+                <span className="lg:hidden">
+                  Opcjonalnie: zmień etap lub zamknij deal{' '}
+                </span>
+                <span className="hidden lg:inline">
+                  9. Zmień etap lub zamknij deal{' '}
+                </span>
                 <span className="font-normal text-slate-500">
                   (opcjonalnie)
                 </span>
@@ -1318,12 +1345,14 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
 
             <div className="order-3">
-              <h2 className="font-black text-[#0b1b55]">
+              <h2 className="hidden font-black text-[#0b1b55] lg:block">
                 5. Następny krok · 6. Termin · 7. Blocker
               </h2>
               <div className="mt-2 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:grid-cols-3">
                 <div>
-                  <Label htmlFor="activity-next">Następny krok</Label>
+                  <Label htmlFor="activity-next">
+                    <span className="lg:hidden">8. </span>Następny krok
+                  </Label>
                   <Input
                     id="activity-next"
                     value={nextAction}
@@ -1333,7 +1362,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="activity-next-at">Termin</Label>
+                  <Label htmlFor="activity-next-at">
+                    <span className="lg:hidden">9. </span>Termin
+                  </Label>
                   <Input
                     id="activity-next-at"
                     type="datetime-local"
@@ -1343,7 +1374,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="activity-blocker">Bloker</Label>
+                  <Label htmlFor="activity-blocker">
+                    <span className="lg:hidden">10. </span>Bloker
+                  </Label>
                   <Input
                     id="activity-blocker"
                     value={blocker}
@@ -1354,9 +1387,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 </div>
               </div>
             </div>
-            <div className="sticky bottom-0 z-10 order-6 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+            <div className="order-6 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white p-2 sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
               <span className="text-sm font-black text-[#0b1b55]">
-                8. Zapis
+                <span className="lg:hidden">12. Zapis</span>
+                <span className="hidden lg:inline">8. Zapis</span>
               </span>
               <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
                 <input
