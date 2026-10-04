@@ -91,10 +91,11 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
 
   it('udostępnia wymagany układ nawigacji mobile', () => {
     const nav = source('src/components/layout/mobile-bottom-nav.tsx');
-    for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'DODAJ', 'KLIENCI', 'ASYSTENT']) {
+    for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'KLIENCI', 'ASYSTENT']) {
       expect(nav).toContain(`label: '${label}'`);
     }
+    expect(nav).not.toContain("label: 'DODAJ'");
     expect(nav).not.toContain("label: 'LEJEK'");
-    expect(nav).toContain('grid-cols-5');
+    expect(nav).toContain('grid-cols-4');
   });
 });

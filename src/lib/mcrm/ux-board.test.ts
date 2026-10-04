@@ -36,14 +36,16 @@ describe('plansza UX mCRM AI 10.09', () => {
     ).not.toContain("label: 'AKTYWNOŚĆ'");
   });
 
-  it('AppShell udostępnia GlobalSearch i GlobalAdd także na mobile', () => {
+  it('AppShell udostępnia GlobalSearch, a mobile cztery stałe wejścia', () => {
     const header = source('src/components/layout/header.tsx');
     const mobile = source('src/components/layout/mobile-bottom-nav.tsx');
-    const globalAdd = source('src/components/layout/global-add.tsx');
     expect(header).toContain('<GlobalCrmSearch />');
     expect(header).toContain('<GlobalAdd />');
-    expect(mobile).toContain('<GlobalAdd mobile />');
-    expect(globalAdd).toContain('href="/quick-call"');
+    expect(mobile).toContain('grid-cols-4');
+    for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'KLIENCI', 'ASYSTENT']) {
+      expect(mobile).toContain(`label: '${label}'`);
+    }
+    expect(mobile).not.toContain("label: 'DODAJ'");
   });
 
   it('nie pokazuje pustego DZISIAJ podczas ładowania albo błędu danych', () => {
@@ -100,7 +102,12 @@ describe('plansza UX mCRM AI 10.09', () => {
       source('src/components/sales/whatsapp-action.tsx'),
     ].join('\n');
     const deal = source('src/app/(dashboard)/deals/[id]/page.tsx');
-    for (const label of ['WIADOMOŚĆ', 'DYKTUJ', 'WIĘCEJ', '+ NOWY DEAL']) {
+    for (const label of [
+      'WIADOMOŚĆ',
+      'DYKTUJ',
+      'WIĘCEJ',
+      '+ UTWÓRZ NOWY DEAL',
+    ]) {
       expect(contact).toContain(label);
     }
     for (const label of [

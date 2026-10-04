@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarPlus,
-  ChevronRight,
   CheckSquare,
   FilePlus2,
   Mail,
@@ -718,7 +718,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <h1 className="text-2xl font-black tracking-tight text-[#071747]">
             Aktywność
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-700">
             Rozmawiaj, notuj i działaj szybciej
           </p>
         </div>
@@ -727,36 +727,36 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
       <div className="relative -mx-3 lg:mx-0">
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[#f5f8fb] to-transparent lg:hidden" />
         <div
-          className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-2 pr-12 text-sm font-semibold [scrollbar-color:#047857_#dbe5ea] [scrollbar-width:thin] lg:px-0 lg:pr-0"
+          className="flex snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#047857_#dbe5ea] gap-2 overflow-x-auto px-3 pr-12 pb-2 text-sm font-semibold lg:px-0 lg:pr-0"
           role="tablist"
           aria-label="Widoki aktywności"
         >
-        {(
-          [
-            ['new', 'Nowa aktywność', 'Nowa'],
-            ['history', 'Historia aktywności', 'Historia'],
-            ['documents', 'Notatki i pliki', 'Notatki'],
-            ['tasks', 'Zadania po rozmowie', 'Zadania'],
-          ] as const
-        ).map(([view, label, shortLabel]) => (
-          <button
-            key={view}
-            type="button"
-            role="tab"
-            aria-selected={activeView === view}
-            onClick={() => setActiveView(view)}
-            className={`min-h-10 shrink-0 snap-start rounded-lg border px-4 py-2 whitespace-nowrap ${
-              activeView === view
-                ? 'border-emerald-700 bg-emerald-100 text-emerald-950'
-                : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
-            }`}
-          >
-            <span className="lg:hidden">{shortLabel}</span>
-            <span className="hidden lg:inline">{label}</span>
-          </button>
+          {(
+            [
+              ['new', 'Nowa aktywność', 'Nowa'],
+              ['history', 'Historia aktywności', 'Historia'],
+              ['documents', 'Notatki i pliki', 'Notatki'],
+              ['tasks', 'Zadania po rozmowie', 'Zadania'],
+            ] as const
+          ).map(([view, label, shortLabel]) => (
+            <button
+              key={view}
+              type="button"
+              role="tab"
+              aria-selected={activeView === view}
+              onClick={() => setActiveView(view)}
+              className={`min-h-10 shrink-0 snap-start rounded-lg border px-4 py-2 whitespace-nowrap ${
+                activeView === view
+                  ? 'border-emerald-700 bg-emerald-100 text-emerald-950'
+                  : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
+              }`}
+            >
+              <span className="lg:hidden">{shortLabel}</span>
+              <span className="hidden lg:inline">{label}</span>
+            </button>
           ))}
         </div>
-        <span className="pointer-events-none absolute right-3 -bottom-2 z-20 rounded-full bg-white px-1.5 text-[9px] font-bold text-emerald-800 shadow-sm lg:hidden">
+        <span className="pointer-events-none absolute right-3 -bottom-3 z-20 rounded-full bg-white px-1.5 text-xs font-bold text-emerald-800 shadow-sm lg:hidden">
           przesuń zakładki →
         </span>
       </div>
@@ -784,7 +784,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                       <p className="font-semibold text-[#0b1b55]">
                         {row.title}
                       </p>
-                      <time className="text-xs text-slate-500">
+                      <time className="text-xs text-slate-700">
                         {formatWarsawDateTime(row.occurred_at)}
                       </time>
                     </div>
@@ -820,11 +820,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                       <p className="font-semibold text-[#0b1b55]">
                         {document.name}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-700">
                         {document.document_type || 'Plik'}
                       </p>
                     </div>
-                    <time className="text-xs text-slate-500">
+                    <time className="text-xs text-slate-700">
                       {formatWarsawDateTime(document.received_at)}
                     </time>
                   </article>
@@ -842,7 +842,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 plannedTasks.map((task) => (
                   <article key={task.id} className="rounded-lg border p-3">
                     <p className="font-semibold text-[#0b1b55]">{task.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-700">
                       Termin:{' '}
                       {task.scheduled_at
                         ? formatWarsawDateTime(task.scheduled_at)
@@ -860,7 +860,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.82fr)_minmax(0,1.65fr)] xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.7fr)]">
           <section className="space-y-3 rounded-xl border border-slate-300 bg-white p-3 shadow-sm lg:p-4">
             <h2 className="font-black text-[#071747]">
-              1. Wybierz klienta i deal
+              <span className="lg:hidden">Wyszukaj / wybierz</span>
+              <span className="hidden lg:inline">
+                1. Wybierz klienta i deal
+              </span>
             </h2>
             <div className="relative">
               <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
@@ -885,12 +888,21 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     className="block min-h-12 w-full border-b px-3 py-2 text-left last:border-0 hover:bg-emerald-50"
                   >
                     <span className="block font-bold">{match.label}</span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-slate-700">
                       {match.sub}
                     </span>
                   </button>
                 ))}
               </div>
+            )}
+
+            {!selectedContact && (
+              <Link
+                href="/pipelines?new=deal"
+                className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-950 hover:bg-slate-100"
+              >
+                + UTWÓRZ NOWY DEAL
+              </Link>
             )}
 
             {!selectedContact && rawPhone && matches.length === 0 && (
@@ -927,7 +939,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             {selectedContact && (
               <div className="space-y-2">
                 <h3 className="text-sm font-black text-[#0b1b55] lg:hidden">
-                  2. Karta klienta
+                  Klient
                 </h3>
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <div className="flex items-start justify-between gap-2">
@@ -957,7 +969,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                         >
                           {selectedContact.phone}
                         </a>
-                        <p className="truncate text-xs text-slate-500">
+                        <p className="truncate text-xs text-slate-700">
                           {selectedContact.company ||
                             selectedContact.email ||
                             ''}
@@ -980,15 +992,15 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             )}
 
-            {selectedContact && contactDeals.length > 0 && (
+            {selectedContact && (
               <div className="space-y-2">
                 <h3 className="text-sm font-black text-[#0b1b55] lg:hidden">
-                  3. Karta deala
+                  Klient / Deal
                 </h3>
                 <div className="rounded-lg border border-slate-300 bg-slate-50/70 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-500">
+                      <span className="text-xs font-bold text-slate-700">
                         Deal
                       </span>
                       {selectedDeal && (
@@ -998,40 +1010,45 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                         </span>
                       )}
                     </div>
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) setDealId(e.target.value);
-                      }}
-                      aria-label="Zmień Deal"
-                      className="min-h-11 max-w-[140px] rounded-md border bg-white px-2 py-1 text-base font-bold text-blue-700 md:min-h-0 md:text-xs"
-                    >
-                      <option value="">Zmień ›</option>
-                      {contactDeals.map((deal) => (
-                        <option key={deal.id} value={deal.id}>
-                          {deal.title}
-                        </option>
-                      ))}
-                    </select>
+                    {contactDeals.length > 1 && (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) setDealId(e.target.value);
+                        }}
+                        aria-label="Zmień Deal"
+                        className="min-h-11 max-w-[160px] rounded-md border border-slate-300 bg-white px-2 py-1 text-base font-black text-blue-800 md:min-h-0 md:text-xs"
+                      >
+                        <option value="">ZMIEŃ DEAL</option>
+                        {contactDeals.map((deal) => (
+                          <option key={deal.id} value={deal.id}>
+                            {deal.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   {selectedDeal && (
                     <>
-                      <p className="mt-2 font-black text-[#0b1b55]">
+                      <Link
+                        href={`/deals/${selectedDeal.id}`}
+                        className="mt-2 flex min-h-11 items-center rounded-md font-black text-[#0b1b55] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                      >
                         {selectedDeal.title}
-                      </p>
+                      </Link>
                       <dl className="mt-2 grid grid-cols-[90px_1fr] gap-y-1 text-sm">
-                        <dt className="text-slate-500">Produkt</dt>
+                        <dt className="text-slate-700">Produkt</dt>
                         <dd className="font-semibold">
                           {selectedDeal.product_type || '—'}
                         </dd>
-                        <dt className="text-slate-500">Wartość</dt>
+                        <dt className="text-slate-700">Wartość</dt>
                         <dd className="font-semibold">
                           {Number(selectedDeal.value || 0).toLocaleString(
                             'pl-PL'
                           )}{' '}
                           {selectedDeal.currency || 'PLN'}
                         </dd>
-                        <dt className="text-slate-500">Etap</dt>
+                        <dt className="text-slate-700">Etap</dt>
                         <dd className="font-semibold">
                           {stages.find((s) => s.id === selectedDeal.stage_id)
                             ?.name || '—'}
@@ -1039,11 +1056,22 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                       </dl>
                     </>
                   )}
+                  {!selectedDeal && (
+                    <p className="mt-2 text-sm font-semibold text-slate-700">
+                      Brak aktywnego deala w tym kontekście.
+                    </p>
+                  )}
+                  <Link
+                    href={`/pipelines?new=deal&contact=${selectedContact.id}`}
+                    className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-950 hover:bg-slate-100"
+                  >
+                    + UTWÓRZ NOWY DEAL
+                  </Link>
                 </div>
               </div>
             )}
             {selectedContact && selectedDeal && (
-              <div className="border-t pt-3">
+              <div className="hidden border-t pt-3 lg:block">
                 <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <h2 className="text-sm font-black text-[#0b1b55]">
                     <span className="lg:hidden">4. </span>
@@ -1075,7 +1103,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                         key={row.id}
                         className="grid grid-cols-[76px_1fr] gap-2 border-b py-2 text-xs last:border-0"
                       >
-                        <time className="text-slate-500">
+                        <time className="text-slate-700">
                           {new Date(row.occurred_at).toLocaleDateString(
                             'pl-PL'
                           )}
@@ -1085,7 +1113,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                             {row.title}
                           </p>
                           {(row.description || row.next_action) && (
-                            <p className="mt-0.5 line-clamp-2 text-slate-500">
+                            <p className="mt-0.5 line-clamp-2 text-slate-700">
                               {[row.description, row.next_action]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -1103,7 +1131,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <section className="flex flex-col gap-4 rounded-xl border border-slate-300 bg-white p-3 shadow-sm lg:p-4">
             <div className="order-1">
               <h2 className="font-black text-[#0b1b55]">
-                <span className="lg:hidden">5. Typ rozmowy</span>
+                <span className="lg:hidden">Akcja</span>
                 <span className="hidden lg:inline">2. Zarejestruj rozmowę</span>
               </h2>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -1155,7 +1183,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             <div className="order-2">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="font-black text-[#0b1b55]">
-                  <span className="lg:hidden">6. Wynik rozmowy</span>
+                  <span className="lg:hidden">Wynik</span>
                   <span className="hidden lg:inline">3. Wynik rozmowy</span>
                 </h2>
                 {action === 'TELEFON' && (
@@ -1175,7 +1203,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 )}
               </div>
               <h2 className="mt-4 font-black text-[#0b1b55]">
-                <span className="lg:hidden">7. Notatka lub dyktowanie</span>
+                <span className="lg:hidden">Notatka / dyktuj</span>
                 <span className="hidden lg:inline">
                   4. Notatka lub dyktowanie
                 </span>
@@ -1188,7 +1216,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   layout="side"
                 />
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 hidden flex-wrap gap-2 lg:flex">
                 <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 text-xs font-bold">
                   <FilePlus2 className="size-4" />{' '}
                   {uploading ? 'Dodaję…' : 'Dodaj załącznik'}
@@ -1273,13 +1301,13 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               )}
             </div>
 
-            <div className="order-4 rounded-xl border border-lime-300 bg-lime-50 p-3">
+            <div className="order-3 rounded-xl border border-lime-400 bg-lime-100 p-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-2">
                   <Sparkles className="mt-0.5 size-5 text-lime-700" />
                   <div>
                     <p className="font-black text-[#0b1b55]">
-                      <span className="lg:hidden">11. </span>Asystent AI{' '}
+                      AI porządkuje{' '}
                       <span className="rounded bg-lime-200 px-1 text-xs">
                         AI+
                       </span>
@@ -1300,15 +1328,14 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                       `/assistant?deal=${selectedDeal.id}&feature=prepare`
                     )
                   }
-                  className="hidden border-lime-500 bg-white sm:inline-flex"
+                  className="w-full border-lime-600 bg-white text-slate-950 sm:w-auto"
                 >
                   Przygotuj podsumowanie
                 </Button>
-                <ChevronRight className="ml-auto size-5 text-lime-800 sm:hidden" />
               </div>
             </div>
 
-            <div className="order-7 lg:order-5">
+            <div className="order-7 hidden lg:order-5 lg:block">
               <h2 className="font-black text-[#0b1b55]">
                 <span className="lg:hidden">
                   Opcjonalnie: zmień etap lub zamknij deal{' '}
@@ -1316,7 +1343,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 <span className="hidden lg:inline">
                   9. Zmień etap lub zamknij deal{' '}
                 </span>
-                <span className="font-normal text-slate-500">
+                <span className="font-normal text-slate-700">
                   (opcjonalnie)
                 </span>
               </h2>
@@ -1354,15 +1381,13 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             </div>
 
-            <div className="order-3">
+            <div className="order-4">
               <h2 className="hidden font-black text-[#0b1b55] lg:block">
                 5. Następny krok · 6. Termin · 7. Blocker
               </h2>
               <div className="mt-2 grid gap-3 rounded-lg border border-slate-300 bg-slate-50/80 p-3 sm:grid-cols-3">
                 <div>
-                  <Label htmlFor="activity-next">
-                    <span className="lg:hidden">8. </span>Następny krok
-                  </Label>
+                  <Label htmlFor="activity-next">Następny krok</Label>
                   <Input
                     id="activity-next"
                     value={nextAction}
@@ -1372,9 +1397,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="activity-next-at">
-                    <span className="lg:hidden">9. </span>Termin
-                  </Label>
+                  <Label htmlFor="activity-next-at">Termin</Label>
                   <Input
                     id="activity-next-at"
                     type="datetime-local"
@@ -1383,10 +1406,8 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     className="mt-1 h-11 bg-white text-base md:h-10"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="activity-blocker">
-                    <span className="lg:hidden">10. </span>Bloker
-                  </Label>
+                <div className="hidden lg:block">
+                  <Label htmlFor="activity-blocker">Bloker</Label>
                   <Input
                     id="activity-blocker"
                     value={blocker}
@@ -1399,10 +1420,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
             <div className="order-5 -mx-2 flex flex-col gap-2 border-t border-slate-200 bg-white p-2 sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
               <span className="text-sm font-black text-[#0b1b55]">
-                <span className="lg:hidden">12. Zapis</span>
+                <span className="lg:hidden">Zapis</span>
                 <span className="hidden lg:inline">8. Zapis</span>
               </span>
-              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700">
+              <label className="hidden min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700 lg:inline-flex">
                 <input
                   type="checkbox"
                   checked={createTask}
@@ -1412,7 +1433,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 />
                 Utwórz zadanie z kolejnych kroków
               </label>
-              <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 sm:ml-3">
+              <label className="hidden min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700 sm:ml-3 lg:inline-flex">
                 <input
                   type="checkbox"
                   checked={emailCopy}
@@ -1422,7 +1443,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                 Wyślij kopię e-maila do klienta
               </label>
               {selectedContact && !selectedContact.email && (
-                <span className="text-xs text-amber-700">
+                <span className="hidden text-xs text-amber-800 lg:inline">
                   Brak adresu e-mail klienta — aktywność zapisze się bez kopii.
                 </span>
               )}
@@ -1439,12 +1460,123 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     : 'Zapisz aktywność'}
               </Button>
             </div>
+            <details className="order-6 rounded-xl border border-slate-300 bg-slate-50 lg:hidden">
+              <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-black text-slate-950">
+                WIĘCEJ / OPCJE
+              </summary>
+              <div className="space-y-3 border-t border-slate-300 p-3">
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-950">
+                    <FilePlus2 className="size-4" />
+                    {uploading ? 'Dodaję…' : 'Dodaj załącznik'}
+                    <input
+                      type="file"
+                      className="hidden"
+                      disabled={!selectedContact || uploading}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void uploadDocument(file);
+                        event.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCreateTask((value) => !value)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-950"
+                  >
+                    <CheckSquare className="size-4" /> Dodaj zadanie
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOccurredAt(true);
+                      setOccurredAt(
+                        (value) => value || toWarsawDateTimeInput(new Date())
+                      );
+                    }}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-950"
+                  >
+                    <CalendarPlus className="size-4" /> Dodaj datę
+                  </button>
+                </div>
+                {showOccurredAt && (
+                  <div>
+                    <Label htmlFor="activity-occurred-at-mobile">
+                      Data aktywności
+                    </Label>
+                    <Input
+                      id="activity-occurred-at-mobile"
+                      type="datetime-local"
+                      value={occurredAt}
+                      onChange={(event) => setOccurredAt(event.target.value)}
+                      className="mt-1 h-11 bg-white text-base"
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label htmlFor="activity-blocker-mobile">Bloker</Label>
+                  <Input
+                    id="activity-blocker-mobile"
+                    value={blocker}
+                    onChange={(event) => setBlocker(event.target.value)}
+                    placeholder="Co blokuje?"
+                    className="mt-1 h-11 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="activity-stage-mobile">Etap Deala</Label>
+                  <select
+                    id="activity-stage-mobile"
+                    value={stageId}
+                    disabled={!selectedDeal}
+                    onChange={(event) => setStageId(event.target.value)}
+                    className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-950"
+                  >
+                    <option value="">Etap Deala</option>
+                    {stages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {stage.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    disabled={!selectedDeal}
+                    onClick={() => void closeDeal('won')}
+                    className="bg-emerald-800"
+                  >
+                    <Trophy className="size-4" /> Wygrana
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!selectedDeal}
+                    variant="outline"
+                    onClick={() => void closeDeal('lost')}
+                    className="border-red-500 bg-white text-red-800"
+                  >
+                    Przegrana
+                  </Button>
+                </div>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={emailCopy}
+                    onChange={(event) => setEmailCopy(event.target.checked)}
+                    className="size-5 accent-emerald-800"
+                  />
+                  Wyślij kopię e-maila do klienta
+                </label>
+              </div>
+            </details>
             <div
               data-slot="activity-mobile-save"
               className="fixed inset-x-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-xl border border-emerald-900/20 bg-white/97 p-2 shadow-[0_-8px_30px_rgba(15,23,42,0.18)] backdrop-blur sm:hidden"
             >
               <span className="pl-1 text-xs font-black text-[#071747]">
-                12. Zapis
+                Zapis
               </span>
               <Button
                 type="button"
