@@ -24,7 +24,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GitBranch, Plus, ChevronDown, Settings, Sparkles, Archive } from 'lucide-react';
+import {
+  GitBranch,
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Settings,
+  Sparkles,
+  Archive,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
 import { useAuth } from '@/hooks/use-auth';
@@ -574,9 +582,29 @@ export default function PipelinesPage() {
         <Stat label="Z next action" value={String(withNextAction)} />
       </section>
 
-      <Button className="bg-lime-300 text-emerald-950 hover:bg-lime-400" render={<Link href="/assistant?feature=pipeline" />}>
-        <Sparkles className="size-4" /> Asystent AI — Przeanalizuj lejek
-      </Button>
+      <Link
+        href="/assistant?feature=pipeline"
+        className="group flex w-full max-w-sm items-center gap-3 rounded-xl border border-lime-300 bg-white p-3 shadow-sm transition-all hover:border-emerald-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lime-100 text-emerald-700">
+          <Sparkles className="size-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="font-black text-slate-950">Asystent AI</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black tracking-wide text-emerald-800">
+              AI+
+            </span>
+          </span>
+          <span className="mt-0.5 block text-sm font-medium text-slate-500">
+            Przeanalizuj lejek
+          </span>
+        </span>
+        <ChevronRight
+          className="size-5 shrink-0 text-emerald-700 transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
 
       {/* Board */}
       {pipelines.length === 0 ? (

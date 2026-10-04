@@ -60,12 +60,16 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
       'Aktywne sprawy',
       'Przychód TERAZ',
       'Przychód PÓŹNIEJ',
-      'Asystent AI — Przeanalizuj lejek',
+      'Asystent AI',
+      'AI+',
+      'Przeanalizuj lejek',
       'Archiwum (',
     ]) {
       expect(page).toContain(label);
     }
     expect(page).toContain('isOperationalTestRecord');
+    expect(page).toContain('href="/assistant?feature=pipeline"');
+    expect(page).toContain('<ChevronRight');
   });
 
   it('ma niezależny scroll kolumn i mobilny akordeon', () => {
