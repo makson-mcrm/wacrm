@@ -1,4 +1,4 @@
-Trigger Hostinger production deployment for final AKTYWNOŚĆ board 08.
-Source commit: 63e3e8b25317e432a994afaa7a8a529c3fab6101
-Triggered: 2026-09-26 21:29 UTC
-Goal: LIVE PASS for AKTYWNOŚĆ + durable test record.
+Trigger Hostinger production deployment for mobile-core (zakres A-D).
+Source commit: 5f7d041ac8d18d1eea6b7d1274cbcbec3085fcd4
+Triggered: 2026-10-04 20:2x UTC
+Goal: LIVE PASS for 02 KLIENT / 03 DEAL / 08 AKTYWNOŚĆ mobile.
