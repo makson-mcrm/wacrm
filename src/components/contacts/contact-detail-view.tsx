@@ -70,6 +70,13 @@ interface ContactDetailViewProps {
   onUpdated: () => void;
 }
 
+type RelatedPerson = Pick<Contact, 'id' | 'name' | 'phone'>;
+
+type RelatedPersonRow = {
+  contact_id: string;
+  contact: RelatedPerson | null;
+};
+
 export function ContactDetailView({
   open,
   onOpenChange,
@@ -125,6 +132,7 @@ export function ContactDetailView({
 
   // Deals tab
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [relatedPeople, setRelatedPeople] = useState<RelatedPerson[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
 
   // Companies tab — real many-to-many links added by mCRM migration 040.
@@ -251,11 +259,27 @@ export function ContactDetailView({
     [...(direct ?? []), ...(linked ?? [])].forEach((row) =>
       unique.set(row.id, row as Deal)
     );
-    setDeals(
-      [...unique.values()].sort((a, b) =>
-        String(b.created_at).localeCompare(String(a.created_at))
-      )
+    const contactDeals = [...unique.values()].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at))
     );
+    setDeals(contactDeals);
+    const dealIds = contactDeals.map((deal) => deal.id);
+    if (!dealIds.length) {
+      setRelatedPeople([]);
+    } else {
+      const { data: peopleRows } = await supabase
+        .from('deal_contacts')
+        .select(
+          'contact_id,contact:contacts!deal_contacts_contact_id_fkey(id,name,phone)'
+        )
+        .in('deal_id', dealIds)
+        .neq('contact_id', contactId);
+      const people = new Map<string, RelatedPerson>();
+      ((peopleRows ?? []) as unknown as RelatedPersonRow[]).forEach((row) => {
+        if (row.contact) people.set(row.contact.id, row.contact);
+      });
+      setRelatedPeople([...people.values()]);
+    }
     setLoadingDeals(false);
   }, [contactId, supabase]);
 
@@ -589,6 +613,9 @@ export function ContactDetailView({
             <div className="flex h-full min-w-0 flex-col">
               {/* Header */}
               <SheetHeader className="border-border/50 shrink-0 border-b p-3 pr-12 sm:p-4 sm:pr-10">
+                <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
+                  Klient
+                </p>
                 <div className="flex items-center gap-3">
                   <Avatar className="bg-muted border-border size-12 border">
                     <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
@@ -602,7 +629,7 @@ export function ContactDetailView({
                     <SheetDescription className="sr-only">
                       {t('contactDetailsDesc')}
                     </SheetDescription>
-                    <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
                       <button
                         onClick={copyPhone}
                         className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
@@ -625,9 +652,7 @@ export function ContactDetailView({
                         <Link
                           key={link.company_id}
                           href={`/companies?open=${link.company_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-700 hover:bg-emerald-50 hover:underline"
+                          className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-800 hover:bg-emerald-50 hover:underline"
                         >
                           <Building2 className="size-3" />
                           {link.company?.name}
@@ -644,10 +669,12 @@ export function ContactDetailView({
                       contactCompanies.find((link) => link.is_primary)
                         ?.company_id ?? contactCompanies[0]?.company_id
                     }
+                    className="border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 hover:text-white"
                   />
                   <WhatsAppAction
                     phone={contact.phone}
                     contactId={contact.id}
+                    className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
                   />
                   <Button
                     size="sm"
@@ -696,10 +723,19 @@ export function ContactDetailView({
                 onValueChange={setActiveTab}
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <TabsList className="mx-3 mt-2 flex h-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0 pb-1 sm:mx-4 sm:grid sm:h-10 sm:grid-cols-3 sm:gap-0 sm:overflow-visible sm:pb-0 [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&::-webkit-scrollbar]:hidden">
+                <TabsList className="mx-3 mt-2 flex h-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 sm:mx-4 sm:grid sm:h-10 sm:grid-cols-3 sm:gap-0 sm:overflow-visible sm:pb-0 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden">
                   <TabsTrigger value="overview">Podsumowanie</TabsTrigger>
                   <TabsTrigger value="companies" className="sm:hidden">
-                    Osoby i firmy ({contactCompanies.length})
+                    Osoby i firmy (
+                    {contactCompanies.length +
+                      spouseLinks.length +
+                      relatedPeople.filter(
+                        (person) =>
+                          !spouseLinks.some(
+                            ({ spouse }) => spouse.id === person.id
+                          )
+                      ).length}
+                    )
                   </TabsTrigger>
                   <TabsTrigger value="deals">
                     Deale ({deals.length})
@@ -712,38 +748,23 @@ export function ContactDetailView({
                   id="contact-deeper-details"
                   className="mx-4 mt-2 rounded-xl border bg-slate-50"
                 >
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-500">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-800">
                     WIĘCEJ DANYCH KLIENTA
                   </summary>
-                  <TabsList className="flex h-auto flex-wrap justify-start border-t bg-transparent p-2">
-                    <TabsTrigger
-                      value="details"
-                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                    >
+                  <TabsList className="flex h-auto flex-wrap justify-start gap-1 border-t bg-white p-2 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950">
+                    <TabsTrigger value="details" className="">
                       {t('tabs.details')}
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="tags"
-                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                    >
+                    <TabsTrigger value="tags" className="">
                       {t('tabs.tags')}
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="notes"
-                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                    >
+                    <TabsTrigger value="notes" className="">
                       {t('tabs.notes')}
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="custom"
-                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                    >
+                    <TabsTrigger value="custom" className="">
                       {t('tabs.custom')}
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="companies"
-                      className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                    >
+                    <TabsTrigger value="companies" className="">
                       Firmy
                     </TabsTrigger>
                   </TabsList>
@@ -753,152 +774,329 @@ export function ContactDetailView({
                   value="overview"
                   className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
                 >
-                  <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">
-                      <span className="sm:hidden">Osoby i powiązania</span>
-                      <span className="hidden sm:inline">Powiązane osoby</span>
+                  <section
+                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    aria-labelledby="mobile-contact-relations"
+                  >
+                    <h3
+                      id="mobile-contact-relations"
+                      className="text-sm font-black tracking-wide text-slate-950 uppercase"
+                    >
+                      Powiązania
                     </h3>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
-                      <div className="rounded-lg bg-slate-50 p-2">
-                        <b className="block text-lg">1</b>Osoby
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-2">
-                        <b className="block text-lg">{deals.length}</b>Deale
+
+                    <div className="mt-3">
+                      <h4 className="text-xs font-black text-slate-800">
+                        Firma
+                      </h4>
+                      <div className="mt-1 space-y-2">
+                        {contactCompanies.length ? (
+                          contactCompanies.map((link) => (
+                            <Link
+                              key={link.company_id}
+                              href={`/companies?open=${link.company_id}`}
+                              className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
+                            >
+                              <span>
+                                {link.company?.name || 'Firma bez nazwy'}
+                              </span>
+                              <span aria-hidden className="text-slate-700">
+                                →
+                              </span>
+                            </Link>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-700">
+                            Brak powiązania
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <dl className="mt-3 space-y-2 text-xs sm:hidden">
-                      <div className="rounded-lg bg-slate-50 p-2">
-                        <dt className="font-bold text-slate-500">Firma</dt>
-                        <dd className="mt-1">
-                          {contactCompanies.length ? (
-                            contactCompanies.map((link) => (
+
+                    <div className="mt-3 border-t border-slate-200 pt-3">
+                      <h4 className="text-xs font-black text-slate-800">
+                        Współmałżonek
+                      </h4>
+                      <div className="mt-1 space-y-2">
+                        {spouseLinks.length ? (
+                          spouseLinks.map(({ spouse }) => (
+                            <Link
+                              key={spouse.id}
+                              href={`/contacts?open=${spouse.id}`}
+                              className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
+                            >
+                              <span>{spouse.name || spouse.phone}</span>
+                              <span aria-hidden className="text-slate-700">
+                                →
+                              </span>
+                            </Link>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-700">
+                            Brak powiązania
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 border-t border-slate-200 pt-3">
+                      <h4 className="text-xs font-black text-slate-800">
+                        Osoby
+                      </h4>
+                      <div className="mt-1 space-y-2">
+                        {relatedPeople.filter(
+                          (person) =>
+                            !spouseLinks.some(
+                              ({ spouse }) => spouse.id === person.id
+                            )
+                        ).length ? (
+                          relatedPeople
+                            .filter(
+                              (person) =>
+                                !spouseLinks.some(
+                                  ({ spouse }) => spouse.id === person.id
+                                )
+                            )
+                            .map((person) => (
                               <Link
-                                key={link.company_id}
-                                href={`/companies?open=${link.company_id}`}
-                                className="block min-h-8 font-semibold text-emerald-800 hover:underline"
+                                key={person.id}
+                                href={`/contacts?open=${person.id}`}
+                                className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
                               >
-                                {link.company?.name || 'Firma bez nazwy'}
+                                <span>{person.name || person.phone}</span>
+                                <span aria-hidden className="text-slate-700">
+                                  →
+                                </span>
                               </Link>
                             ))
-                          ) : (
-                            <span className="text-slate-600">
-                              Brak powiązanej firmy
-                            </span>
-                          )}
-                        </dd>
+                        ) : (
+                          <p className="text-sm text-slate-700">
+                            Brak powiązania
+                          </p>
+                        )}
                       </div>
-                    </dl>
-                    <div className="mt-3 flex gap-2">
-                      <CallAction
-                        phone={contact.phone}
-                        contactId={contact.id}
-                      />
-                      <WhatsAppAction
-                        phone={contact.phone}
-                        contactId={contact.id}
-                      />
                     </div>
                   </section>
-                  <SpouseLinks links={spouseLinks} />
-                  <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">Relacja małżeńska</h3>
-                    {spouseLinks.length ? (
-                      <Button
-                        className="mt-2 min-h-10"
-                        variant="outline"
-                        onClick={() => void unlinkSpouse()}
-                      >
-                        Odłącz współmałżonka
-                      </Button>
-                    ) : (
-                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        <select
-                          value={selectedSpouseId}
-                          onChange={(event) =>
-                            setSelectedSpouseId(event.target.value)
-                          }
-                          className="min-h-10 flex-1 rounded-md border bg-white px-3 text-sm"
-                          aria-label="Wybierz współmałżonka"
-                        >
-                          <option value="">Wybierz Kontakt</option>
-                          {spouseCandidates.map((candidate) => (
-                            <option key={candidate.id} value={candidate.id}>
-                              {candidate.name || candidate.phone}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          className="min-h-10"
-                          disabled={!selectedSpouseId || savingSpouse}
-                          onClick={() => void linkSpouse()}
-                        >
-                          {savingSpouse ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : null}
-                          Powiąż
-                        </Button>
+
+                  <section
+                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    aria-labelledby="mobile-contact-deals"
+                  >
+                    <h3
+                      id="mobile-contact-deals"
+                      className="text-sm font-black tracking-wide text-slate-950 uppercase"
+                    >
+                      Deale ({deals.length})
+                    </h3>
+                    {loadingDeals ? (
+                      <div className="flex justify-center py-6">
+                        <Loader2 className="size-5 animate-spin text-slate-700" />
                       </div>
-                    )}
-                  </section>
-                  <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">Informacje</h3>
-                    <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <dt className="text-slate-500">NIP</dt>
-                        <dd className="font-semibold">
-                          {contactCompanies[0]?.company?.nip || '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Branża</dt>
-                        <dd className="font-semibold">
-                          {contact.product_category || '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Lokalizacja</dt>
-                        <dd className="font-semibold">
-                          {contact.city || contact.address || '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Tagi</dt>
-                        <dd className="font-semibold">
-                          {contactTagIds.length}
-                        </dd>
-                      </div>
-                    </dl>
-                  </section>
-                  <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">Aktywne sprawy</h3>
-                    <div className="mt-2 space-y-2">
-                      {deals
-                        .filter((deal) => deal.status === 'open')
-                        .map((deal) => (
+                    ) : deals.length ? (
+                      <div className="mt-2 space-y-2">
+                        {deals.map((deal) => (
                           <Link
                             key={deal.id}
                             href={`/deals/${deal.id}`}
-                            className="block rounded-lg bg-slate-50 p-2 text-sm font-semibold hover:text-emerald-800 hover:underline"
+                            className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
                           >
-                            {deal.title}
-                            <span className="block text-xs font-normal text-slate-500">
-                              {deal.stage?.name || 'Etap nieustalony'}
+                            <span className="block text-sm font-black">
+                              {deal.title}
                             </span>
+                            <span className="mt-1 block text-xs font-bold text-slate-800">
+                              {deal.stage?.name || 'Etap nieustalony'}
+                              {deal.value != null
+                                ? ` · ${formatCurrency(
+                                    deal.value,
+                                    deal.currency || defaultCurrency
+                                  )}`
+                                : ''}
+                            </span>
+                            {(deal.next_action || deal.next_action_at) && (
+                              <span className="mt-1 block text-xs text-slate-700">
+                                {deal.next_action
+                                  ? `Następny krok: ${deal.next_action}`
+                                  : 'Termin następnego kroku'}
+                                {deal.next_action_at
+                                  ? ` · ${formatWarsawDateTime(
+                                      deal.next_action_at
+                                    )}`
+                                  : ''}
+                              </span>
+                            )}
                           </Link>
                         ))}
-                      {!deals.some((deal) => deal.status === 'open') ? (
-                        <p className="text-xs text-slate-500">
-                          Brak aktywnych spraw.
-                        </p>
-                      ) : null}
-                    </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-700">
+                        Brak powiązanych deali.
+                      </p>
+                    )}
                   </section>
-                  <section className="rounded-xl border border-slate-200 p-3">
-                    <h3 className="text-sm font-black">Ostatnia aktywność</h3>
-                    <div className="mt-2">
-                      <ActivityHistory contactId={contact.id} />
-                    </div>
+
+                  <section
+                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    aria-labelledby="mobile-contact-activities"
+                  >
+                    <h3
+                      id="mobile-contact-activities"
+                      className="text-sm font-black tracking-wide text-slate-950 uppercase"
+                    >
+                      Aktywności
+                    </h3>
+                    <ActivityHistory contactId={contact.id} className="mt-2" />
                   </section>
+
+                  <div className="hidden sm:contents">
+                    <section className="rounded-xl border border-slate-200 p-3">
+                      <h3 className="text-sm font-black">
+                        <span className="sm:hidden">Osoby i powiązania</span>
+                        <span className="hidden sm:inline">
+                          Powiązane osoby
+                        </span>
+                      </h3>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-center text-xs">
+                        <div className="rounded-lg bg-slate-50 p-2">
+                          <b className="block text-lg">1</b>Osoby
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2">
+                          <b className="block text-lg">{deals.length}</b>Deale
+                        </div>
+                      </div>
+                      <dl className="mt-3 space-y-2 text-xs sm:hidden">
+                        <div className="rounded-lg bg-slate-50 p-2">
+                          <dt className="font-bold text-slate-700">Firma</dt>
+                          <dd className="mt-1">
+                            {contactCompanies.length ? (
+                              contactCompanies.map((link) => (
+                                <Link
+                                  key={link.company_id}
+                                  href={`/companies?open=${link.company_id}`}
+                                  className="block min-h-8 font-semibold text-emerald-800 hover:underline"
+                                >
+                                  {link.company?.name || 'Firma bez nazwy'}
+                                </Link>
+                              ))
+                            ) : (
+                              <span className="text-slate-600">
+                                Brak powiązanej firmy
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="mt-3 flex gap-2">
+                        <CallAction
+                          phone={contact.phone}
+                          contactId={contact.id}
+                        />
+                        <WhatsAppAction
+                          phone={contact.phone}
+                          contactId={contact.id}
+                        />
+                      </div>
+                    </section>
+                    <SpouseLinks links={spouseLinks} />
+                    <section className="rounded-xl border border-slate-200 p-3">
+                      <h3 className="text-sm font-black">Relacja małżeńska</h3>
+                      {spouseLinks.length ? (
+                        <Button
+                          className="mt-2 min-h-10"
+                          variant="outline"
+                          onClick={() => void unlinkSpouse()}
+                        >
+                          Odłącz współmałżonka
+                        </Button>
+                      ) : (
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                          <select
+                            value={selectedSpouseId}
+                            onChange={(event) =>
+                              setSelectedSpouseId(event.target.value)
+                            }
+                            className="min-h-10 flex-1 rounded-md border bg-white px-3 text-sm"
+                            aria-label="Wybierz współmałżonka"
+                          >
+                            <option value="">Wybierz Kontakt</option>
+                            {spouseCandidates.map((candidate) => (
+                              <option key={candidate.id} value={candidate.id}>
+                                {candidate.name || candidate.phone}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            className="min-h-10"
+                            disabled={!selectedSpouseId || savingSpouse}
+                            onClick={() => void linkSpouse()}
+                          >
+                            {savingSpouse ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : null}
+                            Powiąż
+                          </Button>
+                        </div>
+                      )}
+                    </section>
+                    <section className="rounded-xl border border-slate-200 p-3">
+                      <h3 className="text-sm font-black">Informacje</h3>
+                      <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <dt className="text-slate-700">NIP</dt>
+                          <dd className="font-semibold">
+                            {contactCompanies[0]?.company?.nip || '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-700">Branża</dt>
+                          <dd className="font-semibold">
+                            {contact.product_category || '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-700">Lokalizacja</dt>
+                          <dd className="font-semibold">
+                            {contact.city || contact.address || '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-700">Tagi</dt>
+                          <dd className="font-semibold">
+                            {contactTagIds.length}
+                          </dd>
+                        </div>
+                      </dl>
+                    </section>
+                    <section className="rounded-xl border border-slate-200 p-3">
+                      <h3 className="text-sm font-black">Aktywne sprawy</h3>
+                      <div className="mt-2 space-y-2">
+                        {deals
+                          .filter((deal) => deal.status === 'open')
+                          .map((deal) => (
+                            <Link
+                              key={deal.id}
+                              href={`/deals/${deal.id}`}
+                              className="block rounded-lg bg-slate-50 p-2 text-sm font-semibold hover:text-emerald-800 hover:underline"
+                            >
+                              {deal.title}
+                              <span className="block text-xs font-normal text-slate-700">
+                                {deal.stage?.name || 'Etap nieustalony'}
+                              </span>
+                            </Link>
+                          ))}
+                        {!deals.some((deal) => deal.status === 'open') ? (
+                          <p className="text-xs text-slate-700">
+                            Brak aktywnych spraw.
+                          </p>
+                        ) : null}
+                      </div>
+                    </section>
+                    <section className="rounded-xl border border-slate-200 p-3">
+                      <h3 className="text-sm font-black">Ostatnia aktywność</h3>
+                      <div className="mt-2">
+                        <ActivityHistory contactId={contact.id} />
+                      </div>
+                    </section>
+                  </div>
                 </TabsContent>
 
                 {/* Details Tab */}
@@ -966,16 +1164,14 @@ export function ContactDetailView({
                     </Button>
                     <div className="grid gap-2 md:max-w-md md:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs">
-                          Imię
-                        </Label>
+                        <Label className="text-xs text-slate-700">Imię</Label>
                         <Input
                           value={editFirstName}
                           onChange={(e) => setEditFirstName(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs">
+                        <Label className="text-xs text-slate-700">
                           Nazwisko
                         </Label>
                         <Input
@@ -985,7 +1181,7 @@ export function ContactDetailView({
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
+                      <Label className="text-xs text-slate-700">
                         {t('name')}
                       </Label>
                       <Input
@@ -995,7 +1191,7 @@ export function ContactDetailView({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
+                      <Label className="text-xs text-slate-700">
                         {t('phone')} <span className="text-red-400">*</span>
                       </Label>
                       <Input
@@ -1005,7 +1201,7 @@ export function ContactDetailView({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
+                      <Label className="text-xs text-slate-700">
                         {t('email')}
                       </Label>
                       <Input
@@ -1015,9 +1211,7 @@ export function ContactDetailView({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
-                        LinkedIn
-                      </Label>
+                      <Label className="text-xs text-slate-700">LinkedIn</Label>
                       <Input
                         type="url"
                         value={editLinkedin}
@@ -1026,7 +1220,7 @@ export function ContactDetailView({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
+                      <Label className="text-xs text-slate-700">
                         Opis Kontaktu
                       </Label>
                       <Textarea
@@ -1110,11 +1304,11 @@ export function ContactDetailView({
                         />
                       </section>
                     )}
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-slate-700">
                       {t('tagsTab.clickTagDesc')}
                     </p>
                     {allTags.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-sm text-slate-700">
                         {t('tagsTab.noTagsAvailable')}
                       </p>
                     ) : (
@@ -1156,7 +1350,7 @@ export function ContactDetailView({
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
                       placeholder={t('notesTab.placeholder')}
-                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] resize-none text-sm"
+                      className="bg-muted border-border text-foreground min-h-[60px] resize-none text-sm placeholder:text-slate-600"
                     />
                     <Button
                       onClick={addNote}
@@ -1176,10 +1370,10 @@ export function ContactDetailView({
                   <div className="flex-1 space-y-2 overflow-y-auto">
                     {loadingNotes ? (
                       <div className="flex items-center justify-center py-8">
-                        <Loader2 className="text-muted-foreground size-5 animate-spin" />
+                        <Loader2 className="size-5 animate-spin text-slate-700" />
                       </div>
                     ) : notes.length === 0 ? (
-                      <p className="text-muted-foreground py-8 text-center text-sm">
+                      <p className="py-8 text-center text-sm text-slate-700">
                         {t('notesTab.noNotes')}
                       </p>
                     ) : (
@@ -1190,17 +1384,17 @@ export function ContactDetailView({
                             className="bg-muted/50 border-border/50 group rounded-lg border p-3"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-muted-foreground flex-1 text-sm whitespace-pre-wrap">
+                              <p className="flex-1 text-sm whitespace-pre-wrap text-slate-700">
                                 {note.note_text}
                               </p>
                               <button
                                 onClick={() => deleteNote(note.id)}
-                                className="text-muted-foreground shrink-0 cursor-pointer opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
+                                className="shrink-0 cursor-pointer text-slate-700 opacity-0 transition-all group-hover:opacity-100 hover:text-red-700"
                               >
                                 <Trash2 className="size-3.5" />
                               </button>
                             </div>
-                            <p className="text-muted-foreground mt-1.5 text-xs">
+                            <p className="mt-1.5 text-xs text-slate-700">
                               {formatWarsawDateTime(note.created_at)} ·
                               Europe/Warsaw
                             </p>
@@ -1218,17 +1412,17 @@ export function ContactDetailView({
                 >
                   {loadingCustom ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="text-muted-foreground size-5 animate-spin" />
+                      <Loader2 className="size-5 animate-spin text-slate-700" />
                     </div>
                   ) : customFields.length === 0 ? (
-                    <p className="text-muted-foreground py-8 text-center text-sm">
+                    <p className="py-8 text-center text-sm text-slate-700">
                       {t('noCustomFields')}
                     </p>
                   ) : (
                     <div className="space-y-3">
                       {customFields.map((field) => (
                         <div key={field.id} className="space-y-1.5">
-                          <Label className="text-muted-foreground text-xs capitalize">
+                          <Label className="text-xs text-slate-700 capitalize">
                             {field.field_name}
                           </Label>
                           <Input
@@ -1242,7 +1436,7 @@ export function ContactDetailView({
                             placeholder={t('enterCustomField', {
                               name: field.field_name,
                             })}
-                            className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-sm"
+                            className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
                           />
                         </div>
                       ))}
@@ -1270,7 +1464,7 @@ export function ContactDetailView({
                 >
                   <div className="space-y-3">
                     {contactCompanies.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-sm text-slate-700">
                         Kontakt nie jest jeszcze przypisany do żadnej firmy.
                       </p>
                     ) : (
@@ -1289,7 +1483,7 @@ export function ContactDetailView({
                               {link.company?.name ?? 'Firma'}
                             </p>
                             {link.role && (
-                              <p className="text-muted-foreground text-xs">
+                              <p className="text-xs text-slate-700">
                                 Rola: {link.role}
                               </p>
                             )}
@@ -1370,7 +1564,7 @@ export function ContactDetailView({
                       <Loader2 className="text-primary size-5 animate-spin" />
                     </div>
                   ) : deals.length === 0 ? (
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-xs text-slate-700">
                       {t('dealsTab.noDeals')}
                     </p>
                   ) : (
@@ -1399,15 +1593,15 @@ export function ContactDetailView({
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-slate-700">
                             Następny krok: {deal.next_action || 'Nie ustalono'}
                           </p>
                           {deal.next_action_at && (
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-slate-700">
                               {formatWarsawDateTime(deal.next_action_at)}
                             </p>
                           )}
-                          <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs">
+                          <div className="mt-1.5 flex items-center justify-between text-xs text-slate-700">
                             <span className="flex items-center gap-1">
                               <DollarSign className="size-3" />
                               {formatCurrency(
@@ -1420,7 +1614,7 @@ export function ContactDetailView({
                                 className={
                                   deal.status === 'won'
                                     ? 'text-primary'
-                                    : 'text-red-400'
+                                    : 'text-red-700'
                                 }
                               >
                                 {deal.status}
@@ -1436,7 +1630,7 @@ export function ContactDetailView({
                   value="documents"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <p className="mb-3 text-xs text-slate-500">
+                  <p className="mb-3 text-xs text-slate-700">
                     Dokumenty są przypięte do właściwej sprawy. Wybierz Deal,
                     aby je otworzyć.
                   </p>
@@ -1468,15 +1662,16 @@ export function ContactDetailView({
                 </TabsContent>
               </Tabs>
               <div className="shrink-0 border-t bg-white p-3">
-                <Button
-                  className="w-full bg-emerald-800 text-white"
-                  render={
-                    <Link
-                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
-                    />
-                  }
-                >
-                  + NOWY DEAL
+                  <Button
+                    aria-label="+ UTWÓRZ NOWY DEAL"
+                    className="w-full bg-emerald-800 text-white"
+                    render={
+                      <Link
+                        href={`/quick-call?contact=${contact.id}&newDeal=1`}
+                      />
+                    }
+                  >
+                    + NOWY DEAL
                 </Button>
               </div>
             </div>

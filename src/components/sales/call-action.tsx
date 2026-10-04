@@ -64,7 +64,11 @@ export function CallAction({
     <a
       href={buildTelHref(phone)}
       onClick={armResultForm}
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={cn(
+        buttonVariants({ variant, size }),
+        'min-h-11 border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950',
+        className
+      )}
     >
       <Phone className="size-4" /> {label}
     </a>

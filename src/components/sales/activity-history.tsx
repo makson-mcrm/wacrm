@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { useAuth } from '@/hooks/use-auth';
@@ -24,7 +25,12 @@ type ActivityHistoryProps = {
   className?: string;
 };
 
-type QueueEvent = { id: string; event_type: string; occurred_at: string };
+type QueueEvent = {
+  id: string;
+  event_type: string;
+  occurred_at: string;
+  deal_id: string | null;
+};
 type ContactNoteRow = Pick<
   ContactNote,
   'id' | 'note_text' | 'created_at' | 'user_id'
@@ -128,14 +134,14 @@ export function ActivityHistory({
         db
           .from('sales_activities')
           .select(
-            'id,title,description,activity_type,activity_status,call_result,call_category,phone_number,next_action,next_action_date,occurred_at'
+            'id,deal_id,title,description,activity_type,activity_status,call_result,call_category,phone_number,next_action,next_action_date,occurred_at'
           )
           .eq(relation[0], relation[1])
           .eq('account_id', accountId)
           .order('occurred_at', { ascending: false }),
         db
           .from('work_queue_events')
-          .select('id,event_type,occurred_at')
+          .select('id,event_type,occurred_at,deal_id')
           .eq(relation[0], relation[1])
           .eq('account_id', accountId)
           .order('occurred_at', { ascending: false }),
@@ -152,12 +158,12 @@ export function ActivityHistory({
   if (loading)
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="text-muted-foreground size-5 animate-spin" />
+        <Loader2 className="size-5 animate-spin text-slate-700" />
       </div>
     );
   if (!activities.length && !queueEvents.length && !notes.length)
     return (
-      <p className="text-muted-foreground py-8 text-center text-sm">
+      <p className="py-8 text-center text-sm text-slate-700">
         Brak zapisanych aktywności.
       </p>
     );
@@ -170,11 +176,11 @@ export function ActivityHistory({
             return (
               <article
                 key={`note-${item.note.id}`}
-                className="rounded-lg border p-3"
+                className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="text-xs font-bold text-emerald-800">Notatka</p>
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-xs text-slate-700">
                     {formatWarsawDateTime(item.note.created_at)}
                   </p>
                 </div>
@@ -186,11 +192,8 @@ export function ActivityHistory({
           }
 
           const { activity } = item;
-          return (
-            <article
-              key={`activity-${activity.id}`}
-              className="rounded-lg border p-3"
-            >
+          const activityCard = (
+            <article className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-bold text-emerald-800 uppercase">
@@ -200,12 +203,12 @@ export function ActivityHistory({
                     {activity.title || activityHistoryLabel(activity)}
                   </p>
                 </div>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-slate-700">
                   {formatWarsawDateTime(activity.occurred_at)}
                 </p>
               </div>
               {(activity.activity_status || activity.call_result) && (
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-slate-700">
                   {[
                     activity.activity_status?.replaceAll('_', ' '),
                     activity.call_result?.replaceAll('_', ' '),
@@ -230,25 +233,49 @@ export function ActivityHistory({
                 </p>
               )}
               {activity.next_action_date && (
-                <p className="text-muted-foreground text-xs">
+                <p className="text-xs text-slate-700">
                   Termin: {formatWarsawDateTime(activity.next_action_date)}
                 </p>
               )}
             </article>
           );
+          return activity.deal_id ? (
+            <Link
+              key={`activity-${activity.id}`}
+              href={`/deals/${activity.deal_id}`}
+              className="block rounded-lg hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              {activityCard}
+            </Link>
+          ) : (
+            <div key={`activity-${activity.id}`}>{activityCard}</div>
+          );
         })}
-        {queueEvents.map((event) => (
-          <article key={event.id} className="rounded-lg border p-3">
-            <div className="flex justify-between gap-2">
-              <p className="text-xs font-bold text-emerald-800 uppercase">
-                DO OBSŁUGI · {event.event_type.replaceAll('_', ' ')}
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {formatWarsawDateTime(event.occurred_at)}
-              </p>
-            </div>
-          </article>
-        ))}
+        {queueEvents.map((event) => {
+          const eventCard = (
+            <article className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950">
+              <div className="flex justify-between gap-2">
+                <p className="text-xs font-bold text-emerald-800 uppercase">
+                  DO OBSŁUGI · {event.event_type.replaceAll('_', ' ')}
+                </p>
+                <p className="text-xs text-slate-700">
+                  {formatWarsawDateTime(event.occurred_at)}
+                </p>
+              </div>
+            </article>
+          );
+          return event.deal_id ? (
+            <Link
+              key={event.id}
+              href={`/deals/${event.deal_id}`}
+              className="block rounded-lg hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              {eventCard}
+            </Link>
+          ) : (
+            <div key={event.id}>{eventCard}</div>
+          );
+        })}
       </div>
     </div>
   );

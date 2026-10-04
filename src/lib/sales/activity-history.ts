@@ -1,5 +1,6 @@
 export type ActivityHistoryRow = {
   id: string;
+  deal_id?: string | null;
   title: string | null;
   description: string | null;
   activity_type: string;

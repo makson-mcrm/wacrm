@@ -1305,7 +1305,7 @@ function TagFilterControl({
           <span
             className={
               compact
-                ? 'absolute -top-1 -right-1 flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-[10px] font-bold text-white'
+                ? 'absolute -top-1 -right-1 flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-xs font-bold text-white'
                 : 'ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 text-xs font-bold text-white'
             }
           >
@@ -1355,7 +1355,7 @@ function TagFilterControl({
             ))}
           </div>
         ) : (
-          <p className="px-3 py-4 text-center text-sm text-slate-500">
+          <p className="px-3 py-4 text-center text-sm text-slate-700">
             Brak tagów.
           </p>
         )}
@@ -1443,7 +1443,7 @@ function MobileContactsView({
       </label>
       <div className="relative -mx-3">
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#f5f8fb] to-transparent" />
-        <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-3 pb-2 pr-10 [scrollbar-color:#047857_#dbe5ea] [scrollbar-width:thin]">
+        <div className="flex snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#047857_#dbe5ea] gap-2 overflow-x-auto px-3 pr-10 pb-2">
           {segments.map(([value, label]) => (
             <button
               key={value}
@@ -1455,17 +1455,18 @@ function MobileContactsView({
                   : 'border-slate-300 bg-white text-slate-800'
               }`}
             >
-              {label} <span className="ml-1 opacity-80">{segmentCounts[value]}</span>
+              {label}{' '}
+              <span className="ml-1 opacity-80">{segmentCounts[value]}</span>
             </button>
           ))}
         </div>
-        <span className="pointer-events-none absolute right-3 -bottom-2 z-20 rounded-full bg-white px-1.5 text-[9px] font-bold text-emerald-800 shadow-sm">
+        <span className="pointer-events-none absolute right-3 -bottom-3 z-20 rounded-full bg-white px-1.5 text-xs font-bold text-emerald-800 shadow-sm">
           przesuń →
         </span>
       </div>
       <div className="space-y-2 pt-1 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {loading ? (
-          <p className="py-12 text-center text-sm text-slate-500">
+          <p className="py-12 text-center text-sm text-slate-700">
             <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
             Ładowanie…
           </p>
@@ -1493,7 +1494,7 @@ function MobileContactsView({
                   className="block w-full px-3 pt-2.5 pb-2 text-left transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50/40"
                 >
                   <span className="flex items-start gap-2.5">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[11px] font-black text-blue-800">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-800">
                       {(contact.name || 'K')
                         .split(' ')
                         .map((part) => part[0])
@@ -1509,16 +1510,18 @@ function MobileContactsView({
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${statusClass}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-black ${statusClass}`}
+                      >
                         {status}
                       </span>
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-900">
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-black text-blue-900">
                         {contact.dealCount ?? 0} deal
                       </span>
                     </span>
                     <ChevronRight className="mt-2 size-4 shrink-0 text-slate-600" />
                   </span>
-                  <span className="mt-1.5 block border-t border-slate-100 pt-1.5 text-[11px] text-slate-700">
+                  <span className="mt-1.5 block border-t border-slate-100 pt-1.5 text-xs text-slate-700">
                     Ostatni kontakt:{' '}
                     <b className="font-bold text-slate-950">
                       {contact.lastActivityAt
@@ -1532,48 +1535,64 @@ function MobileContactsView({
                   className="grid grid-cols-3 border-y border-slate-200 bg-slate-50"
                 >
                   <Link
-                    href={contact.companies?.[0] ? `/companies?open=${contact.companies[0].id}` : `/companies?contact=${contact.id}`}
-                    className="min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                    href={
+                      contact.companies?.[0]
+                        ? `/companies?open=${contact.companies[0].id}`
+                        : `/companies?contact=${contact.id}`
+                    }
+                    className="min-h-11 min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
                   >
                     <span className="block truncate">Firma</span>
                     <span className="block truncate font-semibold text-slate-700">
-                      {contact.companies?.[0]?.name || 'Brak'} · {contact.companies?.length ?? 0}
+                      {contact.companies?.[0]?.name || 'Brak'} ·{' '}
+                      {contact.companies?.length ?? 0}
                     </span>
                   </Link>
                   <Link
-                    href={contact.spouses?.[0] ? `/contacts?open=${contact.spouses[0].id}` : `/contacts?open=${contact.id}`}
-                    className="min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                    href={
+                      contact.spouses?.[0]
+                        ? `/contacts?open=${contact.spouses[0].id}`
+                        : `/contacts?open=${contact.id}`
+                    }
+                    className="min-h-11 min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
                   >
                     <span className="block truncate">Współmałżonek</span>
                     <span className="block truncate font-semibold text-slate-700">
-                      {contact.spouses?.[0]?.name || 'Brak'} · {contact.spouses?.length ?? 0}
+                      {contact.spouses?.[0]?.name || 'Brak'} ·{' '}
+                      {contact.spouses?.length ?? 0}
                     </span>
                   </Link>
                   <Link
-                    href={contact.activeDeal ? `/deals/${contact.activeDeal.id}` : `/pipelines?new=deal&contact=${contact.id}`}
-                    className="min-w-0 px-2 py-1.5 text-center text-[10px] font-black text-emerald-900"
+                    href={
+                      contact.activeDeal
+                        ? `/deals/${contact.activeDeal.id}`
+                        : `/pipelines?new=deal&contact=${contact.id}`
+                    }
+                    className="min-h-11 min-w-0 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
                   >
                     <span className="block truncate">Deal</span>
                     <span className="block truncate font-semibold text-slate-700">
-                      {contact.activeDeal?.title || 'Dodaj'} · {contact.dealCount ?? 0}
+                      {contact.activeDeal?.title || 'Dodaj'} ·{' '}
+                      {contact.dealCount ?? 0}
                     </span>
                   </Link>
                 </nav>
                 <div className="grid grid-cols-2 gap-1.5 bg-white p-1.5">
                   <CallAction
                     phone={contact.phone}
-                    className="h-9 min-h-9 w-full bg-emerald-800 text-[11px] font-black text-white"
+                    className="h-11 min-h-11 w-full border-emerald-900 bg-emerald-900 text-xs font-black text-white hover:bg-emerald-800 hover:text-white"
                   />
                   <SmsAction
                     phone={contact.phone}
-                    className="h-9 min-h-9 w-full !border-slate-300 !bg-white text-[11px] font-black !text-slate-900 hover:!bg-slate-100"
+                    label="WIADOMOŚĆ"
+                    className="h-11 min-h-11 w-full border-slate-300 bg-white text-xs font-black text-slate-950 hover:bg-slate-100 hover:text-slate-950"
                   />
                 </div>
               </article>
             );
           })}
         {!loading && !filtered.length ? (
-          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-700">
             Brak klientów.
           </p>
         ) : null}
@@ -1657,7 +1676,7 @@ function DesktopContactsView({
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
             Klienci
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-700">
             Osoby, firmy i powiązania.
           </p>
         </div>
@@ -1741,7 +1760,7 @@ function DesktopContactsView({
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="h-48 text-center text-slate-500"
+                    className="h-48 text-center text-slate-700"
                   >
                     <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
                     Ładowanie klientów…
@@ -1783,7 +1802,7 @@ function DesktopContactsView({
                           <span className="block font-bold text-slate-900">
                             {contact.name || 'Kontakt bez nazwy'}
                           </span>
-                          <span className="block text-xs text-slate-500">
+                          <span className="block text-xs text-slate-700">
                             {contact.companies
                               ?.map((company) => company.name)
                               .join(', ') || 'Klient indywidualny'}
@@ -1827,18 +1846,18 @@ function DesktopContactsView({
                               Deal: {contact.activeDeal.title} ·{' '}
                               {contact.dealCount ?? 0}
                             </span>
-                            <span className="text-slate-500">
+                            <span className="text-slate-700">
                               {contact.activeDeal.stage?.name ||
                                 'Etap nieustalony'}
                             </span>
                           </Link>
                         ) : (
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-700">
                             Brak aktywnej sprawy
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-500">
+                      <TableCell className="text-sm text-slate-700">
                         {contact.lastActivityAt
                           ? formatCrmDate(contact.lastActivityAt)
                           : 'Brak'}
@@ -1859,7 +1878,7 @@ function DesktopContactsView({
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-500">—</span>
+                            <span className="text-xs text-slate-700">—</span>
                           )}
                         </div>
                       </TableCell>
@@ -1893,7 +1912,7 @@ function DesktopContactsView({
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="h-48 text-center text-slate-500"
+                    className="h-48 text-center text-slate-700"
                   >
                     Brak klientów w tym widoku.
                   </TableCell>
@@ -1953,11 +1972,11 @@ function DesktopContactsView({
               )}
             </div>
           </div>
-          <div className="flex items-end text-xs text-slate-500">
+          <div className="flex items-end text-xs text-slate-700">
             Kontakt jest odnajdywany lub tworzony przed połączeniem.
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+        <div className="mt-3 flex items-center justify-between text-xs text-slate-700">
           <span>
             Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}
           </span>
