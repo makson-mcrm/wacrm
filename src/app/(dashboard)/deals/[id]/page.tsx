@@ -505,22 +505,14 @@ export default function DealPage() {
             </h1>
           </div>
 
-          <label className="block">
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
             <span className="text-xs font-black tracking-wide text-slate-700 uppercase">
               Etap
             </span>
-            <select
-              value={deal.stage_id}
-              onChange={(event) => void changeStage(event.target.value)}
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base font-bold text-slate-950"
-            >
-              {orderedStages.slice(0, 7).map((stage, index) => (
-                <option key={stage.id} value={stage.id}>
-                  {index + 1}. {stage.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <span className="text-sm font-black text-emerald-800">
+              {deal.stage?.name || 'Nieustalony'}
+            </span>
+          </div>
 
           <div>
             <p className="text-xs font-black tracking-wide text-slate-700 uppercase">
@@ -631,7 +623,7 @@ export default function DealPage() {
           <Button type="button" variant="outline" onClick={() => router.back()}>
             <ArrowLeft className="size-4" /> Cofnij
           </Button>
-          <Button variant="outline" render={<Link href="/deals" />}>
+          <Button variant="outline" onClick={() => setEdit(true)}>
             Zmień deal
           </Button>
           <Button render={<Link href="/pipelines?new=deal" />}>
@@ -639,10 +631,7 @@ export default function DealPage() {
           </Button>
         </nav>
 
-        <section
-          className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:block"
-          aria-label="Etapy Deala"
-        >
+        <section className="hidden" aria-label="Etapy Deala">
           <div className="flex min-w-[760px] items-start">
             {orderedStages.slice(0, 7).map((stage, index) => {
               const reached = index <= currentStageIndex;
@@ -671,6 +660,71 @@ export default function DealPage() {
             })}
           </div>
         </section>
+
+        <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between px-4 text-sm font-bold text-slate-700">
+            <span>Etap: {deal.stage?.name || 'Nieustalony'}</span>
+            <span className="text-xs font-normal">
+              Zmień etap (opcjonalnie)
+            </span>
+          </summary>
+          <div className="border-t border-slate-200 p-3">
+            <select
+              value={deal.stage_id}
+              onChange={(event) => void changeStage(event.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base font-bold text-slate-950"
+            >
+              {orderedStages.map((stage) => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </details>
+
+        <nav
+          className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-4"
+          aria-label="Szybkie akcje Deala"
+        >
+          {actionContact?.phone ? (
+            <>
+              <CallAction
+                phone={actionContact.phone}
+                contactId={actionContact.id}
+                companyId={deal.company_id}
+                dealId={deal.id}
+                className="w-full bg-emerald-800 text-white"
+              />
+              <WhatsAppAction
+                phone={actionContact.phone}
+                contactId={actionContact.id}
+                dealId={deal.id}
+                className="w-full"
+              />
+            </>
+          ) : (
+            <span className="col-span-2 text-sm text-slate-500">
+              Brak numeru telefonu klienta.
+            </span>
+          )}
+          <Button
+            variant="outline"
+            render={
+              <Link href={`/quick-call?deal=${deal.id}&action=dictate`} />
+            }
+          >
+            <Mic className="size-4" /> Dodaj aktywność
+          </Button>
+          <Button
+            variant="outline"
+            render={
+              <Link href={`/quick-call?deal=${deal.id}&action=document`} />
+            }
+          >
+            <Upload className="size-4" /> Dokument
+          </Button>
+        </nav>
 
         <section className="hidden gap-3 md:grid md:grid-cols-3">
           <StatusCard title="Następny krok">

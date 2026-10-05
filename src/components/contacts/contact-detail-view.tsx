@@ -661,7 +661,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -683,7 +683,7 @@ export function ContactDetailView({
                         href={`/pipelines?new=deal&contact=${contact.id}`}
                       />
                     }
-                    className="bg-emerald-800 text-white hover:bg-emerald-700"
+                    className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
                   >
                     + NOWY DEAL
                   </Button>
@@ -789,7 +789,7 @@ export function ContactDetailView({
                   className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
                 >
                   <section
-                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    className="rounded-xl border border-slate-300 bg-white p-3"
                     aria-labelledby="mobile-contact-relations"
                   >
                     <h3
@@ -801,7 +801,7 @@ export function ContactDetailView({
 
                     <div className="mt-3">
                       <h4 className="text-xs font-black text-slate-800">
-                        Firma
+                        Firma ({contactCompanies.length})
                       </h4>
                       <div className="mt-1 space-y-2">
                         {contactCompanies.length ? (
@@ -829,7 +829,7 @@ export function ContactDetailView({
 
                     <div className="mt-3 border-t border-slate-200 pt-3">
                       <h4 className="text-xs font-black text-slate-800">
-                        Współmałżonek
+                        Współmałżonek ({spouseLinks.length})
                       </h4>
                       <div className="mt-1 space-y-2">
                         {spouseLinks.length ? (
@@ -855,7 +855,7 @@ export function ContactDetailView({
 
                     <div className="mt-3 border-t border-slate-200 pt-3">
                       <h4 className="text-xs font-black text-slate-800">
-                        Osoby
+                        Osoby ({relatedPeople.length})
                       </h4>
                       <div className="mt-1 space-y-2">
                         {relatedPeople.filter(
@@ -893,44 +893,60 @@ export function ContactDetailView({
                   </section>
 
                   <section
-                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    className="rounded-xl border border-slate-300 bg-white p-3"
                     aria-labelledby="mobile-contact-deals"
                   >
                     <h3
                       id="mobile-contact-deals"
                       className="text-sm font-black tracking-wide text-slate-950 uppercase"
                     >
-                      Deale
+                      Aktywne Deale (
+                      {
+                        deals.filter(
+                          (deal) =>
+                            deal.status !== 'won' && deal.status !== 'lost'
+                        ).length
+                      }
+                      )
                     </h3>
                     {loadingDeals ? (
                       <div className="flex justify-center py-6">
                         <Loader2 className="size-5 animate-spin text-slate-700" />
                       </div>
-                    ) : deals.length ? (
+                    ) : deals.some(
+                        (deal) =>
+                          deal.status !== 'won' && deal.status !== 'lost'
+                      ) ? (
                       <div className="mt-2 space-y-2">
-                        {deals.map((deal) => (
-                          <Link
-                            key={deal.id}
-                            href={`/deals/${deal.id}`}
-                            className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
-                          >
-                            <span className="block text-sm font-black">
-                              {deal.title} ·{' '}
-                              {formatCurrency(
-                                deal.value ?? 0,
-                                deal.currency || defaultCurrency
-                              )}{' '}
-                              · {deal.stage?.name || 'Etap nieustalony'}
-                            </span>
-                            <span className="mt-1 block text-xs text-slate-700">
-                              następny krok:{' '}
-                              {deal.next_action || 'nie ustalono'} · termin:{' '}
-                              {deal.next_action_at
-                                ? formatWarsawDateTime(deal.next_action_at)
-                                : 'nie ustalono'}
-                            </span>
-                          </Link>
-                        ))}
+                        {deals
+                          .filter(
+                            (deal) =>
+                              deal.status !== 'won' && deal.status !== 'lost'
+                          )
+                          .slice(0, 3)
+                          .map((deal) => (
+                            <Link
+                              key={deal.id}
+                              href={`/deals/${deal.id}`}
+                              className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
+                            >
+                              <span className="block text-sm font-black">
+                                {deal.title} ·{' '}
+                                {formatCurrency(
+                                  deal.value ?? 0,
+                                  deal.currency || defaultCurrency
+                                )}{' '}
+                                · {deal.stage?.name || 'Etap nieustalony'}
+                              </span>
+                              <span className="mt-1 block text-xs text-slate-700">
+                                następny krok:{' '}
+                                {deal.next_action || 'nie ustalono'} · termin:{' '}
+                                {deal.next_action_at
+                                  ? formatWarsawDateTime(deal.next_action_at)
+                                  : 'nie ustalono'}
+                              </span>
+                            </Link>
+                          ))}
                       </div>
                     ) : (
                       <p className="mt-2 text-sm text-slate-700">
@@ -940,7 +956,7 @@ export function ContactDetailView({
                   </section>
 
                   <section
-                    className="rounded-xl border border-slate-300 bg-white p-3 sm:hidden"
+                    className="rounded-xl border border-slate-300 bg-white p-3"
                     aria-labelledby="mobile-contact-activities"
                   >
                     <h3
@@ -952,7 +968,25 @@ export function ContactDetailView({
                     <ActivityHistory contactId={contact.id} className="mt-2" />
                   </section>
 
-                  <div className="hidden sm:contents">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 w-full border-slate-300 font-black text-slate-950"
+                    onClick={() => {
+                      setActiveTab('details');
+                      window.setTimeout(() => {
+                        const details = document.getElementById(
+                          'contact-deeper-details'
+                        );
+                        details?.setAttribute('open', '');
+                        details?.scrollIntoView({ behavior: 'smooth' });
+                      }, 0);
+                    }}
+                  >
+                    PEŁNA KARTA KLIENTA
+                  </Button>
+
+                  <div className="hidden">
                     <section className="rounded-xl border border-slate-200 p-3">
                       <h3 className="text-sm font-black">
                         <span className="sm:hidden">Osoby i powiązania</span>

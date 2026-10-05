@@ -3,18 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 describe('AKTYWNOŚĆ — plansza 08', () => {
-  it('keeps the full sales flow on one screen', () => {
+  it('keeps the fast UX 2.1 sales flow without numbered large sections', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'src/components/sales/activity-board-08.tsx'),
       'utf8'
     );
     for (const label of [
-      '1. Wybierz klienta i deal',
-      '2. Zarejestruj rozmowę',
-      '3. Wynik rozmowy',
-      '4. Notatka lub dyktowanie',
-      '5. Następny krok · 6. Termin · 7. Blocker',
-      '9. Zmień etap lub zamknij deal',
+      'Klient i Deal',
+      'Akcja',
+      'Wynik',
+      'Notatka lub dyktowanie',
       'Ostatnie aktywności w tym dealu',
       'Zobacz wszystkie',
       'Odebrał',
@@ -25,6 +23,9 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
       'Blocker',
     ])
       expect(source).toContain(label);
+    expect(source).not.toMatch(
+      /\b[1-9]\. (Wybierz|Zarejestruj|Wynik|Notatka|Następny|Zapis|Zmień)/
+    );
   });
 
   it('wysyła WIADOMOŚĆ realną ścieżką WhatsApp z kontekstem Deala', () => {
@@ -87,8 +88,10 @@ describe('AKTYWNOŚĆ — plansza 08', () => {
     );
     expect(source).toContain('WIĘCEJ / OPCJE');
     expect(source).toContain('data-slot="activity-mobile-save"');
-    expect(source).toContain('sticky bottom-');
+    expect(source).not.toContain('sticky bottom-');
     expect(source).not.toContain('className="fixed inset-x-3');
+    expect(source).toContain('var(--app-viewport-height,100dvh)');
+    expect(source).toContain('env(safe-area-inset-bottom)');
     expect(source).toContain('AI: rozpoznaj z notatki');
     expect(source).toContain('activity-blocker-mobile');
     expect(source).toContain('activity-stage-mobile');

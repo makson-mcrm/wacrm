@@ -712,7 +712,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
 
   return (
     <div
-      className="mx-auto w-full max-w-[1480px] space-y-3 pb-36 text-slate-950 lg:space-y-4 lg:pb-8"
+      className="mx-auto min-h-[calc(var(--app-viewport-height,100dvh)-6rem)] w-full max-w-[1480px] space-y-3 pb-[calc(5rem+env(safe-area-inset-bottom))] text-slate-950 lg:space-y-4 lg:pb-8"
       data-mobile-page="activity-08"
     >
       <div className="flex items-start justify-between gap-4">
@@ -863,9 +863,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           <section className="space-y-3 rounded-xl border border-slate-300 bg-white p-3 shadow-sm lg:p-4">
             <h2 className="font-black text-[#071747]">
               <span className="lg:hidden">Wyszukaj / wybierz</span>
-              <span className="hidden lg:inline">
-                1. Wybierz klienta i deal
-              </span>
+              <span className="hidden lg:inline">Klient i Deal</span>
             </h2>
             <div className="relative">
               <Search className="absolute top-3.5 left-3 size-5 text-blue-600" />
@@ -1076,7 +1074,6 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               <div className="hidden border-t pt-3 lg:block">
                 <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <h2 className="text-sm font-black text-[#0b1b55]">
-                    <span className="lg:hidden">4. </span>
                     {RECENT_ACTIVITIES_LABEL}
                   </h2>
                   <button
@@ -1131,10 +1128,10 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
           </section>
 
           <section className="flex flex-col gap-4 rounded-xl border border-slate-300 bg-white p-3 shadow-sm lg:p-4">
-            <div className="order-1 hidden lg:block">
+            <div className="order-1">
               <h2 className="font-black text-[#0b1b55]">
                 <span className="lg:hidden">Akcja</span>
-                <span className="hidden lg:inline">2. Zarejestruj rozmowę</span>
+                <span className="hidden lg:inline">Akcja</span>
               </h2>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <button
@@ -1186,7 +1183,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               <div className="order-2 mt-4 flex items-center justify-between gap-3 lg:order-1 lg:mt-0">
                 <h2 className="font-black text-[#0b1b55]">
                   <span className="lg:hidden">Wynik</span>
-                  <span className="hidden lg:inline">3. Wynik rozmowy</span>
+                  <span className="hidden lg:inline">Wynik</span>
                 </h2>
                 {action === 'TELEFON' && (
                   <select
@@ -1225,9 +1222,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               )}
               <h2 className="order-1 font-black text-[#0b1b55] lg:order-2 lg:mt-4">
                 <span className="lg:hidden">Notatka / dyktuj</span>
-                <span className="hidden lg:inline">
-                  4. Notatka lub dyktowanie
-                </span>
+                <span className="hidden lg:inline">Notatka lub dyktowanie</span>
               </h2>
               <div className="order-1 mt-2 lg:order-2 [&_textarea]:min-h-48 [&_textarea]:border-slate-300 [&_textarea]:bg-white [&_textarea]:text-base sm:[&_textarea]:min-h-28">
                 <VoiceTextarea
@@ -1356,55 +1351,9 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
               </div>
             </div>
 
-            <div className="order-7 hidden lg:order-5 lg:block">
-              <h2 className="font-black text-[#0b1b55]">
-                <span className="lg:hidden">
-                  Opcjonalnie: zmień etap lub zamknij deal{' '}
-                </span>
-                <span className="hidden lg:inline">
-                  9. Zmień etap lub zamknij deal{' '}
-                </span>
-                <span className="font-normal text-slate-700">
-                  (opcjonalnie)
-                </span>
-              </h2>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_auto_auto]">
-                <select
-                  value={stageId}
-                  disabled={!selectedDeal}
-                  onChange={(e) => setStageId(e.target.value)}
-                  className="col-span-2 min-h-11 rounded-lg border bg-white px-3 text-sm font-bold sm:col-span-1"
-                >
-                  <option value="">Etap Deala</option>
-                  {stages.map((stage) => (
-                    <option key={stage.id} value={stage.id}>
-                      {stage.name}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  disabled={!selectedDeal}
-                  onClick={() => void closeDeal('won')}
-                  className="bg-emerald-800"
-                >
-                  <Trophy className="size-4" /> Wygrana
-                </Button>
-                <Button
-                  type="button"
-                  disabled={!selectedDeal}
-                  variant="outline"
-                  onClick={() => void closeDeal('lost')}
-                  className="border-red-400 text-red-700"
-                >
-                  Przegrana
-                </Button>
-              </div>
-            </div>
-
             <div className="order-4">
               <h2 className="hidden font-black text-[#0b1b55] lg:block">
-                5. Następny krok · 6. Termin · 7. Blocker
+                Następny krok
               </h2>
               <div className="mt-2 grid gap-3 rounded-lg border border-slate-300 bg-slate-50/80 p-3 lg:grid-cols-3">
                 <div>
@@ -1427,7 +1376,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     className="mt-1 h-11 bg-white text-base md:h-10"
                   />
                 </div>
-                <div className="hidden lg:block">
+                <div className="hidden">
                   <Label htmlFor="activity-blocker">Bloker</Label>
                   <Input
                     id="activity-blocker"
@@ -1441,11 +1390,11 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
             </div>
             <div
               data-slot="activity-mobile-save"
-              className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 order-5 -mx-2 flex flex-col gap-2 rounded-xl border border-emerald-900/20 bg-white/97 p-2 shadow-[0_-8px_30px_rgba(15,23,42,0.12)] backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
+              className="order-5 flex flex-col gap-2 rounded-xl border border-emerald-900/20 bg-white p-2 sm:flex-row sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
             >
               <span className="text-sm font-black text-[#0b1b55]">
                 <span className="lg:hidden">Zapis</span>
-                <span className="hidden lg:inline">8. Zapis</span>
+                <span className="hidden lg:inline">Zapis</span>
               </span>
               <label className="hidden min-h-10 cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700 lg:inline-flex">
                 <input
@@ -1484,7 +1433,7 @@ export function ActivityBoard08({ demo = false }: { demo?: boolean }) {
                     : 'Zapisz aktywność'}
               </Button>
             </div>
-            <details className="order-6 rounded-xl border border-slate-300 bg-slate-50 lg:hidden">
+            <details className="order-6 rounded-xl border border-slate-300 bg-slate-50">
               <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-black text-slate-950">
                 WIĘCEJ / OPCJE
               </summary>

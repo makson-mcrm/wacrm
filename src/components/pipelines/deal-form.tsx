@@ -30,6 +30,7 @@ import {
 import { Banknote, Check, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
+import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 
 interface DealFormProps {
   open: boolean;
@@ -108,6 +109,9 @@ export function DealForm({
   const [showNewCompany, setShowNewCompany] = useState(false),
     [newCompanyName, setNewCompanyName] = useState(''),
     [newCompanyNip, setNewCompanyNip] = useState('');
+  const [inheritedCompanyName, setInheritedCompanyName] = useState('');
+  const [inheritedSpouseId, setInheritedSpouseId] = useState('');
+  const [inheritedSpouseName, setInheritedSpouseName] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -142,16 +146,51 @@ export function DealForm({
           defaultContactId ??
           ''
       );
-      setSecondContactId(
+      const nextSecondContactId =
         deal?.product_type === 'ML — HIPOTEKA'
           ? (links.find((row) => !row.is_primary)?.contact_id ??
-              deal?.co_applicant_contact_id ??
-              '')
-          : ''
-      );
-      setCompanyId(deal?.company_id ?? defaultCompanyId ?? '');
+            deal?.co_applicant_contact_id ??
+            '')
+          : '';
+      let nextCompanyId = deal?.company_id ?? defaultCompanyId ?? '';
+      let nextCompanyName = '';
+      let nextSpouseId = '';
+      let nextSpouseName = '';
+      if (!deal && defaultContactId) {
+        const [companyLinkResult, spouseLinks] = await Promise.all([
+          db
+            .from('contact_companies')
+            .select('company_id,is_primary,company:companies(id,name)')
+            .eq('contact_id', defaultContactId)
+            .order('is_primary', { ascending: false })
+            .limit(1),
+          loadSpouseLinks(db, [defaultContactId]),
+        ]);
+        const companyLink = companyLinkResult.data?.[0] as
+          | {
+              company_id: string;
+              company: { id: string; name: string } | null;
+            }
+          | undefined;
+        if (!nextCompanyId && companyLink?.company_id)
+          nextCompanyId = companyLink.company_id;
+        nextCompanyName = companyLink?.company?.name ?? '';
+        nextSpouseId = spouseLinks[0]?.spouse.id ?? '';
+        nextSpouseName = spouseLinks[0]?.spouse.name ?? '';
+      }
+      setSecondContactId(nextSecondContactId);
+      setCompanyId(nextCompanyId);
+      setInheritedCompanyName(nextCompanyName);
+      setInheritedSpouseId(nextSpouseId);
+      setInheritedSpouseName(nextSpouseName);
       setValue(deal?.value == null ? '' : String(deal.value));
-      setSource(deal?.source ?? '');
+      setSource(
+        deal?.source ??
+          (contactRows.data as Contact[] | null)?.find(
+            (row) => row.id === defaultContactId
+          )?.source ??
+          ''
+      );
       setGoal(deal?.goal ?? '');
       setProductType(deal?.product_type ?? '');
       setStageId(deal?.stage_id ?? defaultStageId ?? stages[0]?.id ?? '');
@@ -229,16 +268,46 @@ export function DealForm({
     keywords: [row.phone, row.email, row.pesel].filter(Boolean).join(' '),
   }));
 
-  function selectPrimaryContact(id: string) {
+  async function selectPrimaryContact(id: string) {
     setContactId(id);
     const inheritedSource = contacts.find((row) => row.id === id)?.source;
     if (!source && inheritedSource) setSource(inheritedSource);
+    if (!id) {
+      setCompanyId('');
+      setInheritedCompanyName('');
+      setInheritedSpouseId('');
+      setInheritedSpouseName('');
+      return;
+    }
+    const [companyLinkResult, spouseLinks] = await Promise.all([
+      db
+        .from('contact_companies')
+        .select('company_id,is_primary,company:companies(id,name)')
+        .eq('contact_id', id)
+        .order('is_primary', { ascending: false })
+        .limit(1),
+      loadSpouseLinks(db, [id]),
+    ]);
+    const companyLink = companyLinkResult.data?.[0] as
+      | {
+          company_id: string;
+          company: { id: string; name: string } | null;
+        }
+      | undefined;
+    setCompanyId(companyLink?.company_id ?? '');
+    setInheritedCompanyName(companyLink?.company?.name ?? '');
+    const spouse = spouseLinks[0]?.spouse;
+    setInheritedSpouseId(spouse?.id ?? '');
+    setInheritedSpouseName(spouse?.name ?? '');
+    if (productType === 'ML — HIPOTEKA') setSecondContactId(spouse?.id ?? '');
   }
   const isMortgageDeal = productType === 'ML — HIPOTEKA';
 
   function changeProductType(nextProductType: string) {
     setProductType(nextProductType);
-    if (nextProductType !== 'ML — HIPOTEKA') setSecondContactId('');
+    setSecondContactId(
+      nextProductType === 'ML — HIPOTEKA' ? inheritedSpouseId : ''
+    );
   }
 
   const companyOptions = companies.map((row) => ({
@@ -260,8 +329,13 @@ export function DealForm({
   }
 
   async function addContactInline() {
-    if (!newPhone.trim() || !accountId) {
-      toast.error('Numer telefonu jest wymagany.');
+    if (
+      !newFirstName.trim() ||
+      !newLastName.trim() ||
+      !newPhone.trim() ||
+      !accountId
+    ) {
+      toast.error('Imię, nazwisko i numer telefonu są wymagane.');
       return;
     }
     const {
@@ -404,19 +478,19 @@ export function DealForm({
   }
 
   async function handleSave() {
+    const numericValue = Number(value);
     if (
       !title.trim() ||
       !description.trim() ||
-      !value ||
+      !Number.isFinite(numericValue) ||
+      numericValue <= 0 ||
       !contactId ||
       !source ||
       !productType ||
       !stageId ||
       !accountId
     ) {
-      toast.error(
-        'Uzupełnij pola oznaczone gwiazdką: nazwę, opis, kwotę, osobę, źródło, typ i etap.'
-      );
+      toast.error('Uzupełnij wymagane pola. Kwota musi być większa od 0.');
       return;
     }
     if (secondContactId && !isMortgageDeal) {
@@ -572,385 +646,507 @@ export function DealForm({
             <SheetTitle>{deal ? 'Edytuj Deal' : 'Nowy Deal'}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 space-y-5 overflow-y-auto p-4">
-            <section className="space-y-3">
-              <h3 className="font-semibold">Najważniejsze informacje</h3>
-              <div className="grid gap-3">
-                <Field label="Nazwa Deala *">
+            {!deal && (
+              <section
+                className="space-y-4"
+                aria-label="Nowy Deal — minimum biznesowe"
+              >
+                <p className="text-sm text-slate-600">
+                  Uzupełnij minimum potrzebne do rozpoczęcia sprawy. Etap
+                  startowy i opiekun zostaną ustawieni automatycznie.
+                </p>
+
+                <Field label="Klient *">
+                  {defaultContactId && contactId === defaultContactId ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                      <p className="font-black text-emerald-950">
+                        {contactOptions.find((row) => row.value === contactId)
+                          ?.label || 'Wybrany klient'}
+                      </p>
+                      <p className="mt-1 text-xs text-emerald-800">
+                        Klient odziedziczony z kartoteki — bez ponownego
+                        wpisywania danych.
+                      </p>
+                      {(inheritedCompanyName || inheritedSpouseName) && (
+                        <p className="mt-2 text-xs text-slate-700">
+                          Powiązania:{' '}
+                          {[inheritedCompanyName, inheritedSpouseName]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <EntitySearchSelect
+                      value={contactId}
+                      onChange={(id) => void selectPrimaryContact(id)}
+                      options={contactOptions}
+                      placeholder="Wybierz istniejącego klienta"
+                      allowEmpty={false}
+                      onAdd={() => setShowNewContact((visible) => !visible)}
+                      addLabel="Szybko utwórz klienta"
+                    />
+                  )}
+                </Field>
+
+                {showNewContact && !defaultContactId && (
+                  <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <Input
+                      value={newFirstName}
+                      onChange={(event) => setNewFirstName(event.target.value)}
+                      placeholder="Imię *"
+                    />
+                    <Input
+                      value={newLastName}
+                      onChange={(event) => setNewLastName(event.target.value)}
+                      placeholder="Nazwisko *"
+                    />
+                    <Input
+                      value={newPhone}
+                      onChange={(event) => setNewPhone(event.target.value)}
+                      placeholder="Telefon *"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void addContactInline()}
+                    >
+                      Dodaj klienta
+                    </Button>
+                  </div>
+                )}
+
+                <Field label="Nazwa / Temat *">
                   <Input
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(event) => setTitle(event.target.value)}
                     placeholder="Np. Hipoteka — Jan Kowalski"
                   />
                 </Field>
+
                 <Field label="Kwota *">
                   <div className="relative">
                     <Banknote className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
                     <Input
                       type="number"
-                      min="0"
+                      min="0.01"
+                      step="0.01"
+                      inputMode="decimal"
                       value={value}
-                      onChange={(e) => changeValue(e.target.value)}
+                      onChange={(event) => changeValue(event.target.value)}
                       className="pr-10 pl-8"
+                      placeholder="Więcej niż 0"
                     />
                     <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm">
                       zł
                     </span>
                   </div>
                 </Field>
-              </div>
-              <Field label="Opis sprawy *">
-                <VoiceTextarea
-                  value={description}
-                  onChange={setDescription}
-                  className="min-h-28"
-                  placeholder="Sytuacja klienta, potrzeba i ustalenia po rozmowie"
-                />
-              </Field>
-            </section>
-            <section className="space-y-3 rounded-xl border p-4">
-              <h3 className="font-semibold">Osoby i firma</h3>
-              <div className="grid gap-3">
-                <Field label="Główna osoba *">
-                  <EntitySearchSelect
-                    value={contactId}
-                    onChange={selectPrimaryContact}
-                    options={contactOptions}
-                    placeholder="Wyszukaj osobę"
-                    allowEmpty={false}
-                    onAdd={() => setShowNewContact((v) => !v)}
-                    addLabel="Dodaj nową osobę"
+
+                <Field label="Opis / Notatka *">
+                  <VoiceTextarea
+                    value={description}
+                    onChange={setDescription}
+                    className="min-h-28"
+                    placeholder="Sytuacja klienta, potrzeba i najważniejsze ustalenia"
                   />
                 </Field>
-                {isMortgageDeal && (
-                  <Field label="Druga osoba — tylko hipoteka">
-                    <EntitySearchSelect
-                      value={secondContactId}
-                      onChange={setSecondContactId}
-                      options={contactOptions.filter(
-                        (row) => row.value !== contactId
-                      )}
-                      placeholder="Wyszukaj drugą osobę"
-                      onAdd={() => setShowNewContact((v) => !v)}
-                      addLabel="Dodaj drugą osobę"
-                    />
-                  </Field>
-                )}
-                <Field label="Firma">
-                  <EntitySearchSelect
-                    value={companyId}
-                    onChange={setCompanyId}
-                    options={companyOptions}
-                    placeholder="Wyszukaj firmę"
-                    onAdd={() => setShowNewCompany((v) => !v)}
-                    addLabel="Dodaj nową firmę"
-                  />
-                </Field>
-              </div>
-              {showNewContact && (
-                <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
-                  <Input
-                    value={newFirstName}
-                    onChange={(e) => setNewFirstName(e.target.value)}
-                    placeholder="Imię"
-                  />
-                  <Input
-                    value={newLastName}
-                    onChange={(e) => setNewLastName(e.target.value)}
-                    placeholder="Nazwisko"
-                  />
-                  <Input
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="Telefon *"
-                  />
-                  <Button
-                    type="button"
-                    onClick={addContactInline}
-                    className="w-full"
-                  >
-                    Dodaj i powiąż osobę
-                  </Button>
-                </div>
-              )}
-              {showNewCompany && (
-                <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
-                  <Input
-                    value={newCompanyName}
-                    onChange={(e) => setNewCompanyName(e.target.value)}
-                    placeholder="Nazwa firmy *"
-                  />
-                  <Input
-                    value={newCompanyNip}
-                    onChange={(e) => setNewCompanyNip(e.target.value)}
-                    placeholder="NIP (opcjonalnie)"
-                    inputMode="numeric"
-                  />
-                  <Button type="button" onClick={addCompanyInline}>
-                    Dodaj i powiąż
-                  </Button>
-                </div>
-              )}
-            </section>
-            <section className="space-y-3">
-              <h3 className="font-semibold">Sprawa sprzedażowa</h3>
-              <div className="grid gap-3">
+
                 <Select
-                  label="Źródło *"
-                  value={source}
-                  set={setSource}
-                  values={[...LEAD_SOURCE_OPTIONS]}
-                />
-                <Select
-                  label="Typ Deala *"
+                  label="Kategoria produktu *"
                   value={productType}
                   set={changeProductType}
                   values={[...PRODUCT_CATEGORY_OPTIONS]}
                 />
-                <Field label="Etap *">
-                  <select
-                    value={stageId}
-                    onChange={(e) => setStageId(e.target.value)}
-                    className="bg-muted h-9 w-full rounded-md border px-3 text-sm"
-                  >
-                    {stages.map((row) => (
-                      <option key={row.id} value={row.id}>
-                        {row.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+
                 <Select
-                  label="Cel"
-                  value={goal}
-                  set={setGoal}
-                  values={[
-                    'Zakup nieruchomości',
-                    'Budowa domu',
-                    'Refinansowanie',
-                    'Konsolidacja',
-                    'Finansowanie firmy',
-                    'Podwyższenie limitu',
-                    'Inny',
-                  ]}
+                  label="Źródło / Namiar *"
+                  value={source}
+                  set={setSource}
+                  values={[...LEAD_SOURCE_OPTIONS]}
                 />
-                <Select
-                  label="Status mFinanse"
-                  value={mfinanseStatus}
-                  set={setMfinanseStatus}
-                  values={[
-                    'do_sprawdzenia',
-                    'zarejestrowany',
-                    'zajety',
-                    'nie_dotyczy',
-                  ]}
-                  labels={{
-                    do_sprawdzenia: 'Do sprawdzenia',
-                    zarejestrowany: 'Zarejestrowany',
-                    zajety: 'Zajęty',
-                    nie_dotyczy: 'Nie dotyczy',
-                  }}
-                />
-                <Field label="Właściciel">
-                  <select
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                    className="bg-muted h-9 w-full rounded-md border px-3 text-sm"
-                  >
-                    <option value="">Nieprzypisany</option>
-                    {profiles.map((row) => (
-                      <option key={row.id} value={row.id}>
-                        {row.full_name || row.email}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Prowizja oczekiwana">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={expectedCommission}
-                    onChange={(e) => {
-                      setCommissionEdited(true);
-                      setExpectedCommission(e.target.value);
-                    }}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Domyślnie 1% kwoty, możesz zmienić.
-                  </p>
-                </Field>
-              </div>
-            </section>
-            <section className="space-y-3">
-              <h3 className="font-semibold">Co dalej</h3>
-              <Field label="Następne działanie">
-                <VoiceTextarea
-                  value={nextAction}
-                  onChange={setNextAction}
-                  className="min-h-20"
-                  placeholder="Co konkretnie trzeba zrobić jako następny krok?"
-                />
-              </Field>
-              <Field label="Bloker sprawy">
-                <VoiceTextarea
-                  value={blocker}
-                  onChange={setBlocker}
-                  className="min-h-20"
-                  placeholder="Co zatrzymuje sprawę? Zostaw puste, jeśli nie ma blokera."
-                />
-              </Field>
-              <div className="grid gap-3">
-                <Field label="Termin następnego działania">
-                  <MobileDateTimeInput
-                    value={nextActionAt}
-                    onChange={setNextActionAt}
-                  />
-                </Field>
-                <Field label="Miejsce lub link">
-                  <Input
-                    value={meetingPlace}
-                    onChange={(e) => setMeetingPlace(e.target.value)}
-                    placeholder="Adres lub link do spotkania"
-                  />
-                </Field>
-                {stages
-                  .find((row) => row.id === stageId)
-                  ?.name.includes('POCZEKALNIA') && (
-                  <Field label="Termin ponownego kontaktu *">
-                    <MobileDateTimeInput
-                      value={followUpAt}
-                      onChange={setFollowUpAt}
-                      required
+              </section>
+            )}
+            <div className={deal ? 'space-y-5' : 'hidden'}>
+              <section className="space-y-3">
+                <h3 className="font-semibold">Najważniejsze informacje</h3>
+                <div className="grid gap-3">
+                  <Field label="Nazwa Deala *">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Np. Hipoteka — Jan Kowalski"
                     />
                   </Field>
-                )}
-              </div>
-            </section>
-            <details className="rounded-xl border p-4">
-              <summary className="cursor-pointer font-semibold">
-                Dodatkowe terminy
-              </summary>
-              <div className="mt-4 grid gap-3">
-                <Field label="Spotkanie zapisane na Dealu">
-                  <MobileDateTimeInput
-                    value={meetingAt}
-                    onChange={setMeetingAt}
-                  />
-                </Field>
-                <Field label="Planowane zamknięcie">
-                  <Input
-                    type="date"
-                    value={expectedCloseDate}
-                    onChange={(e) => setExpectedCloseDate(e.target.value)}
-                  />
-                </Field>
-              </div>
-            </details>
-            <details className="rounded-xl border p-4">
-              <summary className="cursor-pointer font-semibold">
-                Dane z formularza i przygotowanie wniosku
-              </summary>
-              <div className="mt-4 space-y-3">
-                <Field label="Pełne odpowiedzi z formularza / ankiety">
+                  <Field label="Kwota *">
+                    <div className="relative">
+                      <Banknote className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+                      <Input
+                        type="number"
+                        min="0"
+                        value={value}
+                        onChange={(e) => changeValue(e.target.value)}
+                        className="pr-10 pl-8"
+                      />
+                      <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm">
+                        zł
+                      </span>
+                    </div>
+                  </Field>
+                </div>
+                <Field label="Opis sprawy *">
                   <VoiceTextarea
-                    value={questionnaireText}
-                    onChange={setQuestionnaireText}
-                    className="min-h-36"
+                    value={description}
+                    onChange={setDescription}
+                    className="min-h-28"
+                    placeholder="Sytuacja klienta, potrzeba i ustalenia po rozmowie"
                   />
                 </Field>
-                <Field label="Ankieta wymagana do">
-                  <MobileDateTimeInput
-                    value={questionnaireDueAt}
-                    onChange={setQuestionnaireDueAt}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Dla płatnej konsultacji ustaw termin co najmniej 2 dni przed
-                    spotkaniem.
-                  </p>
-                </Field>
-                <p className="text-muted-foreground text-xs">
-                  Dokumenty prowadź w checkliście na karcie Deala. Folder Dysku
-                  Google twórz tylko na żądanie przyciskiem „Utwórz folder”.
-                  Notatki dodawaj w zakładce „Komentarze i notatki”, gdzie
-                  zapisują się z datą i autorem.
-                </p>
-              </div>
-            </details>
-            <details className="rounded-xl border p-4">
-              <summary className="cursor-pointer font-semibold">
-                Uruchomienie, prowizja i faktura
-              </summary>
-              <div className="mt-4 grid gap-3">
-                <Field label="Kwota uruchomiona">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={launchedAmount}
-                    onChange={(e) => setLaunchedAmount(e.target.value)}
-                  />
-                </Field>
-                <Field label="Data uruchomienia">
-                  <Input
-                    type="date"
-                    value={launchedAt}
-                    onChange={(e) => setLaunchedAt(e.target.value)}
-                  />
-                </Field>
-                <Field label="Prowizja rzeczywista">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={actualCommission}
-                    onChange={(e) => setActualCommission(e.target.value)}
-                  />
-                </Field>
-                <Field label="Numer faktury">
-                  <Input
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                  />
-                </Field>
-                <Field label="Data faktury">
-                  <Input
-                    type="date"
-                    value={invoiceDate}
-                    onChange={(e) => setInvoiceDate(e.target.value)}
-                  />
-                </Field>
-                <Select
-                  label="Status faktury"
-                  value={invoiceStatus}
-                  set={setInvoiceStatus}
-                  values={[
-                    'do_wystawienia',
-                    'wystawiona',
-                    'oplacona',
-                    'nie_dotyczy',
-                  ]}
-                  labels={{
-                    do_wystawienia: 'Do wystawienia',
-                    wystawiona: 'Wystawiona',
-                    oplacona: 'Opłacona',
-                    nie_dotyczy: 'Nie dotyczy',
-                  }}
-                />
-                <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                  <input
-                    type="checkbox"
-                    checked={settlementVerified}
-                    onChange={(e) => setSettlementVerified(e.target.checked)}
-                  />
-                  Rozliczenie sprawdzone
-                </label>
-                <div className="sm:col-span-2">
-                  <Field label="Uwagi do rozliczenia">
-                    <VoiceTextarea
-                      value={settlementNotes}
-                      onChange={setSettlementNotes}
+              </section>
+              <section className="space-y-3 rounded-xl border p-4">
+                <h3 className="font-semibold">Osoby i firma</h3>
+                <div className="grid gap-3">
+                  <Field label="Główna osoba *">
+                    <EntitySearchSelect
+                      value={contactId}
+                      onChange={selectPrimaryContact}
+                      options={contactOptions}
+                      placeholder="Wyszukaj osobę"
+                      allowEmpty={false}
+                      onAdd={() => setShowNewContact((v) => !v)}
+                      addLabel="Dodaj nową osobę"
+                    />
+                  </Field>
+                  {isMortgageDeal && (
+                    <Field label="Druga osoba — tylko hipoteka">
+                      <EntitySearchSelect
+                        value={secondContactId}
+                        onChange={setSecondContactId}
+                        options={contactOptions.filter(
+                          (row) => row.value !== contactId
+                        )}
+                        placeholder="Wyszukaj drugą osobę"
+                        onAdd={() => setShowNewContact((v) => !v)}
+                        addLabel="Dodaj drugą osobę"
+                      />
+                    </Field>
+                  )}
+                  <Field label="Firma">
+                    <EntitySearchSelect
+                      value={companyId}
+                      onChange={setCompanyId}
+                      options={companyOptions}
+                      placeholder="Wyszukaj firmę"
+                      onAdd={() => setShowNewCompany((v) => !v)}
+                      addLabel="Dodaj nową firmę"
                     />
                   </Field>
                 </div>
-              </div>
-            </details>
+                {showNewContact && (
+                  <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
+                    <Input
+                      value={newFirstName}
+                      onChange={(e) => setNewFirstName(e.target.value)}
+                      placeholder="Imię"
+                    />
+                    <Input
+                      value={newLastName}
+                      onChange={(e) => setNewLastName(e.target.value)}
+                      placeholder="Nazwisko"
+                    />
+                    <Input
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                      placeholder="Telefon *"
+                    />
+                    <Button
+                      type="button"
+                      onClick={addContactInline}
+                      className="w-full"
+                    >
+                      Dodaj i powiąż osobę
+                    </Button>
+                  </div>
+                )}
+                {showNewCompany && (
+                  <div className="bg-muted/50 grid gap-2 rounded-lg p-3">
+                    <Input
+                      value={newCompanyName}
+                      onChange={(e) => setNewCompanyName(e.target.value)}
+                      placeholder="Nazwa firmy *"
+                    />
+                    <Input
+                      value={newCompanyNip}
+                      onChange={(e) => setNewCompanyNip(e.target.value)}
+                      placeholder="NIP (opcjonalnie)"
+                      inputMode="numeric"
+                    />
+                    <Button type="button" onClick={addCompanyInline}>
+                      Dodaj i powiąż
+                    </Button>
+                  </div>
+                )}
+              </section>
+              <section className="space-y-3">
+                <h3 className="font-semibold">Sprawa sprzedażowa</h3>
+                <div className="grid gap-3">
+                  <Select
+                    label="Źródło *"
+                    value={source}
+                    set={setSource}
+                    values={[...LEAD_SOURCE_OPTIONS]}
+                  />
+                  <Select
+                    label="Typ Deala *"
+                    value={productType}
+                    set={changeProductType}
+                    values={[...PRODUCT_CATEGORY_OPTIONS]}
+                  />
+                  <Field label="Etap *">
+                    <select
+                      value={stageId}
+                      onChange={(e) => setStageId(e.target.value)}
+                      className="bg-muted h-9 w-full rounded-md border px-3 text-sm"
+                    >
+                      {stages.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Select
+                    label="Cel"
+                    value={goal}
+                    set={setGoal}
+                    values={[
+                      'Zakup nieruchomości',
+                      'Budowa domu',
+                      'Refinansowanie',
+                      'Konsolidacja',
+                      'Finansowanie firmy',
+                      'Podwyższenie limitu',
+                      'Inny',
+                    ]}
+                  />
+                  <Select
+                    label="Status mFinanse"
+                    value={mfinanseStatus}
+                    set={setMfinanseStatus}
+                    values={[
+                      'do_sprawdzenia',
+                      'zarejestrowany',
+                      'zajety',
+                      'nie_dotyczy',
+                    ]}
+                    labels={{
+                      do_sprawdzenia: 'Do sprawdzenia',
+                      zarejestrowany: 'Zarejestrowany',
+                      zajety: 'Zajęty',
+                      nie_dotyczy: 'Nie dotyczy',
+                    }}
+                  />
+                  <Field label="Właściciel">
+                    <select
+                      value={assignedTo}
+                      onChange={(e) => setAssignedTo(e.target.value)}
+                      className="bg-muted h-9 w-full rounded-md border px-3 text-sm"
+                    >
+                      <option value="">Nieprzypisany</option>
+                      {profiles.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.full_name || row.email}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Prowizja oczekiwana">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={expectedCommission}
+                      onChange={(e) => {
+                        setCommissionEdited(true);
+                        setExpectedCommission(e.target.value);
+                      }}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Domyślnie 1% kwoty, możesz zmienić.
+                    </p>
+                  </Field>
+                </div>
+              </section>
+              <section className="space-y-3">
+                <h3 className="font-semibold">Co dalej</h3>
+                <Field label="Następne działanie">
+                  <VoiceTextarea
+                    value={nextAction}
+                    onChange={setNextAction}
+                    className="min-h-20"
+                    placeholder="Co konkretnie trzeba zrobić jako następny krok?"
+                  />
+                </Field>
+                <Field label="Bloker sprawy">
+                  <VoiceTextarea
+                    value={blocker}
+                    onChange={setBlocker}
+                    className="min-h-20"
+                    placeholder="Co zatrzymuje sprawę? Zostaw puste, jeśli nie ma blokera."
+                  />
+                </Field>
+                <div className="grid gap-3">
+                  <Field label="Termin następnego działania">
+                    <MobileDateTimeInput
+                      value={nextActionAt}
+                      onChange={setNextActionAt}
+                    />
+                  </Field>
+                  <Field label="Miejsce lub link">
+                    <Input
+                      value={meetingPlace}
+                      onChange={(e) => setMeetingPlace(e.target.value)}
+                      placeholder="Adres lub link do spotkania"
+                    />
+                  </Field>
+                  {stages
+                    .find((row) => row.id === stageId)
+                    ?.name.includes('POCZEKALNIA') && (
+                    <Field label="Termin ponownego kontaktu *">
+                      <MobileDateTimeInput
+                        value={followUpAt}
+                        onChange={setFollowUpAt}
+                        required
+                      />
+                    </Field>
+                  )}
+                </div>
+              </section>
+              <details className="rounded-xl border p-4">
+                <summary className="cursor-pointer font-semibold">
+                  Dodatkowe terminy
+                </summary>
+                <div className="mt-4 grid gap-3">
+                  <Field label="Spotkanie zapisane na Dealu">
+                    <MobileDateTimeInput
+                      value={meetingAt}
+                      onChange={setMeetingAt}
+                    />
+                  </Field>
+                  <Field label="Planowane zamknięcie">
+                    <Input
+                      type="date"
+                      value={expectedCloseDate}
+                      onChange={(e) => setExpectedCloseDate(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </details>
+              <details className="rounded-xl border p-4">
+                <summary className="cursor-pointer font-semibold">
+                  Dane z formularza i przygotowanie wniosku
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <Field label="Pełne odpowiedzi z formularza / ankiety">
+                    <VoiceTextarea
+                      value={questionnaireText}
+                      onChange={setQuestionnaireText}
+                      className="min-h-36"
+                    />
+                  </Field>
+                  <Field label="Ankieta wymagana do">
+                    <MobileDateTimeInput
+                      value={questionnaireDueAt}
+                      onChange={setQuestionnaireDueAt}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Dla płatnej konsultacji ustaw termin co najmniej 2 dni
+                      przed spotkaniem.
+                    </p>
+                  </Field>
+                  <p className="text-muted-foreground text-xs">
+                    Dokumenty prowadź w checkliście na karcie Deala. Folder
+                    Dysku Google twórz tylko na żądanie przyciskiem „Utwórz
+                    folder”. Notatki dodawaj w zakładce „Komentarze i notatki”,
+                    gdzie zapisują się z datą i autorem.
+                  </p>
+                </div>
+              </details>
+              <details className="rounded-xl border p-4">
+                <summary className="cursor-pointer font-semibold">
+                  Uruchomienie, prowizja i faktura
+                </summary>
+                <div className="mt-4 grid gap-3">
+                  <Field label="Kwota uruchomiona">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={launchedAmount}
+                      onChange={(e) => setLaunchedAmount(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Data uruchomienia">
+                    <Input
+                      type="date"
+                      value={launchedAt}
+                      onChange={(e) => setLaunchedAt(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Prowizja rzeczywista">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={actualCommission}
+                      onChange={(e) => setActualCommission(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Numer faktury">
+                    <Input
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Data faktury">
+                    <Input
+                      type="date"
+                      value={invoiceDate}
+                      onChange={(e) => setInvoiceDate(e.target.value)}
+                    />
+                  </Field>
+                  <Select
+                    label="Status faktury"
+                    value={invoiceStatus}
+                    set={setInvoiceStatus}
+                    values={[
+                      'do_wystawienia',
+                      'wystawiona',
+                      'oplacona',
+                      'nie_dotyczy',
+                    ]}
+                    labels={{
+                      do_wystawienia: 'Do wystawienia',
+                      wystawiona: 'Wystawiona',
+                      oplacona: 'Opłacona',
+                      nie_dotyczy: 'Nie dotyczy',
+                    }}
+                  />
+                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={settlementVerified}
+                      onChange={(e) => setSettlementVerified(e.target.checked)}
+                    />
+                    Rozliczenie sprawdzone
+                  </label>
+                  <div className="sm:col-span-2">
+                    <Field label="Uwagi do rozliczenia">
+                      <VoiceTextarea
+                        value={settlementNotes}
+                        onChange={setSettlementNotes}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </details>
+            </div>
             {deal && (
               <section className="grid grid-cols-3 gap-2 rounded-xl border p-3">
                 <Button
@@ -997,7 +1193,7 @@ export function DealForm({
               disabled={saving}
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {deal ? 'Zapisz zmiany' : 'Utwórz Deal'}
+              {deal ? 'Zapisz zmiany' : 'UTWÓRZ'}
             </Button>
           </div>
         </div>
