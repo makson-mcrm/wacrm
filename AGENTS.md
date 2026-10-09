@@ -104,6 +104,14 @@ Nie przerzucać na Tomasza logów, GitHuba, deployu, testów technicznych ani pi
 - Bezpieczeństwo Hermesa: computer_use wyłączono 09.10 w konfiguracji narzędzi; nie przywracać. Oddzielny roboczy podgląd przeglądarki nie jest sam w sobie dowodem pełnej izolacji środowisk. Nie wchodzić do prywatnego Chrome, bankowości, profilu ani przechowywanych haseł Tomasza.
 - Bieżący wzorzec: zatwierdzone 00S/00D + FINAL-PASS. Przed kodem porównanie wzorca z widocznym LIVE, po kodzie niezależny odbiór; żadnego nowego projektowania i żadnego cofania się do zaliczonej AKTYWNOŚCI 08 bez wskazanego błędu.
 
+## 20. OPTYMALIZACJA LIMITÓW I ZADAŃ — OD 09.10.2026
+- Kierownik Wdrożenia i Hermes aktywnie zarządzają obciążeniem Nous i abonamentowego Codexa, a nie tylko odczytują liczby na końcu. Harmonogram zadań dostosować do dostępnych zapasów 5h/tygodnia i czasu resetów.
+- Przed i po każdej kosztownej paczce używaj istniejącego pasywnego raportu `scripts/limits_report.py` na Windows: rzeczywiste saldo Nous, zapas Codex 5h i tygodniowy oraz resety; zapisuj godzinę i zmianę salda. Raport w razie błędu ≠ 0; bez świeżych danych STOP płatnych zadań.
+- Nous <= 2 USD: OSTRZEŻENIE, odroczyć pracę niższego priorytetu; Nous <= 1 USD: STOP płatnej pracy Nous bez nowej zgody właściciela. Zakaz automatycznego dokupowania kredytów i przerzucania na inne płatne API.
+- Codex w ramach logowania ChatGPT przeznaczać na programowanie i testy rzeczywistego mCRM; małe zadania z pełnym testem i niezależnym przeglądem muszą zmieścić się w obu oknach limitów. Jeśli nie — wstrzymaj i odłóż na reset zamiast zużyć limit bez wyniku. Limit tygodniowy ma pierwszeństwo nad nowym oknem 5h.
+- Tanie modelowanie bez danych poufnych: korzystaj z najmniej kosztownego modelu zapewniającego poprawną jakość oraz już znanej dokumentacji i zwięzłych zleceń. Nie ponawiaj szerokich audytów ani prostych testów Codexa. Dane rzeczywistych klientów nigdy nie trafiają do żadnego modelu chmurowego, niezależnie od kosztu.
+- Dzienny polski meldunek na istniejący Telegram: Nous saldo, Codex 5h/tydzień, terminy resetów, rzeczywista wykonana praca i co przełożono. Wysyłaj alarmy tylko gdy potrzebne, bez nadmiaru komunikatów. Tomasz nie sprawdza ręcznie limitów ani nie jest kurierem.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
