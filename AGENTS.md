@@ -95,6 +95,15 @@ Nie przerzucać na Tomasza logów, GitHuba, deployu, testów technicznych ani pi
 - Nie obciążaj Tomasza programowaniem, diagnostyką, technicznym testowaniem ani ręcznym sprawdzaniem każdego rekordu.
 - Nie wysyłaj prawdziwych danych klientów ani dokumentów finansowych do chmurowych modeli AI, w tym podczas prób, analizy i automatycznego wywoływania agentów. Przy braku lokalnego bezpiecznego przetwarzania wstrzymaj wywołanie.
 
+## 19. HERMES → CODEX, TELEGRAM PO POLSKU I LOCAL-FIRST — 09.10.2026
+- Role: ChatGPT = Kierownik Wdrożenia i nadzór; Hermes = wykonawca i zleceniodawca; abonamentowy Codex = programista. Tomasz = właściciel i zatwierdzający wzorzec oraz ważne decyzje, NIE programista i NIE tester. Bez niepotrzebnych pytań ani delegowania diagnostyki na właściciela.
+- Kanał Telegram Hermesa jest już skonfigurowany. Raporty/statusy/potwierdzenia dla Tomasza, także te wysyłane przez Telegram, muszą być WYŁĄCZNIE PO POLSKU i maksymalnie krótkie: ZROBIONE / BLOKER / WIDOCZNY EFEKT / NASTĘPNY KROK. Nie wysyłać technicznych logów, angielskich meldunków ani częstych komunikatów bez rzeczywistego postępu.
+- Codex: logowanie przez abonament ChatGPT było potwierdzone, CLI 0.159.3; test Hermes→Codex zakończył się 09.10 wynikiem PASS w katalogu testowym (pliki hello.py i test_hello.py). Dalsze zlecenia tylko na kodzie/sztucznych danych i w ograniczonym sandboxie typu workspace-write. Zakaz danger-full-access jako domyślnego trybu. Przed każdą nową paczką świeży odczyt limitu 5h, tygodniowego i salda Nous istniejącym skryptem; odczyt historyczny NIE jest świeżym. Kod zmieniać dopiero po zatwierdzeniu zakresu i zgodnie z bramkami niniejszego AGENTS.md. Rezultat musi być niezależnie weryfikowalny i utrwalony.
+- LOCAL-FIRST: dane klientów, dokumenty finansowe, poufne informacje bankowe i powiązane konteksty nie mogą być przekazywane do żadnego modelu chmurowego, w tym podczas programowania, analizy, testów i raportowania. Dla rzeczywistych danych AI wyłącznie zweryfikowany lokalny model przez jeden kontrolowany AI Gateway. Brak gotowego lokalnego przetwarzania = STOP, bez przełączenia awaryjnego do chmury. Obecna implementacja OpenAI/Anthropic nie dowodzi spełnienia tego warunku.
+- Rzeczywisty CRM i Supabase nadal istnieją; migracja LOCAL-FIRST nie została wykonana. Nie kasować danych klientów. Dotychczasowe testowe rekordy usunąć dopiero po jednoznacznej identyfikacji i zgodzie Tomasza. Brak pełnego potwierdzenia dostępu Hermesa do Supabase/Hostinger/Gmail/Kalendarza oraz kompletnej integracji WhatsApp nie może być raportowany jako PASS.
+- Bezpieczeństwo Hermesa: computer_use wyłączono 09.10 w konfiguracji narzędzi; nie przywracać. Oddzielny roboczy podgląd przeglądarki nie jest sam w sobie dowodem pełnej izolacji środowisk. Nie wchodzić do prywatnego Chrome, bankowości, profilu ani przechowywanych haseł Tomasza.
+- Bieżący wzorzec: zatwierdzone 00S/00D + FINAL-PASS. Przed kodem porównanie wzorca z widocznym LIVE, po kodzie niezależny odbiór; żadnego nowego projektowania i żadnego cofania się do zaliczonej AKTYWNOŚCI 08 bez wskazanego błędu.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
