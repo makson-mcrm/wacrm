@@ -87,6 +87,14 @@ Docelowo jeden Asystent mCRM w aplikacji. Najpierw stabilny rdzeń sprzedażowy;
 Tomasz otrzymuje wyłącznie informacje użyteczne biznesowo: GOTOWE / NIEGOTOWE / CO DZIAŁA NA LIVE / CO SYSTEM ROBI DALEJ / CZY TOMASZ MUSI COŚ ZROBIĆ.
 Nie przerzucać na Tomasza logów, GitHuba, deployu, testów technicznych ani pilnowania następnego kroku.
 
+## 18. DANE RZECZYWISTE I PORZĄDEK PO TESTACH — DECYZJA WŁAŚCICIELA 09.10.2026
+- mCRM jest używany przez Tomasza na PRAWDZIWYCH danych klientów, firm, Dealów, aktywności i dokumentów. Nie uznawaj rzeczywistej bazy ani wpisów użytkownika za testowe.
+- Kategoryczny zakaz kasowania, zerowania, nadpisywania lub masowej zmiany danych rzeczywistych; zakaz wykonywania testów destrukcyjnych na produkcyjnej bazie.
+- Hermes i Codex testują na danych sztucznych w odseparowanym środowisku, bez dopisywania kolejnych fikcyjnych klientów do rzeczywistej kartoteki.
+- Dotychczasowe testowe rekordy Hermesa/Codexa trzeba docelowo usunąć z właściwej bazy, ale tylko po jednoznacznej identyfikacji pochodzenia, weryfikacji powiązań i zabezpieczeniu rekordów rzeczywistych. Rekord niepewny = NIE USUWAĆ. Przed jakimkolwiek usuwaniem przygotuj właścicielowi krótkie zestawienie i uzyskaj jego zgodę; nigdy nie kasuj automatycznie.
+- Nie obciążaj Tomasza programowaniem, diagnostyką, technicznym testowaniem ani ręcznym sprawdzaniem każdego rekordu.
+- Nie wysyłaj prawdziwych danych klientów ani dokumentów finansowych do chmurowych modeli AI, w tym podczas prób, analizy i automatycznego wywoływania agentów. Przy braku lokalnego bezpiecznego przetwarzania wstrzymaj wywołanie.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
