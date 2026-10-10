@@ -1,3 +1,54 @@
+# P0 — FUNDAMENT LOCAL-FIRST — ZAMROŻENIE KOLEJKI UX (decyzja Tomasza 10.10.2026)
+
+**TA SEKCJA JEST NADRZĘDNA WOBEC STARSZEJ PĘTLI WYKONAWCZEJ UX PONIŻEJ.** Obowiązuje do formalnego PASS bezpieczeństwa lokalnego AI. Nie znosi zatwierdzonej grafiki 00S/FINAL-PASS; tylko odracza kodowanie/publikację docelowych ekranów na starej architekturze AI.
+
+## Jedyny kierownik wykonawczy i jedno aktywne zadanie
+- **Hermes jest JEDYNYM kierownikiem wykonawczym mCRM.** Zleca kod abonamentowemu Codexowi, zarządza kolejką, sam uruchamia testy i niezależnie odbiera. ChatGPT pełni rolę nadrzędnego nadzoru i wsparcia dokumentacyjnego, nie drugi równoległy wykonawca. Tomasz: właściciel, nie programista, tester, kurier komend, operator Git/Hostinger.
+- Teraz jedyny aktywny bilet **L0 — polityka bramki AI, na danych sztucznych, bez sieci i produkcji**. STOP: 00S, Deal, Banki, rozwój UX, integracje modeli zewnętrznych, publikacja dzisiejszych paczek bezpieczeństwa do czasu rozstrzygnięcia zgodności LOCAL-FIRST. Nie podejmuj nowych projektów.
+- Dwa lokalne pakiety Codexa z 10.10 mają pozostać zachowane; według dzisiejszego raportu końcowa paczka leży w `C:\Users\HP\Documents\ODBIOR-BEZPIECZENSTWA-FINAL-2026-10-10\`. Nie zakładaj, że są już w GitHub; zweryfikuj dopiero w osobnym zadaniu.
+- **Brak pełnej izolacji środowiska lokalnego oznacza: ZERO rzeczywistych danych klientów w modelach lub testach.** Przed programowaniem tylko sprawdzenie kopii repo i pasywnych limitów. Nie wykonuj żadnych niezatwierdzonych operacji w produkcji.
+
+## Metoda Matt Pocock — wykonaj, nie odtwarzaj projektu
+Z istniejących MASTER, FINAL-PASS i niniejszego AGENTS.md wykonaj sekwencję:
+1. `/setup-matt-pocock-skills`: sprawdź czy rzeczywiście są bezpieczne/zainstalowane (nie instaluj w ciemno).
+2. `/grill-with-docs`: tylko przeczytaj istniejące źródła, bez nowego wywiadu z Tomaszem.
+3. `/to-spec`: krótka RÓŻNICA obecny kod → lokalna bramka; jasna klasyfikacja danych i granice narzędzi.
+4. `/to-tickets`: wyłącznie małe zależne zadania, jedno aktywne.
+5. `/implement`: Codex w `workspace-write`, na danych syntetycznych, bez `danger-full-access`, bez płatnego Nous bez zgody.
+6. `/code-review`: niezależny odbiór z testami i dowodem, a nie tylko raport wykonawcy.
+Kodowanie dopiero po zakresie i odczycie faktycznych limitów Codexa; nie przepalaj budżetu na nieskończone ponowienia. Tylko `main` jest gałęzią wdrożeniową; L0 opracuj w izolowanej kopii roboczej, nie wysyłaj bezpośrednio na LIVE.
+
+## Kontrakt architektury LOCAL-FIRST
+- **Dane osobowe klientów, rozmowy, kredyty, dokumenty finansowe, poufna wiedza bankowa** -> wyłącznie kontrolowana, rzeczywiście lokalna bramka AI na odizolowanym Mac mini. **Brak lokalnego modelu/połączenia = AI ODMAWIA; nigdy nie przełącza do OpenAI, Claude, Gemini, DeepSeek, Nous ani żadnego innego modelu chmurowego.**
+- Chmura AI wyłącznie dla treści publicznych lub **udowodnionej** skutecznej anonimizacji z jawnym dopuszczeniem; sama etykieta „anonimowe”, ukrycie nazwiska lub fikcyjny identyfikator nie stanowi dowodu. `UNKNOWN` blokuj.
+- Zwykły mCRM (Kontakt, Deal, statusy banków, następne działanie, zapis) ma działać bez lokalnego AI. Obecna Supabase przechowuje prawdziwe dane i NIE jest migrowana w L0.
+- Kontrola obowiązuje nie tylko w API AI, ale też w **Hermes/MCP, wynikach narzędzi, indeksowaniu dokumentów, dyktowaniu, automatycznych odpowiedziach, logach, kopiach i integracjach**. Żaden wynik narzędzia zawierający dane klienta nie może zasilić chmurowego modelu Hermesa.
+- Najistotniejsze obecne ścieżki: `src/lib/ai/generate.ts` → `providers/openai.ts` i `anthropic.ts`; `src/lib/ai/embeddings.ts` → OpenAI; `src/app/api/ai/transcribe/route.ts` → OpenAI Whisper; `src/components/ui/voice-textarea.tsx` → przeglądarkowe rozpoznawanie mowy o niegwarantowanej lokalności. `deal-analysis`, `deal-assistant`, `draft`, `auto-reply`, `playground` mogą zbudować kontekst klienta. Przeglądarka w trybie SpeechRecognition nie jest automatycznie lokalnym STT.
+- **Odczyt w dniu 10.10:** w Supabase `ai_configs=0` (0 aktywnych, 0 kluczy), `ai_usage_log=0`, `deal_ai_analyses=0`; to stan konfiguracji, nie dowód ochrony kodu. Produkcyjne rekordy klientów/firm/deali istnieją. Nie odczytuj ich do chmurowego agenta.
+
+## L0 — PIERWSZA MAŁA PACZKA, TYLKO DANE SZTUCZNE
+Cel: utworzyć centralny, niezależny od sieci mechanizm decyzji AI i testowy lokalny adapter (mock). Zakres: `src/lib/ai/gateway/` — klasyfikacja `CLIENT_PERSONAL | BANK_CONFIDENTIAL | PUBLIC | VERIFIED_ANONYMIZED | SYNTHETIC | UNKNOWN`, jawne decyzje `LOCAL_ONLY | EXPLICIT_CLOUD_ALLOWED | DENY`, fałszywy lokalny wykonawca i `*.test.ts`. Nie łączyć z żywym Maciem ani z Supabase. Zakaz prawdziwych loginów/kluczy/danych.
+
+Warunki PASS L0 (automatyczne, bez udziału Tomasza):
+- klient->mock-local: PASS; klient->cloud: DENY; poufne bankowe->cloud: DENY; UNKNOWN->cloud: DENY;
+- mock-local niedostępny -> `LOCAL_AI_UNAVAILABLE`, 0 zapasowych połączeń do chmury;
+- PUBLIC/VERIFIED_ANONYMIZED -> chmura tylko po osobnej, jawnej regule; SYNTHETIC tylko w testach;
+- wszystkie wyjściowe próby modelowe liczone przez mock; test negatywny 0 wysyłek poza dozwoloną trasę;
+- logi błędów nie zawierają treści klienta, tokenów ani tajnych danych;
+- 0 zapisu / modyfikacji produkcyjnej bazy i 0 zmian publicznego LIVE.
+Po testach: niezależny przegląd Codexa, ścisły dowód, koszty i STOP. **PASS L0 nie jest jeszcze PASS całego LOCAL-FIRST** i nie odblokowuje UX.
+
+Następna kolejka, aktywowana osobno po PASS poprzedniego kroku:
+**L1:** wpiąć politykę we wszystkie obecne wyjścia AI/embeddings/dyktowanie/auto-reply oraz MCP, fail-closed i regresja zwykłego CRM;
+**L2:** po dostarczeniu Mac mini Intel i zweryfikowanej izolacji uruchomić bezpieczny szyfrowany i uwierzytelniany kanał Hostinger→Mac, bez publicznego portu Mac;
+**L3:** objąć kontrolą poufne pliki, logi, integracje, kopie i dane wiedzy;
+**L4:** fikcyjny Deal → lokalna analiza → zapis → wyjście → odczyt → trwałość, test Mac offline i dowód ZERO chmurowych wywołań.
+Dopiero po **formalnym PASS L0–L4** i odpowiedniej zgodzie wrócić do zamrożonych `00S → Deal → Banki`, bez projektowania od nowa.
+
+Meldunek do Tomasza WYŁĄCZNIE po rzeczywistym wyniku, po polsku, maks. 5 linii: `L0 PASS/NIE PASS | dowód | koszt | blocker | następne`. Nie zlecaj mu terminala, haseł, Git, testów, przenoszenia dokumentów ani roli kuriera.
+
+---
+
 # mCRM AI — TRYB WYKONAWCZY UX 2.3 (obowiązuje od 05.10.2026)
 
 ## 0. ŹRÓDŁO PRAWDY
