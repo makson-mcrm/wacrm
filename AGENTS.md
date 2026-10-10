@@ -1,10 +1,27 @@
+# KM1 — NAJPIERW DOWÓD HERMES → CODEX → WERYFIKACJA → KOSZT (decyzja 10.10.2026)
+
+**TA BRAMKA MA PIERWSZEŃSTWO PRZED L0 I PRZED KAŻDYM WIĘKSZYM KODOWANIEM.** Właściciel jednoznacznie nakazał: najpierw udowodniona samodzielna praca Hermesa z abonamentowym Codexem i rzeczywiste rozliczenie kosztów; potem mała bramka LOCAL-FIRST na danych sztucznych; dopiero po dalszym PASS — 00S → Deal → Banki.
+
+**Dowód historyczny (09.10; nie uruchamiaj ponownie `hello.py`):**
+- Hermes rzeczywiście zlecił Codex CLI 0.159.3, zalogowanemu abonamentem ChatGPT, wykonanie syntetycznych `hello.py` i `test_hello.py` w `workspace-write`, w izolowanym katalogu `C:\Users\HP\AppData\Local\hermes\cache\scratch\hermes-codex-test\`.
+- Codex oddał pliki; nie mógł sam uruchomić Pythona z powodu odmowy uprawnień, a Hermes **osobno** uruchomił `python hello.py` i `pytest`; raportowano `HERMES-CODEX OK` i test PASS. To dowodzi wcześniejszej realnej delegacji i odbioru, nie stałej dostępności Codexa dziś.
+- Koszt tamtego przebiegu według historycznego raportu: **Nous 3,52 → 3,49 USD**, tj. spadek salda o **0,03 USD** (koszt obsługi Hermesa, nie opłata za Codex API); **Codex 5h 100%→100% dostępności i tydzień 100%→100%** w zaokrąglonym odczycie; historyczny licznik Codexa **14 054 tokenów**. NIE twierdzić, że Codex zużył dokładnie 0 zasobów; odczyt procentowy jest zaokrąglony. Wartości historyczne NIE zastępują świeżego odczytu.
+
+**Jedyne teraz zadanie KM1, bez nowego płatnego wywołania:** Hermes ma na istniejącym Windows samodzielnie potwierdzić, że pliki, faktyczny ślad delegowania Codexowi, wyniki niezależnego testu i zapis przed/po salda oraz limitów nadal są dostępne; odczytać `scripts/limits_report.py` bez modelu i porównać z raportem historycznym. Nie odsyłać Tomasza po logi, screeny ani komendy. Zapisać jednoznacznie: `KM1 PASS/NIE PASS | rzeczywisty identyfikator wywołania/artefakty | samodzielny odbiór | koszt Nous 0,03 USD (historyczny) + obecny odczyt | następny krok`. Jeśli brak technicznego dowodu delegacji albo rachunku, oznaczyć `NIE PASS`, a nie fabrykować.
+
+**Nie powtarzać testu hello ani kosztownego audytu.** Jeśli sam zapis historyczny okaże się niewystarczający, przygotować mikropróbę na **nowym małym zadaniu związanym z bramką L0**, całkowicie fikcyjnym i bez sieci, dopiero po świeżych limitach i w istniejącym abonamencie; nie uruchamiać bez świadomej zgody. Nie wydawać pieniędzy Nous na administrowanie tym zadaniem bez zgody. Obowiązuje zero danych klientów, zero produkcyjnej bazy i zero publikacji.
+
+Dopiero po dowiedzionym KM1 PASS wykonać pierwszą paczkę L0 z niższej sekcji. Ta instrukcja **nie wyzwala samoczynnie** pracy lokalnej sesji Hermesa; Hermes musi ją odczytać w swojej działającej sesji. Kanał meldunku: istniejący Telegram, po polsku, jednorazowo.
+
+---
+
 # P0 — FUNDAMENT LOCAL-FIRST — ZAMROŻENIE KOLEJKI UX (decyzja Tomasza 10.10.2026)
 
 **TA SEKCJA JEST NADRZĘDNA WOBEC STARSZEJ PĘTLI WYKONAWCZEJ UX PONIŻEJ.** Obowiązuje do formalnego PASS bezpieczeństwa lokalnego AI. Nie znosi zatwierdzonej grafiki 00S/FINAL-PASS; tylko odracza kodowanie/publikację docelowych ekranów na starej architekturze AI.
 
 ## Jedyny kierownik wykonawczy i jedno aktywne zadanie
 - **Hermes jest JEDYNYM kierownikiem wykonawczym mCRM.** Zleca kod abonamentowemu Codexowi, zarządza kolejką, sam uruchamia testy i niezależnie odbiera. ChatGPT pełni rolę nadrzędnego nadzoru i wsparcia dokumentacyjnego, nie drugi równoległy wykonawca. Tomasz: właściciel, nie programista, tester, kurier komend, operator Git/Hostinger.
-- Teraz jedyny aktywny bilet **L0 — polityka bramki AI, na danych sztucznych, bez sieci i produkcji**. STOP: 00S, Deal, Banki, rozwój UX, integracje modeli zewnętrznych, publikacja dzisiejszych paczek bezpieczeństwa do czasu rozstrzygnięcia zgodności LOCAL-FIRST. Nie podejmuj nowych projektów.
+- Po weryfikacji **KM1 PASS** jedyny następny bilet to **L0 — polityka bramki AI, na danych sztucznych, bez sieci i produkcji**. STOP: 00S, Deal, Banki, rozwój UX, integracje modeli zewnętrznych, publikacja dzisiejszych paczek bezpieczeństwa do czasu rozstrzygnięcia zgodności LOCAL-FIRST. Nie podejmuj nowych projektów.
 - Dwa lokalne pakiety Codexa z 10.10 mają pozostać zachowane; według dzisiejszego raportu końcowa paczka leży w `C:\Users\HP\Documents\ODBIOR-BEZPIECZENSTWA-FINAL-2026-10-10\`. Nie zakładaj, że są już w GitHub; zweryfikuj dopiero w osobnym zadaniu.
 - **Brak pełnej izolacji środowiska lokalnego oznacza: ZERO rzeczywistych danych klientów w modelach lub testach.** Przed programowaniem tylko sprawdzenie kopii repo i pasywnych limitów. Nie wykonuj żadnych niezatwierdzonych operacji w produkcji.
 
