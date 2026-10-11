@@ -76,3 +76,6 @@ jobs:
       # just the absence of an error.
       - name: Verify the resulting schema
         run: supabase db query --local --file supabase/ci/verify-schema.sql
+
+      - name: KM1 synthetic sales register roundtrip (local database ONLY)
+        run: supabase db query --local --file supabase/ci/verify-sales-register.sql
