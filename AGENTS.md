@@ -1,3 +1,25 @@
+# DECYZJA WŁAŚCICIELA 11.10.2026 — DOKOŃCZYĆ KOLEJNE ETAPY WYŁĄCZNIE ABONAMENTOWYM CODEXEM
+
+**NAJNOWSZA DECYZJA NADRZĘDNA WOBEC WCZEŚNIEJSZEGO „STOP PO L1”.** Tomasz polecił kontynuować prace aż do możliwego zakończenia L2–L4, ale wyłącznie przez małe paczki abonamentowego Codexa i bez niekontrolowanych kosztów. Hermes pozostaje jedynym lokalnym kierownikiem wykonawczym. Nie angażuj Tomasza w kodowanie, testy, logi, przenoszenie komend ani obsługę GitHub/Hostinger. Nie traktuj zmiany tego pliku jako samoczynnego uruchomienia Hermesa.
+
+**FAKTY DO ODBIORU Z LOKALNEGO HERMESA:**
+- Hermes zgłosił L0 PASS: `src/lib/ai/gateway/`, 19/19 testów, typecheck PASS, poprawione 2 luki (SYNTHETIC tylko w testach; sanityzacja błędów).
+- Hermes zgłosił L1 PASS: `guard.ts`, `browser-stt-policy.ts`, ochrona generate/embeddings/transcribe/voice-textarea i MCP; 1093 testy PASS, typecheck PASS, negatywny test `AI_ROUTE_DENIED` i 0 `fetch`.
+- Hermes zgłosił koszt Nous **9,57→9,20 USD**, tj. **0,37 USD** od startu limitu 5 USD; ostatni raportowany Codex 5h **81%→61%**, tygodniowy **96%→92%**. To historyczne wartości na koniec L1, przed każdą następną paczką odczytaj świeże.
+- **11.10 odczyt GitHub:** aktualny `main` zawiera wyłącznie zmiany instrukcji, nie zawiera `src/lib/ai/gateway/` ani `src/lib/ai/guard.ts`. Dlatego PASS z komunikatu Hermesa wymaga odbioru rzeczywistych plików w izolowanej kopii, bez odtwarzania kodu od zera. Nie publikuj niesprawdzonego kodu produkcyjnie.
+- Zapowiedziany lokalny dokument: `C:\Users\HP\Documents\L2-L4-I-MIGRACJA-MAC-MINI-PRZYGOTOWANIE-2026-10-11.md`; sprawdź go sam i zachowaj. Nie zmuszaj Tomasza do przenoszenia pliku.
+- Wstępny PASS raportowany przez Hermesa nie zastępuje niezależnego testu kodu i ścieżek omijających bramkę. Nie przerabiaj L0/L1 od zera.
+
+**NASTĘPNY JEDEN RZECZYWISTY KROK:** Hermes sprawdza stan procesu lokalnego i rzeczywiste pliki L0/L1; po niezależnym potwierdzeniu L0/L1 oraz pasywnym odczycie aktualnych limitów zleca Codexowi w `workspace-write` jedną małą paczkę **L1b — egzekucja polityki po stronie konsumenta MCP** na sztucznych danych, bez żadnych wywołań chmurowego AI z treściami klientów. Następnie niezależne testy i odbiór. Po PASS idź małymi, zależnymi paczkami przez przygotowania L2/L3/L4 i kod możliwy do przetestowania offline, bez produkcji. Ściśle metoda Matt Pocock (/grill-with-docs→/to-spec→/to-tickets→/implement→/code-review), pojedyncza paczka, maksimum trzy próby jednego błędu. W pierwszej kolejności nie powtarzaj gotowych prac ani testu hello.
+
+**TWARDY BEZPIECZNIK:** Dotychczasowy limit Nous 5,00 USD **ŁĄCZNIE od startu zlecenia** pozostaje, nie odnowić licznika; na koniec L1 zużyto 0,37 USD. >=3 USD ostrzeżenie; >=4 USD tylko domknięcie niezbędnej paczki; >=5 USD STOP płatnego Nous, bez obejścia przez innego dostawcę. Nie uruchamiać nowego płatnego API, żadnego Codex API. Codex tylko w istniejącym abonamencie ChatGPT Plus. Minimalizować wywołania Nous do niezbędnego sterowania; wszystkie kodowanie i testy powierzaj Codexowi. Przed/po każdej paczce: świeże Nous, Codex 5h, tydzień, liczniki i resety; brak odczytu = bez płatnych paczek. Wyczerpanie limitu Codexa = zapis stanu, bezpłatne czynności i czekanie na odpowiedni reset, bez kupowania API. Szanuj ciszę Telegram 22:00–08:00, raporty jedynie 08:15/16:15 i środowy finał.
+
+**GRANICA BEZPIECZEŃSTWA:** Brak Mac mini do środy 14.10 oznacza, że **nie wolno zadeklarować PASS połączenia Hostinger→Mac ani rzeczywistego E2E lokalnego L2/L4**. Można przygotować izolowaną konfigurację, testy z imitacją Maca, kopię migracyjną i instrukcję bez produkcyjnych sekretów, ale pozostałe bramki pozostają NIE PASS aż do realnego odbioru po dostawie i izolacji Maca. Żadnych rzeczywistych danych klientów, żadnych destrukcyjnych migracji Supabase, żadnego automatycznego LIVE, 00S, Deala i Banków.
+
+**STOP** tylko na realnej nieprzekraczalnej blokadzie, progu budżetowym, ryzyku danych albo wymaganej niedelegowalnej decyzji; nie zatrzymuj wykonania tylko dlatego, że historyczna instrukcja mówiła STOP po L1. Jeśli jakiegoś etapu nie da się wykonać bez Maca, oznacz co przygotowano, zabezpiecz punkt kontrolny i czekaj do realnej możliwości testu. W środę raport: faktyczne PASS/NIE PASS, dowody, koszt łączny, limity, co przygotowano dla Maca i pierwszy krok po uruchomieniu. Nie przedstawiaj planu ani samego dokumentu jako wykonanej aplikacji.
+
+---
+
 # KM1 — NAJPIERW DOWÓD HERMES → CODEX → WERYFIKACJA → KOSZT (decyzja 10.10.2026)
 
 **TA BRAMKA MA PIERWSZEŃSTWO PRZED L0 I PRZED KAŻDYM WIĘKSZYM KODOWANIEM.** Właściciel jednoznacznie nakazał: najpierw udowodniona samodzielna praca Hermesa z abonamentowym Codexem i rzeczywiste rozliczenie kosztów; potem mała bramka LOCAL-FIRST na danych sztucznych; dopiero po dalszym PASS — 00S → Deal → Banki.
