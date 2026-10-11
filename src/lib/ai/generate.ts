@@ -8,6 +8,7 @@ import {
 import { HANDOFF_SENTINEL, aiRequestTimeoutMs } from './defaults'
 import { generateOpenAi } from './providers/openai'
 import { generateAnthropic } from './providers/anthropic'
+import { assertCloudAllowed, type DataClass } from './gateway'
 
 export interface GenerateArgs {
   config: AiConfig
@@ -17,6 +18,8 @@ export interface GenerateArgs {
   messages: ChatMessage[]
   /** Per-feature cap selected by the cost router. */
   maxOutputTokens?: number
+  dataClass?: DataClass
+  explicitCloudRule?: boolean
 }
 
 /**
@@ -25,7 +28,15 @@ export interface GenerateArgs {
  * of the raw text. Throws `AiError` on any provider/network failure.
  */
 export async function generateReply(args: GenerateArgs): Promise<GenerateResult> {
-  const { config, systemPrompt, messages, maxOutputTokens } = args
+  const {
+    config,
+    systemPrompt,
+    messages,
+    maxOutputTokens,
+    dataClass,
+    explicitCloudRule,
+  } = args
+  assertCloudAllowed(dataClass ?? 'UNKNOWN', { explicitCloudRule })
   const timeoutMs = aiRequestTimeoutMs()
   const providerArgs = {
     apiKey: config.apiKey,

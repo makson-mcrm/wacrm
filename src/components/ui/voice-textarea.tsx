@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { isBrowserSttAllowed } from '@/lib/ai/browser-stt-policy';
 import { toast } from 'sonner';
 
 type SpeechResultEvent = {
@@ -80,6 +81,10 @@ export function VoiceTextarea({
         }
       ).webkitSpeechRecognition;
     if (!BrowserRecognition) {
+      void startAudioRecording();
+      return;
+    }
+    if (!isBrowserSttAllowed()) {
       void startAudioRecording();
       return;
     }

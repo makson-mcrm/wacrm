@@ -11,10 +11,19 @@
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { WacrmApiError } from '../client.js';
+import { tagToolPayload, type McpDataClass } from './data-class.js';
 
-export function jsonResult(payload: unknown): CallToolResult {
+export function jsonResult(
+  payload: unknown,
+  dataClass: McpDataClass = 'CLIENT_PERSONAL',
+): CallToolResult {
   return {
-    content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(tagToolPayload(payload, dataClass), null, 2),
+      },
+    ],
   };
 }
 

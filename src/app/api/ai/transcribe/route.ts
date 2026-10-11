@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { loadAiConfig } from '@/lib/ai/config';
+import { assertCloudAllowed, GatewayError } from '@/lib/ai/gateway';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     body.append('file', audio, audio.name || 'notatka.webm');
     body.append('model', 'whisper-1');
     body.append('language', 'pl');
+    assertCloudAllowed('CLIENT_PERSONAL');
     const response = await fetch(
       'https://api.openai.com/v1/audio/transcriptions',
       {
@@ -53,6 +55,14 @@ export async function POST(request: Request) {
       );
     return NextResponse.json({ text: result.text.trim() });
   } catch (error) {
+    if (error instanceof GatewayError && error.code === 'AI_ROUTE_DENIED')
+      return NextResponse.json(
+        {
+          error:
+            'Transkrypcja w chmurze zablokowana przez politykę LOCAL-FIRST. Skonfiguruj lokalny silnik AI.',
+        },
+        { status: 403 }
+      );
     return toErrorResponse(error);
   }
 }

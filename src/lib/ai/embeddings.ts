@@ -1,6 +1,7 @@
 import { AiError } from './types'
 import { aiRequestTimeoutMs } from './defaults'
 import { providerHttpError, toNetworkError } from './providers/shared'
+import { assertCloudAllowed, type DataClass } from './gateway'
 
 // ============================================================
 // Embeddings (OpenAI-compatible).
@@ -41,7 +42,11 @@ export function toVectorLiteral(embedding: number[]): string {
 export async function embedTexts(
   apiKey: string,
   inputs: string[],
+  options: { dataClass?: DataClass; explicitCloudRule?: boolean } = {},
 ): Promise<number[][]> {
+  assertCloudAllowed(options.dataClass ?? 'UNKNOWN', {
+    explicitCloudRule: options.explicitCloudRule,
+  })
   if (inputs.length === 0) return []
   const timeoutMs = aiRequestTimeoutMs()
   const out: number[][] = []

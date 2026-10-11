@@ -84,6 +84,8 @@ describe('generateReply — OpenAI', () => {
       config: config({ provider: 'openai' }),
       systemPrompt: 'sys',
       messages: [{ role: 'user', content: 'Hi' }],
+      dataClass: 'PUBLIC',
+      explicitCloudRule: true,
     })
 
     expect(res).toEqual({
@@ -109,6 +111,8 @@ describe('generateReply — OpenAI', () => {
         config: config(),
         systemPrompt: 'sys',
         messages: [{ role: 'user', content: 'Hi' }],
+        dataClass: 'PUBLIC',
+        explicitCloudRule: true,
       }),
     ).rejects.toMatchObject({ code: 'invalid_key', status: 401 })
   })
@@ -123,8 +127,40 @@ describe('generateReply — OpenAI', () => {
         config: config(),
         systemPrompt: 'sys',
         messages: [{ role: 'user', content: 'Hi' }],
+        dataClass: 'PUBLIC',
+        explicitCloudRule: true,
       }),
     ).rejects.toBeInstanceOf(AiError)
+  })
+
+  it('denies an unclassified request before calling fetch', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      generateReply({
+        config: config(),
+        systemPrompt: 'sys',
+        messages: [{ role: 'user', content: 'Synthetic prompt' }],
+      }),
+    ).rejects.toMatchObject({ code: 'AI_ROUTE_DENIED' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('denies CLIENT_PERSONAL before calling fetch', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      generateReply({
+        config: config(),
+        systemPrompt: 'sys',
+        messages: [{ role: 'user', content: 'Synthetic prompt' }],
+        dataClass: 'CLIENT_PERSONAL',
+        explicitCloudRule: true,
+      }),
+    ).rejects.toMatchObject({ code: 'AI_ROUTE_DENIED' })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 
@@ -142,6 +178,8 @@ describe('generateReply — Anthropic', () => {
       config: config({ provider: 'anthropic', apiKey: 'sk-ant-x' }),
       systemPrompt: 'sys',
       messages: [{ role: 'user', content: 'Hello' }],
+      dataClass: 'PUBLIC',
+      explicitCloudRule: true,
     })
 
     // Anthropic reports input/output only — total is summed by normalizeUsage.
@@ -167,6 +205,8 @@ describe('generateReply — Anthropic', () => {
       config: config({ provider: 'anthropic' }),
       systemPrompt: 'sys',
       messages: [{ role: 'user', content: 'I want to speak to a person' }],
+      dataClass: 'PUBLIC',
+      explicitCloudRule: true,
     })
     expect(res.handoff).toBe(true)
     expect(res.text).toBe('')
@@ -185,6 +225,8 @@ describe('generateReply — Anthropic', () => {
         { role: 'assistant', content: 'Welcome!' },
         { role: 'user', content: 'Hi' },
       ],
+      dataClass: 'PUBLIC',
+      explicitCloudRule: true,
     })
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
