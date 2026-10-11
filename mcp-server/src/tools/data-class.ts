@@ -1,13 +1,18 @@
-// McpDataClass intentionally mirrors DataClass from
-// src/lib/ai/gateway/types.ts (separate package, so there is no shared import);
-// keep the two definitions in sync.
-export type McpDataClass =
-  | 'CLIENT_PERSONAL'
-  | 'BANK_CONFIDENTIAL'
-  | 'PUBLIC'
-  | 'VERIFIED_ANONYMIZED'
-  | 'SYNTHETIC'
-  | 'UNKNOWN';
+// Canonical wire-level data classes shared with the AI gateway consumer.
+export const MCP_DATA_CLASSES = [
+  'CLIENT_PERSONAL',
+  'BANK_CONFIDENTIAL',
+  'PUBLIC',
+  'VERIFIED_ANONYMIZED',
+  'SYNTHETIC',
+  'UNKNOWN',
+] as const;
+
+export type McpDataClass = (typeof MCP_DATA_CLASSES)[number];
+
+export function isMcpDataClass(value: unknown): value is McpDataClass {
+  return (MCP_DATA_CLASSES as readonly unknown[]).includes(value);
+}
 
 export function tagToolPayload(
   payload: unknown,
@@ -18,8 +23,6 @@ export function tagToolPayload(
     payload !== null &&
     !Array.isArray(payload)
   ) {
-    if (Object.prototype.hasOwnProperty.call(payload, '_dataClass'))
-      return payload;
     return { ...payload, _dataClass: dataClass };
   }
 

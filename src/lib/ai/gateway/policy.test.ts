@@ -28,15 +28,23 @@ describe('AI gateway policy', () => {
     },
   )
 
-  it('automatically allows SYNTHETIC in the test environment', () => {
-    expect(decide('SYNTHETIC')).toBe('LOCAL_ONLY')
+  it('allows SYNTHETIC only with an explicit caller flag in the test environment', () => {
+    expect(decide('SYNTHETIC')).toBe('DENY')
+    expect(decide('SYNTHETIC', { allowSyntheticForTests: true })).toBe(
+      'LOCAL_ONLY',
+    )
   })
 
-  it('denies SYNTHETIC outside the test environment', () => {
-    vi.stubEnv('VITEST', 'false')
+  it('does not let VITEST=true enable SYNTHETIC in production', () => {
+    vi.stubEnv('VITEST', 'true')
     vi.stubEnv('NODE_ENV', 'production')
 
     expect(decide('SYNTHETIC')).toBe('DENY')
-    expect(decide('SYNTHETIC', { explicitCloudRule: true })).toBe('DENY')
+    expect(
+      decide('SYNTHETIC', {
+        explicitCloudRule: true,
+        allowSyntheticForTests: true,
+      }),
+    ).toBe('DENY')
   })
 })

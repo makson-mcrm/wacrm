@@ -1,6 +1,10 @@
 import { AiError, type ProviderResult } from '../types'
 import { MAX_OUTPUT_TOKENS } from '../defaults'
 import {
+  assertProviderCloudAllowed,
+  type CloudProviderOptions,
+} from '../gateway'
+import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
@@ -25,7 +29,12 @@ interface OpenAiResponse {
  * Returns the raw assistant text + token usage (handoff parsing happens
  * in `generateReply`).
  */
-export async function generateOpenAi(args: ProviderArgs): Promise<ProviderResult> {
+export async function generateOpenAi(
+  args: ProviderArgs,
+  cloudPolicy: CloudProviderOptions = {},
+): Promise<ProviderResult> {
+  assertProviderCloudAllowed(cloudPolicy)
+
   const { apiKey, model, systemPrompt, messages, timeoutMs, maxOutputTokens } = args
 
   let res: Response

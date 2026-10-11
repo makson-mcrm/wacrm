@@ -50,10 +50,10 @@ export async function generateReply(args: GenerateArgs): Promise<GenerateResult>
   let result: { text: string; usage: AiUsage | null }
   switch (config.provider) {
     case 'openai':
-      result = await generateOpenAi(providerArgs)
+      result = await generateOpenAi(providerArgs, { dataClass, explicitCloudRule })
       break
     case 'anthropic':
-      result = await generateAnthropic(providerArgs)
+      result = await generateAnthropic(providerArgs, { dataClass, explicitCloudRule })
       break
     default:
       throw new AiError(`Unsupported AI provider: ${config.provider}`, {

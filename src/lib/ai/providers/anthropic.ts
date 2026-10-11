@@ -1,6 +1,10 @@
 import { AiError, type ChatMessage, type ProviderResult } from '../types'
 import { MAX_OUTPUT_TOKENS } from '../defaults'
 import {
+  assertProviderCloudAllowed,
+  type CloudProviderOptions,
+} from '../gateway'
+import {
   mergeConsecutive,
   normalizeUsage,
   providerHttpError,
@@ -39,7 +43,12 @@ function normalizeForAnthropic(messages: ChatMessage[]): ChatMessage[] {
  * Returns the raw assistant text + token usage (handoff parsing happens
  * in `generateReply`).
  */
-export async function generateAnthropic(args: ProviderArgs): Promise<ProviderResult> {
+export async function generateAnthropic(
+  args: ProviderArgs,
+  cloudPolicy: CloudProviderOptions = {},
+): Promise<ProviderResult> {
+  assertProviderCloudAllowed(cloudPolicy)
+
   const { apiKey, model, systemPrompt, messages, timeoutMs, maxOutputTokens } = args
 
   let res: Response

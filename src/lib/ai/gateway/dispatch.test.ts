@@ -74,13 +74,17 @@ describe('AI gateway dispatch', () => {
     expect(executor.totalCalls).toBe(0)
   })
 
-  it('automatically permits synthetic input in the test environment', async () => {
+  it('permits synthetic input only with an explicit test flag', async () => {
     const executor = new MockLocalExecutor()
 
-    await expect(route('SYNTHETIC', executor, { fixture: true })).resolves.toMatchObject({
-      decision: 'LOCAL_ONLY',
-      route: 'local',
-    })
+    await expect(
+      route('SYNTHETIC', executor, { fixture: true }),
+    ).rejects.toMatchObject({ code: 'AI_ROUTE_DENIED' })
+    await expect(
+      route('SYNTHETIC', executor, { fixture: true }, {
+        allowSyntheticForTests: true,
+      }),
+    ).resolves.toMatchObject({ decision: 'LOCAL_ONLY', route: 'local' })
     expect(executor.totalCalls).toBe(1)
     expect(executor.cloudCalls).toBe(0)
   })

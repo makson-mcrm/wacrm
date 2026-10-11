@@ -9,7 +9,8 @@ export function decide(dataClass: DataClass, opts: PolicyOptions = {}): Decision
     case 'VERIFIED_ANONYMIZED':
       return opts.explicitCloudRule === true ? 'EXPLICIT_CLOUD_ALLOWED' : 'DENY'
     case 'SYNTHETIC':
-      return process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'
+      return opts.allowSyntheticForTests === true &&
+        process.env.NODE_ENV === 'test'
         ? 'LOCAL_ONLY'
         : 'DENY'
     case 'UNKNOWN':

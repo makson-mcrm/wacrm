@@ -1,10 +1,6 @@
-export type DataClass =
-  | 'CLIENT_PERSONAL'
-  | 'BANK_CONFIDENTIAL'
-  | 'PUBLIC'
-  | 'VERIFIED_ANONYMIZED'
-  | 'SYNTHETIC'
-  | 'UNKNOWN'
+import type { McpDataClass } from '../../../../mcp-server/src/tools/data-class'
+
+export type DataClass = McpDataClass
 
 export type Decision = 'LOCAL_ONLY' | 'EXPLICIT_CLOUD_ALLOWED' | 'DENY'
 
@@ -23,6 +19,11 @@ export interface LocalExecutor {
 
 export interface PolicyOptions {
   explicitCloudRule?: boolean
+  allowSyntheticForTests?: boolean
+}
+
+export interface CloudProviderOptions extends PolicyOptions {
+  dataClass?: DataClass
 }
 
 export interface DispatchResult {
