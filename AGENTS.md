@@ -1,3 +1,22 @@
+# JEDYNE ŹRÓDŁO KOLEJNOŚCI — CHECKLISTA V2 — 11.10.2026
+
+**AKTUALNA, ZATWIERDZONA PRZEZ TOMASZA ZASADA WYKONANIA — WYPRZEDZA WSZYSTKIE SPRZECZNE HISTORYCZNE POLECENIA PONIŻEJ.** 
+JEDYNA KOLEJKA: Google Docs [„01 — CHECKLISTA WDROŻENIA mCRM AI — 8 KAMIENI — WERSJA 2 — 11.10.2026”](https://docs.google.com/document/d/1QgRBCDwweZsZM21H55VNjvRw3L1zoAJHr2qO5YU7cMc/edit). Statusy z tego dokumentu są źródłem prawdy; NIE tworzyć równoległych planów, ticketów bez ID `KMx.y` ani autonomicznej kolejki L0→L4 poza KM1→KM8. Nie zmieniać numeracji. Obowiązuje aktualne polecenie Tomasza z 11.10.
+
+**AKTUALNY STAN W CHECKLIŚCIE: KM1 = W TOKU.** Pierwszy NIEZAMKNIĘTY checkbox KM1.1: „L0/L1 przenieść z cache do trwałego katalogu”. Wykonuje **Hermes jako jedyny kierownik wykonawczy** na istniejącym Windows, bez kuriera: chronić pliki w `cache/scratch/mcrm-l0`, stworzyć trwały katalog i niezależną kopię + lokalny punkt powrotu; zachować wyniki 19/19, 1093 testów, typecheck, listę zmian; nie powtarzać wykonanych paczek i nie wypychać jeszcze AI na produkcyjny `main`. Odbierać status checkboxów tylko z dowodem; aktualizować **tę samą checklistę**, nie drugi plik.
+
+**PRZED KAŻDĄ PACZKĄ:** `KM1 / KM1.1 (lub kolejny rzeczywiście otwarty punkt) / koszt planowany i pozostały / wynik mierzalny / warunek zamknięcia`. Metoda Matt Pocock: źródła → krótka specyfikacja → małe zadanie z ID KMx.y → abonamentowy Codex → testy → niezależny przegląd Hermesa → checkpoint → następny punkt, tylko wewnątrz aktywnego KM. KM2 nie otwierać przed zamknięciem KM1.
+
+**BUDŻET MECHANICZNY** od 10.10: Nous 5,00 USD łącznie, historycznie zużyto 0,45 USD (pozostało 4,55 USD; saldo ostatnio 9,12 USD wg Hermesa), bez resetu. Przed/po paczce świeże saldo i limity Codex 5h/tydzień; brak świeżego odczytu STOP nowych płatnych zadań. Próg przekroczenia planu paczki o 50% = STOP + raport; trzy nieskuteczne próby = zmiana metody, bez kolejnych wydatków. Nous po 3 USD ostrzeżenie, po 4 USD praca niezbędna, przy 5 USD bezwzględny STOP. ZERO dokupowania kredytów; Codex tylko abonament ChatGPT Plus, ZERO płatnego Codex API. Watchdog tylko pasywny i bezpłatny, raporty Telegram po polsku z ciszą 22–08.
+
+**RÓWNOLEGŁY PRIORYTET W RAMACH KM1, A NIE NOWY KAMIEŃ:** umożliwić Tomaszowi od razu rejestrację PRAWDZIWYCH telefonów/rozmów/rezultatu/następnego kroku/terminu/Kontaktu/Deala na istniejącym mCRM bez AI. Istnieją `/quick-call`, `src/components/sales/activity-board-08.tsx`, schemat `sales_activities` (ma `call_result`, `next_action`, `next_action_date`, `source`, `contact_id`, `deal_id`); zgodnie z odczytem struktury nie budować od zera. Weryfikować bez ryzyka dla danych rzeczywistych i bez fikcyjnych wpisów na produkcji. **DANE RZECZYWISTE W NORMALNYM CRM SĄ DOZWOLONE. DANE RZECZYWISTE DO AI CHMUROWEGO ZAKAZANE AŻ DO KM3, A POTEM TYLKO LOKALNIE.**
+
+**KM7 i KM8:** wynik testów/Codexa/Hermesa nie zastępuje biznesowego odbioru; wyłącznie Tomasz nadaje „ODEBRANE” po osobistym sprawdzeniu kompletnego LIVE/ekosystemu. Dla KM8 obowiązuje wyłącznie właściwa aktualna wersja `04 — ROLE AGENTÓW — v1.4 — OBOWIĄZUJE` i istniejące MASTER-y, bez tworzenia pustych ról ani kopiowania KPI przez Tomasza. Jeżeli wersja v1.4 nie jest dostępna, zgłosić jako brak źródła dla KM8 dopiero gdy KM8 stanie się aktywne; nie podmieniać automatycznie na v1.3.
+
+**To nie jest zgoda na samoczynne odpalenie lokalnego procesu Windows, nieudowodnione wdrożenie Hostinger ani zmianę produkcyjnego Supabase.** Przy faktycznym dostępie wykonawczym Hermes podejmuje czynności bez Tomasza. Stare priorytety i formaty raportów niżej zachować wyłącznie, jeśli nie kolidują z Checklista V2.
+
+---
+
 # DECYZJA WŁAŚCICIELA 11.10.2026 — DOKOŃCZYĆ KOLEJNE ETAPY WYŁĄCZNIE ABONAMENTOWYM CODEXEM
 
 **NAJNOWSZA DECYZJA NADRZĘDNA WOBEC WCZEŚNIEJSZEGO „STOP PO L1”.** Tomasz polecił kontynuować prace aż do możliwego zakończenia L2–L4, ale wyłącznie przez małe paczki abonamentowego Codexa i bez niekontrolowanych kosztów. Hermes pozostaje jedynym lokalnym kierownikiem wykonawczym. Nie angażuj Tomasza w kodowanie, testy, logi, przenoszenie komend ani obsługę GitHub/Hostinger. Nie traktuj zmiany tego pliku jako samoczynnego uruchomienia Hermesa.
