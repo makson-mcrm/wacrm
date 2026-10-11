@@ -653,6 +653,9 @@ export default function DashboardPage() {
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
+      <p className="text-muted-foreground text-xs">
+        KM1.2 — kontrola wdrożenia (v: 2026-10-11T18:45)
+      </p>
       {todayLoading ? <TodayLoadingState /> : null}
       {todayError ? <TodayErrorState onRetry={() => void load()} /> : null}
       {!todayLoading && !todayError ? (
