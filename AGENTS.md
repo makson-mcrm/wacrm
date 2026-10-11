@@ -1,3 +1,11 @@
+# BLOKADA KOSZTÓW 11.10.2026 — STAN AKTUALNY
+
+**STOP NOWYCH PŁATNYCH WYWOŁAŃ NOUS.** Ostatni odczyt Hermesa: globalnie 1,32/5,00 USD, KM1 0,87/0,50 USD (limit KM1 PRZEKROCZONY), Codex 5h 79%, tydzień 97%. Nie uruchamiać płatnej sesji, podzadania, automatycznego przeglądu ani cyklicznego raportu przez Nous. Nie doładowywać. Dotychczasowy test `km1_guard.py` NIE zabezpiecza rzeczywistej ścieżki wywołania płatnego modelu; brak technicznego odcięcia = STOP, nawet jeśli starsze sekcje instrukcji pozwalają kontynuować. Raporty i harmonogramy z płatnym modelem należy wyłączyć u źródła, zachowując bezpłatny watchdog Windows. Wznowienie wyłącznie po weryfikacji mechanicznej blokady wywołań, świeżych limitach i nowej decyzji właściciela.
+
+Prace programistyczne mogą odbywać się jedynie przez **abonamentowy Codex CLI bez pośredniczącej płatnej sesji Hermesa**, pod warunkiem że nie używają prawdziwych danych klientów i nie ponoszą innych dodatkowych opłat. Kompilacja/testy w repo nie są odbiorem LIVE. Nie zakładać, że ta instrukcja sama zatrzymuje uruchomiony lokalny proces lub zmienia ustawienia dostawcy modelu — potrzebna rzeczywista konfiguracja środowiska Windows.
+
+---
+ 
 # JEDYNE ŹRÓDŁO KOLEJNOŚCI — CHECKLISTA V2 — 11.10.2026
 
 **AKTUALNA, ZATWIERDZONA PRZEZ TOMASZA ZASADA WYKONANIA — WYPRZEDZA WSZYSTKIE SPRZECZNE HISTORYCZNE POLECENIA PONIŻEJ.** 
