@@ -6,7 +6,7 @@
 DO $km1$
 DECLARE
   test_user UUID := gen_random_uuid();
-  test_account UUID := gen_random_uuid();
+  test_account UUID;
   test_contact UUID := gen_random_uuid();
   test_pipeline UUID := gen_random_uuid();
   test_stage UUID := gen_random_uuid();
@@ -25,12 +25,17 @@ BEGIN
      'km1-ci-' || replace(test_user::text, '-', '') || '@example.invalid',
      '', NOW(), NOW(), NOW());
 
-  INSERT INTO public.accounts (id, name, owner_user_id)
-    VALUES (test_account, 'KM1 synthetic account', test_user);
-  INSERT INTO public.profiles
-    (user_id, full_name, email, account_id, account_role)
-    VALUES (test_user, 'KM1 synthetic tester', 'km1-ci@example.invalid',
-            test_account, 'owner');
+  -- Migration 017 creates the Account and Profile automatically through
+  -- on_auth_user_created; a second INSERT would violate the unique owner key.
+  SELECT id INTO test_account
+    FROM public.accounts WHERE owner_user_id = test_user;
+  IF test_account IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE user_id = test_user AND account_id = test_account
+      AND account_role = 'owner'
+  ) THEN
+    RAISE EXCEPTION 'KM1 CI fixture signup did not bootstrap Account and Profile';
+  END IF;
 
   INSERT INTO public.contacts
     (id, account_id, user_id, phone, name, source)
