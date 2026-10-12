@@ -609,7 +609,7 @@ export function ContactDetailView({
         <SheetContent
           side="right"
           overlayClassName="hidden"
-          className="!top-24 !bottom-[4.75rem] !h-[calc(100dvh-10.75rem)] w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl lg:!top-14 lg:!right-0 lg:!bottom-0 lg:!left-40 lg:!h-[calc(100dvh-3.5rem)] lg:!w-[calc(100vw-10rem)] lg:!max-w-none lg:border-0 lg:shadow-none"
+          className="!top-24 !bottom-[4.75rem] !z-20 !h-[calc(100dvh-10.75rem)] w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl lg:!top-14 lg:!right-0 lg:!bottom-0 lg:!left-40 lg:!z-50 lg:!h-[calc(100dvh-3.5rem)] lg:!w-[calc(100vw-10rem)] lg:!max-w-none lg:border-0 lg:shadow-none"
         >
           {loading || !contact ? (
             <div className="flex h-full items-center justify-center">
