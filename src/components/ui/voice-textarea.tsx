@@ -1,32 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Mic, Square } from 'lucide-react';
+import { MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { isBrowserSttAllowed } from '@/lib/ai/browser-stt-policy';
-import { toast } from 'sonner';
-
-type SpeechResultEvent = {
-  resultIndex?: number;
-  results: {
-    [index: number]: {
-      [index: number]: { transcript: string };
-      isFinal: boolean;
-    };
-    length: number;
-  };
-};
-type SpeechRecognitionLike = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: SpeechResultEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
+import { DICTATION_BLOCK_MESSAGE } from '@/lib/ai/browser-stt-policy';
 
 export function VoiceTextarea({
   value,
@@ -41,149 +18,6 @@ export function VoiceTextarea({
   className?: string;
   layout?: 'stacked' | 'side';
 }) {
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const recognition = useRef<SpeechRecognitionLike | null>(null);
-  const mediaRecorder = useRef<MediaRecorder | null>(null);
-  const audioChunks = useRef<Blob[]>([]);
-  const valueRef = useRef(value);
-  const finalDictationRef = useRef('');
-  const baseValueRef = useRef('');
-
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-
-  function appendText(text: string) {
-    const current = valueRef.current;
-    const next = `${current}${current.trim() ? '\n' : ''}${text.trim()}`;
-    valueRef.current = next;
-    onChange(next);
-  }
-
-  function toggleRecording() {
-    if (recording) {
-      recognition.current?.stop();
-      if (mediaRecorder.current?.state === 'recording')
-        mediaRecorder.current.stop();
-      return;
-    }
-    const BrowserRecognition =
-      (
-        window as unknown as {
-          SpeechRecognition?: new () => SpeechRecognitionLike;
-          webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-        }
-      ).SpeechRecognition ??
-      (
-        window as unknown as {
-          webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-        }
-      ).webkitSpeechRecognition;
-    if (!BrowserRecognition) {
-      void startAudioRecording();
-      return;
-    }
-    if (!isBrowserSttAllowed()) {
-      void startAudioRecording();
-      return;
-    }
-    const instance = new BrowserRecognition();
-    instance.lang = 'pl-PL';
-    instance.continuous = true;
-    instance.interimResults = false;
-    baseValueRef.current = valueRef.current;
-    finalDictationRef.current = '';
-    instance.onresult = (event) => {
-      let interim = '';
-      for (let i = event.resultIndex ?? 0; i < event.results.length; i += 1) {
-        const transcript = event.results[i][0].transcript.trim();
-        if (!transcript) continue;
-        if (event.results[i].isFinal) {
-          // Safari may restart result indexes at zero for every phrase. Append
-          // final phrases instead of keying them by index, which used to
-          // overwrite the beginning and leave only the last word/fragment.
-          if (!finalDictationRef.current.endsWith(transcript))
-            finalDictationRef.current =
-              `${finalDictationRef.current} ${transcript}`.trim();
-        } else interim = `${interim} ${transcript}`.trim();
-      }
-      const spoken = `${finalDictationRef.current} ${interim}`.trim();
-      if (spoken) {
-        const base = baseValueRef.current;
-        const next = `${base}${base.trim() ? '\n' : ''}${spoken}`;
-        valueRef.current = next;
-        onChange(next);
-      }
-    };
-    instance.onend = () => setRecording(false);
-    instance.onerror = () => {
-      setRecording(false);
-      toast.error('Dyktowanie zostało przerwane. Spróbuj ponownie.');
-    };
-    recognition.current = instance;
-    instance.start();
-    setRecording(true);
-  }
-
-  async function startAudioRecording() {
-    if (
-      !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === 'undefined'
-    ) {
-      toast.error('Ta przeglądarka nie pozwala nagrać notatki głosowej.');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRecorder.current = recorder;
-      audioChunks.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) audioChunks.current.push(event.data);
-      };
-      recorder.onstop = async () => {
-        setRecording(false);
-        stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(audioChunks.current, {
-          type: recorder.mimeType || 'audio/webm',
-        });
-        if (!blob.size) return;
-        setTranscribing(true);
-        try {
-          const data = new FormData();
-          const extension = recorder.mimeType.includes('mp4') ? 'm4a' : 'webm';
-          data.append('audio', blob, `notatka.${extension}`);
-          const response = await fetch('/api/ai/transcribe', {
-            method: 'POST',
-            body: data,
-          });
-          const result = (await response.json().catch(() => ({}))) as {
-            text?: string;
-            error?: string;
-          };
-          if (!response.ok || !result.text)
-            throw new Error(
-              result.error || 'Nie udało się przepisać nagrania.'
-            );
-          appendText(result.text);
-        } catch (error) {
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : 'Nie udało się przepisać nagrania.'
-          );
-        } finally {
-          setTranscribing(false);
-        }
-      };
-      recorder.start();
-      setRecording(true);
-    } catch {
-      toast.error('Nie udało się uzyskać dostępu do mikrofonu.');
-    }
-  }
-
   return (
     <div
       className={
@@ -206,26 +40,28 @@ export function VoiceTextarea({
         <Button
           type="button"
           size="sm"
-          variant={recording ? 'destructive' : 'outline'}
-          onClick={toggleRecording}
-          disabled={transcribing}
+          variant="outline"
+          disabled
+          aria-label={DICTATION_BLOCK_MESSAGE}
+          title={DICTATION_BLOCK_MESSAGE}
           className={
             layout === 'side'
               ? 'h-auto min-h-16 w-full flex-col border-0 bg-transparent text-emerald-800 shadow-none hover:bg-emerald-50'
               : ''
           }
         >
-          {recording ? (
-            <Square className="h-5 w-5" />
-          ) : (
-            <Mic className="h-6 w-6" />
-          )}
-          {transcribing ? 'Przepisuję…' : recording ? 'Zatrzymaj' : 'Dyktuj'}
+          <MicOff className="h-6 w-6" />
+          Dyktowanie wyłączone
         </Button>
         {layout === 'side' && (
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-            00:00
+            LOCAL-FIRST
           </span>
+        )}
+        {layout === 'stacked' && (
+          <p className="text-muted-foreground mt-1 text-xs">
+            {DICTATION_BLOCK_MESSAGE} Wpisywanie ręczne działa bez zmian.
+          </p>
         )}
       </div>
     </div>

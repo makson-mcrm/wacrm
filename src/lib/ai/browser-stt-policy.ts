@@ -1,5 +1,13 @@
+export const DICTATION_BLOCK_MESSAGE =
+  'Dyktowanie jest zablokowane do czasu uruchomienia zweryfikowanego lokalnego modelu.';
+
+/**
+ * Browser speech recognition has implementation-dependent network behavior,
+ * so an environment flag cannot make it a verified local processor.
+ */
 export function isBrowserSttAllowed(
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = process.env
 ): boolean {
-  return env.NEXT_PUBLIC_AI_BROWSER_STT_ALLOW === 'true'
+  void env;
+  return false;
 }

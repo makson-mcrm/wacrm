@@ -51,18 +51,22 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(migration).toContain('INSERT INTO public.deal_stage_history');
   });
 
-  it('działa dyktowanie opisów z transkrypcją zapasową nagrania', () => {
+  it('blokuje dyktowanie bez lokalnego modelu i zachowuje ręczny zapis', () => {
     const voice = source('src/components/ui/voice-textarea.tsx');
     const transcription = source('src/app/api/ai/transcribe/route.ts');
-    expect(voice).toContain('SpeechRecognition');
-    expect(voice).toContain("instance.lang = 'pl-PL'");
-    expect(voice).toContain('MediaRecorder');
-    expect(voice).toContain("fetch('/api/ai/transcribe'");
+    const browserPolicy = source('src/lib/ai/browser-stt-policy.ts');
+    expect(voice).not.toContain('SpeechRecognition');
+    expect(voice).not.toContain('MediaRecorder');
+    expect(voice).not.toContain("fetch('/api/ai/transcribe'");
+    expect(voice).toContain('disabled');
     expect(voice).toContain(
       'onChange={(event) => onChange(event.target.value)}'
     );
-    expect(transcription).toContain("body.append('language', 'pl')");
-    expect(transcription).toContain("requireRole('agent')");
+    expect(browserPolicy).toContain('return false');
+    expect(transcription).toContain("code: 'LOCAL_AI_UNAVAILABLE'");
+    expect(transcription).not.toContain('request.formData');
+    expect(transcription).not.toContain('fetch(');
+    expect(transcription).not.toContain('api.openai.com');
     for (const path of [
       'src/components/pipelines/deal-form.tsx',
       'src/components/pipelines/deal-process-control.tsx',
@@ -172,4 +176,3 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 });
-
