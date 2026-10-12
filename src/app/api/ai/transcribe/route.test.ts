@@ -16,7 +16,7 @@ describe('POST /api/ai/transcribe', () => {
     });
     const formData = vi.spyOn(request, 'formData');
 
-    const response = await POST();
+    const response = await POST(request);
 
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
