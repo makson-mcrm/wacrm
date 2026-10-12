@@ -631,7 +631,7 @@ export default function DealPage() {
           </Button>
         </nav>
 
-        <section className="hidden" aria-label="Etapy Deala">
+        <section className="overflow-x-auto rounded-xl border border-emerald-900/10 bg-white p-3 shadow-sm" aria-label="Etapy Deala">
           <div className="flex min-w-[760px] items-start">
             {orderedStages.slice(0, 7).map((stage, index) => {
               const reached = index <= currentStageIndex;
@@ -785,7 +785,11 @@ export default function DealPage() {
         </nav>
 
         {activeTab === 'summary' ? (
-          <main className="space-y-4">
+          <main
+            className="grid min-w-0 gap-3 lg:grid-cols-[minmax(225px,1fr)_minmax(420px,2.4fr)_minmax(245px,1fr)]"
+            aria-label="00S — trzy kolumny: kontekst, praca, wyniki"
+          >
+            <aside className="min-w-0 space-y-3" aria-label="Kontekst sprawy">
             <Panel title="Powiązana osoba">
               {actionContact ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -853,7 +857,38 @@ export default function DealPage() {
                 <p className="text-sm text-slate-500">Brak powiązanej firmy.</p>
               )}
             </Panel>
-            <SpouseLinks links={spouseLinks} />
+              <SpouseLinks links={spouseLinks} />
+            </aside>
+            <section className="min-w-0 space-y-3" aria-label="Główna przestrzeń pracy">
+              <Panel title="Rozmowa i notatki">
+                <div className="max-h-[340px] space-y-3 overflow-y-auto" aria-label="Historia notatek">
+                  {notes.length ? notes.map((entry) => (
+                    <article key={entry.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <p className="whitespace-pre-wrap text-sm text-slate-900">{entry.note_text}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {entry.author_name || 'Użytkownik'} · {dt(entry.created_at)}
+                      </p>
+                    </article>
+                  )) : <p className="text-sm text-slate-500">Brak notatek — dodaj pierwszą.</p>}
+                </div>
+                <div className="mt-3 flex items-end gap-2">
+                  <Textarea
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Napisz notatkę do tej sprawy…"
+                    className="min-h-24 flex-1 resize-y bg-white text-sm"
+                    aria-label="Nowa notatka"
+                  />
+                  <Button
+                    type="button"
+                    disabled={!note.trim()}
+                    className="bg-emerald-800 text-white hover:bg-emerald-900"
+                    onClick={() => void addNote()}
+                  >
+                    <Save className="size-4" /> Zapisz
+                  </Button>
+                </div>
+              </Panel>
             <Panel title="Kluczowe informacje">
               <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Row label="Typ finansowania" value={deal.product_type} />
@@ -923,21 +958,46 @@ export default function DealPage() {
                 />
               </label>
             </Panel>
-            <section className="rounded-xl border border-lime-300 bg-lime-50 p-4">
-              <h2 className="font-black text-emerald-950">Asystent AI</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Przygotuj krótkie podsumowanie, ryzyka i następny krok dla tej
-                sprawy.
-              </p>
-              <Button
-                className="mt-3 bg-lime-300 text-emerald-950 hover:bg-lime-400"
-                render={
-                  <Link href={`/assistant?deal=${deal.id}&feature=prepare`} />
-                }
-              >
-                <Sparkles className="size-4" /> Przygotuj podsumowanie sprawy
-              </Button>
             </section>
+            <aside className="min-w-0 space-y-3" aria-label="Wyniki i szczegóły">
+              <Panel title="Banki w tej sprawie">
+                <div className="space-y-2">
+                  {banks.filter((bank) => bank.bank_name?.trim()).map((bank) => (
+                    <div key={bank.id || bank.position} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                      <p className="text-sm font-semibold text-slate-900">{bank.bank_name}</p>
+                      <p className="text-xs text-slate-600">{bank.status || 'Do ustalenia'}</p>
+                    </div>
+                  ))}
+                  {!banks.some((bank) => bank.bank_name?.trim()) && (
+                    <p className="text-sm text-slate-500">Brak przypisanych banków.</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-emerald-800 underline-offset-2 hover:underline"
+                    onClick={() => setActiveTab('banks')}
+                  >
+                    Otwórz banki i szczegóły
+                  </button>
+                </div>
+              </Panel>
+              <NextActionEditor
+                nextAction={nextActionDraft}
+                nextActionAt={nextActionAtDraft}
+                blocker={blockerDraft}
+                saving={savingNextAction}
+                onNextActionChange={setNextActionDraft}
+                onNextActionAtChange={setNextActionAtDraft}
+                onBlockerChange={setBlockerDraft}
+                onSave={() => void saveNextAction()}
+                compact
+              />
+              <section className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-sm font-semibold text-emerald-950">Asystent lokalny</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Analiza danych klienta wymaga uruchomionego lokalnego modelu. Zapis ręczny działa niezależnie.
+                </p>
+              </section>
+            </aside>
           </main>
         ) : null}
         {activeTab === 'activity' ? (
