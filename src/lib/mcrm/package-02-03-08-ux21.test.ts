@@ -34,13 +34,21 @@ describe('kontrakt PACZKA 02/03/08 UX 2.1', () => {
     expect(form).toContain("from('contact_companies')");
   });
 
-  it('nie eksponuje dominującego paska etapów na karcie Deala', () => {
+  it('stosuje zatwierdzony UX 2.3 / 00S: widoczne etapy i trzy strefy Deala', () => {
     const deal = source('src/app/(dashboard)/deals/[id]/page.tsx');
-    expect(deal).toContain('Zmień etap (opcjonalnie)');
+    // 00S FINAL-PASS (09.10.2026) zastępuje nieaktualną regułę UX 2.1
+    // nakazującą ukrycie siedmiostopniowego paska.
+    expect(deal).toContain('aria-label="Etapy Deala"');
+    expect(deal).not.toContain('className="hidden" aria-label="Etapy Deala"');
+    expect(deal).toContain('orderedStages.slice(0, 7)');
+    expect(deal).toContain('stage.name');
+    expect(deal).toContain('aria-label="00S — trzy kolumny: kontekst, praca, wyniki"');
+    expect(deal).toContain('aria-label="Kontekst sprawy"');
+    expect(deal).toContain('aria-label="Główna przestrzeń pracy"');
+    expect(deal).toContain('aria-label="Wyniki i szczegóły"');
     expect(deal).toContain('aria-label="Szybkie akcje Deala"');
     expect(deal).toContain('Dodaj aktywność');
     expect(deal).toContain('action=document');
-    expect(deal).toContain('className="hidden" aria-label="Etapy Deala"');
   });
 
   it('utrzymuje szybki flow Aktywności bez numerowanych dużych sekcji', () => {
