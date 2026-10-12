@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(_request: Request) {
   // Fail before parsing the request body. Until a verified local STT adapter
   // exists, every recording is sensitive and no classification can make a
   // browser or cloud transcription path safe.
