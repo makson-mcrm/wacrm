@@ -1,40 +1,39 @@
-# Design QA — MOBILE 02 KLIENCI + 08 AKTYWNOŚĆ
+**KM1.20 Design QA**
 
-- Source visual truth: `C:/Users/HP/AppData/Local/hermes/cache/scratch/ux9/wzorzec_02.png` i `wzorzec_08.png` (1920 × 1081 px; prawa, mobilna część planszy).
-- Browser-rendered implementation: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-viewport.png`, `wacrm-mobile-08-viewport.png` oraz pełne przewinięcia `wacrm-mobile-02-full.png`, `wacrm-mobile-08-full.png`.
-- Combined comparisons: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-comparison.png` i `wacrm-mobile-08-comparison.png`.
-- Viewport: 390 × 844 CSS px, device scale factor 1. Implementacja viewport 390 × 844 px; źródłowy telefon został wykadrowany i znormalizowany do 390 px szerokości.
-- State: 02 z trzema realistycznymi kartami; 08 z wybranym klientem, dealem i pięcioma ostatnimi aktywnościami.
+- Source visual truth:
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\02A-contact-desktop.webp` (1536 × 1024)
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00S-embedded-shell.jpg` (1536 × 864)
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00A-shell-desktop.webp`
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00C-shell-mobile.webp`
+- Intended implementation route: `/contacts`, opened contact state.
+- Intended viewports: desktop 1536 × 1024 CSS px at DPR 1; mobile 390 × 844 CSS px at DPR 1.
+- State: synthetic contact with linked company, spouse, active deals, activity and notes.
+- Implementation screenshot: unavailable.
+- Full-view comparison evidence: blocked because the local checkout has no non-production Supabase URL, key or authenticated synthetic test account. The production database was deliberately not used.
+- Focused region comparison evidence: not possible until the same rendered contact state can be opened safely.
+- Primary interactions pending browser verification: open Contact, linked company/person/deal navigation, save, exit, return and read back.
+- Console errors: pending browser verification.
 
-## Full-view comparison evidence
+**Findings**
 
-Oba wzorce i oba rendery zostały zestawione parami w jednym obrazie. 02 zachowuje mobilną hierarchię: wyszukiwarka, przewijane filtry, karty zamiast tabeli, status/deale/ostatni kontakt i duże akcje telefon/SMS. 08 zachowuje jednokolumnowy przepływ i czytelną hierarchię kart; pełny zrzut potwierdza kolejność kroków 1–12 oraz opcjonalną zmianę etapu dopiero po zapisie.
+- [P0] Browser-rendered contact state cannot be produced safely from this checkout.
+  - Evidence: only `.env.local.example` exists; no local Supabase runtime or Docker service is available.
+  - Impact: desktop/mobile captures, 1:1 comparison and persistence proof cannot be completed without risking production data.
+  - Fix: provide or restore the repository's non-production preview environment, then run the required browser QA against synthetic records.
 
-## Focused region comparison evidence
+**Comparison history**
 
-- 02: sprawdzono wyszukiwarkę, poziome filtry oraz trzy pełne karty. Przy szerokości 390 px dokument ma `scrollWidth = clientWidth = 390`, a dalsze filtry przewijają się wyłącznie we własnym kontenerze.
-- 08: sprawdzono osobno górny kontekst klient/deal/historia i dolny formularz. Pięć typów rozmowy układa się 2 + 2 + 1, notatka ma duże pole i działające dyktowanie, a zapis nie jest zasłaniany ani przez formularz, ani przez dolną nawigację.
+- Iteration 1: source visuals opened and implementation code prepared; rendered comparison blocked before capture by missing non-production runtime data source.
 
-## Required fidelity surfaces
+**Implementation checklist**
 
-- Fonts and typography: zachowano istniejącą rodzinę, wagi i granatową hierarchię produktu; rozmiary mobilne nie wymagają pomniejszania tekstu.
-- Spacing and layout rhythm: karty mają 12 px wewnętrznego odstępu, kontrolki co najmniej 44 px, sekcje nie wychodzą poza viewport; globalny shell ma bezpieczny odstęp od dolnej nawigacji i paska systemowego.
-- Colors and visual tokens: zachowano produktowe kolory; poprawiono wyłącznie kontrast SMS w ciemnym motywie i tekst dolnej nawigacji.
-- Image quality and assets: nowe obrazy nie były potrzebne; użyto istniejących avatarów/fallbacków i ikon biblioteki.
-- Copy and content: 02 pokazuje nazwę, telefon, status, liczbę deali i ostatni kontakt. 08 pokazuje dokładne kroki 1–12 wymagane kontraktem.
+- Open the branch preview against a non-production Supabase project.
+- Capture desktop and mobile at the normalized viewports above.
+- Exercise linked relations and save → exit → return → read-back.
+- Put each implementation capture beside its source and repeat until no P0/P1/P2 differences remain.
 
-## Interaction evidence
+**Follow-up polish**
 
-W przeglądarce sprawdzono: zmianę filtra 02, wpisywanie w wyszukiwarkę, aktywne karty i akcje; w 08 wybór typu rozmowy, wyniku, wpisanie notatki, następnego kroku i blockera oraz przełączenie zakładek historia/nowa aktywność. Brak framework error overlay i brak błędów konsoli; jedyne żądanie 404 dotyczyło nieprodukcyjnego endpointu tymczasowego podglądu demo.
+- None assessed before a valid rendered comparison exists.
 
-## Comparison history
-
-1. P1: cały blok zapisu 08 był `sticky` i zasłaniał typ rozmowy. Fix: zapis wrócił do końca sekwencji, a ochronę przed dolną nawigacją zapewnia globalny padding i safe area. Post-fix: `wacrm-mobile-08-full.png`.
-2. P2: przycisk SMS w ciemnym motywie miał ciemne tło i niski kontrast. Fix: jawne białe tło, ciemny tekst i obramowanie. Post-fix: `wacrm-mobile-02-full.png`.
-3. P0/P1/P2 po poprawkach: brak.
-
-## Findings
-
-Brak otwartych P0/P1/P2. Różnice względem plansz są akceptowalne: implementacja 08 jest dłuższa, ponieważ kontrakt wymaga dodatkowych pól następnego kroku, terminu i blockera oraz pełnej kolejności 1–12.
-
-final result: passed
+final result: blocked
