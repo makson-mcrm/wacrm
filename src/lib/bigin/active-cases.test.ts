@@ -84,6 +84,84 @@ function activeCase(
 }
 
 describe('Bigin active-cases dry-run', () => {
+  it('maps two synthetic adapted rows across Contacts, Deals, sources and stages', () => {
+    const report = buildBiginActiveCasesDryRun({
+      cases: [
+        activeCase({
+          externalDealId: 'SYNTHETIC-DEAL-A',
+          dealTitle: 'Syntetyczny temat A',
+          stageName: 'Wnioski',
+          contact: {
+            externalId: 'SYNTHETIC-CONTACT-A',
+            name: 'Osoba Testowa Alfa',
+            phone: '+48 510 000 001',
+            email: 'alfa@example.test',
+            originalSource: 'Syntetyczne polecenie',
+          },
+          company: null,
+          productCategory: 'Syntetyczny produkt A',
+        }),
+        activeCase({
+          externalDealId: 'SYNTHETIC-DEAL-B',
+          dealTitle: 'Syntetyczny temat B',
+          stageName: 'Kontakt',
+          contact: {
+            externalId: 'SYNTHETIC-CONTACT-B',
+            name: 'Osoba Testowa Beta',
+            phone: '+48 510 000 002',
+            email: 'beta@example.test',
+            originalSource: 'Syntetyczny formularz',
+          },
+          company: null,
+          productCategory: 'Syntetyczny produkt B',
+        }),
+      ],
+      existing,
+      stageMappings: mappings,
+      now: new Date('2026-10-12T16:30:00.000Z'),
+    });
+
+    expect(report.canImport).toBe(true);
+    expect(report.source).toBe('Bigin');
+    expect(report.cases).toHaveLength(2);
+    expect(
+      report.willCreate.filter((item) => item.entity === 'contact')
+    ).toHaveLength(2);
+    expect(
+      report.willCreate.filter((item) => item.entity === 'deal')
+    ).toHaveLength(2);
+    expect(
+      report.cases.map((item) => item.proposed.contact.values)
+    ).toEqual([
+      expect.objectContaining({
+        source: 'Bigin',
+        source_details: expect.stringContaining(
+          'external_id=SYNTHETIC-CONTACT-A;original_source=Syntetyczne polecenie'
+        ),
+      }),
+      expect.objectContaining({
+        source: 'Bigin',
+        source_details: expect.stringContaining(
+          'external_id=SYNTHETIC-CONTACT-B;original_source=Syntetyczny formularz'
+        ),
+      }),
+    ]);
+    expect(report.cases.map((item) => item.proposed.deal.values)).toEqual([
+      expect.objectContaining({
+        source: 'Bigin',
+        lead_source: 'Syntetyczne polecenie',
+        product_type: 'Syntetyczny produkt A',
+        stage_id: 'stage-process',
+      }),
+      expect.objectContaining({
+        source: 'Bigin',
+        lead_source: 'Syntetyczny formularz',
+        product_type: 'Syntetyczny produkt B',
+        stage_id: 'stage-contact',
+      }),
+    ]);
+  });
+
   it('recognizes Grzegorz and creates a separate firm Deal', () => {
     const report = buildBiginActiveCasesDryRun({
       cases: [activeCase()],

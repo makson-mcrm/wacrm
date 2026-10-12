@@ -39,3 +39,7 @@ const report = await prepareBiginActiveCasesDryRun({
 ```
 
 Raport zwraca cztery jawne sekcje: `willMerge`, `willCreate`, `requiresDecision`, `conflicts`. Dopiero raport z `canImport=true`, przejrzany przez Tomasza, może zostać przekazany do przyszłego executora zapisu.
+
+## Dowód techniczny KM1.13
+
+Test dry-run obejmuje dwie wyłącznie sztuczne, zaadaptowane pozycje i sprawdza mapowanie Kontaktów, Deali, dwóch źródeł, produktów oraz dwóch jawnie przypisanych etapów. Pozostałe przypadki regresyjne blokują brak mapowania etapu, powtórzony identyfikator Deala, konflikt relacji Deal–Firma i podobny Deal bez markera Bigin. Test nie wywołuje loadera Supabase ani żadnej funkcji zapisu; rzeczywisty import pozostaje poza zakresem.
