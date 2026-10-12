@@ -1,68 +1,17 @@
 import { NextResponse } from 'next/server';
 
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { loadAiConfig } from '@/lib/ai/config';
-import { assertCloudAllowed, GatewayError } from '@/lib/ai/gateway';
-
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
-  try {
-    const { supabase, accountId } = await requireRole('agent');
-    const input = await request.formData();
-    const audio = input.get('audio');
-    if (!(audio instanceof File) || audio.size === 0)
-      return NextResponse.json({ error: 'Brak nagrania.' }, { status: 400 });
-    if (audio.size > 25 * 1024 * 1024)
-      return NextResponse.json(
-        { error: 'Nagranie jest za duże. Maksymalnie 25 MB.' },
-        { status: 413 }
-      );
-
-    const config = await loadAiConfig(supabase, accountId, {
-      requireActive: false,
-    });
-    if (!config || config.provider !== 'openai')
-      return NextResponse.json(
-        {
-          error:
-            'Do transkrypcji nagrania skonfiguruj klucz OpenAI w Ustawienia → Asystent AI.',
-        },
-        { status: 400 }
-      );
-
-    const body = new FormData();
-    body.append('file', audio, audio.name || 'notatka.webm');
-    body.append('model', 'whisper-1');
-    body.append('language', 'pl');
-    assertCloudAllowed('CLIENT_PERSONAL');
-    const response = await fetch(
-      'https://api.openai.com/v1/audio/transcriptions',
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.apiKey}` },
-        body,
-      }
-    );
-    const result = (await response.json().catch(() => ({}))) as {
-      text?: string;
-      error?: { message?: string };
-    };
-    if (!response.ok || !result.text?.trim())
-      return NextResponse.json(
-        { error: result.error?.message || 'Nie udało się przepisać nagrania.' },
-        { status: 502 }
-      );
-    return NextResponse.json({ text: result.text.trim() });
-  } catch (error) {
-    if (error instanceof GatewayError && error.code === 'AI_ROUTE_DENIED')
-      return NextResponse.json(
-        {
-          error:
-            'Transkrypcja w chmurze zablokowana przez politykę LOCAL-FIRST. Skonfiguruj lokalny silnik AI.',
-        },
-        { status: 403 }
-      );
-    return toErrorResponse(error);
-  }
+export async function POST(_request: Request) {
+  // Fail before parsing the request body. Until a verified local STT adapter
+  // exists, every recording is sensitive and no classification can make a
+  // browser or cloud transcription path safe.
+  return NextResponse.json(
+    {
+      code: 'LOCAL_AI_UNAVAILABLE',
+      error:
+        'Dyktowanie jest zablokowane do czasu uruchomienia zweryfikowanego lokalnego modelu.',
+    },
+    { status: 503 }
+  );
 }

@@ -39,7 +39,7 @@ import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import {
   activityContextReturnPath,
   activityDealContextError,
-  activityTypeForDb,
+  buildActivityCoreFields,
   buildContactActivityUpdate,
   buildDealActivityUpdate,
   formatFollowUpAction,
@@ -811,7 +811,15 @@ export function QuickActivityForm() {
         : null;
       const nowIso = new Date().toISOString();
       const storedNextAction = formatFollowUpAction(nextStepKind, nextAction);
-      const activityType = activityTypeForDb(type);
+      const activityCoreFields = buildActivityCoreFields({
+        type,
+        phoneNumber: number,
+        note,
+        result,
+        nextAction: storedNextAction,
+        nextActionAt: scheduledIso,
+      });
+      const activityType = activityCoreFields.activity_type;
       const channel = plannedFollowUpKind
         ? followUpPreset(plannedFollowUpKind).channel
         : type === 'TELEFON'
@@ -855,28 +863,23 @@ export function QuickActivityForm() {
       const { error } = await db.from('sales_activities').insert({
         account_id: accountId,
         user_id: session.user.id,
-        activity_type: activityType,
+        ...activityCoreFields,
         activity_status: status,
         objective_type: type === 'FOLLOW_UP' ? 'FOLLOW_UP' : DEFAULT_OBJECTIVE,
         contact_id: contactId,
         company_id: companyId || null,
         deal_id: dealId || null,
-        phone_number: number || null,
         title: `${type.replaceAll('_', ' ')} — ${contactName(selectedContact)}`,
-        description: note.trim() || null,
         occurred_at: status === 'WYKONANE' ? nowIso : (scheduledIso ?? nowIso),
         scheduled_at: status === 'PLANOWANE' ? scheduledIso : null,
         completed_at: status === 'WYKONANE' ? nowIso : null,
         completed: status === 'WYKONANE',
-        call_result: type === 'TELEFON' ? result : null,
         call_category: serializeActivityAnalytics(analytics),
         call_product: productCategory,
         call_channel: channel,
         call_type: 'nowe_pozyskanie',
         source: customerSource,
         product_group: productCategory,
-        next_action: storedNextAction || null,
-        next_action_date: scheduledIso,
         next_contact_at: scheduledIso,
         next_contact_reason: storedNextAction || note.trim() || null,
         attempt_number: type === 'TELEFON' ? Math.min(attemptNumber, 3) : null,

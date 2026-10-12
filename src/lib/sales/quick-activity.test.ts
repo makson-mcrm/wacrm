@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activityContextReturnPath,
   activityDealContextError,
+  buildActivityCoreFields,
   buildContactActivityUpdate,
   buildDealActivityUpdate,
   followUpPreset,
@@ -14,6 +15,26 @@ import {
   shouldAutoSelectDeal,
 } from './quick-activity';
 describe('quick activity helpers', () => {
+  it('keeps the five KM1.14 manual fields in one synthetic activity payload', () => {
+    expect(
+      buildActivityCoreFields({
+        type: 'TELEFON',
+        phoneNumber: '+48 510 000 099',
+        note: ' Syntetyczny opis rozmowy ',
+        result: 'odebral',
+        nextAction: 'Syntetyczny następny krok',
+        nextActionAt: '2026-10-13T07:00:00.000Z',
+      })
+    ).toEqual({
+      activity_type: 'telefon',
+      phone_number: '+48 510 000 099',
+      description: 'Syntetyczny opis rozmowy',
+      call_result: 'odebral',
+      next_action: 'Syntetyczny następny krok',
+      next_action_date: '2026-10-13T07:00:00.000Z',
+    });
+  });
+
   it('starts suggestions at three digits and strengthens at six', () => {
     expect(phoneSearchStrength('12')).toBe('none');
     expect(phoneSearchStrength('123')).toBe('suggest');
