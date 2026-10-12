@@ -135,6 +135,32 @@ export function buildDealActivityUpdate({
 }
 export const activityTypeForDb = (type: ActivityType) =>
   type.toLocaleLowerCase('pl');
+
+export function buildActivityCoreFields({
+  type,
+  phoneNumber,
+  note,
+  result,
+  nextAction,
+  nextActionAt,
+}: {
+  type: ActivityType;
+  phoneNumber: string;
+  note: string;
+  result: string;
+  nextAction: string;
+  nextActionAt: string | null;
+}) {
+  return {
+    activity_type: activityTypeForDb(type),
+    phone_number: phoneNumber.trim() || null,
+    description: note.trim() || null,
+    call_result: type === 'TELEFON' ? result || null : null,
+    next_action: nextAction || null,
+    next_action_date: nextActionAt,
+  };
+}
+
 export const normalizeActivityPhone = (value: string) =>
   phoneDigits(value) || value.replace(/\D/g, '');
 export function phoneSearchStrength(query: string) {
