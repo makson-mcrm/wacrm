@@ -608,8 +608,8 @@ export function ContactDetailView({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          overlayClassName="lg:hidden"
-          className="w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl lg:top-14 lg:right-0 lg:bottom-0 lg:left-40 lg:h-[calc(100dvh-3.5rem)] lg:w-[calc(100vw-10rem)] lg:max-w-none lg:border-0 lg:shadow-none"
+          overlayClassName="hidden"
+          className="!top-24 !bottom-[4.75rem] !h-[calc(100dvh-10.75rem)] w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl lg:!top-14 lg:!right-0 lg:!bottom-0 lg:!left-40 lg:!h-[calc(100dvh-3.5rem)] lg:!w-[calc(100vw-10rem)] lg:!max-w-none lg:border-0 lg:shadow-none"
         >
           {loading || !contact ? (
             <div className="flex h-full items-center justify-center">
@@ -617,7 +617,13 @@ export function ContactDetailView({
             </div>
           ) : (
             <>
-              <div className="hidden h-full min-w-0 flex-col overflow-hidden bg-[#f5f7fa] lg:flex">
+              <div
+                className={
+                  activeTab === 'overview'
+                    ? 'hidden h-full min-w-0 flex-col overflow-hidden bg-[#f5f7fa] lg:flex'
+                    : 'hidden'
+                }
+              >
                 <header className="shrink-0 border-b border-slate-200 bg-white px-5 pt-3">
                   <button
                     type="button"
@@ -1024,7 +1030,9 @@ export function ContactDetailView({
                 </main>
               </div>
 
-              <div className="flex h-full min-w-0 flex-col lg:hidden">
+              <div
+                className={`h-full min-w-0 flex-col ${activeTab === 'overview' ? 'flex lg:hidden' : 'flex'}`}
+              >
                 {/* Header */}
                 <SheetHeader className="border-border/50 shrink-0 border-b p-3 pr-12 sm:p-4 sm:pr-10">
                   <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
