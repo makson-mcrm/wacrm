@@ -1,40 +1,38 @@
-# Design QA — MOBILE 02 KLIENCI + 08 AKTYWNOŚĆ
+**KM1.20 Design QA**
 
-- Source visual truth: `C:/Users/HP/AppData/Local/hermes/cache/scratch/ux9/wzorzec_02.png` i `wzorzec_08.png` (1920 × 1081 px; prawa, mobilna część planszy).
-- Browser-rendered implementation: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-viewport.png`, `wacrm-mobile-08-viewport.png` oraz pełne przewinięcia `wacrm-mobile-02-full.png`, `wacrm-mobile-08-full.png`.
-- Combined comparisons: `C:/Users/HP/AppData/Local/Temp/wacrm-mobile-02-comparison.png` i `wacrm-mobile-08-comparison.png`.
-- Viewport: 390 × 844 CSS px, device scale factor 1. Implementacja viewport 390 × 844 px; źródłowy telefon został wykadrowany i znormalizowany do 390 px szerokości.
-- State: 02 z trzema realistycznymi kartami; 08 z wybranym klientem, dealem i pięcioma ostatnimi aktywnościami.
+- Source visual truth:
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\02A-contact-desktop.webp` (1536 × 1024)
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00S-embedded-shell.jpg` (1536 × 864)
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00A-shell-desktop.webp`
+  - `C:\Users\HP\Documents\mCRM_AI\km1.20-references\00C-shell-mobile.webp` (1145 × 1374)
+- Browser-rendered implementation:
+  - `C:\Users\HP\Documents\wacrm-local-first\km1.20-contact-desktop.jpg` (1536 × 1024, DPR 1)
+  - `C:\Users\HP\Documents\wacrm-local-first\km1.20-contact-mobile.jpg` (390 × 844, DPR 1)
+- Combined comparison evidence:
+  - `C:\Users\HP\Documents\wacrm-local-first\km1.20-compare-desktop.jpg`
+  - `C:\Users\HP\Documents\wacrm-local-first\km1.20-compare-mobile.jpg`
+- State: authenticated synthetic contact with three active Deals, three tasks, three documents, four activities, three notes, three related people and four relationship rows. No production data.
+- Primary interactions tested: open Contact, follow linked records, edit the synthetic description, save, close, reopen and read the exact value back from the local synthetic datastore.
+- Console: existing Base UI `nativeButton` warnings remain in shared action components; no failed contact data request.
 
-## Full-view comparison evidence
+**Findings**
 
-Oba wzorce i oba rendery zostały zestawione parami w jednym obrazie. 02 zachowuje mobilną hierarchię: wyszukiwarka, przewijane filtry, karty zamiast tabeli, status/deale/ostatni kontakt i duże akcje telefon/SMS. 08 zachowuje jednokolumnowy przepływ i czytelną hierarchię kart; pełny zrzut potwierdza kolejność kroków 1–12 oraz opcjonalną zmianę etapu dopiero po zapisie.
+- [P3] 02A still shows six task rows and four document rows, while the verified synthetic state deliberately uses the requested minimum of three for each group.
+- [P3] The approved 02A activity rows are more compact; the implementation keeps the existing shared `ActivityHistory` cards in a bounded scroll region.
+- [P3] The 02A right column is slightly wider relative to the center column; the implementation keeps balanced minimum widths so existing long CRM labels remain readable.
 
-## Focused region comparison evidence
+**Required fidelity surfaces**
 
-- 02: sprawdzono wyszukiwarkę, poziome filtry oraz trzy pełne karty. Przy szerokości 390 px dokument ma `scrollWidth = clientWidth = 390`, a dalsze filtry przewijają się wyłącznie we własnym kontenerze.
-- 08: sprawdzono osobno górny kontekst klient/deal/historia i dolny formularz. Pięć typów rozmowy układa się 2 + 2 + 1, notatka ma duże pole i działające dyktowanie, a zapis nie jest zasłaniany ani przez formularz, ani przez dolną nawigację.
+- Fonts/typography: hierarchy and compact UI weights are close; exact font metrics still differ from the raster reference.
+- Spacing/layout rhythm: desktop fixed shell, record header and three-column workspace align; the mobile header and five-item bottom navigation remain visible around the contact card.
+- Colors/tokens: dark-green shell, emerald actions, white cards and pale workspace match the approved direction.
+- Image quality/assets: no non-standard raster assets were substituted; screenshots were captured at DPR 1.
+- Copy/content: the Contact action now uses the approved “WhatsApp” label without changing the shared action's default elsewhere.
 
-## Required fidelity surfaces
+**Comparison history**
 
-- Fonts and typography: zachowano istniejącą rodzinę, wagi i granatową hierarchię produktu; rozmiary mobilne nie wymagają pomniejszania tekstu.
-- Spacing and layout rhythm: karty mają 12 px wewnętrznego odstępu, kontrolki co najmniej 44 px, sekcje nie wychodzą poza viewport; globalny shell ma bezpieczny odstęp od dolnej nawigacji i paska systemowego.
-- Colors and visual tokens: zachowano produktowe kolory; poprawiono wyłącznie kontrast SMS w ciemnym motywie i tekst dolnej nawigacji.
-- Image quality and assets: nowe obrazy nie były potrzebne; użyto istniejących avatarów/fallbacków i ikon biblioteki.
-- Copy and content: 02 pokazuje nazwę, telefon, status, liczbę deali i ostatni kontakt. 08 pokazuje dokładne kroki 1–12 wymagane kontraktem.
+- Iteration 1: desktop popup inherited the shared Sheet width cap and rendered too narrow. Fixed with explicit desktop shell bounds; post-fix screenshot is `km1.20-contact-desktop.jpg`.
+- Iteration 2: mobile Sheet covered the entire viewport. Inset it below/above the reserved mobile shell zones and lowered its mobile stacking layer; the final screenshot retains the 00C header and bottom navigation.
+- Iteration 3: expanded the local-only synthetic fixture and balanced the three desktop columns. The current comparison contains 02A, 00S and the browser-rendered PR #18 state side by side.
 
-## Interaction evidence
-
-W przeglądarce sprawdzono: zmianę filtra 02, wpisywanie w wyszukiwarkę, aktywne karty i akcje; w 08 wybór typu rozmowy, wyniku, wpisanie notatki, następnego kroku i blockera oraz przełączenie zakładek historia/nowa aktywność. Brak framework error overlay i brak błędów konsoli; jedyne żądanie 404 dotyczyło nieprodukcyjnego endpointu tymczasowego podglądu demo.
-
-## Comparison history
-
-1. P1: cały blok zapisu 08 był `sticky` i zasłaniał typ rozmowy. Fix: zapis wrócił do końca sekwencji, a ochronę przed dolną nawigacją zapewnia globalny padding i safe area. Post-fix: `wacrm-mobile-08-full.png`.
-2. P2: przycisk SMS w ciemnym motywie miał ciemne tło i niski kontrast. Fix: jawne białe tło, ciemny tekst i obramowanie. Post-fix: `wacrm-mobile-02-full.png`.
-3. P0/P1/P2 po poprawkach: brak.
-
-## Findings
-
-Brak otwartych P0/P1/P2. Różnice względem plansz są akceptowalne: implementacja 08 jest dłuższa, ponieważ kontrakt wymaga dodatkowych pól następnego kroku, terminu i blockera oraz pełnej kolejności 1–12.
-
-final result: passed
+final result: technical preview and persistence passed; visual 1:1 is not claimed while the three documented P3 differences remain visible
