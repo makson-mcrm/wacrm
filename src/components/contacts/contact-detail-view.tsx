@@ -690,6 +690,7 @@ export function ContactDetailView({
                       <WhatsAppAction
                         phone={contact.phone}
                         contactId={contact.id}
+                        label="WhatsApp"
                       />
                       <Button
                         size="sm"
@@ -747,11 +748,11 @@ export function ContactDetailView({
                       ['documents', 'Dokumenty'],
                       [
                         'companies',
-                        `Osoby (${relatedPeople.length + spouseLinks.length})`,
+                        `Osoby (${relatedPeople.filter((person) => !spouseLinks.some(({ spouse }) => spouse.id === person.id)).length + spouseLinks.length})`,
                       ],
                       [
                         'companies',
-                        `Relacje (${contactCompanies.length + spouseLinks.length})`,
+                        `Relacje (${contactCompanies.length + relatedPeople.filter((person) => !spouseLinks.some(({ spouse }) => spouse.id === person.id)).length + spouseLinks.length})`,
                       ],
                     ].map(([value, label], index) => (
                       <button
@@ -774,7 +775,7 @@ export function ContactDetailView({
                 </header>
 
                 <main className="min-h-0 flex-1 overflow-y-auto p-4">
-                  <div className="grid min-h-full grid-cols-[minmax(220px,0.86fr)_minmax(360px,1.45fr)_minmax(250px,1fr)] gap-3">
+                  <div className="grid min-h-full grid-cols-[minmax(260px,0.98fr)_minmax(330px,1.06fr)_minmax(300px,1fr)] gap-3">
                     <div className="space-y-3">
                       <section className="rounded-lg border border-slate-200 bg-white p-3">
                         <div className="flex items-center justify-between">
@@ -972,7 +973,7 @@ export function ContactDetailView({
                         </h3>
                         <ActivityHistory
                           contactId={contact.id}
-                          className="mt-2"
+                          className="mt-2 max-h-[286px] overflow-y-auto pr-1"
                         />
                       </section>
                       <section className="rounded-lg border border-slate-200 bg-white p-3">
@@ -1018,11 +1019,47 @@ export function ContactDetailView({
                               <ArrowRight className="size-3.5" />
                             </Link>
                           ))}
-                          {!contactCompanies.length && !spouseLinks.length && (
-                            <p className="py-3 text-slate-500">
-                              Brak zdefiniowanych relacji.
-                            </p>
-                          )}
+                          {spouseLinks.map(({ spouse }) => (
+                            <Link
+                              key={`relation-${spouse.id}`}
+                              href={`/contacts?open=${spouse.id}`}
+                              className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 font-semibold hover:bg-emerald-50"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Users className="size-3.5" />
+                                {spouse.name || spouse.phone}
+                              </span>
+                              <ArrowRight className="size-3.5" />
+                            </Link>
+                          ))}
+                          {relatedPeople
+                            .filter(
+                              (person) =>
+                                !spouseLinks.some(
+                                  ({ spouse }) => spouse.id === person.id
+                                )
+                            )
+                            .slice(0, 3)
+                            .map((person) => (
+                              <Link
+                                key={`relation-${person.id}`}
+                                href={`/contacts?open=${person.id}`}
+                                className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 font-semibold hover:bg-emerald-50"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Users className="size-3.5" />
+                                  {person.name || person.phone}
+                                </span>
+                                <ArrowRight className="size-3.5" />
+                              </Link>
+                            ))}
+                          {!contactCompanies.length &&
+                            !spouseLinks.length &&
+                            !relatedPeople.length && (
+                              <p className="py-3 text-slate-500">
+                                Brak zdefiniowanych relacji.
+                              </p>
+                            )}
                         </div>
                       </section>
                     </div>
@@ -1096,6 +1133,7 @@ export function ContactDetailView({
                     <WhatsAppAction
                       phone={contact.phone}
                       contactId={contact.id}
+                      label="WhatsApp"
                       className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
                     />
                     <Button
@@ -1457,6 +1495,7 @@ export function ContactDetailView({
                           <WhatsAppAction
                             phone={contact.phone}
                             contactId={contact.id}
+                            label="WhatsApp"
                           />
                         </div>
                       </section>
