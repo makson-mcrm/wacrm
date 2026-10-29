@@ -43,6 +43,10 @@ export async function embedTexts(
   inputs: string[],
 ): Promise<number[][]> {
   if (inputs.length === 0) return []
+  throw new AiError('Chmurowe indeksowanie danych jest zablokowane.', {
+    code: 'local_ai_required', status: 503,
+  })
+  /* Cloud embedding path disabled pending local-only replacement.
   const timeoutMs = aiRequestTimeoutMs()
   const out: number[][] = []
 
@@ -97,4 +101,5 @@ export async function embedTexts(
   }
 
   return out
+  */
 }
