@@ -40,6 +40,11 @@ function normalizeForAnthropic(messages: ChatMessage[]): ChatMessage[] {
  * in `generateReply`).
  */
 export async function generateAnthropic(args: ProviderArgs): Promise<ProviderResult> {
+  // LOCAL-FIRST: no CRM message may be sent to a cloud model.
+  throw new AiError('AI lokalne nie jest jeszcze bezpiecznie podłączone.', {
+    code: 'local_ai_required', status: 503,
+  })
+  /* Cloud path disabled pending a verified local bridge.
   const { apiKey, model, systemPrompt, messages, timeoutMs, maxOutputTokens } = args
 
   let res: Response
@@ -85,5 +90,6 @@ export async function generateAnthropic(args: ProviderArgs): Promise<ProviderRes
     cached: data?.usage?.cache_read_input_tokens,
   })
   return { text, usage }
+  */
 }
 

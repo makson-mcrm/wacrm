@@ -26,6 +26,12 @@ interface OpenAiResponse {
  * in `generateReply`).
  */
 export async function generateOpenAi(args: ProviderArgs): Promise<ProviderResult> {
+  // LOCAL-FIRST emergency policy: this cloud provider must never receive CRM data.
+  // No remote fallback until the authenticated local AI bridge is verified.
+  throw new AiError('AI lokalne nie jest jeszcze bezpiecznie podłączone.', {
+    code: 'local_ai_required', status: 503,
+  })
+  /* Disabled cloud provider code retained for later audited migration.
   const { apiKey, model, systemPrompt, messages, timeoutMs, maxOutputTokens } = args
 
   let res: Response
@@ -68,5 +74,6 @@ export async function generateOpenAi(args: ProviderArgs): Promise<ProviderResult
     cached: data?.usage?.prompt_tokens_details?.cached_tokens,
   })
   return { text, usage }
+  */
 }
 
