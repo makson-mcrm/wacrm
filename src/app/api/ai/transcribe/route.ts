@@ -7,6 +7,13 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
+    await requireRole('agent');
+    // LOCAL-FIRST: no audio recordings may leave this server for cloud STT.
+    return NextResponse.json(
+      { error: 'Transkrypcja lokalna jest chwilowo niedostępna.', code: 'local_ai_required' },
+      { status: 503 }
+    );
+    /* Cloud transcription disabled pending local-only STT.
     const { supabase, accountId } = await requireRole('agent');
     const input = await request.formData();
     const audio = input.get('audio');
@@ -52,6 +59,7 @@ export async function POST(request: Request) {
         { status: 502 }
       );
     return NextResponse.json({ text: result.text.trim() });
+    */
   } catch (error) {
     return toErrorResponse(error);
   }
