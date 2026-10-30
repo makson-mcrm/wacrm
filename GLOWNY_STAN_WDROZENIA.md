@@ -326,3 +326,10 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
 - **Wniosek:** sam token systemowy nie daje dostępu do WABA przy standardowym dostępie uprawnień. Do odczytu WABA i wysyłki potrzebny jest **advanced access** (wymaga weryfikacji firmy i App Review) albo konfiguracja numeru testowego w API Setup aplikacji (panel nie renderuje się automatyzacji).
 - **Odnowienie tokenu:** Ustawienia → Użytkownicy systemowi → `hermes-mcrm` → „Wygeneruj token” → aplikacja `mCRM AI` → 60 dni → uprawnienia `whatsapp_business_messaging`, `whatsapp_business_management` → zapis do `~/.hermes/meta-token-test.env` (600) i ponowna walidacja `GET /me`.
 - **Test wiadomości: NIE wykonany** — brak `phone_number_id` (WABA nieczytelny) i brak odbiorcy; nie ogłaszam PASS.
+
+### 13.12. Rzeczywisty test wysyłki przez Graph API (30.10.2026) — wynik: FAIL
+- `phone_number_id` numeru testowego `+1 555-195-5305` odczytany z panelu: **`1325376797319834`**.
+- Token systemowy **widzi** ten numer: `GET /1325376797319834` → `display_phone_number +1 555-195-5305`, `quality_rating UNKNOWN`, `platform_type NOT_APPLICABLE`, `is_on_biz_app false`.
+- `POST /1325376797319834/messages` (tekst do `+48605737500`) → **`(#133010) Account not registered`**.
+- Próba `POST /1325376797319834/register` (`messaging_product=whatsapp`, pin) → **`(#10) Application does not have permission for this action`** (denied for `15551955305@s.whatsapp.net`).
+- Wniosek: numer testowy nie jest zarejestrowany w Cloud API dla tej aplikacji i nie da się go zarejestrować tokenem systemowym o standardowym dostępie. Rejestracja/provisioning numeru testowego odbywa się w API Setup aplikacji (panel nie renderuje się automatyzacji) albo wymaga advanced access. **Test wiadomości: FAIL — brak możliwości wysyłki; odbiór wymaga dodatkowo człowieka piszącego na numer testowy.**
