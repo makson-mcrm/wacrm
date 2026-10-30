@@ -338,3 +338,12 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
 - Lista odbiorców testowych jest zarządzana w **API Setup** aplikacji (i w „Narzędzia do obsługi kont” WhatsApp Managera) — oba panele nie renderują treści w tej instalacji (sprawdzone Playwrightem: sam shell, brak formularzy, brak tokenu).
 - Dodanie odbiorcy jest bezprzedmiotowe, dopóki **nadawca** (numer testowy `1325376797319834`) nie jest zarejestrowany: `POST /messages` → `(#133010) Account not registered`, `POST /register` → `(#10) Application does not have permission`.
 - Wnioski: (a) wysyłka wymaga rejestracji numeru testowego w API Setup lub advanced access; (b) **odbiór** da się sprawdzić realnie bez rejestracji — wystarczy jedna wiadomość z dowolnego telefonu na numer testowy `+1 555-195-5305`, wtedy Meta dostarczy webhook do `https://test.makson.space/api/whatsapp/webhook` (subskrypcje aktywne) i sprawdzimy zapis oraz trwałość w mCRM.
+
+### 13.14. Weryfikacja firmy — skąd Meta bierze numer (ustalone 30.10.2026)
+- W kreatorze pole „Numer telefonu” zawierało **stary numer stacjonarny `175831700`**; podmieniłem je na **`605737500`** (draft, bez wysłania wniosku).
+- Po podmianie Meta przeszła do kroku **„Wybierz swoją firmę — znaleźliśmy następujące publiczne dane”** i pokazała 3 wpisy z rejestrów publicznych:
+  1. **TOMASZ MAKSOŃ** — 10 a Ul. Długa, Mielec 39-300, tel. **+48 …1700** (stacjonarny), NIP **…48** — to wpis JDG;
+  2. TOMASZ MADRO — inna osoba (Dębica);
+  3. **EKO PROJEKT SP. Z O.O.** — Mielec, ul. Wojska Polskiego 9, tel. **+48 …7500** (czyli 605 737 500), witryna.
+- **Wniosek:** numer w weryfikacji nie pochodzi z Meta ani z naszego draftu — pochodzi z **publicznego wpisu rejestrowego dopasowanego po NIP/nazwie/adresie**. Dla JDG „Tomasz Maksoń” figuruje tam stary numer stacjonarny i **nie da się go podmienić w kreatorze**. Numer 605 737 500 jest w rejestrach przypisany do **EKO PROJEKT sp. z o.o.**, a nie do JDG.
+- Ścieżki bez dokumentów: brak. Meta może potwierdzić powiązanie numerem z rejestru (stacjonarny — brak SMS) albo wymaga dokumentów / wyboru innego podmiotu. Decyzja właściciela: (a) aktualizacja danych kontaktowych w CEIDG i ponowna próba, (b) weryfikacja dokumentem, (c) weryfikacja podmiotu EKO PROJEKT sp. z o.o. (jeśli to właściwy podmiot dla integracji).
