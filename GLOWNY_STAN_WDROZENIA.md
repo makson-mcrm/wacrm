@@ -366,3 +366,12 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
 - Krok „Wybierz swoją firmę” nadal pokazuje wpis z agregatora: **adres 10 a Ul. Długa, telefon +48 …1700** (stacjonarny) — mimo że CEIDG ma 605737500. To dowód, że Meta nie czyta żywego CEIDG.
 - Ekran „Sprawdź szczegółowe informacje” (ostatni przed wysłaniem) pokazuje: nazwa, adres `10 a Ul. Długa, Mielec, 39-300, PL`, NIP zamaskowany `XXXXXXXX48`, numer telefonu. **Dalej = złożenie wniosku** — nie kliknięte.
 - Dostępne metody potwierdzenia (SMS/połączenie/e-mail) pojawiają się dopiero PO złożeniu wniosku; bez tego nie da się ich odczytać. Wniosek niezłożony, kod nie wysłany.
+
+### 13.17. Metody potwierdzenia w kreatorze Meta — wynik (30.10.2026, za zgodą właściciela)
+Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Meta pokazała ekran **„Weryfikacja przy użyciu dokumentu i sprawdzenie powiązania”** z metodami:
+- **Rozmowa telefoniczna** — „Zadzwonimy na numer **+481****1700** i przekażemy kod potwierdzający.”
+- **Wiadomość tekstowa (SMS)** — „Wyślemy kod potwierdzający na numer **+481****1700**.”
+- **Wiadomość w WhatsAppie** — kod na numer **+481****1700**.
+- **Weryfikacja tożsamości** — przesłanie dokumentu.
+**Wszystkie metody bez dokumentu dotyczą starego numeru stacjonarnego `+48 17 …17 00` z agregatora Meta — nie 605 737 500.** Meta nie pozwala wpisać innego numeru do potwierdzenia. Kod nie został wysłany, metoda nie wybrana.
+**Wniosek: produkcyjne Coexistence = ZABLOKOWANE** (właściciel nie wyraża zgody na dokumenty, a Meta nie oferuje potwierdzenia na 605 737 500).
