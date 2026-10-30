@@ -299,3 +299,10 @@ Legalna nazwa: **Tomasz Maksoń** · NIP **8171644748** · adres **Długa 10a, 3
 telefon **+48 605 737 500** · witryna **https://www.makson.space/** · status weryfikacji firmy: **niezweryfikowana**.
 Brakujące materiały App Review (sprawdzone HTTP na LIVE): Privacy policy URL — 404, Regulamin — 404,
 strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko `/icon` 32×32 PNG). Kategorii aplikacji nie ustawiono.
+
+### 13.9. WEBHOOK — stan techniczny (30.10.2026, wykonane samodzielnie)
+- Endpoint `https://test.makson.space/api/whatsapp/webhook` **działa i przechodzi weryfikację Meta**: `GET ?hub.mode=subscribe&hub.challenge=…&hub.verify_token=<właściwy>` → **200 + echo challenge**, zły token → **403**, brak parametrów → **400**.
+- Weryfikacja tokenu po stronie kodu: `WHATSAPP_VERIFY_TOKEN` (env) **lub** tabela `whatsapp_webhook_verification` (tylko SHA-256, service-role). Wiersz dla konta `5bb19a39-…` istniał od 11.09.2026 z `phone_number_id=1269557046240313` (numer +48 605 737 500) i nieznanym tokenem — **zrotowany** na nowy token (hash w bazie, wartość tylko lokalnie w profilu przeglądarki, prawa 600). Rollback: przywrócenie poprzedniego hasha (znany tylko prefiks `1569df7f454d`) — niemożliwe, dlatego zapisane jako świadoma rotacja.
+- Rejestracja webhooka w panelu Meta **nie została wykonana**: nowy App Dashboard nie przełącza obiektu na „Whatsapp Business Account” pod automatyzacją (lista `role=listitem`, klik/Enter bez efektu), a pola Callback URL/Verify token są per-obiekt. Wymaga jednego realnego kliknięcia właściciela w tę pozycję — potem uzupełnienie pól i „Verify and save” robi Hermes.
+- Coexistence bez weryfikacji firmy: **niemożliwe** — dokumentacja Meta wymaga statusu Tech Provider / Solution Partner, a Tech Provider wymaga najpierw weryfikacji firmy (krok 1) i App Review (krok 2). To blokada zewnętrzna, nie konfiguracyjna.
+- Test dwukierunkowy na numerze testowym Meta: wymaga tokenu Cloud API (App Secret w env hostingu, wartość niedostępna) lub człowieka wysyłającego wiadomość na numer testowy — w tej sesji nie wykonany; nie ogłaszam PASS.
