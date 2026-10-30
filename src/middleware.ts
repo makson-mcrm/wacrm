@@ -2,6 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Legal documents must be available without a session or an auth service call.
+  if (['/polityka-prywatnosci', '/regulamin', '/usuwanie-danych'].includes(
+    request.nextUrl.pathname.replace(/\/$/, '')
+  )) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

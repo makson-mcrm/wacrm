@@ -16,7 +16,7 @@ let refreshedCookies: Array<{
 }> = [];
 
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: (
+  createServerClient: vi.fn((
     _url: string,
     _key: string,
     opts: {
@@ -32,11 +32,12 @@ vi.mock("@supabase/ssr", () => ({
         return { data: { user: mockUser } };
       },
     },
-  }),
+  })),
 }));
 
 // Imported after the mock is registered.
 const { middleware } = await import("./middleware");
+const { createServerClient } = await import("@supabase/ssr");
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -46,6 +47,19 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.clearAllMocks());
+
+describe("public legal pages", () => {
+  it.each([
+    '/polityka-prywatnosci', '/regulamin', '/usuwanie-danych',
+    '/polityka-prywatnosci/', '/regulamin/', '/usuwanie-danych/',
+  ])("serves %s without creating an auth client", async (path) => {
+    const res = await middleware(new NextRequest(`https://app.test${path}`));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+    expect(createServerClient).not.toHaveBeenCalled();
+  });
+});
 
 const ROTATED = {
   name: "sb-test-auth-token",
