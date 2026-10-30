@@ -275,3 +275,27 @@ Endpoint webhooka **istnieje w repo** (`src/app/api/whatsapp/webhook/route.ts`) 
 | Ikona aplikacji | **brak** |
 | Advanced access: `whatsapp_business_messaging`, `whatsapp_business_management` | **nieprzyznane** (wymaga App Review) |
 | Wideo do App Review (wysyłka wiadomości + tworzenie szablonu) | **brak** |
+
+### 13.7. PAKIET 2 — domknięcie Coexistence + wdrożenie LIVE (30.10.2026)
+- Codex naprawił trzy braki (bez commitów i pushy po swojej stronie): `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`
+  (także z samym `waba_id` → tryb `resolve_phone_number`), ustalanie numeru z WABA + weryfikacja
+  `is_on_biz_app`/`platform_type` (niejednoznaczność → 409), echo z `value.message_echoes`, `account_update`.
+- Bramki uruchomione **przeze mnie** na moim drzewie: `tsc --noEmit` RC=0, `npm test` 121 plików / 1134 testy PASS,
+  `eslint .` 0 błędów (43 ostrzeżenia w plikach poza zmianą).
+- Commit `6716a34`, wypchnięty przez GitHub MCP jako `8a8e352` na `feat/whatsapp-coexistence` (git push niedostępny — brak credentiali).
+- Deploy: build `01a18e36-5aaa-7035-b1bd-0c8e6d26d806` — **completed**, 4m04s, commit `8a8e352`, log potwierdza
+  `Environments: .env.production`, publikacja + restart aplikacji.
+- Dowód na LIVE: `/login` 200, `/settings` 307 (sesja), `/api/whatsapp/webhook` 400 (trasa istnieje, odrzuca GET),
+  `/api/whatsapp/coexistence/onboard` 401 (trasa istnieje, wymaga sesji). `.env.production` w commicie zawiera
+  `NEXT_PUBLIC_FB_APP_ID=1116881471020279` i `NEXT_PUBLIC_FB_ES_CONFIG_ID=1861133288660318` (odczyt przez GitHub API).
+- **Nieodebrane wizualnie:** stan aktywności przycisku w Ustawienia → WhatsApp wymaga zalogowanej sesji mCRM;
+  w sejfie Hermesa brak zapisanego loginu (`browser_vault list` = 0 pozycji), więc to jedno logowanie należy do właściciela.
+- Zmienne env w Hostingerze (odczyt kluczy): `MCRM_PUBLIC_FORM_ACCOUNT_ID`, `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, `META_APP_SECRET`, `NEXT_PUBLIC_SITE_URL`.
+  Brak `NEXT_PUBLIC_FB_*` w env — dlatego wartości idą z `.env.production` w repo (same wartości publiczne).
+
+### 13.8. Dane firmy do Tech Provider / App Review (odczyt z Meta, 30.10.2026)
+Legalna nazwa: **Tomasz Maksoń** · NIP **8171644748** · adres **Długa 10a, 39-300 Mielec, podkarpackie, Polska**
+telefon **+48 605 737 500** · witryna **https://www.makson.space/** · status weryfikacji firmy: **niezweryfikowana**.
+Brakujące materiały App Review (sprawdzone HTTP na LIVE): Privacy policy URL — 404, Regulamin — 404,
+strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko `/icon` 32×32 PNG). Kategorii aplikacji nie ustawiono.
