@@ -333,3 +333,8 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
 - `POST /1325376797319834/messages` (tekst do `+48605737500`) → **`(#133010) Account not registered`**.
 - Próba `POST /1325376797319834/register` (`messaging_product=whatsapp`, pin) → **`(#10) Application does not have permission for this action`** (denied for `15551955305@s.whatsapp.net`).
 - Wniosek: numer testowy nie jest zarejestrowany w Cloud API dla tej aplikacji i nie da się go zarejestrować tokenem systemowym o standardowym dostępie. Rejestracja/provisioning numeru testowego odbywa się w API Setup aplikacji (panel nie renderuje się automatyzacji) albo wymaga advanced access. **Test wiadomości: FAIL — brak możliwości wysyłki; odbiór wymaga dodatkowo człowieka piszącego na numer testowy.**
+
+### 13.13. Dodanie odbiorcy testowego +48 881 560 200 — zablokowane (30.10.2026)
+- Lista odbiorców testowych jest zarządzana w **API Setup** aplikacji (i w „Narzędzia do obsługi kont” WhatsApp Managera) — oba panele nie renderują treści w tej instalacji (sprawdzone Playwrightem: sam shell, brak formularzy, brak tokenu).
+- Dodanie odbiorcy jest bezprzedmiotowe, dopóki **nadawca** (numer testowy `1325376797319834`) nie jest zarejestrowany: `POST /messages` → `(#133010) Account not registered`, `POST /register` → `(#10) Application does not have permission`.
+- Wnioski: (a) wysyłka wymaga rejestracji numeru testowego w API Setup lub advanced access; (b) **odbiór** da się sprawdzić realnie bez rejestracji — wystarczy jedna wiadomość z dowolnego telefonu na numer testowy `+1 555-195-5305`, wtedy Meta dostarczy webhook do `https://test.makson.space/api/whatsapp/webhook` (subskrypcje aktywne) i sprawdzimy zapis oraz trwałość w mCRM.
