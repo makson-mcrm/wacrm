@@ -375,3 +375,11 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - **Weryfikacja tożsamości** — przesłanie dokumentu.
 **Wszystkie metody bez dokumentu dotyczą starego numeru stacjonarnego `+48 17 …17 00` z agregatora Meta — nie 605 737 500.** Meta nie pozwala wpisać innego numeru do potwierdzenia. Kod nie został wysłany, metoda nie wybrana.
 **Wniosek: produkcyjne Coexistence = ZABLOKOWANE** (właściciel nie wyraża zgody na dokumenty, a Meta nie oferuje potwierdzenia na 605 737 500).
+
+### 13.18. Kontrola formularza Meta względem CEIDG (30.10.2026)
+- Dane wpisane w drafcie: nazwa **TOMASZ MAKSOŃ**, adres **ul. Długa 10A, Mielec, 39-300, podkarpackie**, telefon **605737500**, witryna **makson.space** — **zgodne z CEIDG** (NIP 8171644748, REGON 831222355, aktywna).
+- Poprawki wykonane wcześniej: adres z „10 a Ul. Długa” na „ul. Długa 10A” (kolejność zgodna z rejestrem) i numer z „175831700” na „605737500”.
+- Lista dopasowań Meta zawiera 3 wpisy z agregatora: Tomasz Maksoń (tel. …1700), Tomasz Madro (…5934), EKO PROJEKT sp. z o.o. (…7500 = 605737500, inny podmiot).
+- Kontrolka **„Moja firma nie jest wyszczególniona” nie reaguje** na kliknięcia (4 próby, różne metody: JS click, locator Playwright, klik po współrzędnych) — w tym buildzie ścieżka jest niedostępna; w opisie kreatora prowadzi do przesłania dokumentów.
+- Wybór któregokolwiek wpisu ustala numer potwierdzenia na telefon z tego wpisu → dla JDG **stary stacjonarny +48 17…17 00**. Nie ma pola na inny numer.
+- Stan: żaden wpis nie zaznaczony, żadna metoda nie wybrana, kod nie wysłany, wniosek niezłożony.
