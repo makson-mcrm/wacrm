@@ -383,3 +383,11 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - Kontrolka **„Moja firma nie jest wyszczególniona” nie reaguje** na kliknięcia (4 próby, różne metody: JS click, locator Playwright, klik po współrzędnych) — w tym buildzie ścieżka jest niedostępna; w opisie kreatora prowadzi do przesłania dokumentów.
 - Wybór któregokolwiek wpisu ustala numer potwierdzenia na telefon z tego wpisu → dla JDG **stary stacjonarny +48 17…17 00**. Nie ma pola na inny numer.
 - Stan: żaden wpis nie zaznaczony, żadna metoda nie wybrana, kod nie wysłany, wniosek niezłożony.
+
+### 13.19. Zgłoszenie do pomocy Meta — wysłane (30.10.2026)
+- Kanał: `business.facebook.com/business-support-home` (konto „Tomasz Maksoń PEC 259646651405415”), pole „Zadaj pytanie…”, asystent biznesowy Meta AI.
+- Wysłano dwie wiadomości (893 i 464 znaki), obie potwierdzone w historii czatu — rozmowy zatytułowane przez Meta: **„Weryfikacja Firmy W Portfolio”** oraz **„Aktualizacja Numeru Telefonu W Weryfikacji Firmy”**.
+- Treść: portfolio `1670356917366790`, App ID `1116881471020279`, wpis TOMASZ MAKSOŃ NIP 8171644748 / REGON 831222355, nieaktualny telefon `+48 17…17 00` przypisany do wszystkich metod potwierdzenia, aktualny numer `+48 605 737 500`, adres ul. Długa 10A Mielec, e-mail kontaktowy `tomasz.makson@gmail.com`, link do publicznego wpisu CEIDG (`SearchDetails.aspx?Id=03fbeb8f-…-5b72`, HTTP 200). Dopisek o pilności: uruchomienie płatnej kampanii Meta Ads kierującej do WhatsApp w CRM.
+- Odpowiedź asystenta: *„Pilna sprawa z weryfikacją blokuje start kampanii WhatsApp — przekieruję Cię do wsparcia, aby szybko zaktualizować numer.”* Widoczny przycisk „Przeglądanie szczegółów” (przekierowanie do wsparcia).
+- **Numer sprawy nie został jeszcze nadany** — w sekcji „Twoje zgłoszenia do działu obsługi → Aktywne” nadal „Brak zgłoszeń”; zgłoszenie istnieje jako wątek czatu. Odbiór odpowiedzi: Business Support Home → asystent/kokpit czatu, oraz powiadomienia (badge „2 nieprzeczytane”).
+- Nie wysłano dokumentów, nie wybrano wpisu w kreatorze, nie wysłano kodu, konfiguracja WhatsApp/WABA nietknięta.
