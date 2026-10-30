@@ -103,6 +103,8 @@ interface WhatsAppWebhookEntry {
         wa_id: string;
       }>;
       messages?: WhatsAppMessage[];
+      message_echoes?: unknown;
+      event?: unknown;
       state_sync?: unknown;
       history?: unknown;
       statuses?: Array<{
@@ -278,6 +280,10 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
+      if (change.field === 'account_update') {
+        await processCoexistenceAccountUpdate(entry.id, change.value);
+        continue;
+      }
       if (['smb_message_echoes', 'smb_app_state_sync', 'history'].includes(change.field)) {
         await processCoexistenceChange(change.field, change.value);
         continue;
@@ -397,6 +403,25 @@ function messageTime(value: unknown): number | null {
   return Number.isFinite(seconds) && seconds >= 0 && seconds < 8640000000000 ? seconds * 1000 : null;
 }
 
+async function processCoexistenceAccountUpdate(wabaId: string, raw: unknown) {
+  if (typeof wabaId !== 'string' || !/^\d+$/.test(wabaId)) return;
+  const event = string(object(raw).event);
+  const disconnected = ['PARTNER_REMOVED', 'ACCOUNT_OFFBOARDED'].includes(event);
+  const reconnected = event === 'ACCOUNT_RECONNECTED';
+  if (!disconnected && !reconnected) return;
+  // Lifecycle events can omit metadata entirely. Scope by entry.id (WABA),
+  // and never touch messages, tokens or the one-shot synchronization markers.
+  const { error } = await supabaseAdmin().from('whatsapp_config')
+    .update({
+      coexistence_status: reconnected ? 'connected' : 'disconnected',
+      status: reconnected ? 'connected' : 'disconnected',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('waba_id', wabaId)
+    .eq('onboarding_mode', 'coexistence');
+  if (error) console.error('[webhook/coexistence] Nie zapisano stanu połączenia.');
+}
+
 async function processCoexistenceChange(field: string, raw: unknown) {
   const value = object(raw);
   const phoneNumberId = string(object(value.metadata).phone_number_id);
@@ -431,7 +456,7 @@ async function processCoexistenceChange(field: string, raw: unknown) {
 
   const threads = field === 'history'
     ? objects(value.history).flatMap(batch => objects(batch.threads))
-    : [{ messages: value.messages }];
+    : [{ messages: value.message_echoes }];
   for (const thread of threads) {
     const messages = objects(thread.messages)
       .filter(message => string(message.id) && messageTime(message.timestamp) !== null)

@@ -4,7 +4,11 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { canEditSettings, isAccountRole } from '@/lib/auth/roles';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
-import { subscribeWabaToApp, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
+import {
+  getWabaPhoneNumbers,
+  subscribeWabaToApp,
+  verifyPhoneNumber,
+} from '@/lib/whatsapp/meta-api';
 
 export const maxDuration = 90;
 const GRAPH = 'https://graph.facebook.com/v23.0';
@@ -47,18 +51,20 @@ export async function POST(request: Request) {
       typeof body.code !== 'string' ||
       !body.code.trim() ||
       body.code.length > 4096 ||
-      typeof body.phoneNumberId !== 'string' ||
-      !/^\d{1,32}$/.test(body.phoneNumberId) ||
+      (body.phoneNumberId !== undefined &&
+        (typeof body.phoneNumberId !== 'string' ||
+          !/^\d{1,32}$/.test(body.phoneNumberId))) ||
       typeof body.wabaId !== 'string' ||
       !/^\d{1,32}$/.test(body.wabaId)
     ) {
       return failure(
         step,
-        'Podaj kod autoryzacji oraz poprawne identyfikatory numeru i WABA (tylko cyfry).',
+        'Podaj kod autoryzacji i identyfikator WABA (tylko cyfry). Identyfikator numeru, jeśli podany, musi zawierać tylko cyfry.',
         400
       );
     }
-    const { phoneNumberId, wabaId } = body;
+    const { wabaId } = body;
+    let phoneNumberId: string | undefined = body.phoneNumberId;
     const appId = process.env.NEXT_PUBLIC_FB_APP_ID;
     const appSecret = process.env.META_APP_SECRET;
     if (!appId || !appSecret)
@@ -70,15 +76,18 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     step = 'ownership';
-    const { data: claimed, error: claimedError } = await admin
-      .from('whatsapp_config')
-      .select('account_id')
-      .eq('phone_number_id', phoneNumberId)
-      .maybeSingle();
-    if (claimedError)
-      return failure(step, 'Nie udało się sprawdzić właściciela numeru.', 500);
-    if (claimed && claimed.account_id !== profile.account_id) {
-      return failure(step, 'Ten numer jest już połączony z innym kontem.', 409);
+    // Keep the early ownership check when the SDK has supplied the number.
+    if (phoneNumberId) {
+      const { data: claimed, error: claimedError } = await admin
+        .from('whatsapp_config')
+        .select('account_id')
+        .eq('phone_number_id', phoneNumberId)
+        .maybeSingle();
+      if (claimedError)
+        return failure(step, 'Nie udało się sprawdzić właściciela numeru.', 500);
+      if (claimed && claimed.account_id !== profile.account_id) {
+        return failure(step, 'Ten numer jest już połączony z innym kontem.', 409);
+      }
     }
     const { data: existing, error: existingError } = await admin
       .from('whatsapp_config')
@@ -89,7 +98,7 @@ export async function POST(request: Request) {
       return failure(step, 'Nie udało się odczytać konfiguracji.', 500);
     if (
       existing &&
-      (existing.phone_number_id !== phoneNumberId ||
+      ((phoneNumberId && existing.phone_number_id !== phoneNumberId) ||
         existing.waba_id !== wabaId)
     ) {
       return failure(
@@ -138,12 +147,62 @@ export async function POST(request: Request) {
       }
       accessToken = token.access_token;
     }
+    step = 'resolve_phone';
+    const numbers = await getWabaPhoneNumbers({ wabaId, accessToken });
+    const candidates = numbers.filter(
+      number =>
+        number && typeof number.id === 'string' && /^\d{1,32}$/.test(number.id) &&
+        number.is_on_biz_app === true && number.platform_type === 'CLOUD_API' &&
+        (!phoneNumberId || number.id === phoneNumberId)
+    );
+    const candidateIds = [...new Set(candidates.map(number => number.id))];
+    if (candidateIds.length !== 1) {
+      return failure(
+        step,
+        phoneNumberId
+          ? 'Podany numer nie jest numerem WhatsApp Business app w trybie Cloud API na autoryzowanym koncie WABA.'
+          : 'Nie można jednoznacznie ustalić numeru WhatsApp Business app w trybie Cloud API na tym koncie WABA.',
+        409
+      );
+    }
+    phoneNumberId = candidateIds[0];
+    if (!body.phoneNumberId) {
+      step = 'ownership';
+      const { data: claimed, error: claimedError } = await admin
+        .from('whatsapp_config')
+        .select('account_id')
+        .eq('phone_number_id', phoneNumberId)
+        .maybeSingle();
+      if (claimedError)
+        return failure(step, 'Nie udało się sprawdzić właściciela numeru.', 500);
+      if (
+        (claimed && claimed.account_id !== profile.account_id) ||
+        (existing && existing.phone_number_id !== phoneNumberId)
+      ) {
+        return failure(
+          step,
+          'Ustalony numer jest już połączony z innym kontem lub różni się od obecnej konfiguracji.',
+          409
+        );
+      }
+    }
     step = 'phone_info';
     const phoneInfo = await verifyPhoneNumber({
       phoneNumberId,
       accessToken,
       apiVersion: 'v23.0',
+      includeCoexistence: true,
     });
+    if (
+      phoneInfo.id !== phoneNumberId ||
+      phoneInfo.is_on_biz_app !== true ||
+      phoneInfo.platform_type !== 'CLOUD_API'
+    )
+      return failure(
+        step,
+        'Meta nie potwierdziła, że numer działa jednocześnie w WhatsApp Business app i Cloud API.',
+        409
+      );
     if (!phoneInfo.display_phone_number)
       return failure(step, 'Meta nie zwróciła numeru telefonu.', 502);
     if (
@@ -297,6 +356,7 @@ export async function POST(request: Request) {
     // Never forward Graph errors, URLs (OAuth secrets), tokens or DB rows.
     const messages: Record<string, string> = {
       exchange_code: 'Nie udało się wymienić kodu autoryzacji w Meta.',
+      resolve_phone: 'Nie udało się odczytać numerów autoryzowanego konta WABA w Meta.',
       phone_info: 'Nie udało się odczytać numeru telefonu w Meta.',
       subscribe: 'Nie udało się zasubskrybować aplikacji do konta WABA w Meta.',
     };

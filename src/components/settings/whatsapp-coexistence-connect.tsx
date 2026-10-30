@@ -35,7 +35,18 @@ interface FacebookSDK {
 }
 
 type SignupEvent =
-  | { event: 'FINISH'; phoneNumberId: string; wabaId: string }
+  | {
+      event: 'FINISH' | 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
+      mode: 'coexistence';
+      phoneNumberId: string;
+      wabaId: string;
+    }
+  | {
+      event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
+      mode: 'resolve_phone_number';
+      phoneNumberId?: never;
+      wabaId: string;
+    }
   | { event: 'CANCEL'; step: string };
 
 // Exact origins only: a suffix match would also trust attackerfacebook.com.
@@ -62,17 +73,24 @@ export function parseEmbeddedSignupEvent(
             ? message.data.current_step
             : '',
       };
-    if (message.event !== 'FINISH') return null;
-    const { phone_number_id: phoneNumberId, waba_id: wabaId } =
-      message.data ?? {};
     if (
-      typeof phoneNumberId !== 'string' ||
-      !/^\d+$/.test(phoneNumberId) ||
-      typeof wabaId !== 'string' ||
-      !/^\d+$/.test(wabaId)
+      message.event !== 'FINISH' &&
+      message.event !== 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
     )
       return null;
-    return { event: 'FINISH', phoneNumberId, wabaId };
+    const { phone_number_id: phoneNumberId, waba_id: wabaId } =
+      message.data ?? {};
+    if (typeof wabaId !== 'string' || !/^\d+$/.test(wabaId))
+      return null;
+    if (
+      phoneNumberId === undefined &&
+      message.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+    ) {
+      return { event: message.event, mode: 'resolve_phone_number', wabaId };
+    }
+    if (typeof phoneNumberId !== 'string' || !/^\d+$/.test(phoneNumberId))
+      return null;
+    return { event: message.event, mode: 'coexistence', phoneNumberId, wabaId };
   } catch {
     return null;
   }
@@ -130,7 +148,6 @@ export function WhatsAppCoexistenceConnect({
       session.current !== active ||
       active.posting ||
       !active.code ||
-      !active.phoneNumberId ||
       !active.wabaId
     )
       return;

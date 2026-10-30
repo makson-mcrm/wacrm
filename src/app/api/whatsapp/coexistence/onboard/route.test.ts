@@ -17,6 +17,8 @@ let authenticated: boolean;
 let failStep: string;
 let failSave: boolean;
 let loseClaim: boolean;
+let numbers: Record<string, unknown>[];
+let phoneInfo: Record<string, unknown>;
 const calls: string[] = [];
 const fetchMock = vi.fn();
 const input = {
@@ -39,6 +41,11 @@ beforeEach(() => {
   failStep = '';
   failSave = false;
   loseClaim = false;
+  phoneInfo = {
+    id: '123456', display_phone_number: '+48 555 000 111',
+    verified_name: 'Firma testowa', is_on_biz_app: true, platform_type: 'CLOUD_API',
+  };
+  numbers = [{ ...phoneInfo }];
   calls.length = 0;
   vi.stubEnv('NEXT_PUBLIC_FB_APP_ID', '987654');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://synthetic.supabase.test');
@@ -137,7 +144,7 @@ beforeEach(() => {
           ? 'subscribe'
           : url.pathname.endsWith('/smb_app_data')
             ? JSON.parse(String(init?.body)).sync_type
-            : 'phone_info';
+            : url.pathname.endsWith('/phone_numbers') ? 'resolve_phone' : 'phone_info';
       calls.push(step);
       if (failStep === step)
         return Response.json(
@@ -148,12 +155,8 @@ beforeEach(() => {
         );
       if (step === 'exchange_code')
         return Response.json({ access_token: 'synthetic-business-token' });
-      if (step === 'phone_info')
-        return Response.json({
-          id: '123456',
-          display_phone_number: '+48 555 000 111',
-          verified_name: 'Firma testowa',
-        });
+      if (step === 'resolve_phone') return Response.json({ data: numbers });
+      if (step === 'phone_info') return Response.json(phoneInfo);
       return Response.json({ success: true });
     }
   );
@@ -176,6 +179,7 @@ describe('Coexistence onboarding', () => {
     });
     expect(calls).toEqual([
       'exchange_code',
+      'resolve_phone',
       'phone_info',
       'subscribe',
       'smb_app_state_sync',
@@ -207,8 +211,73 @@ describe('Coexistence onboarding', () => {
     calls.length = 0;
     const response = await POST(request());
     expect(response.status).toBe(200);
-    expect(calls).toEqual(['phone_info']);
+    expect(calls).toEqual(['resolve_phone', 'phone_info']);
     expect(row).toEqual(before);
+  });
+
+  it('resolves a WABA-only finish to the single authorized business-app Cloud API number', async () => {
+    numbers.unshift({ id: '999', is_on_biz_app: false, platform_type: 'CLOUD_API' });
+    const response = await POST(request({ code: input.code, wabaId: input.wabaId }));
+    expect(response.status).toBe(200);
+    expect(row).toMatchObject({ phone_number_id: '123456', onboarding_mode: 'coexistence' });
+    const [url, init] = fetchMock.mock.calls.find(([raw]) => String(raw).includes('/phone_numbers'))!;
+    expect(new URL(url).pathname).toBe('/v23.0/789123/phone_numbers');
+    expect(init.headers.Authorization).toBe('Bearer synthetic-business-token');
+    expect(String(url)).not.toContain('synthetic-business-token');
+    expect(calls).not.toContain('register');
+  });
+
+  it('repeats a WABA-only request without repeating OAuth or either synchronization', async () => {
+    const body = { code: input.code, wabaId: input.wabaId };
+    expect((await POST(request(body))).status).toBe(200);
+    const before = { ...row };
+    calls.length = 0;
+    expect((await POST(request(body))).status).toBe(200);
+    expect(calls).toEqual(['resolve_phone', 'phone_info']);
+    expect(row).toEqual(before);
+  });
+
+  it.each([
+    [],
+    [{ id: '123456', is_on_biz_app: true, platform_type: 'CLOUD_API' },
+      { id: '654321', is_on_biz_app: true, platform_type: 'CLOUD_API' }],
+    [{ id: '123456', is_on_biz_app: false, platform_type: 'CLOUD_API' }],
+    [{ id: '123456', is_on_biz_app: true, platform_type: 'ON_PREMISE' }],
+    [{ id: '123456' }],
+  ].map(value => ({ value })))('rejects absent/ambiguous/ineligible WABA numbers without saving: %j', async ({ value }) => {
+    numbers = value;
+    const response = await POST(request({ code: input.code, wabaId: input.wabaId }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ step: 'resolve_phone', message: expect.any(String) });
+    expect(row).toBeNull();
+    expect(calls).toEqual(['exchange_code', 'resolve_phone']);
+  });
+
+  it('rejects a supplied number that is not part of the authorized WABA', async () => {
+    numbers = [{ ...phoneInfo, id: '654321' }];
+    expect((await POST(request())).status).toBe(409);
+    expect(row).toBeNull();
+    expect(calls).not.toContain('subscribe');
+  });
+
+  it.each([
+    { is_on_biz_app: false }, { is_on_biz_app: 'true' },
+    { platform_type: 'ON_PREMISE' }, { platform_type: undefined }, { id: '654321' },
+  ])('checks fresh phone metadata before persisting coexistence: %j', async (patch) => {
+    phoneInfo = { ...phoneInfo, ...patch };
+    const response = await POST(request());
+    expect(response.status).toBe(409);
+    expect((await response.json()).step).toBe('phone_info');
+    expect(row).toBeNull();
+    expect(calls).not.toContain('subscribe');
+  });
+
+  it('checks ownership of the server-resolved number before saving', async () => {
+    foreign = true;
+    const response = await POST(request({ code: input.code, wabaId: input.wabaId }));
+    expect(response.status).toBe(409);
+    expect(row).toBeNull();
+    expect(calls).not.toContain('subscribe');
   });
 
   it('concurrent first-time requests preserve the winner and only send each sync once', async () => {
@@ -239,7 +308,7 @@ describe('Coexistence onboarding', () => {
     expect(row).toBeNull();
   });
 
-  it.each(['exchange_code', 'phone_info', 'subscribe'])(
+  it.each(['exchange_code', 'resolve_phone', 'phone_info', 'subscribe'])(
     'returns sanitized Polish errors with step %s',
     async (step) => {
       failStep = step;
@@ -280,7 +349,7 @@ describe('Coexistence onboarding', () => {
   it('does not request sync when the durable claim was won by another invocation', async () => {
     loseClaim = true;
     expect((await POST(request())).status).toBe(409);
-    expect(calls).toEqual(['exchange_code', 'phone_info', 'subscribe']);
+    expect(calls).toEqual(['exchange_code', 'resolve_phone', 'phone_info', 'subscribe']);
   });
 
   it('does not send sync after a database save failure', async () => {
@@ -294,6 +363,8 @@ describe('Coexistence onboarding', () => {
     {},
     { ...input, code: '' },
     { ...input, phoneNumberId: '../evil' },
+    { ...input, phoneNumberId: null },
+    { ...input, phoneNumberId: '' },
     { ...input, wabaId: 789 },
   ])('rejects invalid input before any Graph request: %j', async (body) => {
     expect((await POST(request(body))).status).toBe(400);

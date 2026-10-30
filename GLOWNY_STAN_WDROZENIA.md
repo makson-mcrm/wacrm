@@ -213,3 +213,65 @@ Nie wolno kodować kolejnego ekranu, dopóki poprzedni nie został pokazany i za
 2. Pokazać KLIENCI i DEAL jako zrzut na Telegram i uzyskać akceptację wizualną 003.
 3. Usunąć podatności `fast-uri` przez repo i normalne wdrożenie.
 4. Nowe zasady pracy: Codex koduje, Hermes steruje, Computer Use tylko do jednego końcowego odbioru ekranu.
+
+---
+
+## 13. META / WHATSAPP — MAPA ZASOBÓW (odczyt zweryfikowany 30.10.2026)
+
+Sekcja zapisana na podstawie realnego odczytu paneli Meta po zalogowaniu na **właściwe** konto firmowe
+(poprzednia sesja pracowała na starym koncie `napojedlafirm@gmail.com` — to był błąd, nie źródło prawdy).
+
+### 13.1. Identyfikatory
+| Element | Wartość |
+|---|---|
+| Business portfolio (właściciel aplikacji i WABA) | „Tomasz Maksoń” — `1670356917366790` |
+| Business portfolio (tylko strona FB + IG) | „Makson.space” — `559046024976854` (0 aplikacji, 0 kont WhatsApp) |
+| App (Meta) | `mCRM AI` — `1116881471020279` (status: Unpublished) |
+| Use case aplikacji | `Connect with customers through WhatsApp` (WHATSAPP_BUSINESS_MESSAGING) — istnieje |
+| WABA / konto WhatsApp | „Tomasz Maksoń” — asset `2678122512584634` |
+| Numer telefonu | `+48 605 737 500` (nazwa „Tomasz Maksoń”, status „Niedostępny” = niepodłączony do platformy) |
+| Test WABA (Meta) | `Test WhatsApp Business Account` — `1787728705756368`, numer `+1 555-195-5305` |
+| **ES Configuration ID (v4, FB Login for Business)** | **`1861133288660318`** (utworzona 30.10.2026, wariant `WhatsApp Embedded Signup`, token systemowy 60 dni) |
+| Webhook | BRAK — Callback URL pusty, 0 subskrybowanych pól |
+
+### 13.2. Powiązania
+`portfolio 1670356917366790` → aplikacja `1116881471020279` → use case WhatsApp → (docelowo) ES Configuration
+`1861133288660318` → WABA `2678122512584634` → numer `+48 605 737 500`.
+Portfel `559046024976854` (Makson.space) **nie** zawiera zasobów WhatsApp — nie używać go do integracji.
+
+### 13.3. Co jest gotowe / co blokuje
+GOTOWE: portfel, aplikacja, use case WhatsApp, WABA, numer, konfiguracja ES v4 (`1861133288660318`).
+BLOKUJE: (1) brak webhooka aplikacji, (2) aplikacja Unpublished, (3) firma niezweryfikowana,
+(4) brak **Tech Provider** — wymóg Meta dla Coexistence, (5) brak użytkownika systemowego/tokenu
+(żaden token Meta nie istnieje — nie ma czego rotować).
+
+### 13.4. Wymóg twardy Coexistence (z dokumentacji Meta)
+Coexistence to nie „właściwość konfiguracji”, a parametry uruchomienia ES + status partnera:
+- `extras.featureType = "whatsapp_business_app_onboarding"`, `sessionInfoVersion: "3"`
+- aplikacja musi być **Tech Provider** (lub Solution Partner)
+- działający webhook (pola: `messages`, `account_update`, `history`, `smb_app_state_sync`, `smb_message_echoes`)
+- klient używa WhatsApp Business app ≥ 2.24.17
+Samo posiadanie konfiguracji ES v4 **nie wystarcza**.
+
+### 13.5. Weryfikacja kodu ES v4 vs Coexistence (Codex, 30.10.2026 — potwierdzona przeze mnie)
+Werdykt Codexa: **NIEZGODNE** — kod uruchamia wariant coexistence, ale nie domyka go poprawnie.
+Sprawdzone samodzielnie w plikach:
+- `whatsapp-coexistence-connect.tsx:244-245` → `featureType:'whatsapp_business_app_onboarding'`, `sessionInfoVersion:'3'` — **poprawne**.
+- `whatsapp-coexistence-connect.tsx:65` → parser przyjmuje tylko `FINISH`; brak `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING` (payload może mieć samo `waba_id`) — **do poprawy**.
+- `webhook/route.ts:281` → gałąź coexistence istnieje, ale echo czytane z `value.messages`; Meta wysyła `value.message_echoes` — **do poprawy** (potwierdzone testem w `route.test.ts:662`).
+- `webhook/route.ts` → brak obsługi `account_update`.
+- `.env.production` → jest `NEXT_PUBLIC_FB_APP_ID`, **brak `NEXT_PUBLIC_FB_ES_CONFIG_ID`** (dopisane lokalnie, niezacommitowane).
+Endpoint webhooka **istnieje w repo** (`src/app/api/whatsapp/webhook/route.ts`) — wcześniejsze „brak webhooka” dotyczy konfiguracji w Meta, nie kodu.
+
+### 13.6. Gotowość aplikacji do Tech Provider / App Review (odczyt App Settings → Basic)
+| Wymóg Meta | Stan |
+|---|---|
+| Weryfikacja firmy (portfel „Tomasz Maksoń”) | **NIE** — „Niezweryfikowana” |
+| Contact email aplikacji | `napojedlafirm@gmail.com` (świadomie pozostawiony) |
+| Privacy policy URL | **puste** |
+| Terms of Service URL | **puste** |
+| Data deletion instructions URL | **puste** |
+| Kategoria aplikacji | **brak (0)** |
+| Ikona aplikacji | **brak** |
+| Advanced access: `whatsapp_business_messaging`, `whatsapp_business_management` | **nieprzyznane** (wymaga App Review) |
+| Wideo do App Review (wysyłka wiadomości + tworzenie szablonu) | **brak** |

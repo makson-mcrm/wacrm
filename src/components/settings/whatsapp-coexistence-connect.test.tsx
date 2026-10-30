@@ -17,8 +17,34 @@ describe('Embedded Signup', () => {
     for (const value of [finish, JSON.stringify(finish)]) {
       expect(
         parseEmbeddedSignupEvent('https://www.facebook.com', value)
-      ).toEqual({ event: 'FINISH', phoneNumberId: '123', wabaId: '456' });
+      ).toEqual({ event: 'FINISH', mode: 'coexistence', phoneNumberId: '123', wabaId: '456' });
     }
+  });
+  it.each([true, false])('accepts the business-app finish with/without a number (%s)', (withNumber) => {
+    const event = 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
+    const data = withNumber ? finish.data : { waba_id: '456' };
+    const payload = { ...finish, event, data };
+    for (const raw of [payload, JSON.stringify(payload)]) {
+      expect(parseEmbeddedSignupEvent('https://www.facebook.com', raw)).toEqual(
+        withNumber
+          ? { event, mode: 'coexistence', phoneNumberId: '123', wabaId: '456' }
+          : { event, mode: 'resolve_phone_number', wabaId: '456' }
+      );
+    }
+  });
+  it.each([
+    { waba_id: '456' },
+    { phone_number_id: '', waba_id: '456' },
+  ])('keeps requiring a valid number for a standard FINISH: %j', (data) => {
+    expect(parseEmbeddedSignupEvent('https://www.facebook.com', { ...finish, data })).toBeNull();
+  });
+  it.each([
+    {}, { waba_id: 'invalid' }, { waba_id: '456', phone_number_id: 'invalid' },
+    { waba_id: '456', phone_number_id: null },
+  ])('rejects malformed business-app finishes: %j', (data) => {
+    expect(parseEmbeddedSignupEvent('https://www.facebook.com', {
+      ...finish, event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', data,
+    })).toBeNull();
   });
   it('retains the cancellation step', () => {
     expect(

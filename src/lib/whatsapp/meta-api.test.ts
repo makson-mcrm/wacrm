@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   INTERACTIVE_LIMITS,
+  getWabaPhoneNumbers,
+  verifyPhoneNumber,
   sendInteractiveButtons,
   sendInteractiveList,
 } from "./meta-api";
@@ -265,5 +267,58 @@ describe("sendInteractiveList — validation", () => {
         },
       },
     });
+  });
+});
+
+
+describe('Coexistence number lookup', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const number = { id: '123', is_on_biz_app: true, platform_type: 'CLOUD_API' };
+
+  it('lists authorized WABA numbers over all pages with a bearer token and v23 fields', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: [number], paging: {
+        next: 'https://untrusted.test/next?access_token=secret', cursors: { after: 'next-cursor' },
+      } }))
+      .mockResolvedValueOnce(Response.json({ data: [{ ...number, id: '456' }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await getWabaPhoneNumbers({ wabaId: '789', accessToken: 'synthetic-token' }))
+      .toEqual([number, { ...number, id: '456' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [raw, init] of fetchMock.mock.calls) {
+      const url = new URL(raw);
+      expect(url.origin).toBe('https://graph.facebook.com');
+      expect(url.pathname).toBe('/v23.0/789/phone_numbers');
+      expect(url.searchParams.get('fields')).toContain('is_on_biz_app,platform_type');
+      expect(raw).not.toMatch(/secret|synthetic-token/);
+      expect(init.headers.Authorization).toBe('Bearer synthetic-token');
+      expect(init.cache).toBe('no-store');
+    }
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('after')).toBe('next-cursor');
+  });
+
+  it.each([
+    { data: [number], paging: { next: 'https://untrusted.test' } },
+    { data: [number], paging: { next: 'next', cursors: { after: 'repeated' } } },
+    { error: { message: 'SECRET' } },
+  ])('refuses incomplete or malformed results rather than selecting a partial candidate: %j', async (body) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
+    await expect(getWabaPhoneNumbers({ wabaId: '789', accessToken: 'synthetic-token' }))
+      .rejects.toThrow(/Meta/);
+  });
+
+  it('does not forward Graph errors containing credentials', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: { message: 'SECRET' } }, { status: 403 })));
+    await expect(getWabaPhoneNumbers({ wabaId: '789', accessToken: 'synthetic-token' }))
+      .rejects.toThrow('Nie udało się odczytać numerów WABA w Meta.');
+  });
+
+  it('requests eligibility fields only when coexistence verification is explicitly enabled', async () => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json(number));
+    vi.stubGlobal('fetch', fetchMock);
+    await verifyPhoneNumber({ phoneNumberId: '123', accessToken: 'synthetic-token' });
+    await verifyPhoneNumber({ phoneNumberId: '123', accessToken: 'synthetic-token', apiVersion: 'v23.0', includeCoexistence: true });
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain('is_on_biz_app');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('is_on_biz_app,platform_type');
   });
 });

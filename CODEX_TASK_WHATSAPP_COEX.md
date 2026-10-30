@@ -21,7 +21,19 @@ WhatsApp Business (Meta Embedded Signup, Coexistence), (2) obsługa webhooków s
   Ustawienia → WhatsApp (obok istniejącego formularza, nie zamiast niego).
 - Ładuje Facebook JS SDK (`https://connect.facebook.net/en_US/sdk.js`), `FB.init({appId, version:'v23.0', xfbml:false, cookie:false})`.
 - Przycisk „Połącz istniejącą aplikację WhatsApp Business”. Klik → `FB.login(cb, {config_id, response_type:'code',
-  override_default_response_type:true, extras:{feature:'whatsapp_embed_signup', sessionInfoVersion:'3', setup:{}}})`.
+  override_default_response_type:true, extras:{setup:{}, featureType:'whatsapp_business_app_onboarding', sessionInfoVersion:'3'}})`
+  — `featureType: 'whatsapp_business_app_onboarding'` jest **obowiązkowy dla Coexistence** (Meta, ES v4).
+  Wartość `whatsapp_embed_signup` dotyczy zwykłego onboardingu Cloud API, nie Coexistence.
+
+## 1a. WARTOŚCI ZWERYFIKOWANE W META (30.10.2026 — źródło: panele Meta, konto firmowe)
+- `NEXT_PUBLIC_FB_APP_ID` = `1116881471020279` (aplikacja `mCRM AI`, portfolio `1670356917366790` „Tomasz Maksoń”)
+- `NEXT_PUBLIC_FB_ES_CONFIG_ID` = `1861133288660318` (Facebook Login for Business → WhatsApp Embedded Signup, v4)
+- WABA / konto WhatsApp = `2678122512584634`, numer `+48 605 737 500`
+- `META_APP_SECRET` — **nie istnieje jeszcze w repo ani w hPanel**; do uzupełnienia z App settings → Podstawowe
+- Webhook aplikacji: **nieskonfigurowany** — endpoint `https://test.makson.space/api/whatsapp/webhook` trzeba
+  najpierw wdrożyć, potem wpisać Callback URL + verify token w App → Webhooks (obiekt *Whatsapp Business Account*)
+  i zasubskrybować: `messages`, `account_update`, `history`, `smb_app_state_sync`, `smb_message_echoes`.
+- Warunek zewnętrzny: aplikacja musi zostać **Tech Provider**, inaczej Meta nie pozwoli na onboarding Coexistence.
 - Nasłuch `message` z `WA_EMBEDDED_SIGNUP`: `FINISH` (phone_number_id, waba_id) i `CANCEL` (current_step).
 - Po FINISH: `POST /api/whatsapp/coexistence/onboard` z `{ code, phoneNumberId, wabaId }`, potem odświeżenie stanu.
 - Gdy brak `NEXT_PUBLIC_FB_APP_ID` / `NEXT_PUBLIC_FB_ES_CONFIG_ID` → przycisk nieaktywny z czytelnym
@@ -83,3 +95,44 @@ W `processWebhook` obsłuż `change.field`:
 - Zero sekretów w logach i odpowiedziach API.
 - Nie ruszaj plików spoza zakresu; nie zmieniaj istniejących kontraktów API innych modułów.
 - UI tylko po polsku (istniejące i18n zostaw bez zmian).
+
+---
+
+## PAKIET 2 — POPRAWKI PO WERYFIKACJI ES v4 (30.10.2026)
+
+Zakres WYŁĄCZNIE te trzy braki + testy. Nie zmieniaj niczego innego, nie zmieniaj kontraktów API,
+nie ruszaj migracji na produkcyjnej bazie, nie pushuj.
+
+### 2.1. `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`
+Plik: `src/components/settings/whatsapp-coexistence-connect.tsx` (parser zdarzeń, ok. linii 38-80).
+- Obsłuż także `event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'`.
+- Payload takiego zakończenia może zawierać **tylko `waba_id`** (bez `phone_number_id`) — parser nie może go odrzucać.
+- Zachowaj rozróżnienie trybu: wynik ma nieść informację, czy zakończenie podało numer (`coexistence` z numerem),
+  czy tylko `waba_id` (numer do ustalenia serwerowo).
+- `CANCEL` z `current_step` zostaje bez zmian.
+
+### 2.2. Ustalenie numeru po stronie serwera
+Plik: `src/app/api/whatsapp/coexistence/onboard/route.ts` (walidacja wejścia, ok. linii 40-70)
+oraz `src/lib/whatsapp/meta-api.ts` (helper, ok. linii 60).
+- Dopuść wejście bez `phone_number_id`, ale wtedy **ustal numer z autoryzowanego WABA**
+  (`GET /{waba_id}/phone_numbers`) i zapisz ten, który jest na WhatsApp Business app.
+- Przed zapisem trybu `coexistence` zweryfikuj `is_on_biz_app=true` oraz `platform_type=CLOUD_API`.
+- Gdy nie da się jednoznacznie ustalić numeru — odpowiedz `409` z czytelnym powodem po polsku, nie zapisuj trybu.
+- Nie wołaj `/register` ani `/deregister`.
+
+### 2.3. `smb_message_echoes`
+Plik: `src/app/api/whatsapp/webhook/route.ts` (gałąź coexistence, ok. linii 281 i 432-460).
+- Dla pola `smb_message_echoes` czytaj `value.message_echoes` (Meta nie wysyła tam `value.messages`).
+- Zachowaj istniejącą deduplikację `(conversation_id, message_id)` i oznaczanie wiadomości jako wychodzących.
+- Popraw testy, które utrwalają błędny kontrakt (`route.test.ts` ok. linii 660).
+
+### 2.4. `account_update`
+Plik: `src/app/api/whatsapp/webhook/route.ts` (routing zmian, ok. linii 281).
+- Dodaj obsługę `account_update` z `entry.id` jako identyfikatorem WABA; aktualizuj stan połączenia
+  (odłączenie / ponowne połączenie) w `whatsapp_config`, bez kasowania historii wiadomości.
+
+### 2.5. Bramki (wszystkie muszą przejść; wyniki wypisz na końcu)
+- `npm run typecheck`
+- `npm test` (pełny zestaw, bez regresji)
+- `npm run lint`
+Nie uruchamiaj `npm install`, nie zmieniaj `package.json`, nie pushuj, nie rób commitów.

@@ -32,6 +32,8 @@ const h = vi.hoisted(() => ({
     storageUploadError: null as { message: string } | null,
     verificationTokenHash: '' as string,
     syncMessages: [] as Record<string, unknown>[],
+    configUpdates: [] as { patch: Record<string, unknown>; filters: Record<string, unknown> }[],
+    configUpdateError: null as { message: string } | null,
     contactUpdates: [] as Record<string, unknown>[],
     contactInserts: [] as Record<string, unknown>[],
   },
@@ -62,6 +64,17 @@ vi.mock('@supabase/supabase-js', () => ({
           };
         case 'whatsapp_config':
           return {
+            update: (patch: Record<string, unknown>) => {
+              const filters: Record<string, unknown> = {};
+              const query = {
+                eq(key: string, value: unknown) { filters[key] = value; return query; },
+                then(resolve: (value: unknown) => unknown) {
+                  h.state.configUpdates.push({ patch, filters });
+                  return Promise.resolve({ error: h.state.configUpdateError }).then(resolve);
+                },
+              };
+              return query;
+            },
             select: () => ({
               eq: () =>
                 Promise.resolve({
@@ -310,6 +323,8 @@ beforeEach(() => {
   h.state.activityInserts = [];
   h.state.rpcCalls = [];
   h.state.syncMessages = [];
+  h.state.configUpdates = [];
+  h.state.configUpdateError = null;
   h.state.contactUpdates = [];
   h.state.contactInserts = [];
   h.state.afterCallbacks = [];
@@ -639,9 +654,9 @@ describe('inbound webhook: after() awaits automations (#368)', () => {
 
 
 describe('Coexistence sync webhooks', () => {
-  async function deliver(field: string, value: Record<string, unknown>) {
+  async function deliver(field: string, value: Record<string, unknown>, wabaId = '789123') {
     const response = await POST({
-      text: async () => JSON.stringify({ entry: [{ changes: [{ field, value: {
+      text: async () => JSON.stringify({ entry: [{ id: wabaId, changes: [{ field, value: {
         metadata: { phone_number_id: 'pn-1' }, ...value,
       } }] }] }),
       headers: { get: () => 'sha256=stub' },
@@ -659,8 +674,8 @@ describe('Coexistence sync webhooks', () => {
   }
   it('stores business-app echoes as delivered agent messages, resolves the recipient and ignores replay', async () => {
     const message = { ...TEXT_MESSAGE, from: '15550000000', to: '15551230000' };
-    await deliver('smb_message_echoes', { messages: [message] });
-    await deliver('smb_message_echoes', { messages: [message] });
+    await deliver('smb_message_echoes', { message_echoes: [message] });
+    await deliver('smb_message_echoes', { message_echoes: [message] });
     expect(h.state.syncMessages).toHaveLength(1);
     expect(h.state.syncMessages[0]).toMatchObject({
       p_message_id: TEXT_MESSAGE.id, p_sender_type: 'agent', p_origin: 'business_app',
@@ -668,6 +683,50 @@ describe('Coexistence sync webhooks', () => {
     });
     expect(findExistingContact).toHaveBeenCalledWith(expect.anything(), 'acc-1', '+15551230000');
     noSideEffects();
+  });
+  it('does not interpret value.messages as business-app echoes', async () => {
+    await deliver('smb_message_echoes', { messages: [{ ...TEXT_MESSAGE, to: '15551230000' }] });
+    expect(h.state.syncMessages).toHaveLength(0);
+    noSideEffects();
+  });
+  it.each(['PARTNER_REMOVED', 'ACCOUNT_OFFBOARDED'])('marks coexistence disconnected on %s using entry.id without metadata', async (event) => {
+    await deliver('account_update', { metadata: undefined, event });
+    expect(h.state.configUpdates).toEqual([{
+      patch: { coexistence_status: 'disconnected', status: 'disconnected', updated_at: expect.any(String) },
+      filters: { waba_id: '789123', onboarding_mode: 'coexistence' },
+    }]);
+    expect(h.state.upsertCalls).toHaveLength(0);
+    noSideEffects();
+  });
+  it('restores the connection on ACCOUNT_RECONNECTED while retaining existing messages', async () => {
+    await deliver('smb_message_echoes', { message_echoes: [{ ...TEXT_MESSAGE, to: '15551230000' }] });
+    const before = [...h.state.syncMessages];
+    await deliver('account_update', { metadata: undefined, event: 'ACCOUNT_OFFBOARDED' });
+    await deliver('account_update', { metadata: undefined, event: 'ACCOUNT_RECONNECTED' });
+    expect(h.state.configUpdates.at(-1)).toEqual({
+      patch: { coexistence_status: 'connected', status: 'connected', updated_at: expect.any(String) },
+      filters: { waba_id: '789123', onboarding_mode: 'coexistence' },
+    });
+    expect(h.state.syncMessages).toEqual(before);
+    noSideEffects();
+  });
+  it('ignores unrelated account updates and missing WABA ids', async () => {
+    await deliver('account_update', { event: 'ACCOUNT_REVIEW_UPDATE' });
+    await deliver('account_update', { event: 'ACCOUNT_RECONNECTED' }, '');
+    await deliver('account_update', { event: 'ACCOUNT_RECONNECTED' }, 'invalid');
+    expect(h.state.configUpdates).toHaveLength(0);
+    noSideEffects();
+  });
+  it('logs a sanitized account-update failure without webhook payloads', async () => {
+    h.state.configUpdateError = { message: 'SECRET database failure' };
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await deliver('account_update', { event: 'PARTNER_REMOVED', secret: 'SECRET' });
+      expect(log).toHaveBeenCalledWith('[webhook/coexistence] Nie zapisano stanu połączenia.');
+      expect(JSON.stringify(log.mock.calls)).not.toContain('SECRET');
+    } finally {
+      log.mockRestore();
+    }
   });
   it('upserts contact names with canonical E.164 and shared dedupe without opening conversations', async () => {
     await deliver('smb_app_state_sync', { state_sync: [

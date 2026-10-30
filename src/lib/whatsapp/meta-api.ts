@@ -21,6 +21,8 @@ export interface MetaPhoneInfo {
   display_phone_number: string
   verified_name?: string
   quality_rating?: string
+  is_on_biz_app?: boolean
+  platform_type?: string
 }
 
 interface MetaErrorResponse {
@@ -46,6 +48,7 @@ export interface VerifyPhoneNumberArgs {
   phoneNumberId: string
   accessToken: string
   apiVersion?: 'v23.0'
+  includeCoexistence?: boolean
 }
 
 /**
@@ -57,7 +60,9 @@ export async function verifyPhoneNumber(
 ): Promise<MetaPhoneInfo> {
   const { phoneNumberId, accessToken } = args
   const base = args.apiVersion ? `https://graph.facebook.com/${args.apiVersion}` : META_API_BASE
-  const url = `${base}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`
+  const fields = 'id,display_phone_number,verified_name,quality_rating'
+    + (args.includeCoexistence ? ',is_on_biz_app,platform_type' : '')
+  const url = `${base}/${phoneNumberId}?fields=${fields}`
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     ...(args.apiVersion ? { signal: AbortSignal.timeout(15000), cache: 'no-store' as const } : {}),
@@ -66,6 +71,40 @@ export async function verifyPhoneNumber(
     await throwMetaError(response, `Meta API error: ${response.status}`)
   }
   return response.json()
+}
+
+/** List only numbers authorized by this WABA's token; never follow a Graph URL
+ * supplied in a response (it could contain credentials or another host).
+ */
+export async function getWabaPhoneNumbers(args: {
+  wabaId: string
+  accessToken: string
+}): Promise<MetaPhoneInfo[]> {
+  const numbers: MetaPhoneInfo[] = []
+  const cursors = new Set<string>()
+  let after: string | undefined
+  for (let page = 0; page < 50; page++) {
+    const params = new URLSearchParams({
+      fields: 'id,display_phone_number,verified_name,quality_rating,is_on_biz_app,platform_type',
+      limit: '100',
+      ...(after ? { after } : {}),
+    })
+    const response = await fetch(`https://graph.facebook.com/v23.0/${args.wabaId}/phone_numbers?${params}`, {
+      headers: { Authorization: `Bearer ${args.accessToken}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!response.ok) throw new Error('Nie udało się odczytać numerów WABA w Meta.')
+    const result = await response.json()
+    if (!Array.isArray(result?.data)) throw new Error('Meta nie zwróciła listy numerów WABA.')
+    numbers.push(...result.data)
+    if (!result.paging?.next) return numbers
+    after = result.paging.cursors?.after
+    if (typeof after !== 'string' || !after || cursors.has(after)) break
+    cursors.add(after)
+  }
+  // An incomplete list cannot prove that the candidate is unambiguous.
+  throw new Error('Nie udało się odczytać pełnej listy numerów WABA w Meta.')
 }
 
 // ============================================================
