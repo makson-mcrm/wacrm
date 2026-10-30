@@ -360,3 +360,9 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
 - Dane, które pokazała Meta w kreatorze (numer +48 …1700, zamaskowane NIP-y, „Interesariusze”), pochodzą z **komercyjnej bazy agregującej stare dane rejestrowe**, nie z żywego CEIDG. Meta nie ma mechanizmu korekty tego wpisu przez nas.
 - **Wniosek: produkcyjne Coexistence = ZABLOKOWANE.** Bez dokumentów i bez aktywnego wpisu rejestrowego z numerem 605 737 500 nie ma ścieżki weryfikacji; zmiana podmiotu na EKO PROJEKT odrzucona przez właściciela.
 - Konfiguracja techniczna pozostaje sprawna: ES Config `1861133288660318`, webhook + 5 subskrypcji, przycisk LIVE aktywny, `hermes-mcrm` + token 60 dni (kontrola cron).
+
+### 13.16. Krok „Sprawdź szczegółowe informacje” w kreatorze Meta (30.10.2026)
+- Kreator przeszedł kroki: Polska → JDG → Zarejestrowana → nazwa TOMASZ MAKSOŃ → adres poprawiony na **ul. Długa 10A, Mielec, 39-300, podkarpackie** → kontakt z **telefonem 605737500** (potwierdzone w polu) i witryną makson.space.
+- Krok „Wybierz swoją firmę” nadal pokazuje wpis z agregatora: **adres 10 a Ul. Długa, telefon +48 …1700** (stacjonarny) — mimo że CEIDG ma 605737500. To dowód, że Meta nie czyta żywego CEIDG.
+- Ekran „Sprawdź szczegółowe informacje” (ostatni przed wysłaniem) pokazuje: nazwa, adres `10 a Ul. Długa, Mielec, 39-300, PL`, NIP zamaskowany `XXXXXXXX48`, numer telefonu. **Dalej = złożenie wniosku** — nie kliknięte.
+- Dostępne metody potwierdzenia (SMS/połączenie/e-mail) pojawiają się dopiero PO złożeniu wniosku; bez tego nie da się ich odczytać. Wniosek niezłożony, kod nie wysłany.
