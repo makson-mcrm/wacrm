@@ -45,6 +45,7 @@ async function throwMetaError(response: Response, fallback: string): Promise<nev
 export interface VerifyPhoneNumberArgs {
   phoneNumberId: string
   accessToken: string
+  apiVersion?: 'v23.0'
 }
 
 /**
@@ -55,9 +56,11 @@ export async function verifyPhoneNumber(
   args: VerifyPhoneNumberArgs
 ): Promise<MetaPhoneInfo> {
   const { phoneNumberId, accessToken } = args
-  const url = `${META_API_BASE}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`
+  const base = args.apiVersion ? `https://graph.facebook.com/${args.apiVersion}` : META_API_BASE
+  const url = `${base}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    ...(args.apiVersion ? { signal: AbortSignal.timeout(15000), cache: 'no-store' as const } : {}),
   })
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`)
@@ -158,6 +161,7 @@ export async function registerPhoneNumber(
 export interface SubscribeWabaToAppArgs {
   wabaId: string
   accessToken: string
+  apiVersion?: 'v23.0'
 }
 
 /**
@@ -168,13 +172,19 @@ export async function subscribeWabaToApp(
   args: SubscribeWabaToAppArgs
 ): Promise<void> {
   const { wabaId, accessToken } = args
-  const url = `${META_API_BASE}/${wabaId}/subscribed_apps`
+  const base = args.apiVersion ? `https://graph.facebook.com/${args.apiVersion}` : META_API_BASE
+  const url = `${base}/${wabaId}/subscribed_apps`
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
+    ...(args.apiVersion ? { signal: AbortSignal.timeout(15000) } : {}),
   })
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  if (args.apiVersion) {
+    const result = await response.json()
+    if (result?.success !== true) throw new Error('Meta subscription not confirmed')
   }
 }
 

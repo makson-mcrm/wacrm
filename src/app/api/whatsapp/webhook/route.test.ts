@@ -31,6 +31,9 @@ const h = vi.hoisted(() => ({
     /** Error the next storage upload resolves with, if any. */
     storageUploadError: null as { message: string } | null,
     verificationTokenHash: '' as string,
+    syncMessages: [] as Record<string, unknown>[],
+    contactUpdates: [] as Record<string, unknown>[],
+    contactInserts: [] as Record<string, unknown>[],
   },
 }));
 
@@ -73,6 +76,18 @@ vi.mock('@supabase/supabase-js', () => ({
                   error: null,
                 }),
             }),
+          };
+        case 'contacts':
+          return {
+            update: (row: Record<string, unknown>) => {
+              h.state.contactUpdates.push(row);
+              const query = { eq: () => query, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) };
+              return query;
+            },
+            insert: (row: Record<string, unknown>) => {
+              h.state.contactInserts.push(row);
+              return { select: () => ({ single: async () => ({ data: { id: 'contact-1', ...row }, error: null }) }) };
+            },
           };
         case 'conversations':
           // findOrCreateConversation: select().eq().eq().order().limit()
@@ -174,6 +189,11 @@ vi.mock('@supabase/supabase-js', () => ({
     },
     rpc: (name: string, args: Record<string, unknown>) => {
       h.state.rpcCalls.push({ name, args });
+      if (name === 'store_whatsapp_coexistence_message') {
+        const duplicate = h.state.syncMessages.some(row => row.p_conversation_id === args.p_conversation_id && row.p_message_id === args.p_message_id);
+        if (!duplicate) h.state.syncMessages.push(args);
+        return Promise.resolve({ data: !duplicate, error: null });
+      }
       return Promise.resolve({ data: null, error: null });
     },
     // Service-role Storage, used by the inbound-media mirror (#466).
@@ -236,6 +256,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({
 
 import { GET, POST } from './route';
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api';
+import { findExistingContact } from '@/lib/contacts/dedupe';
 import { hashWebhookVerifyToken } from '@/lib/whatsapp/webhook-verify-token';
 
 const mockGetMediaUrl = vi.mocked(getMediaUrl);
@@ -288,6 +309,9 @@ beforeEach(() => {
   h.state.upsertCalls = [];
   h.state.activityInserts = [];
   h.state.rpcCalls = [];
+  h.state.syncMessages = [];
+  h.state.contactUpdates = [];
+  h.state.contactInserts = [];
   h.state.afterCallbacks = [];
   h.state.automationStarted = 0;
   h.state.automationCompleted = 0;
@@ -610,5 +634,79 @@ describe('inbound webhook: after() awaits automations (#368)', () => {
     // If the dispatches were fire-and-forget, completed would still be 0
     // here — the callback would have resolved before the timers fired.
     expect(h.state.automationCompleted).toBe(3);
+  });
+});
+
+
+describe('Coexistence sync webhooks', () => {
+  async function deliver(field: string, value: Record<string, unknown>) {
+    const response = await POST({
+      text: async () => JSON.stringify({ entry: [{ changes: [{ field, value: {
+        metadata: { phone_number_id: 'pn-1' }, ...value,
+      } }] }] }),
+      headers: { get: () => 'sha256=stub' },
+    } as unknown as Request);
+    const callbacks = h.state.afterCallbacks.splice(0);
+    for (const callback of callbacks) await callback();
+    return response;
+  }
+  function noSideEffects() {
+    expect(h.runAutomationsForTrigger).not.toHaveBeenCalled();
+    expect(h.dispatchInboundToFlows).not.toHaveBeenCalled();
+    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled();
+    expect(h.dispatchWebhookEvent).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls.every(call => call.name === 'store_whatsapp_coexistence_message')).toBe(true);
+  }
+  it('stores business-app echoes as delivered agent messages, resolves the recipient and ignores replay', async () => {
+    const message = { ...TEXT_MESSAGE, from: '15550000000', to: '15551230000' };
+    await deliver('smb_message_echoes', { messages: [message] });
+    await deliver('smb_message_echoes', { messages: [message] });
+    expect(h.state.syncMessages).toHaveLength(1);
+    expect(h.state.syncMessages[0]).toMatchObject({
+      p_message_id: TEXT_MESSAGE.id, p_sender_type: 'agent', p_origin: 'business_app',
+      p_created_at: '2023-11-14T22:13:20.000Z', p_content_text: 'hello', p_conversation_id: 'conv-1',
+    });
+    expect(findExistingContact).toHaveBeenCalledWith(expect.anything(), 'acc-1', '+15551230000');
+    noSideEffects();
+  });
+  it('upserts contact names with canonical E.164 and shared dedupe without opening conversations', async () => {
+    await deliver('smb_app_state_sync', { state_sync: [
+      { type: 'unknown' },
+      { type: 'contact', wa_id: '15551230000', profile: { name: 'Anna Maria Testowa' } },
+      { type: 'contact', contact: { wa_id: '+1 555 123 0000', profile: { name: 'Anna Maria Testowa' } } },
+    ] });
+    expect(findExistingContact).toHaveBeenCalledWith(expect.anything(), 'acc-1', '+15551230000');
+    expect(h.state.contactUpdates).toContainEqual({ name: 'Anna Maria Testowa', first_name: 'Anna', last_name: 'Maria Testowa' });
+    expect(h.state.contactInserts).toHaveLength(0);
+    expect(h.state.syncMessages).toHaveLength(0);
+    noSideEffects();
+  });
+  it('creates a missing contact using the config account and owner', async () => {
+    vi.mocked(findExistingContact).mockResolvedValueOnce(null);
+    await deliver('smb_app_state_sync', { state_sync: [{ type: 'contact', wa_id: '15551230000', profile: { name: 'Jan Testowy' } }] });
+    expect(h.state.contactInserts).toContainEqual({ account_id: 'acc-1', user_id: 'user-1', phone: '+15551230000', name: 'Jan Testowy' });
+    noSideEffects();
+  });
+  it('imports two history batches chronologically, uses direction/from and skips duplicate message ids', async () => {
+    const first = { ...TEXT_MESSAGE, id: 'history-1', timestamp: '1700000001', direction: 'inbound' };
+    const second = { ...TEXT_MESSAGE, id: 'history-2', timestamp: '1700000002', from: '15550000000', to: '15551230000' };
+    const third = { ...TEXT_MESSAGE, id: 'history-3', timestamp: '1700000003', direction: 'outbound' };
+    await deliver('history', { history: [{ threads: [{ id: '15551230000', messages: [second, first] }] }] });
+    await deliver('history', { history: [{ threads: [{ id: '15551230000', messages: [third, second] }] }] });
+    expect(h.state.syncMessages.map(row => row.p_message_id)).toEqual(['history-1', 'history-2', 'history-3']);
+    expect(h.state.syncMessages.map(row => row.p_sender_type)).toEqual(['customer', 'agent', 'agent']);
+    expect(h.state.syncMessages.every(row => row.p_origin === 'history_sync')).toBe(true);
+    expect(h.state.syncMessages[2].p_created_at).toBe('2023-11-14T22:13:23.000Z');
+    noSideEffects();
+  });
+  it('tolerates partial batches, invalid timestamps, missing metadata and unknown fields', async () => {
+    const log = vi.spyOn(console, 'error');
+    await deliver('history', { history: [null, { errors: [{ code: 1 }] }, { threads: [null, { id: '15551230000', messages: [{ id: 'bad', timestamp: 'NaN' }, { ...TEXT_MESSAGE, timestamp: '' }] }] }] });
+    await deliver('history', { metadata: null, history: [] });
+    await deliver('smb_app_state_sync', { state_sync: [null, { type: 'contact' }] });
+    await deliver('unrecognized_field', { messages: [TEXT_MESSAGE] });
+    expect(h.state.syncMessages).toHaveLength(0);
+    expect(log).not.toHaveBeenCalled();
+    noSideEffects();
   });
 });

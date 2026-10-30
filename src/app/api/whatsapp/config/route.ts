@@ -87,7 +87,7 @@ export async function GET() {
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
-      .select('phone_number_id, access_token, status')
+      .select('phone_number_id, access_token, status, onboarding_mode, coexistence_status')
       .eq('account_id', accountId)
       .maybeSingle()
 
@@ -134,8 +134,14 @@ export async function GET() {
       const phoneInfo = await verifyPhoneNumber({
         phoneNumberId: config.phone_number_id,
         accessToken,
+        ...(config.onboarding_mode === 'coexistence' ? { apiVersion: 'v23.0' as const } : {}),
       })
-      return NextResponse.json({ connected: true, phone_info: phoneInfo })
+      return NextResponse.json({
+        connected: config.onboarding_mode !== 'coexistence' || config.coexistence_status === 'connected',
+        phone_info: phoneInfo, onboarding_mode: config.onboarding_mode, coexistence_status: config.coexistence_status,
+        ...(config.onboarding_mode === 'coexistence' && config.coexistence_status !== 'connected'
+          ? { message: 'Połączenie coexistence wymaga dokończenia lub weryfikacji synchronizacji.' } : {}),
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown Meta API error'
       console.error('[whatsapp/config GET] Meta API verification failed:', message)
@@ -272,11 +278,20 @@ export async function POST(request: Request) {
     // Look up any pre-existing row for this account so we know whether
     // this number is already registered with Meta — if so we can skip
     // /register when the user didn't provide a PIN this time around.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingConfigError } = await supabase
       .from('whatsapp_config')
-      .select('id, registered_at, phone_number_id')
+      .select('id, registered_at, phone_number_id, onboarding_mode, waba_id, verify_token')
       .eq('account_id', accountId)
       .maybeSingle()
+
+    if (existingConfigError) {
+      return NextResponse.json({ error: 'Nie udało się odczytać konfiguracji WhatsApp.' }, { status: 500 })
+    }
+
+    if (existing?.onboarding_mode === 'coexistence'
+      && (existing.phone_number_id !== phone_number_id || existing.waba_id !== waba_id)) {
+      return NextResponse.json({ error: 'Zmiana numeru lub WABA wymaga osobnego połączenia Meta.' }, { status: 409 })
+    }
 
     const sameNumber =
       existing?.phone_number_id === phone_number_id &&
@@ -296,7 +311,8 @@ export async function POST(request: Request) {
     // is not a failure, just an incomplete-but-valid save.
     let registrationSkipped = false
 
-    const needsRegistration = !sameNumber || (typeof pin === 'string' && pin.length > 0)
+    const needsRegistration = existing?.onboarding_mode !== 'coexistence'
+      && (!sameNumber || (typeof pin === 'string' && pin.length > 0))
     if (needsRegistration) {
       if (!pin) {
         // No PIN provided. Meta TEST numbers (Developer Console) are
@@ -357,7 +373,9 @@ export async function POST(request: Request) {
       phone_number_id,
       waba_id: waba_id || null,
       access_token: encryptedAccessToken,
-      verify_token: encryptedVerifyToken,
+      verify_token: existing?.onboarding_mode === 'coexistence'
+        ? encryptedVerifyToken ?? existing.verify_token
+        : encryptedVerifyToken,
       status: registrationError ? 'disconnected' : 'connected',
       connected_at: registrationError ? null : new Date().toISOString(),
       registered_at: registrationError ? null : registeredAt,

@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { SettingsPanelHead } from './settings-panel-head';
+import { WhatsAppCoexistenceConnect, type CoexistenceConnection } from './whatsapp-coexistence-connect';
 import {
   Accordion,
   AccordionItem,
@@ -58,7 +59,8 @@ export function WhatsAppConfig() {
   const [testing, setTesting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [showToken, setShowToken] = useState(false);
-  const [config, setConfig] = useState<WhatsAppConfigType | null>(null);
+  const [config, setConfig] = useState<(WhatsAppConfigType & CoexistenceConnection) | null>(null);
+  const [phoneInfo, setPhoneInfo] = useState<{ display_phone_number: string; verified_name?: string } | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('unknown');
   const [resetReason, setResetReason] = useState<ResetReason>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
@@ -113,6 +115,7 @@ export function WhatsAppConfig() {
 
   const fetchConfig = useCallback(async (acctId: string) => {
     setLoading(true);
+    setPhoneInfo(null);
     try {
       // Load form values from Supabase (shows what's in DB).
       // Switched from `user_id` (which would only match the row's
@@ -160,6 +163,7 @@ export function WhatsAppConfig() {
           const res = await fetch('/api/whatsapp/config', { method: 'GET' });
           const payload = await res.json();
 
+          setPhoneInfo(payload.phone_info || null);
           if (payload.connected) {
             setConnectionStatus('connected');
             setResetReason(null);
@@ -440,6 +444,16 @@ export function WhatsAppConfig() {
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
       {/* Main config form */}
       <div className="space-y-6">
+        <WhatsAppCoexistenceConnect config={config} phoneInfo={phoneInfo}
+          canEdit={canEditSettings}
+          connectionError={connectionStatus === 'disconnected'
+            ? resetReason === 'token_corrupted'
+              ? 'Nie można odczytać zapisanego tokenu WhatsApp. Konfiguracja wymaga naprawy.'
+              : resetReason === 'meta_api_error'
+                ? 'Meta odrzuciła poświadczenia WhatsApp. Połącz aplikację ponownie.'
+                : 'Nie udało się potwierdzić połączenia. Sprawdź stan synchronizacji i odśwież stronę.'
+            : undefined}
+          onConnected={async () => { if (accountId) await fetchConfig(accountId); }} />
         {/* Corrupted-token reset banner */}
         {showResetBanner && (
           <Alert className="bg-amber-950/40 border-amber-600/40">
@@ -500,7 +514,7 @@ export function WhatsAppConfig() {
             without a successful /register call the number won't
             receive inbound events. Surface this dimension separately
             so users don't trust a misleading green banner. */}
-        {config && (
+        {config && config.onboarding_mode !== 'coexistence' && (
           <Alert
             className={
               isRegistered

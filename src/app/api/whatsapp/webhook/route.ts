@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 import { getMediaUrl } from '@/lib/whatsapp/meta-api';
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media';
-import { normalizeWhatsAppE164 } from '@/lib/whatsapp/phone-utils';
+import { isValidE164, normalizeWhatsAppE164 } from '@/lib/whatsapp/phone-utils';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { reopenClosedConversation } from '@/lib/conversations/reopen';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
@@ -103,6 +103,8 @@ interface WhatsAppWebhookEntry {
         wa_id: string;
       }>;
       messages?: WhatsAppMessage[];
+      state_sync?: unknown;
+      history?: unknown;
       statuses?: Array<{
         id: string;
         status: string;
@@ -276,6 +278,11 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
+      if (['smb_message_echoes', 'smb_app_state_sync', 'history'].includes(change.field)) {
+        await processCoexistenceChange(change.field, change.value);
+        continue;
+      }
+
       // Template-lifecycle events (status / quality / components
       // updates from Meta) come in on a different change.field and
       // have a different value shape — route them through the
@@ -289,6 +296,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         continue;
       }
 
+      if (change.field !== 'messages') continue;
       const value = change.value;
 
       // Handle status updates
@@ -366,6 +374,103 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           config.mirror_inbound_media !== false
         );
       }
+    }
+  }
+}
+
+// Coexistence uses the existing contact/conversation helpers but deliberately
+// bypasses inbound automations, flows, unread increments and external fan-out.
+// Importing history or receiving our own echo must never send a new reply.
+function object(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown> : {};
+}
+function objects(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(object) : [];
+}
+function string(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+function messageTime(value: unknown): number | null {
+  if ((typeof value !== 'string' && typeof value !== 'number') || value === '') return null;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds >= 0 && seconds < 8640000000000 ? seconds * 1000 : null;
+}
+
+async function processCoexistenceChange(field: string, raw: unknown) {
+  const value = object(raw);
+  const phoneNumberId = string(object(value.metadata).phone_number_id);
+  if (!phoneNumberId) return;
+  const { data: configs, error } = await supabaseAdmin().from('whatsapp_config')
+    .select('account_id, user_id').eq('phone_number_id', phoneNumberId);
+  if (error || !configs || configs.length !== 1) {
+    console.error('[webhook/coexistence] Nie można ustalić konta.');
+    return;
+  }
+  const config = configs[0];
+  if (!config.account_id || !config.user_id) return;
+
+  if (field === 'smb_app_state_sync') {
+    for (const state of objects(value.state_sync)) {
+      if (state.type !== 'contact' || ['remove', 'delete'].includes(string(state.action))) continue;
+      const contact = Object.keys(object(state.contact)).length ? object(state.contact) : state;
+      const phone = normalizeWhatsAppE164(string(contact.wa_id || contact.phone || contact.phone_number));
+      if (!isValidE164(phone)) continue;
+      const name = string(object(contact.profile).name || contact.full_name || contact.name).trim();
+      const outcome = await findOrCreateContact(config.account_id, config.user_id, phone, name);
+      if (outcome && name) {
+        const [firstName, ...lastName] = name.split(/\s+/);
+        const { error: updateError } = await supabaseAdmin().from('contacts')
+          .update({ name, first_name: firstName, last_name: lastName.join(' ') || null })
+          .eq('id', outcome.contact.id).eq('account_id', config.account_id);
+        if (updateError) console.error('[webhook/coexistence] Nie zapisano nazwy kontaktu.');
+      }
+    }
+    return;
+  }
+
+  const threads = field === 'history'
+    ? objects(value.history).flatMap(batch => objects(batch.threads))
+    : [{ messages: value.messages }];
+  for (const thread of threads) {
+    const messages = objects(thread.messages)
+      .filter(message => string(message.id) && messageTime(message.timestamp) !== null)
+      .sort((a, b) => messageTime(a.timestamp)! - messageTime(b.timestamp)!);
+    for (const message of messages) {
+      const phone = normalizeWhatsAppE164(field === 'history' ? string(thread.id) : string(message.to));
+      if (!isValidE164(phone)) continue;
+      const contact = objects(value.contacts).find(c => normalizeWhatsAppE164(string(c.wa_id)) === phone);
+      const name = string(object(contact?.profile).name);
+      const outcome = await findOrCreateContact(config.account_id, config.user_id, phone, name);
+      if (!outcome) continue;
+      const resolved = await findOrCreateConversation(config.account_id, config.user_id, outcome.contact.id);
+      if (!resolved) continue;
+      const direction = string(message.direction).toLowerCase();
+      const outbound = field === 'smb_message_echoes' || ['outbound', 'outgoing', 'sent'].includes(direction)
+        || (direction !== 'inbound' && direction !== 'incoming' && direction !== 'received'
+          && normalizeWhatsAppE164(string(message.from)) !== phone && !!message.from);
+      const type = string(message.type);
+      // Unknown/partial payloads stay readable without inventing an invalid
+      // content_type or fetching media while importing an old batch.
+      const media = object(message[type]);
+      const contentType = ['text', 'image', 'document', 'audio', 'video', 'location', 'template', 'interactive'].includes(type)
+        ? type : type === 'sticker' ? 'image' : 'text';
+      const contentText = string(object(message.text).body || media.caption || media.filename)
+        || (type === 'text' ? null : `[Wiadomość: ${contentType}]`);
+      const mediaId = string(media.id);
+      const { error: storeError } = await supabaseAdmin().rpc('store_whatsapp_coexistence_message', {
+        p_conversation_id: resolved.conversation.id,
+        p_message_id: string(message.id),
+        p_sender_type: outbound ? 'agent' : 'customer',
+        p_content_type: contentType,
+        p_content_text: contentText,
+        p_media_url: mediaId && ['image', 'document', 'audio', 'video'].includes(contentType)
+          ? `/api/whatsapp/media/${encodeURIComponent(mediaId)}` : null,
+        p_media_type: string(media.mime_type) || null,
+        p_created_at: new Date(messageTime(message.timestamp)!).toISOString(),
+        p_origin: field === 'history' ? 'history_sync' : 'business_app',
+      });
+      if (storeError) console.error('[webhook/coexistence] Nie zapisano wiadomości synchronizacji.');
     }
   }
 }
