@@ -347,3 +347,9 @@ strona dokumentów — 404, favicon/logo ≥512 px — brak (aplikacja ma tylko 
   3. **EKO PROJEKT SP. Z O.O.** — Mielec, ul. Wojska Polskiego 9, tel. **+48 …7500** (czyli 605 737 500), witryna.
 - **Wniosek:** numer w weryfikacji nie pochodzi z Meta ani z naszego draftu — pochodzi z **publicznego wpisu rejestrowego dopasowanego po NIP/nazwie/adresie**. Dla JDG „Tomasz Maksoń” figuruje tam stary numer stacjonarny i **nie da się go podmienić w kreatorze**. Numer 605 737 500 jest w rejestrach przypisany do **EKO PROJEKT sp. z o.o.**, a nie do JDG.
 - Ścieżki bez dokumentów: brak. Meta może potwierdzić powiązanie numerem z rejestru (stacjonarny — brak SMS) albo wymaga dokumentów / wyboru innego podmiotu. Decyzja właściciela: (a) aktualizacja danych kontaktowych w CEIDG i ponowna próba, (b) weryfikacja dokumentem, (c) weryfikacja podmiotu EKO PROJEKT sp. z o.o. (jeśli to właściwy podmiot dla integracji).
+
+### 13.15. CEIDG a weryfikacja Meta (ustalenie 30.10.2026)
+- Oficjalna wyszukiwarka CEIDG (`aplikacja.ceidg.gov.pl`, wpis po NIP **8171644748**) → **„Brak wpisów spełniających podane kryteria”**. Wpis JDG nie jest aktywny w CEIDG (działalność zamknięta), więc **nie ma czego aktualizować** — numeru kontaktowego nie da się tam zmienić.
+- Dane, które pokazała Meta w kreatorze (numer +48 …1700, zamaskowane NIP-y, „Interesariusze”), pochodzą z **komercyjnej bazy agregującej stare dane rejestrowe**, nie z żywego CEIDG. Meta nie ma mechanizmu korekty tego wpisu przez nas.
+- **Wniosek: produkcyjne Coexistence = ZABLOKOWANE.** Bez dokumentów i bez aktywnego wpisu rejestrowego z numerem 605 737 500 nie ma ścieżki weryfikacji; zmiana podmiotu na EKO PROJEKT odrzucona przez właściciela.
+- Konfiguracja techniczna pozostaje sprawna: ES Config `1861133288660318`, webhook + 5 subskrypcji, przycisk LIVE aktywny, `hermes-mcrm` + token 60 dni (kontrola cron).
