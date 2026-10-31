@@ -648,6 +648,12 @@ export function ContactDetailView({
                           {contact.email}
                         </span>
                       )}
+                      <Link
+                        href={`/ankieta?contact=${contact.id}`}
+                        className="min-h-8 rounded px-1 font-semibold text-emerald-800 hover:underline"
+                      >
+                        Wypełnij ankietę
+                      </Link>
                       {contactCompanies.map((link) => (
                         <Link
                           key={link.company_id}

@@ -2,15 +2,18 @@ import { randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { getPublicAppOrigin } from '@/lib/auth/public-url';
+import { relativeRedirect } from '@/lib/auth/redirect';
 
 export async function GET(request: NextRequest) {
   try {
     await requireRole('agent');
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim();
     if (!clientId)
-      return NextResponse.redirect(
-        new URL('/settings?tab=calendar&google=configuration_required', request.url),
-      );
+      return relativeRedirect('/settings?tab=calendar&google=configuration_required');
+    const origin = getPublicAppOrigin(request.headers);
+    if (!origin)
+      return relativeRedirect('/settings?tab=calendar&google=configuration_required');
     const state = randomBytes(24).toString('hex');
     const cookieStore = await cookies();
     cookieStore.set('google_calendar_oauth_state', state, {
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
       path: '/',
       maxAge: 10 * 60,
     });
-    const callback = new URL('/api/google-calendar/oauth/callback', request.nextUrl.origin);
+    const callback = new URL('/api/google-calendar/oauth/callback', origin);
     const authorization = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authorization.searchParams.set('client_id', clientId);
     authorization.searchParams.set('redirect_uri', callback.toString());

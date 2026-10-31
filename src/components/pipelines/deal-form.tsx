@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import type {
@@ -31,6 +31,15 @@ import { Banknote, Check, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { isValidNip, normalizeNip } from '@/lib/companies/nip';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
+import { parseCrmPhone } from '@/lib/contacts/phone';
+import { findExistingContact } from '@/lib/contacts/dedupe';
+import {
+  crmErrorMessage,
+  dealDateTimeInput,
+  dealDateTimeIso,
+  saveDealContacts,
+  updateDeal,
+} from '@/lib/deals/persistence';
 
 interface DealFormProps {
   open: boolean;
@@ -58,6 +67,8 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const db = useMemo(() => createClient(), []);
+  const persistedDealId = useRef<string | null>(null);
+  const [formReady, setFormReady] = useState(false);
   const { accountId, profile } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]),
     [companies, setCompanies] = useState<Company[]>([]),
@@ -115,7 +126,12 @@ export function DealForm({
 
   useEffect(() => {
     if (!open) return;
+    persistedDealId.current = deal?.id ?? null;
     let cancelled = false;
+    // Reset readiness asynchronously together with this loading effect.
+    void Promise.resolve().then(() => {
+      if (!cancelled) setFormReady(false);
+    });
     void (async () => {
       const [contactRows, companyRows, profileRows, dealLinks] =
         await Promise.all([
@@ -131,6 +147,9 @@ export function DealForm({
             : Promise.resolve({ data: [] }),
         ]);
       if (cancelled) return;
+      for (const result of [contactRows, companyRows, profileRows, dealLinks]) {
+        if ('error' in result && result.error) throw result.error;
+      }
       setContacts((contactRows.data ?? []) as Contact[]);
       setCompanies((companyRows.data ?? []) as Company[]);
       setProfiles((profileRows.data ?? []) as Profile[]);
@@ -193,12 +212,12 @@ export function DealForm({
       );
       setGoal(deal?.goal ?? '');
       setProductType(deal?.product_type ?? '');
-      setStageId(deal?.stage_id ?? defaultStageId ?? stages[0]?.id ?? '');
+      setStageId(deal?.stage_id || defaultStageId || stages[0]?.id || '');
       setAssignedTo(deal?.assigned_to ?? profile?.id ?? '');
       setNextAction(deal?.next_action ?? '');
-      setNextActionAt(localDateTime(deal?.next_action_at));
-      setFollowUpAt(localDateTime(deal?.follow_up_at));
-      setMeetingAt(localDateTime(deal?.meeting_at));
+      setNextActionAt(dealDateTimeInput(deal?.next_action_at));
+      setFollowUpAt(dealDateTimeInput(deal?.follow_up_at));
+      setMeetingAt(dealDateTimeInput(deal?.meeting_at));
       setMeetingPlace(deal?.meeting_place ?? '');
       setExpectedCommission(
         deal?.expected_commission == null
@@ -212,7 +231,7 @@ export function DealForm({
       setNotes(deal?.notes ?? '');
       setMfinanseStatus(deal?.mfinanse_status ?? 'do_sprawdzenia');
       setBlocker(deal?.blocker ?? '');
-      setQuestionnaireDueAt(localDateTime(deal?.questionnaire_due_at));
+      setQuestionnaireDueAt(dealDateTimeInput(deal?.questionnaire_due_at));
       setQuestionnaireId(
         deal?.questionnaire_id ?? defaultQuestionnaireId ?? ''
       );
@@ -243,7 +262,13 @@ export function DealForm({
       setShowNewContact(false);
       setShowNewCompany(false);
       setCommissionEdited(Boolean(deal?.expected_commission));
-    })();
+      if (!cancelled) setFormReady(true);
+    })().catch((error) => {
+      if (!cancelled) {
+        setFormReady(false);
+        toast.error(`Nie wczytano formularza Deala: ${crmErrorMessage(error)}`);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -345,34 +370,54 @@ export function DealForm({
     const fullName = [newFirstName.trim(), newLastName.trim()]
       .filter(Boolean)
       .join(' ');
-    const { data, error } = await db
-      .from('contacts')
-      .insert({
-        account_id: accountId,
-        user_id: session.user.id,
-        first_name: newFirstName.trim() || null,
-        last_name: newLastName.trim() || null,
-        name: fullName || null,
-        phone: newPhone.trim(),
-      })
-      .select('*')
-      .single();
-    if (error) {
-      toast.error(
-        error.code === '23505'
-          ? 'Kontakt z tym telefonem już istnieje.'
-          : 'Nie udało się dodać Kontaktu.'
-      );
+    const parsedPhone = parseCrmPhone(newPhone);
+    if (!parsedPhone.valid) {
+      toast.error(parsedPhone.reason);
       return;
     }
-    setContacts((rows) => [...rows, data as Contact]);
-    if (!contactId) setContactId(data.id);
-    else setSecondContactId(data.id);
-    setNewFirstName('');
-    setNewLastName('');
-    setNewPhone('');
-    setShowNewContact(false);
-    toast.success('Kontakt został dodany i powiązany.');
+    try {
+      const existing = await findExistingContact(
+        db,
+        accountId,
+        parsedPhone.canonical
+      );
+      if (existing) {
+        toast.error(
+          'Kontakt z tym telefonem już istnieje. Wybierz go z listy.'
+        );
+        return;
+      }
+      const { data, error } = await db
+        .from('contacts')
+        .insert({
+          account_id: accountId,
+          user_id: session.user.id,
+          first_name: newFirstName.trim() || null,
+          last_name: newLastName.trim() || null,
+          name: fullName || null,
+          phone: parsedPhone.canonical,
+        })
+        .select('*')
+        .single();
+      if (error) {
+        toast.error(
+          error.code === '23505'
+            ? 'Kontakt z tym telefonem już istnieje.'
+            : `Nie udało się dodać Kontaktu: ${error.message}`
+        );
+        return;
+      }
+      setContacts((rows) => [...rows, data as Contact]);
+      if (!contactId) setContactId(data.id);
+      else setSecondContactId(data.id);
+      setNewFirstName('');
+      setNewLastName('');
+      setNewPhone('');
+      setShowNewContact(false);
+      toast.success('Kontakt został dodany i powiązany.');
+    } catch (error) {
+      toast.error(`Nie udało się dodać Kontaktu: ${crmErrorMessage(error)}`);
+    }
   }
 
   async function addCompanyInline() {
@@ -433,51 +478,8 @@ export function DealForm({
     toast.success('Firma została dodana i powiązana.');
   }
 
-  async function saveRelations(dealId: string) {
-    if (!accountId) return;
-    await db.from('deal_contacts').delete().eq('deal_id', dealId);
-    const rows: {
-      deal_id: string;
-      contact_id: string;
-      account_id: string;
-      role: string;
-      is_primary: boolean;
-    }[] = [];
-    if (contactId)
-      rows.push({
-        deal_id: dealId,
-        contact_id: contactId,
-        account_id: accountId,
-        role: 'Wnioskodawca 1',
-        is_primary: true,
-      });
-    if (secondContactId && secondContactId !== contactId)
-      rows.push({
-        deal_id: dealId,
-        contact_id: secondContactId,
-        account_id: accountId,
-        role: 'Wnioskodawca 2',
-        is_primary: false,
-      });
-    if (rows.length) {
-      const { error } = await db.from('deal_contacts').insert(rows);
-      if (error) throw error;
-    }
-    if (companyId)
-      for (const personId of [contactId, secondContactId].filter(Boolean))
-        await db.from('contact_companies').upsert(
-          {
-            contact_id: personId,
-            company_id: companyId,
-            account_id: accountId,
-            role: 'Osoba w sprawie',
-            is_primary: true,
-          },
-          { onConflict: 'contact_id,company_id' }
-        );
-  }
-
   async function handleSave() {
+    if (!formReady || saving) return;
     const numericValue = Number(value);
     if (
       !title.trim() ||
@@ -487,7 +489,10 @@ export function DealForm({
       !contactId ||
       !source ||
       !productType ||
-      !stageId ||
+      !pipelineId ||
+      !stages.some(
+        (stage) => stage.id === stageId && stage.pipeline_id === pipelineId
+      ) ||
       !accountId
     ) {
       toast.error('Uzupełnij wymagane pola. Kwota musi być większa od 0.');
@@ -516,61 +521,57 @@ export function DealForm({
       return;
     }
     setSaving(true);
-    const payload = {
-      title: title.trim(),
-      description: description.trim() || null,
-      value: numberOrZero(value),
-      currency: 'PLN',
-      contact_id: contactId,
-      co_applicant_contact_id: secondContactId || null,
-      company_id: companyId || null,
-      pipeline_id: pipelineId,
-      stage_id: stageId,
-      assigned_to: assignedTo || null,
-      source: source || null,
-      goal: goal || null,
-      product_type: productType || null,
-      applicant_mode: secondContactId ? 'Dwie osoby' : 'Jedna osoba',
-      next_action: nextAction.trim() || null,
-      next_action_at: nextActionAt || null,
-      follow_up_at: followUpAt || null,
-      meeting_at: meetingAt || null,
-      meeting_place: meetingPlace.trim() || null,
-      expected_commission: numberOrNull(expectedCommission),
-      expected_close_date: expectedCloseDate || null,
-      missing_documents: missingDocuments.trim() || null,
-      questionnaire_text: questionnaireText.trim() || null,
-      drive_folder_url: driveFolderUrl.trim() || null,
-      notes: notes.trim() || null,
-      mfinanse_status: mfinanseStatus,
-      blocker: blocker.trim() || null,
-      blocker_since: blocker.trim()
-        ? deal?.blocker_since || new Date().toISOString()
-        : null,
-      questionnaire_due_at: questionnaireDueAt || null,
-      questionnaire_id: questionnaireId || null,
-      questionnaire_data: questionnaireData,
-      questionnaire_status: questionnaireId ? 'submitted' : 'not_started',
-      questionnaire_received_at: questionnaireId
-        ? deal?.questionnaire_received_at || new Date().toISOString()
-        : null,
-      launched_amount: numberOrNull(launchedAmount),
-      launched_at: launchedAt || null,
-      actual_commission: numberOrNull(actualCommission),
-      invoice_number: invoiceNumber.trim() || null,
-      invoice_date: invoiceDate || null,
-      invoice_status: invoiceStatus || null,
-      settlement_verified: settlementVerified,
-      settlement_notes: settlementNotes.trim() || null,
-    };
     try {
-      let dealId = deal?.id;
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        value: numberOrZero(value),
+        currency: 'PLN',
+        contact_id: contactId,
+        co_applicant_contact_id: secondContactId || null,
+        company_id: companyId || null,
+        pipeline_id: pipelineId,
+        stage_id: stageId,
+        assigned_to: assignedTo || null,
+        source: source || null,
+        goal: goal || null,
+        product_type: productType || null,
+        applicant_mode: secondContactId ? 'Dwie osoby' : 'Jedna osoba',
+        next_action: nextAction.trim() || null,
+        next_action_at: dealDateTimeIso(nextActionAt),
+        follow_up_at: dealDateTimeIso(followUpAt),
+        meeting_at: dealDateTimeIso(meetingAt),
+        meeting_place: meetingPlace.trim() || null,
+        expected_commission: numberOrNull(expectedCommission),
+        expected_close_date: expectedCloseDate || null,
+        missing_documents: missingDocuments.trim() || null,
+        questionnaire_text: questionnaireText.trim() || null,
+        drive_folder_url: driveFolderUrl.trim() || null,
+        notes: notes.trim() || null,
+        mfinanse_status: mfinanseStatus,
+        blocker: blocker.trim() || null,
+        blocker_since: blocker.trim()
+          ? deal?.blocker_since || new Date().toISOString()
+          : null,
+        questionnaire_due_at: dealDateTimeIso(questionnaireDueAt),
+        questionnaire_id: questionnaireId || null,
+        questionnaire_data: questionnaireData,
+        questionnaire_status: questionnaireId ? 'submitted' : 'not_started',
+        questionnaire_received_at: questionnaireId
+          ? deal?.questionnaire_received_at || new Date().toISOString()
+          : null,
+        launched_amount: numberOrNull(launchedAmount),
+        launched_at: launchedAt || null,
+        actual_commission: numberOrNull(actualCommission),
+        invoice_number: invoiceNumber.trim() || null,
+        invoice_date: invoiceDate || null,
+        invoice_status: invoiceStatus || null,
+        settlement_verified: settlementVerified,
+        settlement_notes: settlementNotes.trim() || null,
+      };
+      let dealId = persistedDealId.current;
       if (dealId) {
-        const { error } = await db
-          .from('deals')
-          .update(payload)
-          .eq('id', dealId);
-        if (error) throw error;
+        await updateDeal(db, dealId, payload);
       } else {
         const {
           data: { session },
@@ -588,27 +589,27 @@ export function DealForm({
           .single();
         if (error) throw error;
         dealId = data.id;
+        persistedDealId.current = data.id;
       }
-      try {
-        await saveRelations(dealId!);
-      } catch (relationError) {
-        console.error(
-          'Deal zapisany, ale nie udało się zapisać relacji:',
-          relationError
-        );
-        toast.warning(
-          'Deal został zapisany. Dodatkowe powiązanie wymaga ponowienia.'
-        );
-      }
+      await saveDealContacts(
+        db,
+        dealId!,
+        accountId,
+        contactId,
+        secondContactId,
+        companyId
+      );
       toast.success(
         deal ? 'Deal został zaktualizowany.' : 'Deal został utworzony.'
       );
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nieznany błąd';
+      const message = crmErrorMessage(error);
       console.error('Nie udało się zapisać Deala:', error);
-      toast.error(`Nie udało się zapisać Deala: ${message}`);
+      toast.error(
+        `${persistedDealId.current ? 'Deal zapisany, ale zapis zmian lub powiązań nie został zakończony. Ponów zapis.' : 'Nie udało się zapisać Deala.'} ${message}`
+      );
     } finally {
       setSaving(false);
     }
@@ -1190,7 +1191,7 @@ export function DealForm({
               type="button"
               className="flex-1"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !formReady}
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               {deal ? 'Zapisz zmiany' : 'UTWÓRZ'}
@@ -1254,7 +1255,4 @@ function numberOrNull(value: string) {
   if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-function localDateTime(value?: string) {
-  return value ? value.slice(0, 16) : '';
 }

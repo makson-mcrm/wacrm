@@ -8,6 +8,8 @@ import {
 } from '@/lib/public-bookings';
 import {
   isAllowedPublicFormOrigin,
+  publicFormCorsHeaders,
+  publicFormOptionsResponse,
   requestFingerprint,
 } from '@/lib/public-leads';
 import {
@@ -18,11 +20,16 @@ import {
 
 export const runtime = 'nodejs';
 
+export async function OPTIONS(request: Request) {
+  return publicFormOptionsResponse(request);
+}
+
 export async function POST(request: Request) {
-  if (!isAllowedPublicFormOrigin(request.headers.get('origin')))
+  const headers = publicFormCorsHeaders(request);
+  if (!isAllowedPublicFormOrigin(request.headers.get('origin'), request.url))
     return NextResponse.json(
       { error: 'Niedozwolone źródło żądania.' },
-      { status: 403 }
+      { status: 403, headers }
     );
   const ip =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -36,13 +43,19 @@ export async function POST(request: Request) {
     `public-booking:${fingerprint}`,
     RATE_LIMITS.publicLeadIntake
   );
-  if (!rate.success) return rateLimitResponse(rate);
+  if (!rate.success) {
+    const response = rateLimitResponse(rate);
+    Object.entries(headers).forEach(([key, value]) =>
+      response.headers.set(key, value)
+    );
+    return response;
+  }
   try {
     const input = parsePublicBooking(await request.json().catch(() => null));
     if (input.startedAt && Date.now() - input.startedAt < 800)
       return NextResponse.json(
         { error: 'Rezerwacja została odrzucona.' },
-        { status: 400 }
+        { status: 400, headers }
       );
     await savePublicBooking(supabaseAdmin(), input, {
       fingerprint,
@@ -50,13 +63,13 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(
       { ok: true, message: 'Termin został zapisany w kalendarzu CRM.' },
-      { status: 201 }
+      { status: 201, headers }
     );
   } catch (error) {
     const response = publicBookingErrorResponse(error);
     return NextResponse.json(
       { error: response.message },
-      { status: response.status }
+      { status: response.status, headers }
     );
   }
 }

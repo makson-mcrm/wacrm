@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
@@ -40,6 +40,11 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
+import { crmErrorMessage, updateDeal } from '@/lib/deals/persistence';
+import {
+  loadOrSeedPipelines,
+  readPipelines,
+} from '@/lib/deals/pipeline-bootstrap';
 
 interface PipelineDeal extends Deal {
   tagNames: string[];
@@ -99,28 +104,24 @@ export default function PipelinesPage() {
   const [defaultQuestionnaireId, setDefaultQuestionnaireId] =
     useState<string>('');
 
-  // Guard against double-seeding (React StrictMode double-effect in dev).
-  const seedAttempted = useRef(false);
-
   const loadPipelines = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('pipelines')
-      .select('*')
-      .order('created_at');
-    if (error) {
-      console.error('Failed to load pipelines:', error.message);
-      return [];
+    if (!accountId) return null;
+    try {
+      return await readPipelines(supabase, accountId);
+    } catch (error) {
+      toast.error(`Nie wczytano lejków: ${crmErrorMessage(error)}`);
+      return null;
     }
-    return data ?? [];
-  }, [supabase]);
+  }, [supabase, accountId]);
 
   const loadStages = useCallback(
     async (pipelineId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('pipeline_id', pipelineId)
         .order('position');
+      if (error) toast.error(`Nie wczytano etapów: ${error.message}`);
       return data ?? [];
     },
     [supabase]
@@ -128,16 +129,14 @@ export default function PipelinesPage() {
 
   const loadDeals = useCallback(
     async (pipelineId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('deals')
         .select(
           '*, contact:contacts!deals_contact_id_fkey(*), company:companies!deals_company_id_fkey(*), assignee:profiles!deals_assigned_to_fkey(*)'
         )
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false });
-      if (data === null) {
-        console.error('Failed to load deals for pipeline:', pipelineId);
-      }
+      if (error) toast.error(`Nie wczytano Deali: ${error.message}`);
       const rows = (data ?? []) as Deal[];
       const ids = rows.map((deal) => deal.id);
       if (!ids.length) return [] as PipelineDeal[];
@@ -182,66 +181,33 @@ export default function PipelinesPage() {
     [supabase]
   );
 
-  const seedDefaultPipeline =
-    useCallback(async (): Promise<Pipeline | null> => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return null;
-      // pipelines.account_id is NOT NULL post-017 with no DB default.
-      if (!accountId) return null;
-
-      const { data: pipeline, error } = await supabase
-        .from('pipelines')
-        .insert({ user_id: user.id, account_id: accountId, name: 'mFinanse' })
-        .select()
-        .single();
-
-      if (error || !pipeline) {
-        console.error('Failed to seed pipeline:', error?.message);
-        return null;
-      }
-
-      const stagesPayload = SPEC_DEFAULT_STAGES.map((s) => ({
-        pipeline_id: pipeline.id,
-        name: s.name,
-        color: s.color,
-        position: s.position,
-      }));
-      await supabase.from('pipeline_stages').insert(stagesPayload);
-
-      return pipeline as Pipeline;
-    }, [supabase, accountId]);
-
-  // Initial load + seed-if-empty
+  // A successful empty read is the only path allowed to seed a new account.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      let list = await loadPipelines();
-
-      if (list.length === 0 && !seedAttempted.current) {
-        seedAttempted.current = true;
-        const seeded = await seedDefaultPipeline();
-        if (seeded) list = await loadPipelines();
-      }
-
-      if (cancelled) return;
-      setPipelines(list);
-      if (list.length > 0) {
-        setSelectedPipelineId((prev) =>
-          prev && list.some((p) => p.id === prev) ? prev : list[0].id
+      try {
+        const list = await loadOrSeedPipelines(
+          supabase,
+          accountId,
+          SPEC_DEFAULT_STAGES
         );
-      } else {
-        setSelectedPipelineId('');
+        if (cancelled) return;
+        setPipelines(list);
+        setSelectedPipelineId((prev) =>
+          prev && list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? '')
+        );
+      } catch (error) {
+        if (!cancelled)
+          toast.error(`Nie wczytano lejków: ${crmErrorMessage(error)}`);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [loadPipelines, seedDefaultPipeline]);
+  }, [supabase, accountId]);
 
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop
@@ -271,6 +237,7 @@ export default function PipelinesPage() {
 
   const refreshPipelines = useCallback(async () => {
     const list = await loadPipelines();
+    if (!list) return;
     setPipelines(list);
     if (list.length === 0) setSelectedPipelineId('');
     else if (!list.some((p) => p.id === selectedPipelineId))
@@ -298,17 +265,18 @@ export default function PipelinesPage() {
         toast.error('Najpierw otwórz Deal i ustaw termin ponownego kontaktu.');
         return;
       }
-      // Optimistic update — board already animated; just persist.
-      setDeals((prev) =>
-        prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d))
-      );
-      const { error } = await supabase
-        .from('deals')
-        .update({ stage_id: newStageId })
-        .eq('id', dealId);
-      if (error) {
-        toast.error(t('toastFailedMoveDeal'));
-        refreshDeals();
+      if (!targetStage || !movedDeal || movedDeal.stage_id === newStageId)
+        return;
+      try {
+        await updateDeal(supabase, dealId, { stage_id: newStageId });
+        setDeals((prev) =>
+          prev.map((deal) =>
+            deal.id === dealId ? { ...deal, stage_id: newStageId } : deal
+          )
+        );
+      } catch (error) {
+        toast.error(`${t('toastFailedMoveDeal')}: ${crmErrorMessage(error)}`);
+        await refreshDeals();
       }
     },
     [supabase, refreshDeals, t, stages, deals]
@@ -392,7 +360,14 @@ export default function PipelinesPage() {
       color: s.color,
       position: s.position,
     }));
-    await supabase.from('pipeline_stages').insert(stagesPayload);
+    const { error: stageError } = await supabase
+      .from('pipeline_stages')
+      .insert(stagesPayload);
+    if (stageError) {
+      toast.error(`Nie zapisano etapów lejka: ${crmErrorMessage(stageError)}`);
+      setCreating(false);
+      return;
+    }
 
     setNewPipelineName('');
     setNewPipelineOpen(false);

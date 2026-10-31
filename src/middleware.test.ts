@@ -68,6 +68,31 @@ const ROTATED = {
 };
 
 describe("middleware — refreshed auth cookies survive redirects", () => {
+  it.each([
+    ['/login', true, '/dashboard'],
+    ['/signup?invite=synthetic-token', true, '/join/synthetic-token'],
+    ['/forgot-password', true, '/dashboard'],
+    ['/dashboard', false, '/login'],
+  ])('uses a relative redirect for %s with the internal listener URL', async (path, signedIn, location) => {
+    mockUser = signedIn ? { id: 'synthetic-user' } : null;
+    refreshedCookies = [ROTATED];
+    const res = await middleware(new NextRequest(`https://0.0.0.0:3000${path}`, {
+      headers: { 'x-forwarded-host': 'evil.example' },
+    }));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(location);
+    expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+  });
+
+  it.each([false, true])('allows /auth/callback through without losing code/next (signed in: %s)', async (signedIn) => {
+    mockUser = signedIn ? { id: 'synthetic-user' } : null;
+    const res = await middleware(new NextRequest(
+      'https://0.0.0.0:3000/auth/callback?code=synthetic&next=/reset-password',
+    ));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
   it("carries the rotated token when redirecting a signed-in user off /login", async () => {
     mockUser = { id: "user-1" };
     refreshedCookies = [ROTATED];

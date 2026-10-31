@@ -251,6 +251,12 @@ export function ContactForm({
             }
           : null
       );
+    } catch (error) {
+      toast.error(
+        error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : t('toastError')
+      );
     } finally {
       setCheckingDup(false);
     }
@@ -293,7 +299,11 @@ export function ContactForm({
 
     // Hard-block an exact duplicate on create (the DB unique index is
     // the real backstop; this avoids a round-trip + a raw error toast).
-    if (!isEdit && dupMatch?.exact) {
+    if (
+      !isEdit &&
+      dupMatch?.exact &&
+      isExactMatch(dupMatch.contact, parsedPhone.canonical)
+    ) {
       toast.error(t('toastConflict'));
       return;
     }
@@ -309,6 +319,16 @@ export function ContactForm({
       if (!accountId)
         throw new Error('Your profile is not linked to an account.');
 
+      const existing = await findExistingContact(
+        supabase,
+        accountId,
+        parsedPhone.canonical
+      );
+      if (existing && existing.id !== contact?.id) {
+        setDupMatch({ contact: existing, exact: true });
+        toast.error(t('toastConflict'));
+        return;
+      }
       let contactId = contact?.id;
 
       const payload = {
@@ -351,7 +371,9 @@ export function ContactForm({
             ...payload,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', contactId);
+          .eq('id', contactId)
+          .select('id')
+          .single();
         if (error) throw error;
       } else {
         const { data, error } = await supabase
@@ -370,11 +392,12 @@ export function ContactForm({
       // Sync tags
       if (contactId) {
         try {
-          await supabase
+          const { error: removeError } = await supabase
             .from('contact_companies')
             .delete()
             .eq('contact_id', contactId)
             .eq('is_primary', true);
+          if (removeError) throw removeError;
           if (companyId) {
             const { error: linkError } = await supabase
               .from('contact_companies')
@@ -396,7 +419,7 @@ export function ContactForm({
             relationError
           );
           toast.warning(
-            'Kontakt zapisany. Powiązanie z firmą wymaga ponowienia.'
+            `Kontakt zapisany. Powiązanie z firmą wymaga ponowienia: ${relationError && typeof relationError === 'object' && 'message' in relationError ? String(relationError.message) : t('toastError')}`
           );
         }
         const existingTagIds = new Set(contactTags.map((tag) => tag.tag_id));
@@ -436,7 +459,10 @@ export function ContactForm({
         }
         return;
       }
-      const message = err instanceof Error ? err.message : t('toastError');
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String(err.message)
+          : t('toastError');
       toast.error(message);
     } finally {
       setSaving(false);

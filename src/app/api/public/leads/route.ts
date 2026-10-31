@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/flows/admin-client';
 import {
   isAllowedPublicFormOrigin,
   parsePublicLead,
+  publicFormCorsHeaders,
+  publicFormOptionsResponse,
   publicLeadErrorResponse,
   requestFingerprint,
   savePublicLead,
@@ -16,31 +18,17 @@ import {
 
 export const runtime = 'nodejs';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Headers': 'content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-} as const;
-
-function corsHeaders(origin: string | null): HeadersInit {
-  return origin && isAllowedPublicFormOrigin(origin)
-    ? { ...CORS_HEADERS, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
-    : CORS_HEADERS;
-}
-
 export async function OPTIONS(request: Request) {
-  const origin = request.headers.get('origin');
-  if (!isAllowedPublicFormOrigin(origin)) {
-    return new NextResponse(null, { status: 403 });
-  }
-  return new NextResponse(null, { status: 204, headers: corsHeaders(origin) });
+  return publicFormOptionsResponse(request);
 }
 
 export async function POST(request: Request) {
   const origin = request.headers.get('origin');
-  if (!isAllowedPublicFormOrigin(origin)) {
+  const headers = publicFormCorsHeaders(request);
+  if (!isAllowedPublicFormOrigin(origin, request.url)) {
     return NextResponse.json(
       { error: 'Niedozwolone źródło żądania.' },
-      { status: 403, headers: corsHeaders(origin) }
+      { status: 403, headers }
     );
   }
   const ip =
@@ -55,14 +43,20 @@ export async function POST(request: Request) {
     `public-lead:${fingerprint}`,
     RATE_LIMITS.publicLeadIntake
   );
-  if (!rate.success) return rateLimitResponse(rate);
+  if (!rate.success) {
+    const response = rateLimitResponse(rate);
+    Object.entries(headers).forEach(([key, value]) =>
+      response.headers.set(key, value)
+    );
+    return response;
+  }
 
   try {
     const input = parsePublicLead(await request.json().catch(() => null));
     if (input.startedAt && Date.now() - input.startedAt < 800) {
       return NextResponse.json(
         { error: 'Zgłoszenie zostało odrzucone.' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
     await savePublicLead(supabaseAdmin(), input, {
@@ -71,14 +65,13 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(
       { ok: true, message: 'Dziękujemy. Zgłoszenie zostało zapisane.' },
-      { status: 201, headers: corsHeaders(origin) }
+      { status: 201, headers }
     );
   } catch (error) {
     const response = publicLeadErrorResponse(error);
     return NextResponse.json(
       { error: response.message },
-      { status: response.status, headers: corsHeaders(origin) }
+      { status: response.status, headers }
     );
   }
 }
-

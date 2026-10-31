@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
+import { getPublicAppOrigin } from '@/lib/auth/public-url';
+import { relativeRedirect } from '@/lib/auth/redirect';
 import { encrypt } from '@/lib/whatsapp/encryption';
 
 export async function GET(request: NextRequest) {
@@ -12,13 +14,13 @@ export async function GET(request: NextRequest) {
     const state = request.nextUrl.searchParams.get('state');
     const code = request.nextUrl.searchParams.get('code');
     if (!expected || !state || expected !== state || !code)
-      return NextResponse.redirect(
-        new URL('/settings?tab=calendar&google=authorization_failed', request.url),
-      );
+      return relativeRedirect('/settings?tab=calendar&google=authorization_failed');
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim();
     const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim();
     if (!clientId || !clientSecret) throw new Error('Brak konfiguracji OAuth Google Calendar.');
-    const redirectUri = new URL('/api/google-calendar/oauth/callback', request.nextUrl.origin);
+    const origin = getPublicAppOrigin(request.headers);
+    if (!origin) throw new Error('Brak publicznego adresu aplikacji.');
+    const redirectUri = new URL('/api/google-calendar/oauth/callback', origin);
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -66,14 +68,10 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
-    return NextResponse.redirect(
-      new URL('/settings?tab=calendar&google=connected', request.url),
-    );
+    return relativeRedirect('/settings?tab=calendar&google=connected');
   } catch (error) {
     console.error('[google-calendar/oauth/callback]', error);
-    return NextResponse.redirect(
-      new URL('/settings?tab=calendar&google=authorization_failed', request.url),
-    );
+    return relativeRedirect('/settings?tab=calendar&google=authorization_failed');
   }
 }
 

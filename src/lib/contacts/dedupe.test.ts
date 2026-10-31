@@ -96,3 +96,35 @@ describe("findExistingContact", () => {
   });
 });
 
+
+describe('K3: normalizacja i błąd odczytu deduplikacji', () => {
+  it('łączy polski numer lokalny, +48 i 0048', async () => {
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      like: () =>
+        Promise.resolve({
+          data: [{ id: 'synthetic-contact', phone: '500 111 222' }],
+          error: null,
+        }),
+    };
+    const db = { from: () => builder } as unknown as SupabaseClient;
+    for (const phone of ['500111222', '+48 500-111-222', '0048 500 111 222']) {
+      expect(
+        (await findExistingContact(db, 'synthetic-account', phone))?.id
+      ).toBe('synthetic-contact');
+    }
+  });
+  it('zwraca błąd Supabase zamiast uznawać awarię za brak duplikatu', async () => {
+    const error = { code: '42501', message: 'synthetic permission denied' };
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      like: () => Promise.resolve({ data: null, error }),
+    };
+    const db = { from: () => builder } as unknown as SupabaseClient;
+    await expect(
+      findExistingContact(db, 'synthetic-account', '500111222')
+    ).rejects.toEqual(error);
+  });
+});

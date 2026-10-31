@@ -65,6 +65,8 @@ import { useTranslations } from 'next-intl';
 import { formatCrmDate } from '@/lib/crm/format';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { parseCrmPhone } from '@/lib/contacts/phone';
+import { contactSearchFilter, contactSearchTerm } from '@/lib/contacts/search';
+import { findExistingContact } from '@/lib/contacts/dedupe';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 
 const PAGE_SIZE = 20;
@@ -188,7 +190,7 @@ export default function ContactsPage() {
 
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    const term = search.trim();
+    const term = contactSearchTerm(search);
 
     let contactRows: Contact[];
     if (selectedTagIds.length > 0) {
@@ -217,10 +219,7 @@ export default function ContactsPage() {
         .order('created_at', { ascending: false });
 
       if (term) {
-        const like = `%${term}%`;
-        query = query.or(
-          `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
-        );
+        query = query.or(contactSearchFilter(search));
       }
 
       const { data, error } = await query;
@@ -588,14 +587,21 @@ export default function ContactsPage() {
       return;
     }
     setResolvingUnknownPhone(true);
-    const existing = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('phone_normalized', parsed.digits)
-      .maybeSingle();
-    if (existing.data?.id) {
-      setUnknownContactId(existing.data.id);
-      setUnknownPhone(parsed.canonical);
+    if (!accountId) {
+      toast.error('Nie można utworzyć kontaktu bez aktywnego konta.');
+      setResolvingUnknownPhone(false);
+      return;
+    }
+    try {
+      const existing = await findExistingContact(supabase, accountId, parsed.canonical);
+      if (existing) {
+        setUnknownContactId(existing.id);
+        setUnknownPhone(parsed.canonical);
+        setResolvingUnknownPhone(false);
+        return;
+      }
+    } catch (error) {
+      toast.error(`Nie sprawdzono numeru: ${error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Błąd odczytu'}`);
       setResolvingUnknownPhone(false);
       return;
     }
@@ -618,7 +624,7 @@ export default function ContactsPage() {
       .single();
     setResolvingUnknownPhone(false);
     if (error || !data) {
-      toast.error('Nie udało się utworzyć kontaktu dla tego numeru.');
+      toast.error(`Nie udało się utworzyć kontaktu dla tego numeru: ${error?.message ?? 'Brak zapisanego rekordu'}`);
       return;
     }
     setUnknownContactId(data.id);

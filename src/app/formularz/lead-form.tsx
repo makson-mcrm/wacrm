@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { FormEvent, InputHTMLAttributes } from 'react';
+import { useRouter } from 'next/navigation';
 
 type State =
   | { kind: 'idle' }
@@ -10,6 +11,7 @@ type State =
   | { kind: 'error'; message: string };
 
 export function LeadForm() {
+  const router = useRouter();
   const startedAt = useRef(Date.now());
   const [state, setState] = useState<State>({ kind: 'idle' });
 
@@ -57,6 +59,9 @@ export function LeadForm() {
         kind: 'success',
         message: result.message || 'Zgłoszenie zostało zapisane.',
       });
+      if (data.get('fillQuestionnaire') === 'on') {
+        router.push('/ankieta');
+      }
     } catch (error) {
       setState({
         kind: 'error',
@@ -187,6 +192,15 @@ export function LeadForm() {
           Wyrażam zgodę na kontakt w sprawie mojego zapytania. Zgoda jest
           dobrowolna i może zostać wycofana.
         </span>
+      </label>
+
+      <label className="text-muted-foreground flex items-start gap-3 text-sm leading-6">
+        <input
+          name="fillQuestionnaire"
+          type="checkbox"
+          className="accent-primary mt-1 size-4"
+        />
+        <span>Chcę od razu wypełnić pełną ankietę badania potrzeb</span>
       </label>
 
       {state.kind === 'error' && (

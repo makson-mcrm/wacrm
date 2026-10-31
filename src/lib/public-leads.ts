@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
 
+import { isAllowedPublicFormOrigin } from '@/lib/public-origin';
+export { isAllowedPublicFormOrigin } from '@/lib/public-origin';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -110,19 +113,32 @@ export function parsePublicLead(body: unknown): PublicLeadInput {
   };
 }
 
-export function isAllowedPublicFormOrigin(origin: string | null): boolean {
-  if (!origin) return true;
-  const allowed = new Set([
-    'https://makson.space',
-    'https://www.makson.space',
-    'https://darkslateblue-mallard-102045.hostingersite.com',
-    'https://mediumslateblue-okapi-264879.hostingersite.com',
-  ]);
-  if (process.env.NODE_ENV !== 'production') {
-    allowed.add('http://localhost:3000');
-    allowed.add('http://127.0.0.1:3000');
+export function publicFormCorsHeaders(
+  request: Request,
+  methods = 'POST, OPTIONS'
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Methods': methods,
+    Vary: 'Origin',
+  };
+  const origin = request.headers.get('origin');
+  if (origin && isAllowedPublicFormOrigin(origin, request.url)) {
+    headers['Access-Control-Allow-Origin'] = origin;
   }
-  return allowed.has(origin);
+  return headers;
+}
+
+export function publicFormOptionsResponse(request: Request): Response {
+  return new Response(null, {
+    status: isAllowedPublicFormOrigin(
+      request.headers.get('origin'),
+      request.url
+    )
+      ? 204
+      : 403,
+    headers: publicFormCorsHeaders(request),
+  });
 }
 
 export function requestFingerprint(ip: string, userAgent: string): string {
@@ -146,6 +162,42 @@ export async function resolvePublicFormAccountId(
     throw new PublicLeadError('Formularz jest chwilowo niedostępny.', 503);
   }
   return data[0].id as string;
+}
+
+/** Phone is the identity key. Only fill empty identity fields, with a compare-and-set
+ * filter so a concurrent CRM edit cannot be overwritten by a public form. */
+export async function completePublicFormContact(
+  db: SupabaseClient,
+  accountId: string,
+  auditUserId: string,
+  input: { name: string; phone: string; email: string | null }
+) {
+  const contact = await findOrCreateContact(db, accountId, auditUserId, input);
+  const { data: current, error } = await db
+    .from('contacts')
+    .select('name,email')
+    .eq('account_id', accountId)
+    .eq('id', contact.id)
+    .single();
+  if (error || !current)
+    throw new PublicLeadError('Nie odczytano kontaktu.', 500);
+  for (const field of ['name', 'email'] as const) {
+    const value = input[field];
+    if (!value || String(current[field] ?? '').trim()) continue;
+    let query = db
+      .from('contacts')
+      .update({ [field]: value })
+      .eq('account_id', accountId)
+      .eq('id', contact.id);
+    query =
+      current[field] == null
+        ? query.is(field, null)
+        : query.eq(field, current[field]);
+    const { error: updateError } = await query;
+    if (updateError)
+      throw new PublicLeadError('Nie uzupełniono kontaktu.', 500);
+  }
+  return contact;
 }
 
 export async function savePublicLead(
@@ -209,6 +261,7 @@ export async function savePublicLead(
     `Treść: ${input.message}`,
   ].filter((line): line is string => Boolean(line));
   const { error: noteError } = await db.from('contact_notes').insert({
+    account_id: accountId,
     contact_id: contactId,
     user_id: auditUserId,
     note_text: noteLines.join('\n'),
@@ -253,4 +306,3 @@ export function publicLeadErrorResponse(error: unknown): {
   console.error('[public-leads] unexpected error:', error);
   return { message: 'Nie udało się zapisać zgłoszenia.', status: 500 };
 }
-

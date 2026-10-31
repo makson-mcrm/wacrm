@@ -1,92 +1,35 @@
+import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-
+import { ContactError, resolveAuditUserId } from '@/lib/api/v1/contacts';
 import {
-  ContactError,
-  findOrCreateContact,
-  resolveAuditUserId,
-} from '@/lib/api/v1/contacts';
-import { resolvePublicFormAccountId } from '@/lib/public-leads';
-
-const PREPARATION_STATUSES = [
-  'provided',
-  'check_before_meeting',
-  'discuss_at_meeting',
-  'not_applicable',
-] as const;
-
-type PreparationStatus = (typeof PREPARATION_STATUSES)[number];
-
-const RESPONSE_FIELDS = [
-  'goal',
-  'amount',
-  'timeline',
-  'expectedOutcome',
-  'applicationMode',
-  'adults',
-  'children',
-  'city',
-  'propertyRegime',
-  'incomeSource1',
-  'incomeNet1',
-  'incomeSince1',
-  'businessTaxation1',
-  'businessSince1',
-  'secondPersonName',
-  'secondPersonPhone',
-  'incomeSource2',
-  'incomeNet2',
-  'incomeSince2',
-  'businessTaxation2',
-  'businessSince2',
-  'otherIncome',
-  'livingCosts',
-  'monthlyBalance',
-  'debts',
-  'debtPlan',
-  'savings',
-  'investments',
-  'realEstate',
-  'reserveMonths',
-  'insurance',
-  'financialGoal',
-] as const;
-
-const PREPARATION_FIELDS = [
-  'incomePreparation',
-  'costsPreparation',
-  'debtsPreparation',
-  'assetsPreparation',
-  'documentsPreparation',
-] as const;
-
-const PREPARATION_LABELS: Record<(typeof PREPARATION_FIELDS)[number], string> =
-  {
-    incomePreparation: 'dochody gospodarstwa',
-    costsPreparation: 'miesięczne koszty życia',
-    debtsPreparation: 'raty, salda kredytów i dostępne limity',
-    assetsPreparation: 'oszczędności, majątek i środki własne',
-    documentsPreparation: 'umowy, harmonogramy i dokumenty finansowe',
-  };
+  completePublicFormContact,
+  PublicLeadError,
+  resolvePublicFormAccountId,
+} from '@/lib/public-leads';
+import { parseCrmPhone } from '@/lib/contacts/phone';
+import { findExistingContact } from '@/lib/contacts/dedupe';
+import {
+  QUESTIONNAIRE_FIELDS,
+  QUESTIONNAIRE_TEXT_FIELDS,
+  type QuestionnaireAnswers,
+} from '@/lib/questionnaires/contract';
 
 export interface FinancialQuestionnaireInput {
   name: string;
   phone: string;
   email: string | null;
   company: string | null;
-  responses: Record<string, string | string[]>;
-  preparationPlan: Record<string, PreparationStatus>;
-  documents: string[];
+  responses: QuestionnaireAnswers;
   consent: true;
   startedAt: number | null;
 }
-
 export interface SavedFinancialQuestionnaire {
   id: string;
+  contactId: string;
   status: 'partial' | 'submitted';
   missingItems: string[];
   preparationItems: string[];
 }
-
 export class FinancialQuestionnaireError extends Error {
   constructor(
     message: string,
@@ -96,212 +39,367 @@ export class FinancialQuestionnaireError extends Error {
     this.name = 'FinancialQuestionnaireError';
   }
 }
-
-function text(value: unknown, max = 4000): string {
-  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+function fail(message = 'Nieprawidłowe lub niekompletne dane ankiety.'): never {
+  throw new FinancialQuestionnaireError(message, 400);
 }
-
-function stringArray(value: unknown, maxItems = 20): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => text(item, 160))
-    .filter(Boolean)
-    .slice(0, maxItems);
+function string(value: unknown, max: number): string {
+  if (typeof value !== 'string' || value.length > max) fail();
+  return value.trim();
 }
-
 export function parseFinancialQuestionnaire(
   body: unknown
 ): FinancialQuestionnaireInput {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    throw new FinancialQuestionnaireError('Nieprawidłowe dane ankiety.', 400);
-  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) fail();
   const raw = body as Record<string, unknown>;
-  if (text(raw.website, 200)) {
-    throw new FinancialQuestionnaireError('Ankieta została odrzucona.', 400);
-  }
-
-  const name = text(raw.name, 120);
-  const phone = text(raw.phone, 40);
-  const email = text(raw.email, 254);
-  const company = text(raw.company, 160);
-  if (name.length < 2)
-    throw new FinancialQuestionnaireError('Podaj imię i nazwisko.', 400);
-  if (!phone)
-    throw new FinancialQuestionnaireError('Podaj numer telefonu.', 400);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new FinancialQuestionnaireError('Podaj poprawny adres e-mail.', 400);
-  }
-  if (raw.consent !== true) {
-    throw new FinancialQuestionnaireError(
-      'Zgoda na przygotowanie analizy jest wymagana.',
-      400
-    );
-  }
-
-  const responses: Record<string, string | string[]> = {};
-  for (const field of RESPONSE_FIELDS) responses[field] = text(raw[field]);
-  responses.documents = stringArray(raw.documents);
-
-  const preparationPlan: Record<string, PreparationStatus> = {};
-  for (const field of PREPARATION_FIELDS) {
-    const candidate = text(raw[field], 40);
-    preparationPlan[field] = PREPARATION_STATUSES.includes(
-      candidate as PreparationStatus
+  const allowed = new Set<string>([
+    ...QUESTIONNAIRE_FIELDS,
+    'contact',
+    'startedAt',
+  ]);
+  if (Object.keys(raw).some((key) => !allowed.has(key))) fail();
+  if (string(raw.website, 200)) fail('Ankieta została odrzucona.');
+  if (
+    !raw.contact ||
+    typeof raw.contact !== 'object' ||
+    Array.isArray(raw.contact)
+  )
+    fail('Uzupełnij dane kontaktowe w ankiecie.');
+  const contact = raw.contact as Record<string, unknown>;
+  if (
+    Object.keys(contact).some(
+      (key) => !['name', 'phone', 'email', 'company'].includes(key)
     )
-      ? (candidate as PreparationStatus)
-      : 'discuss_at_meeting';
+  )
+    fail();
+  const name = string(contact.name, 120);
+  const phone = parseCrmPhone(string(contact.phone, 40));
+  const email = string(contact.email ?? '', 254);
+  const company = string(contact.company ?? '', 160);
+  if (name.length < 2) fail('Podaj imię i nazwisko.');
+  if (!phone.valid)
+    fail('Podaj poprawny numer telefonu z kodem kraju (np. +48).');
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    fail('Podaj poprawny adres e-mail.');
+  if (raw.consent !== true)
+    fail('Zgoda na przygotowanie analizy jest wymagana.');
+  const texts = Object.fromEntries(
+    QUESTIONNAIRE_TEXT_FIELDS.map((field) => [field, string(raw[field], 4000)])
+  ) as Record<(typeof QUESTIONNAIRE_TEXT_FIELDS)[number], string>;
+  for (const field of ['adults', 'children'] as const) {
+    if (
+      texts[field] &&
+      (!/^\d+$/.test(texts[field]) ||
+        !Number.isSafeInteger(Number(texts[field])) ||
+        (field === 'adults' && Number(texts[field]) < 1))
+    )
+      fail();
   }
-
+  if (!Array.isArray(raw.documents) || raw.documents.length > 20) fail();
+  const documents = raw.documents.map((value) => string(value, 160));
+  if (documents.some((value) => !value)) fail();
+  if (
+    raw.startedAt !== undefined &&
+    (typeof raw.startedAt !== 'number' || !Number.isFinite(raw.startedAt))
+  )
+    fail();
   return {
     name,
-    phone,
+    phone: phone.canonical,
     email: email || null,
     company: company || null,
-    responses,
-    preparationPlan,
-    documents: stringArray(raw.documents),
+    responses: { ...texts, documents, consent: true },
     consent: true,
-    startedAt:
-      typeof raw.startedAt === 'number' && Number.isFinite(raw.startedAt)
-        ? raw.startedAt
-        : null,
+    startedAt: typeof raw.startedAt === 'number' ? raw.startedAt : null,
   };
 }
-
+const LABELS: Record<keyof QuestionnaireAnswers, string> = {
+  adults: 'Liczba dorosłych',
+  amount: 'Potrzebna kwota',
+  children: 'Liczba dzieci',
+  city: 'Miejscowość',
+  consent: 'Zgoda na analizę',
+  debts: 'Zobowiązania',
+  documents: 'Dokumenty do analizy',
+  goal: 'Cel sprawy',
+  insurance: 'Ubezpieczenia',
+  investments: 'Inwestycje',
+  savings: 'Oszczędności i środki własne',
+  timeline: 'Termin realizacji',
+};
 export function questionnaireMissingItems(
   input: FinancialQuestionnaireInput
 ): string[] {
-  const value = (field: string) => text(input.responses[field]);
-  const missing = [
-    !value('goal') && 'Cel sprawy',
-    !value('amount') && 'Potrzebna kwota',
-    !value('timeline') && 'Termin realizacji',
-    !value('incomeSource1') && 'Źródło dochodu',
-    !value('incomeNet1') && 'Wysokość dochodu netto',
-    !value('livingCosts') && 'Koszty gospodarstwa',
-    !value('debts') && 'Salda i raty zobowiązań lub potwierdzenie ich braku',
-    !value('savings') && 'Oszczędności i środki własne',
-    input.documents.length === 0 && 'Dokumenty do analizy',
-  ].filter((item): item is string => Boolean(item));
-  return [...new Set(missing)];
+  return Object.entries(input.responses).flatMap(([field, value]) =>
+    value === '' || (Array.isArray(value) && !value.length)
+      ? [LABELS[field as keyof QuestionnaireAnswers]]
+      : []
+  );
 }
-
-export function questionnairePreparationItems(
-  plan: Record<string, PreparationStatus>
-): string[] {
-  return PREPARATION_FIELDS.flatMap((field) => {
-    const status = plan[field];
-    const label = PREPARATION_LABELS[field];
-    if (status === 'check_before_meeting')
-      return [`Sprawdź przed spotkaniem: ${label}.`];
-    if (status === 'discuss_at_meeting')
-      return [`Przygotuj informacje, omówimy na spotkaniu: ${label}.`];
-    return [];
-  });
-}
-
 export function buildPreliminaryAnalysis(
   input: FinancialQuestionnaireInput,
   missingItems: string[]
 ): string {
-  const value = (field: string, fallback = 'brak danych') =>
-    text(input.responses[field]) || fallback;
   return [
-    `CEL I POTRZEBA: ${value('goal')}; kwota: ${value('amount')}; termin: ${value('timeline')}.`,
-    `OCZEKIWANY EFEKT: ${value('expectedOutcome')}.`,
-    `GOSPODARSTWO: tryb analizy: ${value('applicationMode')}; dorośli: ${value('adults')}; dzieci: ${value('children')}.`,
-    `DOCHODY: ${value('incomeSource1')}; netto: ${value('incomeNet1')}; pozostałe: ${value('otherIncome')}.`,
-    `BUDŻET: koszty życia: ${value('livingCosts')}; miesięczne saldo: ${value('monthlyBalance')}.`,
-    `ZOBOWIĄZANIA: ${value('debts')}.`,
-    `MAJĄTEK: oszczędności: ${value('savings')}; inwestycje: ${value('investments')}; nieruchomości: ${value('realEstate')}.`,
-    `BRAKI DO UZUPEŁNIENIA: ${missingItems.join(', ') || 'brak wykrytych braków'}.`,
+    ...Object.entries(input.responses).map(
+      ([field, value]) =>
+        `${LABELS[field as keyof QuestionnaireAnswers]}: ${Array.isArray(value) ? value.join(', ') || 'brak danych' : value === true ? 'tak' : value || 'brak danych'}.`
+    ),
+    `Braki: ${missingItems.join(', ') || 'brak'}.`,
     'To jest wstępne podsumowanie danych klienta, a nie decyzja kredytowa ani rekomendacja bankowa.',
   ].join('\n');
 }
-
 export async function saveFinancialQuestionnaire(
   db: SupabaseClient,
   input: FinancialQuestionnaireInput,
-  metadata: { fingerprint: string; userAgent: string }
+  metadata: {
+    fingerprint: string;
+    userAgent: string;
+    // Server-resolved session only; never parsed from the public payload.
+    crm?: { accountId: string; userId: string; contactId: string };
+  }
 ): Promise<SavedFinancialQuestionnaire> {
-  const accountId = await resolvePublicFormAccountId(db);
-  const auditUserId = await resolveAuditUserId(db, accountId);
-  const { id: contactId, created: contactCreated } = await findOrCreateContact(
-    db,
-    accountId,
-    auditUserId,
-    input
-  );
+  const accountId =
+    metadata.crm?.accountId ?? (await resolvePublicFormAccountId(db));
+  const auditUserId =
+    metadata.crm?.userId ?? (await resolveAuditUserId(db, accountId));
+  const source = metadata.crm ? 'crm' : 'makson.space/ankieta';
+  let contact: { id: string; created: boolean };
+  if (metadata.crm) {
+    const { data: selected, error } = await db
+      .from('contacts')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('id', metadata.crm.contactId)
+      .maybeSingle();
+    if (error)
+      throw new FinancialQuestionnaireError('Nie odczytano kontaktu.', 500);
+    if (!selected)
+      throw new FinancialQuestionnaireError('Kontakt jest niedostępny.', 404);
+    const existing = await findExistingContact(db, accountId, input.phone);
+    if (existing && existing.id !== selected.id) {
+      throw new FinancialQuestionnaireError(
+        'Ten numer telefonu należy do innego kontaktu. Popraw telefon lub wybierz właściwy kontakt.',
+        409
+      );
+    }
+    const { data: updated, error: updateError } = await db
+      .from('contacts')
+      .update({ name: input.name, phone: input.phone, email: input.email })
+      .eq('account_id', accountId)
+      .eq('id', selected.id)
+      .select('id')
+      .maybeSingle();
+    if (updateError || !updated)
+      throw new FinancialQuestionnaireError(
+        'Nie zapisano danych kontaktu.',
+        500
+      );
+    contact = { id: selected.id, created: false };
+  } else {
+    contact = await completePublicFormContact(
+      db,
+      accountId,
+      auditUserId,
+      input
+    );
+  }
   const missingItems = questionnaireMissingItems(input);
-  const preparationItems = questionnairePreparationItems(input.preparationPlan);
-  const status = missingItems.length > 0 ? 'partial' : 'submitted';
+  const status = missingItems.length ? 'partial' : 'submitted';
   const preliminaryAnalysis = buildPreliminaryAnalysis(input, missingItems);
-
-  const { data, error } = await db
-    .from('financial_questionnaire_submissions')
-    .insert({
+  // Canonical phone and fixed answer order make formatted-phone retries identical.
+  const submissionKey = createHash('sha256')
+    .update(
+      JSON.stringify([
+        input.phone,
+        input.name,
+        input.email,
+        input.company,
+        input.responses,
+        ...(metadata.crm ? ['crm', auditUserId, contact.id] : []),
+      ])
+    )
+    .digest('hex');
+  const lookup = async () => {
+    const { data, error } = await db
+      .from('financial_questionnaire_submissions')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contact.id)
+      .eq('responses->>submission_key', submissionKey)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error)
+      throw new FinancialQuestionnaireError(
+        'Nie odczytano zapisanej ankiety.',
+        500
+      );
+    return data;
+  };
+  let submission = await lookup();
+  if (!submission) {
+    await db.from('financial_questionnaire_submissions').insert({
       account_id: accountId,
-      contact_id: contactId,
+      contact_id: contact.id,
       submitted_name: input.name,
       submitted_phone: input.phone,
       submitted_email: input.email,
       submitted_company: input.company,
-      responses: input.responses,
-      preparation_plan: input.preparationPlan,
+      responses: {
+        ...input.responses,
+        submission_key: submissionKey,
+        source,
+        submitted_by: metadata.crm?.userId ?? null,
+      },
+      preparation_plan: {},
       status,
       missing_items: missingItems,
       preliminary_analysis: preliminaryAnalysis,
-      contact_created: contactCreated,
+      contact_created: contact.created,
       consent_to_analysis: true,
       consented_at: new Date().toISOString(),
       request_fingerprint: metadata.fingerprint,
       user_agent: metadata.userAgent.slice(0, 500) || null,
-    })
+    });
+    // Existing schema has no unique submission constraint. Prefer the earliest
+    // visible row after writing, even if the INSERT response was lost. This is
+    // best effort across workers, not a transaction or a uniqueness guarantee.
+    submission = await lookup();
+    if (!submission)
+      throw new FinancialQuestionnaireError(
+        'Nie udało się zapisać ankiety.',
+        500
+      );
+  }
+  const noteText = `Ankieta ${submission.id}\n${preliminaryAnalysis}${input.company ? `\nFirma zgłoszona: ${input.company}` : ''}`;
+  const { data: existingNote, error: noteLookupError } = await db
+    .from('contact_notes')
     .select('id')
-    .single();
-  if (error || !data) {
-    console.error('[financial-questionnaire] save failed:', error);
+    .eq('account_id', accountId)
+    .eq('contact_id', contact.id)
+    .like('note_text', `Ankieta ${submission.id}\n%`)
+    .limit(1)
+    .maybeSingle();
+  if (noteLookupError)
     throw new FinancialQuestionnaireError(
-      'Nie udało się zapisać ankiety.',
+      'Nie odczytano wyników ankiety przy kontakcie.',
       500
     );
+  if (!existingNote) {
+    const { error: noteError } = await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contact.id,
+      user_id: auditUserId,
+      note_text: noteText,
+    });
+    if (noteError)
+      throw new FinancialQuestionnaireError(
+        'Nie zapisano wyników ankiety przy kontakcie.',
+        500
+      );
   }
-
-  const noteLines = [
-    'Klient przesłał ankietę przygotowującą spotkanie.',
-    `Stan ankiety: ${status === 'submitted' ? 'kompletna' : 'częściowa'}.`,
-    `Braki: ${missingItems.join(', ') || 'brak'}.`,
-    preliminaryAnalysis,
-  ];
-  const { error: noteError } = await db.from('contact_notes').insert({
-    account_id: accountId,
-    contact_id: contactId,
-    user_id: auditUserId,
-    note_text: noteLines.join('\n'),
-  });
-  if (noteError)
-    console.error('[financial-questionnaire] contact note failed:', noteError);
-
+  // Retry repairs a partial save without overwriting a processed intake/note.
+  // These check-then-insert steps can also race across independent workers.
+  const { data: existingIntake, error: intakeLookupError } = await db
+    .from('client_intakes')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('contact_id', contact.id)
+    .eq('intake_type', 'ankieta')
+    .eq('raw_payload->>submission_key', submissionKey)
+    .limit(1)
+    .maybeSingle();
+  if (intakeLookupError)
+    throw new FinancialQuestionnaireError(
+      'Nie odczytano powiązania ankiety z kontaktem.',
+      500
+    );
+  if (!existingIntake) {
+    const { error: intakeError } = await db.from('client_intakes').insert({
+      account_id: accountId,
+      contact_id: contact.id,
+      intake_type: 'ankieta',
+      source,
+      status: 'nowe',
+      raw_payload: {
+        ...input.responses,
+        source,
+        submitted_by: metadata.crm?.userId ?? null,
+        consent_to_analysis: true,
+        submission_key: submissionKey,
+        submission_id: submission.id,
+        contact: {
+          name: input.name,
+          phone: input.phone,
+          email: input.email,
+          company: input.company,
+        },
+      },
+    });
+    if (intakeError)
+      throw new FinancialQuestionnaireError(
+        'Nie zapisano powiązania ankiety z kontaktem.',
+        500
+      );
+  }
+  // Use the existing follow-up fields without inventing a deadline or a Deal.
+  const activityTitle = `Ankieta ${submission.id}`;
+  const { data: activity, error: activityLookupError } = await db
+    .from('sales_activities')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('contact_id', contact.id)
+    .eq('title', activityTitle)
+    .limit(1)
+    .maybeSingle();
+  if (activityLookupError)
+    throw new FinancialQuestionnaireError(
+      'Nie odczytano kolejnego działania.',
+      500
+    );
+  if (!activity) {
+    const nextAction = missingItems.length
+      ? `Uzupełnić ankietę: ${missingItems.join(', ')}.`
+      : 'Omówić ankietę i przygotować spotkanie.';
+    const { error } = await db.from('sales_activities').insert({
+      account_id: accountId,
+      user_id: auditUserId,
+      contact_id: contact.id,
+      activity_type: 'zadanie',
+      activity_status: 'PLANOWANE',
+      completed: false,
+      title: activityTitle,
+      source,
+      next_action: nextAction,
+    });
+    if (error)
+      throw new FinancialQuestionnaireError(
+        'Nie zapisano kolejnego działania.',
+        500
+      );
+  }
   return {
-    id: data.id as string,
+    id: submission.id as string,
+    contactId: contact.id,
     status,
     missingItems,
-    preparationItems,
+    preparationItems: [],
   };
 }
-
 export function financialQuestionnaireErrorResponse(error: unknown): {
   message: string;
   status: number;
 } {
-  if (error instanceof FinancialQuestionnaireError)
+  if (
+    error instanceof FinancialQuestionnaireError ||
+    error instanceof PublicLeadError
+  )
     return { message: error.message, status: error.status };
-  if (error instanceof ContactError && error.status === 400) {
+  if (error instanceof ContactError && error.status === 400)
     return {
       message: 'Podaj poprawny numer telefonu z kodem kraju.',
       status: 400,
     };
-  }
-  console.error('[financial-questionnaire] unexpected error:', error);
   return { message: 'Nie udało się zapisać ankiety.', status: 500 };
 }

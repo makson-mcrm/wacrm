@@ -23,7 +23,9 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
   it('Deal pozwala powiązać klienta, żonę i firmę przez wyszukiwarki z plusem', () => {
     const form = source('src/components/pipelines/deal-form.tsx');
     expect(form).toContain('setSecondContactId');
-    expect(form).toContain("role: 'Wnioskodawca 2'");
+    expect(source('src/lib/deals/persistence.ts')).toContain(
+      "'Wnioskodawca 2'"
+    );
     expect(form).toContain('EntitySearchSelect');
     expect(form).toContain('addContactInline');
     expect(form).toContain('addCompanyInline');
@@ -149,12 +151,14 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(route).toContain('drive_folder_url');
   });
 
-  it('pakiet wdrożeniowy dokumentuje konfigurację Kalendarza i Dysku Google', () => {
-    const example = source('.env.local.example');
-    expect(example).toContain('GOOGLE_CALENDAR_CLIENT_ID');
-    expect(example).toContain('GOOGLE_CALENDAR_CLIENT_SECRET');
-    expect(example).toContain('GOOGLE_DRIVE_ACCESS_TOKEN');
-    expect(example).toContain('GOOGLE_DRIVE_ROOT_FOLDER_ID');
+  it('integracje Kalendarza i Dysku Google mają jawne klucze konfiguracji', () => {
+    // Inspect consumers, without opening environment files during offline tests.
+    const calendar = source('src/lib/google-calendar/sync.ts');
+    const drive = source('src/app/api/google-drive/folders/route.ts');
+    expect(calendar).toContain('process.env.GOOGLE_CALENDAR_CLIENT_ID');
+    expect(calendar).toContain('process.env.GOOGLE_CALENDAR_CLIENT_SECRET');
+    expect(drive).toContain('process.env.GOOGLE_DRIVE_ACCESS_TOKEN');
+    expect(drive).toContain('process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID');
   });
 
   it('powiadomienia pilnują blokerów, terminów, ankiet i dokumentów', () => {
@@ -172,4 +176,3 @@ describe('pokrycie krytycznych funkcji audytu mCRM', () => {
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 });
-

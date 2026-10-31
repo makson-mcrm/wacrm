@@ -42,6 +42,11 @@ import { buildClientJourneyChecks } from '@/lib/mcrm/client-journey';
 import { formatWarsawDateTime, toWarsawDateTimeInput } from '@/lib/date-time';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
+import {
+  crmErrorMessage,
+  dealDateTimeIso,
+  updateDeal,
+} from '@/lib/deals/persistence';
 
 type Note = {
   id: string;
@@ -217,6 +222,21 @@ export default function DealPage() {
       setDeal(null);
       return;
     }
+    for (const result of [
+      n,
+      b,
+      f,
+      p,
+      h,
+      requirements,
+      profileRows,
+      activityRows,
+    ]) {
+      if ('error' in result && result.error)
+        toast.error(
+          `Nie wczytano części karty Deal: ${crmErrorMessage(result.error)}`
+        );
+    }
     setDeal(d.data as Deal | null);
     setNextActionDraft(d.data?.next_action ?? '');
     setNextActionAtDraft(toDateTimeLocal(d.data?.next_action_at));
@@ -275,6 +295,7 @@ export default function DealPage() {
         .select('*')
         .eq('pipeline_id', d.data.pipeline_id)
         .order('position');
+      if (s.error) toast.error(`Nie wczytano etapów: ${s.error.message}`);
       setStages((s.data ?? []) as PipelineStage[]);
     }
   }, [db, id, accountId]);
@@ -397,12 +418,11 @@ export default function DealPage() {
   }
   async function changeStage(nextStageId: string) {
     if (!deal || !accountId || nextStageId === deal.stage_id) return;
-    const { error } = await db
-      .from('deals')
-      .update({ stage_id: nextStageId })
-      .eq('id', deal.id);
-    if (error) {
-      toast.error(`Nie zmieniono etapu: ${error.message}`);
+    if (!stages.some((stage) => stage.id === nextStageId)) return;
+    try {
+      await updateDeal(db, deal.id, { stage_id: nextStageId });
+    } catch (error) {
+      toast.error(`Nie zmieniono etapu: ${crmErrorMessage(error)}`);
       return;
     }
     toast.success('Deal został przesunięty do kolejnego etapu.');
@@ -411,26 +431,21 @@ export default function DealPage() {
   async function saveNextAction() {
     if (!deal) return;
     setSavingNextAction(true);
-    const nextActionAt = nextActionAtDraft
-      ? new Date(nextActionAtDraft).toISOString()
-      : null;
-    const { error } = await db
-      .from('deals')
-      .update({
+    try {
+      await updateDeal(db, deal.id, {
         next_action: nextActionDraft.trim() || null,
-        next_action_at: nextActionAt,
+        next_action_at: dealDateTimeIso(nextActionAtDraft),
         blocker: blockerDraft.trim() || null,
         expected_close_date: deadlineDraft || null,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', deal.id);
-    if (error) {
-      toast.error(`Nie zapisano następnego kroku: ${error.message}`);
-      setSavingNextAction(false);
+      });
+      await load();
+    } catch (error) {
+      toast.error(`Nie zapisano następnego kroku: ${crmErrorMessage(error)}`);
       return;
+    } finally {
+      setSavingNextAction(false);
     }
-    await load();
-    setSavingNextAction(false);
     toast.success('Następny krok, termin i blocker zostały zapisane.');
   }
   if (loadError)

@@ -45,7 +45,8 @@ export async function findExistingContact(
     .eq("account_id", accountId)
     .like('phone_normalized', `%${normalized.slice(-8)}`);
 
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
 
   return (
     (data as ExistingContact[]).find((contact) => normalizeKey(contact.phone) === normalized) ?? null

@@ -8,6 +8,8 @@ import {
 } from '@/lib/financial-questionnaires';
 import {
   isAllowedPublicFormOrigin,
+  publicFormCorsHeaders,
+  publicFormOptionsResponse,
   requestFingerprint,
 } from '@/lib/public-leads';
 import {
@@ -18,11 +20,16 @@ import {
 
 export const runtime = 'nodejs';
 
+export async function OPTIONS(request: Request) {
+  return publicFormOptionsResponse(request);
+}
+
 export async function POST(request: Request) {
-  if (!isAllowedPublicFormOrigin(request.headers.get('origin'))) {
+  const headers = publicFormCorsHeaders(request);
+  if (!isAllowedPublicFormOrigin(request.headers.get('origin'), request.url)) {
     return NextResponse.json(
       { error: 'Niedozwolone źródło żądania.' },
-      { status: 403 }
+      { status: 403, headers }
     );
   }
   const ip =
@@ -37,7 +44,13 @@ export async function POST(request: Request) {
     `public-questionnaire:${fingerprint}`,
     RATE_LIMITS.publicFinancialQuestionnaire
   );
-  if (!rate.success) return rateLimitResponse(rate);
+  if (!rate.success) {
+    const response = rateLimitResponse(rate);
+    Object.entries(headers).forEach(([key, value]) =>
+      response.headers.set(key, value)
+    );
+    return response;
+  }
 
   try {
     const input = parseFinancialQuestionnaire(
@@ -46,7 +59,7 @@ export async function POST(request: Request) {
     if (input.startedAt && Date.now() - input.startedAt < 1500) {
       return NextResponse.json(
         { error: 'Ankieta została odrzucona.' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
     const saved = await saveFinancialQuestionnaire(supabaseAdmin(), input, {
@@ -64,13 +77,13 @@ export async function POST(request: Request) {
             ? 'Dziękujemy. Ankieta została zapisana.'
             : 'Dziękujemy. Ankieta została zapisana z listą informacji do uzupełnienia.',
       },
-      { status: 201 }
+      { status: 201, headers }
     );
   } catch (error) {
     const response = financialQuestionnaireErrorResponse(error);
     return NextResponse.json(
       { error: response.message },
-      { status: response.status }
+      { status: response.status, headers }
     );
   }
 }

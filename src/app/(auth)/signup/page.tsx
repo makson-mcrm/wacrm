@@ -31,8 +31,7 @@ function SignupPageInner() {
   // When the user lands here from `/join/<token>` we carry the
   // invite token in the query so it survives the signup → email
   // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
+  // exchanges the code in /auth/callback, then returns to /join/<token>.
   const inviteToken = searchParams.get("invite");
 
   const [fullName, setFullName] = useState("");
@@ -60,13 +59,13 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+    // The browser sees the public host, unlike the standalone server URL.
+    // Always specify the callback instead of relying on Supabase's Site URL.
+    const callback = new URL('/auth/callback', window.location.origin);
+    if (inviteToken) {
+      callback.searchParams.set('next', `/join/${encodeURIComponent(inviteToken)}`);
+    }
+    const emailRedirectTo = callback.toString();
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -75,7 +74,7 @@ function SignupPageInner() {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        emailRedirectTo,
       },
     });
 

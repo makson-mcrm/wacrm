@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { relativeRedirect } from '@/lib/auth/redirect'
 
 export async function middleware(request: NextRequest) {
   // Legal documents must be available without a session or an auth service call.
@@ -73,7 +74,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/dashboard'
       url.search = ''
     }
-    return withRefreshedCookies(NextResponse.redirect(url))
+    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`))
   }
 
   // Protected pages - redirect to login if not authenticated.
@@ -92,7 +93,7 @@ export async function middleware(request: NextRequest) {
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return withRefreshedCookies(NextResponse.redirect(url))
+    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`))
   }
 
   // API routes that need auth (not webhooks)
