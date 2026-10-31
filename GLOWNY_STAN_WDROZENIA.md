@@ -434,3 +434,13 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - **WABA produkcyjne `2678122512584634` nadal nieprzypisane** → Graph API: `code 100 / error_subcode 33`. Przyczyna: w obecnym UI Ustawień Meta brak kontrolki dodawania zasobu do użytkownika systemowego (tylko „Zarządzaj” dla już przypisanych), a strona `settings/whatsapp_accounts` przekierowuje automatyzację do portfela „Makson.space” (`559046024976854`) — nie wykonuję tam żadnych operacji.
 - `business_management` nadal nieprzyznane → odczyt portfolio/domen przez API: `code 200`.
 **WEBHOOK — PASS (bez zmian w konfiguracji):** `GET /api/whatsapp/webhook` → 400 (brak parametrów), z błędnym verify_token → 403, `POST /api/whatsapp/coexistence` → 401, `/login` → 200 na `test.makson.space`.
+
+### 16. Produkcyjne WABA przypisane do `hermes-mcrm` — PASS (31.10.2026)
+- Przypisanie wykonane w panelu we właściwym portfolio: Ustawienia → Konta WhatsApp → wiersz **`Tomasz Maksoń` (Aplikacja WhatsApp Business, ID `2678122512584634`)** → „Przypisz osoby” → zaznaczony **`hermes-mcrm` (użytkownik systemowy)** → uprawnienia częściowe: **Szablony wiadomości (wyświetlanie i zarządzanie), Numery telefonów (wyświetlanie i zarządzanie), Wiadomości** → „Przypisz”. Potwierdzenie w panelu: „Dodano 1 użytkownika”. **Pełny dostęp do WABA i portfolio NIE został nadany.**
+- Portfolio `559046024976854` (Makson.space) — **żadnej operacji nie wykonano**.
+- **Odczyt API po przypisaniu (błąd 100/33 zniknął):**
+  `GET /2678122512584634` → `{"id":"2678122512584634","name":"Tomasz Maksoń","currency":"EUR","account_review_status":"APPROVED","business_verification_status":"pending_submission"}`
+  `GET /2678122512584634/phone_numbers` → `id 1269557046240313`, **`+48 605 737 500`**, verified_name „Tomasz Maksoń”, `code_verification_status: NOT_VERIFIED`, `platform_type: ON_PREMISE`.
+  `GET /2678122512584634/message_templates` → `{"data":[]}` (odczyt działa, brak szablonów).
+- **Nowe ustalenie:** `GET /2678122512584634/subscribed_apps` → `{"data":[]}` — **aplikacja mCRM AI nie jest subskrybowana do produkcyjnego WABA**, więc zdarzenia webhooka nie będą dla niego dostarczane. To konfiguracja do wykonania (wymaga zgody: dotyczy webhooka).
+- **`business_management`:** nadal brak. Sprawdzone: bez niego padają tylko operacje na portfelu (`GET /1670356917366790`, `GET /…/owned_domains` → code 200). Wszystkie operacje WhatsApp (WABA, numery, szablony) działają bez tego uprawnienia. Rozszerzenie wymaga nowej generacji tokenu → do zgody, nie wykonane.
