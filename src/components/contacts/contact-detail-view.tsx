@@ -876,13 +876,13 @@ export function ContactDetailView({
       <section
         aria-label="Karta klienta"
         data-contact-detail-view
-        className="flex h-[calc(100dvh-var(--app-header-height,4rem))] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white text-slate-950"
+        className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white text-slate-950"
       >
         <header
           ref={headerRef}
           tabIndex={-1}
           aria-label="Nagłówek karty klienta"
-          className="border-border/50 shrink-0 border-b p-3 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset sm:p-4"
+          className="border-border/50 shrink-0 border-b px-[var(--content-pad-x)] py-[var(--content-pad-y)] outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
         >
           <Button
             variant="ghost"
@@ -1059,7 +1059,7 @@ export function ContactDetailView({
               />
               <TabsList
                 aria-label="Karta klienta"
-                className="mx-3 mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 sm:mx-4 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
+                className="mx-[var(--content-pad-x)] mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
               >
                 {tabItems.map(([value, label, count]) => (
                   <TabsTrigger key={value} value={value}>
@@ -1092,7 +1092,11 @@ export function ContactDetailView({
               >
                 <div
                   data-contact-columns
-                  className="grid min-h-0 shrink-0 grid-cols-1 gap-3 overflow-y-auto overscroll-contain px-4 py-3 xl:max-h-[60vh] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] xl:overflow-hidden"
+                  className="grid min-h-0 shrink-0 overflow-y-auto overscroll-contain px-[var(--content-pad-x)] py-[var(--content-pad-y)] max-xl:grid-cols-1! xl:flex-1 xl:shrink xl:overflow-hidden"
+                  style={{
+                    gridTemplateColumns: 'var(--columns-three)',
+                    gap: 'var(--card-gap)',
+                  }}
                 >
                   <ContactDetailColumn
                     key={`${contact.id}-context`}
@@ -1288,7 +1292,7 @@ export function ContactDetailView({
                 </div>
                 <div
                   data-contact-full-details
-                  className="shrink-0 space-y-3 px-4 pb-4"
+                  className="shrink-0 space-y-[var(--section-gap)] px-[var(--content-pad-x)] pb-[var(--content-pad-y)]"
                 >
                   {' '}
                   <Button
@@ -1627,7 +1631,7 @@ export function ContactDetailView({
               {/* Notes Tab */}
               <TabsContent
                 value="notes"
-                className="flex min-h-0 flex-1 flex-col px-4 py-3"
+                className="flex min-h-0 flex-1 flex-col px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 {notesContent}
               </TabsContent>
@@ -1635,7 +1639,7 @@ export function ContactDetailView({
               {/* Relations Tab */}
               <TabsContent
                 value="relations"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 <div className="my-3 space-y-3">
                   <SpouseLinks links={spouseLinks} />
@@ -1776,7 +1780,7 @@ export function ContactDetailView({
               {/* Deals Tab */}
               <TabsContent
                 value="deals"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 {loadingDeals ? (
                   <div className="flex items-center justify-center py-8">
@@ -1854,19 +1858,19 @@ export function ContactDetailView({
               </TabsContent>
               <TabsContent
                 value="documents"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 {documentsContent}
               </TabsContent>
               <TabsContent
                 value="tasks"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 {taskContent}
               </TabsContent>
               <TabsContent
                 value="people"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 {loadingDeals ? (
                   <Loader2
@@ -1901,7 +1905,7 @@ export function ContactDetailView({
               </TabsContent>
               <TabsContent
                 value="history"
-                className="flex-1 overflow-y-auto px-4 py-3"
+                className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 <ActivityHistory
                   contactId={contact.id}

@@ -435,10 +435,12 @@ async function layoutStyles(html: string) {
       let parent = rule.parent;
       while (parent) {
         if (parent.type === 'atrule' && parent.name === 'media') {
-          const minWidth = parent.params.match(/width >= ([\d.]+)rem/);
-          if (!minWidth)
+          const query = parent.params.match(/width (>=|<) ([\d.]+)rem/);
+          if (!query)
             throw new Error(`Unsupported media query: ${parent.params}`);
-          if (width < Number(minWidth[1]) * 16) return;
+          const breakpoint = Number(query[2]) * 16;
+          if (query[1] === '>=' ? width < breakpoint : width >= breakpoint)
+            return;
         }
         parent = parent.parent?.type === 'document' ? undefined : parent.parent;
       }
@@ -492,14 +494,24 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
   });
 
   it.each([1280, 1440, 1920])(
-    'desktop %i px: proporcje 1:1.2:1 i niezależny scroll kolumn',
+    'desktop %i px: wspólna geometria trzech kolumn i niezależny scroll',
     async (width) => {
       const html = render();
       const styles = await layoutStyles(html);
       expect(styles(gridClasses(html), width)).toMatchObject({
-        'grid-template-columns': 'minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr)',
         overflow: 'hidden',
+        flex: '1',
+        'flex-shrink': '1',
+        'padding-inline': 'var(--content-pad-x)',
+        'padding-block': 'var(--content-pad-y)',
       });
+      expect(styles(gridClasses(html), width)['max-height']).toBeUndefined();
+      expect(
+        styles(gridClasses(html), width)['grid-template-columns']
+      ).toBeUndefined();
+      expect(html).toMatch(
+        /data-contact-columns="true"[^>]*style="grid-template-columns:var\(--columns-three\);gap:var\(--card-gap\)"/
+      );
       expect(columnClasses(html)).toHaveLength(3);
       for (const className of columnClasses(html)) {
         expect(styles(className, width)).toMatchObject({
@@ -581,12 +593,13 @@ describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
     const styles = await layoutStyles(html);
     expect(styles(classes, 1440)).toMatchObject({
       width: '100%',
-      height: 'calc(100dvh - var(--app-header-height,4rem))',
+      height: 'calc(100dvh - var(--app-header-height))',
       'min-height': '0px',
       overflow: 'hidden',
     });
     expect(classes).not.toMatch(/rounded|shadow|fixed|absolute/);
     expect(html).toMatch(/role="tabpanel" class="[^"]*overflow-y-auto/);
+    expect(source).not.toContain('max-h-[60vh]');
   });
 
   it('przycisk Wróć do listy ma dostępną nazwę, strzałkę i zamyka widok', () => {
@@ -619,7 +632,9 @@ describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
     const document = new EventTarget();
     vi.stubGlobal('document', document);
     fixture.effects
-      .find(({ deps }) => deps?.[0] === true && deps?.[1] === fixture.contact.id)!
+      .find(
+        ({ deps }) => deps?.[0] === true && deps?.[1] === fixture.contact.id
+      )!
       .effect();
     const cleanup = fixture.effects
       .find(({ deps }) => deps?.includes(onOpenChange))!

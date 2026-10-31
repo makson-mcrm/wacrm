@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { Sidebar } from '@/components/layout/sidebar';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
+import { geometryCssVars } from '@/lib/ui/layout-geometry';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -104,7 +105,10 @@ export function AppShell({ children }: AppShellProps) {
     <div
       data-slot="app-shell"
       className="bg-app-surface relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden"
-      style={{ transform: 'translateY(var(--app-viewport-offset-top, 0px))' }}
+      style={{
+        ...geometryCssVars(),
+        transform: 'translateY(var(--app-viewport-offset-top, 0px))',
+      }}
     >
       <PresenceHeartbeat />
       <DailyStartCard />

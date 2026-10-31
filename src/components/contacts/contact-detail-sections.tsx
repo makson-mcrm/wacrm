@@ -233,7 +233,7 @@ export function ContactInfoCards({
   return (
     <dl
       data-contact-info-cards
-      className="grid min-w-0 shrink-0 grid-cols-[repeat(5,minmax(160px,1fr))] gap-2 overflow-x-auto px-4 py-3 text-xs"
+      className="grid min-w-0 shrink-0 grid-cols-[repeat(5,minmax(160px,1fr))] gap-[var(--card-gap)] overflow-x-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)] text-xs"
     >
       {cards.map(({ title, value, detail, extra, href }) => (
         <div

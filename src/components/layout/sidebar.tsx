@@ -217,13 +217,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-40 lg:translate-x-0 lg:bg-[#20383d] lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]'
+          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:bg-[#20383d] lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]'
         )}
         aria-label="Primary"
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
+        <div className="border-border flex h-[var(--app-header-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123d2b] text-white">
               <Sparkles className="h-4 w-4" />
