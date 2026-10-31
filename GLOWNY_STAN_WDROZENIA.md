@@ -500,3 +500,15 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - **Stopka B** (5 linii, zarządzana centralnie, `[STOPKA_B]` w każdym szablonie), polityka `LINK_SPOTKANIE` (domyślnie profil mFinanse, makson.space po odbiorze strony), lista 17 zmiennych.
 - Status rejestracji w Meta: **OCZEKUJE** — `GET /2678122512584634/message_templates` = `[]`; rejestracja oficjalnych szablonów wymaga Tech Provider/BSP.
 - Nie podłączono szablonów do UI CRM: pliki współdzielone, nad którymi pracuje K3 — granica zmian do uzgodnienia. Żadnych nowych treści nie napisano.
+
+### 20. Bramka webhooka — stan na 31.10.2026 (test pozytywny/negatywny)
+**Ustalenia realne**
+- `META_APP_SECRET` **jest już ustawiony** w środowisku produkcyjnym: `hosting_nodejs_list-environment-variables` dla `test.makson.space` zwraca klucze `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, **`META_APP_SECRET`** (wartości maskowane `********`, API nie pozwala ich odczytać).
+- Graph API **nie udostępnia** App Secret: `GET /1116881471020279?fields=app_secret` → `(#100) Tried accessing nonexisting field (app_secret)`. Meta wymaga panelu App Dashboard.
+- Kod (`src/lib/whatsapp/webhook-signature.ts`) **fail-closed**: brak sekretu i zły podpis dają identyczną odpowiedź 401 — z poziomu HTTP nie da się odróżnić „sekret zły” od „sekretu brak”. Weryfikacja podpisu następuje **przed** parsowaniem ciała i zapisem do bazy (`route.ts` linia 238), więc odrzucone zdarzenie nie tworzy kontaktów, wiadomości ani aktywności.
+- **Test negatywny — PASS (realny):** `POST /api/whatsapp/webhook` z poprawnym JSON-em i **bez** nagłówka `x-hub-signature-256` → `HTTP 401 {"error":"Invalid signature"}`.
+- **Test pozytywny — NIEWYKONANY:** wymaga podpisu HMAC liczonego z sekretem, którego nie wolno mi odczytać, albo zdarzenia podpisanego realnie przez Meta. Nie ogłaszam PASS.
+- Testy jednostkowe ścieżki podpisu: `src/lib/whatsapp/webhook-signature.test.ts` → **7/7 PASS** (m.in. poprawny podpis, zły podpis, brak nagłówka, brak sekretu).
+
+**Jedna czynność właściciela (bez wpisywania sekretu w czacie):**
+Meta App Dashboard → aplikacja `mCRM AI` (`1116881471020279`) → **WhatsApp → Configuration → Webhook → „Test”** (Meta wyśle podpisane zdarzenie testowe na `https://test.makson.space/api/whatsapp/webhook`). Panel pokaże wynik dostawy: **200 = PASS pozytywny**, błąd = sekret w `META_APP_SECRET` jest nieaktualny i wystarczy go podmienić w Hostinger hPanel → Environment Variables.
