@@ -538,3 +538,40 @@ Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-quest
 Logi końcowe: `/private/tmp/k3-k-vitest-final.log`, `/private/tmp/k3-k-tsc-final.log`, `/private/tmp/k3-k-eslint-final.log`. Zgodność `src` z kopią kontrolną potwierdzona przez `diff -qr` (exit 0).
 
 **GOTOWE DO WERYFIKACJI**
+
+## K3/01-L
+
+31.10.2026 — 02A: karta klienta z 8 zakładkami. Baza: `k3/01-crm-core` @ `dd5c23d`. Zachowano wcześniejsze zmiany oraz zastany nieśledzony `package-lock.json`.
+
+### Złożone elementy i źródła danych
+
+- `contact-detail-view.tsx`: jeden pasek z dokładnie 8 zakładkami, w kolejności **Podsumowanie · Aktywne Deale · Aktywność · Zadania · Notatki · Dokumenty · Osoby · Relacje**. Pasek przewija się poziomo w dotychczasowej karcie bocznej. Zachowano podsumowanie z Powiązaniami, Aktywnymi Dealami i Ostatnimi Aktywnościami.
+- **Aktywne Deale:** dotychczasowe zapytania `deals.contact_id` / `deal_contacts` i istniejące karty Deali, bez zakończonych `won`/`lost`. Odczyt uwzględnia też istniejące `co_applicant_contact_id` i `additional_contact_ids`; powtarzające się Deale są scalane po ID.
+- **Aktywność:** istniejący `ActivityHistory` (`sales_activities`, notatki i zdarzenia kolejki), bez zmiany jego implementacji.
+- **Zadania:** odczyt istniejących `sales_activities` z `activity_type='zadanie'`, dla konkretnego Kontaktu i konta; tytuł, stan i termin. Bez nowego mechanizmu zapisu zadań.
+- **Notatki:** dotychczasowy edytor/lista/zapis/usuwanie w `contact_notes`; pusty stan „Brak danych”.
+- **Dokumenty:** metadane z istniejących `deal_documents` i `deal_document_requirements`, ograniczone do konta i powiązanych Deali. Każdy rekord prowadzi do istniejącego `/deals/<id>?tab=files`. Zachowano akcję „Dodaj dokument”. Brak rekordów daje „Brak danych”, zamiast sugerowania, że każdy Deal ma dokumenty. Bez nowego uploadu, pobierania plików czy silnika dokumentów.
+- **Osoby:** scalenie i deduplikacja współmałżonków z `contact_spouses` oraz uczestników Deali z `deal_contacts`, głównego Kontaktu, współwnioskodawcy i `additional_contact_ids`; odnośniki otwierają istniejące karty Kontaktu. Brak powiązań daje „Brak danych”.
+- **Relacje:** istniejące firmy `contact_companies`, `SpouseLinks` oraz dotychczasowe przypisywanie/odłączanie firmy i współmałżonka. Karty **Źródło** i **Opiekun** są też dostępne w Podsumowaniu.
+- **Źródło:** `contacts.source` i `source_details`. **Opiekun:** istniejące `contacts.user_id` → `profiles.user_id` z ograniczeniem `account_id`; pokazuje `full_name`. Repo nie definiuje osobnego pola przypisanego opiekuna Kontaktu, więc nie dodano go ani nie podstawiono aktualnie zalogowanej osoby. Brak wartości/profilu daje „Brak danych”; błąd odczytu ma osobny komunikat.
+- **E-mail:** istniejący `Button` z `mailto:` obok `CallAction` i `WhatsAppAction`, bez nowego silnika wysyłki. Adres jest przycinany i kodowany; brak e-maila wyłącza akcję. Akcje nagłówka zawijają się w istniejącej siatce, aby zmieścić dodatkowy przycisk.
+- Zachowano ankietę, dyktowanie, nowy Deal, terminy, szablony wiadomości i oba wejścia do pełnej karty. Edycja danych, tagów (`EntityTagsEditor`) i pól dodatkowych pozostaje w rozwijanej sekcji „WIĘCEJ DANYCH KLIENTA” w Podsumowaniu, bez dodatkowych zakładek. Nowy plik `contact-detail-sections.tsx` zawiera lokalne sekcje prezentacji i odczyty powyższych istniejących tabel.
+
+**Braki/granice:** wszystkie wymagane źródła tabel są obecne w repo; nie tworzono zastępczych tabel ani endpointów. Nie potwierdzano dostępności rekordów/uprawnień na produkcji ani zgodności wizualnej z LIVE. Dane zadań/dokumentów/opiekuna rozróżniają ładowanie, pusty wynik i błąd; spóźnione odpowiedzi nowych sekcji po zmianie Kontaktu są ignorowane. Praca nie obejmuje osobnego pola opiekuna ani nowego modelu danych.
+
+### Weryfikacja
+
+Dodano 23 testy Vitest w `contact-detail-view.test.tsx` i `contact-detail-sections.test.tsx`: render 8 zakładek w kolejności, dotychczasowe sekcje i akcje, notatki, relacje, dane/puste stany Źródła i Opiekuna, kodowanie `mailto:` i brak adresu, odczyt właściwego profilu, zadania ograniczone do Kontaktu/konta, dokumenty i wymagania ograniczone do Deali/konta, brak dokumentów i obsługa błędów. Render karty sprawdzono przez SSR z atrapami kontenerów UI; odczyty przez bazę w pamięci. Nie jest to test interakcji w przeglądarce ani odbiór LIVE.
+
+| Komenda | Wynik |
+|---|---|
+| `npx vitest run` | PASS, exit 0: **1768/1768**, **135 plików**; nowe testy **23/23** |
+| `npx tsc --noEmit` | PASS, exit 0 |
+| `npx eslint src` | PASS, exit 0: 0 błędów, 43 dotychczasowe ostrzeżenia |
+| `git diff --check` | PASS |
+
+Kontrole wykonano w `/private/tmp/k3-01-l-check`, z identycznym `src` (porównanie zbioru plików i SHA-256), istniejącymi zależnościami i wyczyszczonym środowiskiem. Preload `/private/tmp/k3-no-network.cjs` blokował połączenia sieciowe i odczyt `.env*`; `npx` działał w trybie offline z dwoma pustymi plikami konfiguracji npm. Pierwsze wywołanie kontrolne nie wystartowało z powodu wskazania tego samego pliku jako konfiguracji user/global npm; rozdzielono je, bez zmiany produktu. Logi końcowe: `/private/tmp/k3-l-vitest-final.log`, `/private/tmp/k3-l-tsc-final.log`, `/private/tmp/k3-l-eslint-final.log`.
+
+Pliki paczki: `src/components/contacts/contact-detail-view.tsx`, `src/components/contacts/contact-detail-sections.tsx`, ich dwa pliki testowe oraz niniejszy raport. Bez commit/push/deploy, nowych tabel/migracji/endpointów, zmian API serwera, odczytu `.env`/sekretów, prawdziwej bazy i danych klientów. Nie uruchamiano płatnej sesji Nous ani dodatkowych wywołań modeli. Wynik lokalny nie stanowi odbioru LIVE.
+
+**GOTOWE DO WERYFIKACJI**
