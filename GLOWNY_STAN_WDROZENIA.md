@@ -419,3 +419,18 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - Meta → Ustawienia → Domeny (portfolio `1670356917366790`): **„Nie dodano domen”**. Przycisk „Dodaj” otwiera wyłącznie „Utwórz domenę” (zakup nowej) lub „Poproś o dostęp do domeny” (dostęp od innej firmy) — **brak opcji dodania domeny już posiadanej**. Kod weryfikacyjny Meta pojawia się w innym miejscu (kreator weryfikacji / App Dashboard), więc rekordu TXT nie można jeszcze wytworzyć.
 - `biuro@makson.space`: istnienie skrzynki **niepotwierdzone** — obecny token Google ma tylko `drive.readonly` i `documents.readonly` (brak Gmail API), więc nie mogę sprawdzić skrzynki ani odebrać kodu bez rozszerzenia zakresu.
 - Koszt/wysyłka: żadnych nowych usług nie kupiono, żadnego DNS nie zmieniono.
+
+### 15. Domena potwierdzona + stan dostępu technicznego (31.10.2026, realne odczyty)
+**DOMENA — PASS**
+- Domena `makson.space` dodana do portfolio `1670356917366790`: **Domain ID `1137179119015728`**, właściciel „Tomasz Maksoń”.
+- Metoda: meta-znacznik w `<head>` strony głównej. Kod Meta: `facebook-domain-verification` = `8weicihfn43o3cxdb4i7t1n7q8db7s`.
+- Zmiana wykonana przez Hostinger Files API na `index.html` (konto `u159349567`, domena makson.space). Kopia zapasowa oryginału: `~/.hermes/cache/scratch/makson_index_orig.html`.
+- Weryfikacja live: `https://makson.space/` → HTTP 200, 25 172 B, znacznik obecny; `https://www.makson.space/` → 200, znacznik obecny; `<title>` bez zmian. **MX bez zmian** (`aspmx.l.google.com` + 4), `A` bez zmian (`185.224.138.23`). DNS zarządzany przez `ns.lh.pl` / `ns2.lighthosting.net` — rekordów DNS nie ruszano.
+- Meta: kliknięto „Zweryfikuj domenę” → lista Domeny pokazuje **`makson.space  Verified`**.
+
+**DOSTĘP TECHNICZNY — częściowo FAIL**
+- Token `hermes-mcrm` nadal ważny (60 dni), zakresy: `whatsapp_business_management`, `whatsapp_business_messaging`, `public_profile`.
+- Przypisane zasoby system usera (odczyt panelu): **mCRM AI — Częściowy dostęp** (Tworzenie aplikacji, Wyświetl statystyki, Testowanie aplikacji) oraz **Test WhatsApp Business Account — Częściowy dostęp** (Numery telefonów: tylko wyświetlanie; Wiadomości).
+- **WABA produkcyjne `2678122512584634` nadal nieprzypisane** → Graph API: `code 100 / error_subcode 33`. Przyczyna: w obecnym UI Ustawień Meta brak kontrolki dodawania zasobu do użytkownika systemowego (tylko „Zarządzaj” dla już przypisanych), a strona `settings/whatsapp_accounts` przekierowuje automatyzację do portfela „Makson.space” (`559046024976854`) — nie wykonuję tam żadnych operacji.
+- `business_management` nadal nieprzyznane → odczyt portfolio/domen przez API: `code 200`.
+**WEBHOOK — PASS (bez zmian w konfiguracji):** `GET /api/whatsapp/webhook` → 400 (brak parametrów), z błędnym verify_token → 403, `POST /api/whatsapp/coexistence` → 401, `/login` → 200 na `test.makson.space`.
