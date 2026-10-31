@@ -462,3 +462,26 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - E-mail zastępczo: `mailto:` z adresem kontaktu na karcie sprawy.
 - Testy modułów kluczowych (świeży przebieg 31.10.2026): `client-journey.test.ts` + `whatsapp-coexistence-connect.test.tsx` → **26/26 PASS**, 2 pliki.
 - Wysyłka e-mail przez API: **brak** — token Google ma tylko `drive.readonly`, `documents.readonly` (brak Gmaila), więc działa wyłącznie wariant `mailto:`.
+
+### 18. K2 — domknięcie bez Meta (31.10.2026)
+**PASS TECHNICZNY (realne przebiegi)**
+- **Podpis webhooka działa:** syntetyczny `POST` na `https://test.makson.space/api/whatsapp/webhook` (payload `wamid.TEST-SYNTHETIC-001`, `phone_number_id 1269557046240313`) → **HTTP 401 `{"error":"Invalid signature"}`** — niepodpisane zdarzenie odrzucone, nic nie zapisano. Ścieżka podpisu: `src/lib/whatsapp/webhook-signature.ts`.
+- **Testy modułów WhatsApp:** `npx vitest run src/lib/whatsapp src/app/api/whatsapp` → **26 plików / 355 testów PASS**, w tym `route.test.ts` (28 testów) z blokami **„inbound webhook: idempotent insert (#367)”** i **„a replayed delivery is a no-op: no unread bump, no fan-out”** — mapowanie do kontaktu, historia, deduplikacja i odporność na ponowne dostarczenie pokryte testami.
+- **Testy lejka i Coexistence UI:** `client-journey.test.ts` + `whatsapp-coexistence-connect.test.tsx` → **26/26 PASS**.
+- **Token:** `~/.hermes/meta-token-status.json` → `ok:true`, `identity 122101890999527262 (hermes-mcrm)`, `days_to_expiry: 60`, kontrola dzienna cron 8:00. Zakresy bez zmian (`whatsapp_business_management`, `whatsapp_business_messaging`, `public_profile`).
+- **Przycisk WhatsApp (zastępczo):** `src/components/sales/whatsapp-action.tsx` używany w `src/app/(dashboard)/deals/[id]/page.tsx` (4 miejsca) — numer z kontaktu sprawy, otwarcie rozmowy; obok `mailto:` dla e-maila.
+- **Szablony:** `GET /2678122512584634/message_templates` → `{"data":[]}` — w Meta nie ma żadnych szablonów; treści „10 szablonów / Stopka B” nie ma też w repo, więc nie tworzyłem nowych (zakaz wymyślania treści).
+- **Status sprawy Meta:** sesja przeglądarki Meta **wygasła** (przekierowanie na loginpage) — statusu `1510263704199443` nie potwierdzę bez zalogowania właściciela. Ostatni znany stan: **Otwarte**, korekta przyjęta, brak nowej odpowiedzi.
+
+**GOTOWE DO AKTYWACJI po odblokowaniu Meta (procedura, 7 kroków)**
+1. Meta: Business Verification portfela `1670356917366790` — zakończyć wniosek (numer stary `…1700` obejść weryfikacją domeny `makson.space` = **Verified** + e-mail w domenie).
+2. Uzyskać status **Tech Provider / BSP** dla aplikacji `1116881471020279` (App Review + Advanced Access dla `whatsapp_business_management`).
+3. W aplikacji uruchomić Embedded Signup z `extras.featureType = "whatsapp_business_app_onboarding"`, `sessionInfoVersion: "3"`, `override_default_response_type: true`, Configuration ID `1861133288660318`.
+4. Tomasz skanuje QR z telefonu (WhatsApp Business **pozostaje zainstalowany**, historia i czaty zachowane — Coexistence nie migruje numeru).
+5. Po zdarzeniu `account_update` / `history` odebrać synchronizację: subskrybowane pola `messages`, `message_echoes`, `account_update`, `history`, `smb_app_state_sync`, `smb_message_echoes`.
+6. Test dwukierunkowy na numerach własnych (nie klientów), następnie sprawdzenie zapisu do kontaktu i historii w CRM.
+7. Dopiero potem oznaczyć integrację jako aktywną w dokumentacji; Webhook URL pozostaje `https://test.makson.space/api/whatsapp/webhook`.
+
+**BLOKADA META:** `code 10 — „This action requires that the Business that owns this App is a Business Solution Provider for WhatsApp.”` Numer: `platform_type ON_PREMISE`, `code_verification_status NOT_VERIFIED`, `status DISCONNECTED`, `is_on_biz_app: true`, WABA `business_verification_status: pending_submission`.
+
+**DO WYKONANIA PO ODBLOKOWANIU:** kroki 3–7 powyżej + produkcyjny test dwukierunkowy; brakujący `META_APP_SECRET` w środowisku (potrzebny do weryfikacji podpisu na produkcji — dziś endpoint odrzuca wszystko jako `Invalid signature`).
