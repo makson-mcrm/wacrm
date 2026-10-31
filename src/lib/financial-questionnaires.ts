@@ -219,16 +219,104 @@ export function buildPreliminaryAnalysis(
     'To jest wstępne podsumowanie danych klienta, a nie decyzja kredytowa ani rekomendacja bankowa.',
   ].join('\n');
 }
+
+function questionnaireSource(origin?: string | null, referer?: string | null) {
+  const url = (value?: string | null) => {
+    try {
+      const parsed = new URL(value ?? '');
+      return ['http:', 'https:'].includes(parsed.protocol) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const originUrl = url(origin);
+  const refererUrl = url(referer);
+  // Origin takes precedence; Referer supplies attribution when Origin is absent.
+  const host = (originUrl ?? refererUrl)?.hostname;
+  const sources: Record<string, string> = {
+    'makson.space': 'makson.space',
+    'mediumseagreen-pelican-353577.hostingersite.com': 'formularz',
+    'crm.makson.space': 'crm',
+  };
+  const utm = new URLSearchParams();
+  refererUrl?.searchParams.forEach((value, key) => {
+    if (key.startsWith('utm_')) utm.append(key, value);
+  });
+  return {
+    source: host && Object.hasOwn(sources, host) ? sources[host] : 'ankieta',
+    source_details: utm.toString() || null,
+    // Retain only the URL origin, never credentials, path or unrelated query data.
+    origin: (originUrl ?? refererUrl)?.origin ?? null,
+  };
+}
+
+function activityFailureDiagnostic(error: unknown) {
+  const record = error && typeof error === 'object'
+    ? error as Record<string, unknown>
+    : {};
+  const code = typeof record.code === 'string' &&
+    /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(record.code)
+    ? record.code : 'UNKNOWN';
+  const reasons: Record<string, string> = {
+    '23502': 'not_null', '23503': 'foreign_key', '23505': 'unique',
+    '23514': 'check_constraint', '42501': 'permission_or_rls',
+    '42703': 'missing_column', '42P01': 'missing_table',
+    '22P02': 'invalid_type', PGRST204: 'schema_cache_column',
+  };
+  // Extract identifiers only in database-generated positions, then allowlist.
+  // Never emit raw message/details/hint: these may contain the submitted row.
+  const message = typeof record.message === 'string' ? record.message : '';
+  const column = message.match(/(?:column|find the) ["']([a-z_]+)["']/)?.[1];
+  const table = message.match(/(?:relation|table|column of) ["']([a-z_]+)["']/)?.[1];
+  const constraint = message.match(/constraint ["']([a-z_]+)["']/)?.[1];
+  const columns = [
+    'id', 'account_id', 'user_id', 'contact_id', 'company_id', 'deal_id',
+    'activity_type', 'activity_status', 'completed', 'title', 'source',
+    'next_action', 'occurred_at', 'scheduled_at', 'next_action_date', 'metric_date',
+  ];
+  const constraints = [
+    'sales_activities_activity_type_check', 'sales_activities_activity_status_check',
+    'sales_activities_contact_context_check', 'sales_activities_company_context_check',
+    'sales_activities_deal_context_check', 'sales_activities_deal_contact_check',
+    'sales_activities_deal_company_check', 'sales_activities_user_id_fkey',
+    'sales_activities_account_id_fkey', 'sales_activities_contact_id_fkey',
+    'daily_sales_metrics_user_id_fkey', 'daily_sales_metrics_account_id_fkey',
+  ];
+  return {
+    code,
+    reason: reasons[code] ?? 'unknown',
+    ...(column && columns.includes(column) ? { column } : {}),
+    ...(table && ['sales_activities', 'daily_sales_metrics'].includes(table)
+      ? { table } : {}),
+    ...(constraint && constraints.includes(constraint) ? { constraint } : {}),
+  };
+}
+
 export async function saveFinancialQuestionnaire(
   db: SupabaseClient,
   input: FinancialQuestionnaireInput,
   metadata: {
     fingerprint: string;
     userAgent: string;
+    origin?: string | null;
+    referer?: string | null;
     // Server-resolved session only; never parsed from the public payload.
     crm?: { accountId: string; userId: string; contactId: string };
   }
 ): Promise<SavedFinancialQuestionnaire> {
+  // Keep this boundary safe even if a caller bypasses the public parser.
+  if (input.consent !== true) fail('Zgoda na przygotowanie analizy jest wymagana.');
+  const receivedAt = new Date().toISOString();
+  const sourceRecord = {
+    ...questionnaireSource(metadata.origin, metadata.referer),
+    received_at: receivedAt,
+  };
+  const consentRecord = {
+    granted: true,
+    scope: 'analiza',
+    text_version: 'v1-2026-10',
+    stated_at: receivedAt,
+  };
   const accountId =
     metadata.crm?.accountId ?? (await resolvePublicFormAccountId(db));
   const auditUserId =
@@ -274,6 +362,33 @@ export async function saveFinancialQuestionnaire(
       input
     );
   }
+  const { data: attribution, error: attributionError } = await db
+    .from('contacts')
+    .select('source,source_details')
+    .eq('account_id', accountId)
+    .eq('id', contact.id)
+    .single();
+  if (attributionError || !attribution)
+    throw new FinancialQuestionnaireError('Nie odczytano źródła kontaktu.', 500);
+  for (const field of ['source', 'source_details'] as const) {
+    if (String(attribution[field] ?? '').trim() || !sourceRecord[field]) continue;
+    let update = db.from('contacts')
+      .update({ [field]: sourceRecord[field] })
+      .eq('account_id', accountId)
+      .eq('id', contact.id);
+    // A concurrent writer may already have recorded the first acquisition.
+    update = attribution[field] == null
+      ? update.is(field, null) : update.eq(field, attribution[field]);
+    const { error } = await update;
+    if (error)
+      throw new FinancialQuestionnaireError('Nie zapisano źródła kontaktu.', 500);
+  }
+  const { error: consentError } = await db.from('contacts')
+    .update({ contact_consent: true })
+    .eq('account_id', accountId)
+    .eq('id', contact.id);
+  if (consentError)
+    throw new FinancialQuestionnaireError('Nie zapisano zgody kontaktu.', 500);
   const missingItems = questionnaireMissingItems(input);
   const status = missingItems.length ? 'partial' : 'submitted';
   const preliminaryAnalysis = buildPreliminaryAnalysis(input, missingItems);
@@ -299,13 +414,15 @@ export async function saveFinancialQuestionnaire(
     'submission_id',
     'contact',
     'consent_to_analysis',
+    'source_record',
+    'consent_record',
   ].some((key) => Object.hasOwn(input.responses, key))
     ? { ...input.responses, original_answers: input.responses }
     : input.responses;
   const lookup = async () => {
     const { data, error } = await db
       .from('financial_questionnaire_submissions')
-      .select('id')
+      .select('id,responses,consented_at')
       .eq('account_id', accountId)
       .eq('contact_id', contact.id)
       .eq('responses->>submission_key', submissionKey)
@@ -333,6 +450,8 @@ export async function saveFinancialQuestionnaire(
         ...historicalAnswers,
         submission_key: submissionKey,
         source,
+        source_record: sourceRecord,
+        consent_record: consentRecord,
         submitted_by: metadata.crm?.userId ?? null,
       },
       preparation_plan: input.preparationPlan,
@@ -341,7 +460,7 @@ export async function saveFinancialQuestionnaire(
       preliminary_analysis: preliminaryAnalysis,
       contact_created: contact.created,
       consent_to_analysis: true,
-      consented_at: new Date().toISOString(),
+      consented_at: receivedAt,
       request_fingerprint: metadata.fingerprint,
       user_agent: metadata.userAgent.slice(0, 500) || null,
     });
@@ -355,7 +474,13 @@ export async function saveFinancialQuestionnaire(
         500
       );
   }
-  const noteText = `Ankieta ${submission.id}\n${preliminaryAnalysis}${input.company ? `\nFirma zgłoszona: ${input.company}` : ''}`;
+  // Use the persisted record on retry, including after a partially saved request.
+  const savedConsent = submission.responses?.consent_record;
+  const consentLine = savedConsent?.granted === true &&
+    savedConsent.scope === 'analiza' && savedConsent.text_version === 'v1-2026-10' &&
+    savedConsent.stated_at === submission.consented_at
+    ? `\nZgoda na analizę (v1-2026-10) — ${savedConsent.stated_at}` : '';
+  const noteText = `Ankieta ${submission.id}\n${preliminaryAnalysis}${consentLine}${input.company ? `\nFirma zgłoszona: ${input.company}` : ''}`;
   const { data: existingNote, error: noteLookupError } = await db
     .from('contact_notes')
     .select('id')
@@ -455,22 +580,16 @@ export async function saveFinancialQuestionnaire(
         title: activityTitle,
         source,
         next_action: nextAction,
+        occurred_at: receivedAt,
+        scheduled_at: receivedAt,
+        next_action_date: receivedAt,
       });
       if (error) throw error;
     }
   } catch (error) {
-    // Error messages/details, payloads and IDs can contain personal data.
-    // Log only the operation and a validated SQLSTATE/PostgREST error code.
-    const code =
-      error && typeof error === 'object' && 'code' in error
-        ? error.code
-        : undefined;
     console.error('financial_questionnaire_activity_failed', {
       operation: activityOperation,
-      code:
-        typeof code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code)
-          ? code
-          : 'UNKNOWN',
+      ...activityFailureDiagnostic(error),
     });
   }
   return {

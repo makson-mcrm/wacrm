@@ -454,3 +454,47 @@ Wymagane kontrole wykonano w `/private/tmp/k3-01-a-check` z identycznym `src` (p
 Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, niniejszy raport. Bez commit/push/deploy, dostępu do prawdziwej bazy, odczytu `.env` i sekretów. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Wynik lokalny nie potwierdza naprawy LIVE ani dokładnego źródła błędu Supabase.
 
 **GOTOWE DO WERYFIKACJI**
+
+## K3/01-J
+
+31.10.2026 — T7: źródło, historia i rzeczywiste zgody. Baza prac: `k3/01-crm-core` @ `3a4cda3`; zachowano wcześniejsze zmiany, w tym `a52a890` i `d5c3da4`. Zmiany lokalne, bez nowego commita.
+
+### Źródło i zgody
+
+Potwierdzona przyczyna braków przy Kontakcie: dotychczasowy writer ankiety nie zapisywał `contacts.source`, `source_details` ani `contact_consent`. Stałe źródło submisji/intake nie uzupełniało tych pól Kontaktu.
+
+- Oba handlery przekazują serwerowi nagłówki `Origin` i `Referer`. Host z poprawnego `Origin` ma pierwszeństwo; w jego braku używany jest `Referer`. Mapowanie: `makson.space` → `makson.space`, `mediumseagreen-pelican-353577.hostingersite.com` → `formularz`, `crm.makson.space` → `crm`; brak/nieznany host → `ankieta`. Dotychczasowa kontrola dopuszczalnych Origin pozostaje bez zmian.
+- `source_details` przechowuje wyłącznie parametry `utm_*` z Referer, w formacie query string; zachowuje powtarzające się UTM. Pozostałe parametry, fragment, ścieżka i dane logowania URL nie trafiają do śladu pochodzenia. `source_record.origin` jest znormalizowanym originem URL albo `null`.
+- Pierwsze niepuste źródło i szczegóły Kontaktu zostają zachowane. Uzupełnianie pustych pól ma dodatkowy warunek porównania z odczytaną wartością, chroniący przed nadpisaniem równoległego zapisu. Każda nowa submisja ma osobny `responses.source_record = {source, source_details, origin, received_at}`. Dotychczasowe `responses.source`, źródło intake i działania pozostawiono dla zgodności.
+- Zapisujący przyjmuje wyłącznie `consent === true`, także przy ominięciu parsera. Wtedy ustawia `contact_consent: true`; nigdy nie zapisuje `marketing_consent`. Zgłoszenie bez rzeczywistej zgody nadal dostaje 400, bez zmian wcześniejszej zgody lub innych rekordów.
+- Nowa submisja zawiera `responses.consent_record = {granted:true, scope:'analiza', text_version:'v1-2026-10', stated_at:<ISO>}`. `stated_at`, `consented_at` i `source_record.received_at` używają jednej serwerowej daty odbioru. Do istniejącej notatki ankiety w używanej tabeli `contact_notes` dochodzi linia `Zgoda na analizę (v1-2026-10) — <data>`. Nie powstaje druga notatka.
+- Retry korzysta z pierwotnego śladu submisji, również po awarii zapisu notatki. Nie zmienia dat/pochodzenia zapisanej submisji. Pola `source_record`/`consent_record` przesłane przez klienta pozostają w `original_answers`, lecz nie zastępują metadanych serwera. Nie dopisuje się wstecz wersji zgody do starszych submisji pozbawionych takiego dowodu.
+
+### Następne działanie — diagnoza i granica dowodu
+
+Sprawdzono lokalne definicje `sales_activities` oraz powiązanego triggera metryk: migracje `043`, `044`, `049`, `058`, `059`, `064` i `20260919114927_activity_deal_context_integrity.sql`. Wymagane są `account_id`, `user_id`, `activity_type`, `title`, `occurred_at`, `completed`, `created_at` oraz generowane `id`. Daty i `completed` mają domyślne wartości; writer jawnie ustawia `completed:false`. `activity_type` i `activity_status` są TEXT z CHECK: `zadanie` oraz `PLANOWANE` są dozwolone. `source`/`next_action` istnieją w tym schemacie. Trigger sprawdza zgodność Kontaktu z kontem i odświeża `daily_sales_metrics`, gdzie również obowiązują NOT NULL/FK/uprawnienia.
+
+**Dokładna przyczyna wcześniejszego odrzucenia na LIVE pozostaje NIEPOTWIERDZONA.** Payload z K3/01-I jest zgodny z definicjami w repo; lokalnie nie odtworzono jego odrzucenia przez te ograniczenia. W zakresie tego zlecenia nie odczytywano produkcyjnego schematu ani logów, dlatego nie przypisano awarii domniemanemu NOT NULL, typowi lub brakującej migracji. Poprzedni log zawierający sam kod nie pozwalał wskazać kolumny/ograniczenia.
+
+Nowy zapis jawnie ustawia `occurred_at`, `scheduled_at`, `next_action_date` na serwerowy czas przyjęcia żądania: tworzy zaplanowane, niezakończone działanie z terminem i powiązanym Kontaktem. **Nie przedstawia się dodania tych dat jako udowodnionej naprawy przyczyny awarii LIVE.** Adapter testowy egzekwuje teraz NOT NULL/defaulty oraz CHECK typu i statusu, zamiast sprawdzać wyłącznie nazwy kolumn.
+
+Zachowano best-effort i odpowiedź 201 przy awarii działania. `financial_questionnaire_activity_failed` zawiera operację, zweryfikowany SQLSTATE/PostgREST, kategorię przyczyny oraz rozpoznaną kolumnę/tabelę/ograniczenie z zamkniętej listy. Obsługuje m.in. brak kolumny w cache, NOT NULL, CHECK, FK i odmowę uprawnień/RLS. Nie loguje surowego `message`, `details`, `hint`, payloadu, wartości rekordów ani identyfikatorów. Przykład: `{operation:'insert', code:'23502', reason:'not_null', column:'metric_date', table:'daily_sales_metrics'}`. Dokładny błąd produkcyjny będzie można potwierdzić dopiero na podstawie rzeczywistego komunikatu serwera; nie wykonano deployu tej diagnostyki.
+
+### Testy, pliki i wyniki
+
+Dodano 27 testów obejmujących pochodzenie z obu nagłówków, UTM, fallback `ankieta`, pierwszeństwo Origin, nieznany/podobny host, ochronę pierwszego źródła (także przy równoległym zapisie), zachowanie obu wartości `marketing_consent`, rzeczywistą zgodę i brak jej domniemywania, ślad/notatkę, metadane CRM, próbę podmiany metadanych, częściowy zapis, pojedyncze działanie i brak duplikatów po retry oraz bezpieczną diagnostykę. Zachowano 13 pól kontraktu, dotychczasowe odpowiedzi API i zakaz tworzenia Deala.
+
+| Komenda | Wynik |
+|---|---|
+| `npx vitest run` | PASS, exit 0: 1720/1720, 133 pliki; ankieta 118/118 |
+| `npx tsc --noEmit` | PASS, exit 0 |
+| `npx eslint src` | PASS, exit 0: 0 błędów, 43 dotychczasowe ostrzeżenia |
+| `git diff --check` | PASS |
+
+Kontrole wykonano w `/private/tmp/k3-01-j-check`, z kopią `src`, plikami schematu i zasobami potrzebnymi testom; środowisko wyczyszczono, a `/private/tmp/k3-no-network.cjs` blokował sieć i odczyt `.env*`. Wyłącznie dane syntetyczne i baza w pamięci, bez prawdziwej bazy. Logi: `/private/tmp/k3-j-vitest.log`, `/private/tmp/k3-j-tsc-final.log`, `/private/tmp/k3-j-eslint.log`. Pierwszy pełny przebieg wykazał brak katalogu tłumaczeń `messages` w kopii kontrolnej (również błąd importu w tsc); uzupełniono kopię, bez zmian produktu.
+
+Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, `src/app/api/public/questionnaires/route.ts`, `src/app/api/questionnaires/route.ts`, `CODEX-K3-01-A-REPORT.md`.
+
+Bez commit/push/deploy, nowych kolumn/migracji, odczytu `.env`/sekretów i operacji na rzeczywistej bazie. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Lokalny PASS nie stanowi odbioru LIVE; historyczna przyczyna braku działania na produkcji wymaga dowodu serwerowego.
+
+**GOTOWE DO WERYFIKACJI**

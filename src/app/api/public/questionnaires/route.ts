@@ -65,6 +65,8 @@ export async function POST(request: Request) {
     const saved = await saveFinancialQuestionnaire(supabaseAdmin(), input, {
       fingerprint,
       userAgent: request.headers.get('user-agent') ?? '',
+      origin: request.headers.get('origin'),
+      referer: request.headers.get('referer'),
     });
     return NextResponse.json(
       {

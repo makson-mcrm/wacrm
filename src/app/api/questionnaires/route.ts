@@ -54,6 +54,8 @@ export async function POST(request: Request) {
     const saved = await saveFinancialQuestionnaire(supabaseAdmin(), input, {
       fingerprint: requestFingerprint(ctx.userId, userAgent),
       userAgent,
+      origin: request.headers.get('origin'),
+      referer: request.headers.get('referer'),
       crm: { accountId: ctx.accountId, userId: ctx.userId, contactId },
     });
     return NextResponse.json(

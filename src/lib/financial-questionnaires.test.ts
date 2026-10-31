@@ -102,6 +102,9 @@ const schema: Record<string, string[]> = {
     'title',
     'source',
     'next_action',
+    'occurred_at',
+    'scheduled_at',
+    'next_action_date',
   ],
   whatsapp_config: ['account_id', 'user_id'],
   contacts: [
@@ -113,6 +116,10 @@ const schema: Record<string, string[]> = {
     'name',
     'email',
     'company',
+    'source',
+    'source_details',
+    'contact_consent',
+    'marketing_consent',
   ],
   financial_questionnaire_submissions: [
     'id',
@@ -222,6 +229,13 @@ function database() {
           for (const raw of Array.isArray(payload) ? payload : [payload]) {
             Object.keys(raw).forEach(column);
             const row: Row = {
+              ...(table === 'contacts' ? {
+                source: null, source_details: null,
+                contact_consent: false, marketing_consent: false,
+              } : {}),
+              ...(table === 'sales_activities' ? {
+                occurred_at: new Date().toISOString(), completed: true,
+              } : {}),
               ...raw,
               id: `${table}-${String(rows.length + 1).padStart(3, '0')}`,
               created_at: new Date().toISOString(),
@@ -238,6 +252,26 @@ function database() {
               return { data: null, error: { code: '23505' } };
             if (table === 'contact_notes' && !row.account_id)
               throw new Error('contact_notes.account_id is NOT NULL');
+            if (table === 'sales_activities') {
+              // 044/059/064: required columns, defaults and TEXT CHECKs.
+              for (const key of ['account_id', 'user_id', 'activity_type', 'title', 'occurred_at', 'completed']) {
+                if (row[key] == null)
+                  return { data: null, error: {
+                    code: '23502',
+                    message: `null value in column "${key}" of relation "sales_activities" violates not-null constraint`,
+                  } };
+              }
+              for (const [key, allowed] of [
+                ['activity_type', ['telefon', 'spotkanie', 'follow_up', 'wiadomosc', 'zadanie', 'inny_kontakt', 'wartosciowa_rozmowa']],
+                ['activity_status', ['PLANOWANE', 'WYKONANE', 'NIE_ODBYLO_SIE', 'PRZELOZONE', 'ANULOWANE', 'PRZYGOTOWANO_SMS']],
+              ] as const) {
+                if (row[key] != null && !(allowed as readonly unknown[]).includes(row[key]))
+                  return { data: null, error: {
+                    code: '23514',
+                    message: `new row violates check constraint "sales_activities_${key}_check"`,
+                  } };
+              }
+            }
             rows.push(row);
             inserted.push(row);
           }
@@ -1008,6 +1042,174 @@ describe('K3/01-H: zgodność publicznej koperty i historia odpowiedzi', () => {
   });
 });
 
+describe('K3/01-J: źródło, historia i rzeczywiste zgody', () => {
+  const request = (headers: Record<string, string> = {}, body: unknown = base) =>
+    POST(new Request('https://crm.makson.space/api/public/questionnaires', {
+      method: 'POST', headers, body: JSON.stringify(body),
+    }));
+
+  it.each([
+    [{ origin: 'https://makson.space' }, 'makson.space'],
+    [{ origin: 'https://mediumseagreen-pelican-353577.hostingersite.com' }, 'formularz'],
+    [{ origin: 'https://crm.makson.space' }, 'crm'],
+    [{ referer: 'https://makson.space/ankieta/' }, 'makson.space'],
+    [{ referer: 'https://mediumseagreen-pelican-353577.hostingersite.com/ankieta/' }, 'formularz'],
+    [{ referer: 'https://crm.makson.space/ankieta/' }, 'crm'],
+    [{}, 'ankieta'],
+    [{ referer: 'https://unknown.example.invalid/ankieta/' }, 'ankieta'],
+    [{ referer: 'not-a-url' }, 'ankieta'],
+    [{ referer: 'https://makson.space.example.invalid/' }, 'ankieta'],
+    [{ origin: 'https://makson.space', referer: 'https://crm.makson.space/' }, 'makson.space'],
+  ])('pochodzenie %j → %s, również przy kontakcie', async (headers, source) => {
+    expect((await request(headers)).status).toBe(201);
+    expect(tables.contacts[0]).toMatchObject({
+      source, source_details: null, contact_consent: true, marketing_consent: false,
+    });
+    expect(tables.financial_questionnaire_submissions[0].responses).toMatchObject({
+      source_record: { source, source_details: null, received_at: expect.any(String) },
+    });
+  });
+
+  it('Origin wybiera źródło, Referer zachowuje tylko UTM; powtórka nie zmienia historii', async () => {
+    const headers = {
+      origin: 'https://makson.space',
+      referer: 'https://makson.space/ankieta/?utm_source=kampania&utm_medium=e-mail&utm_campaign=jesie%C5%84&email=private%40example.invalid&contact=private&utm_source=drugi#private',
+    };
+    expect((await request(headers)).status).toBe(201);
+    const details = 'utm_source=kampania&utm_medium=e-mail&utm_campaign=jesie%C5%84&utm_source=drugi';
+    const submission = tables.financial_questionnaire_submissions[0];
+    const responses = submission.responses as Row;
+    expect(tables.contacts[0]).toMatchObject({ source: 'makson.space', source_details: details });
+    expect(responses.source_record).toEqual({
+      source: 'makson.space', source_details: details,
+      origin: 'https://makson.space', received_at: expect.any(String),
+    });
+    expect(responses.consent_record).toEqual({
+      granted: true, scope: 'analiza', text_version: 'v1-2026-10',
+      stated_at: submission.consented_at,
+    });
+    expect(tables.contact_notes[0].note_text).toContain(
+      `Zgoda na analizę (v1-2026-10) — ${submission.consented_at}`
+    );
+    expect(tables.sales_activities[0]).toMatchObject({
+      account_id: 'account-synthetic', user_id: 'user-synthetic',
+      contact_id: tables.contacts[0].id, activity_type: 'zadanie',
+      activity_status: 'PLANOWANE', completed: false,
+      occurred_at: submission.consented_at, scheduled_at: submission.consented_at,
+      next_action_date: submission.consented_at,
+    });
+    const before = JSON.stringify(tables);
+    expect((await request({ origin: 'https://crm.makson.space' })).status).toBe(201);
+    expect(JSON.stringify(tables)).toBe(before);
+    for (const table of ['contacts', 'financial_questionnaire_submissions', 'client_intakes', 'contact_notes', 'sales_activities'])
+      expect(tables[table]).toHaveLength(1);
+    expect((harness.db as ReturnType<typeof database>).from).not.toHaveBeenCalledWith('deals');
+  });
+
+  it.each([false, true])('zachowuje pierwsze źródło i marketing_consent=%s; uzupełnia puste UTM', async (marketing) => {
+    tables.contacts = [{
+      id: crmContactId, account_id: 'account-synthetic', phone: '+48500100200',
+      source: 'Rekomendacja', source_details: '', contact_consent: false,
+      marketing_consent: marketing,
+    }];
+    expect((await request({
+      origin: 'https://makson.space', referer: 'https://makson.space/ankieta/?utm_medium=www',
+    })).status).toBe(201);
+    expect(tables.contacts[0]).toMatchObject({
+      source: 'Rekomendacja', source_details: 'utm_medium=www',
+      contact_consent: true, marketing_consent: marketing,
+    });
+    expect((tables.financial_questionnaire_submissions[0].responses as Row).source_record)
+      .toMatchObject({ source: 'makson.space', source_details: 'utm_medium=www' });
+    expect((await request({ referer: 'https://makson.space/?utm_medium=nowe' })).status).toBe(201);
+    expect(tables.contacts[0].source_details).toBe('utm_medium=www');
+  });
+
+  it('nie nadpisuje źródła wpisanego przez innego autora między odczytem a zapisem', async () => {
+    let changed = false;
+    beforeQuery = async (table, operation) => {
+      if (table === 'contacts' && operation === 'update' && !changed) {
+        tables.contacts[0].source = 'Źródło równoległe';
+        tables.contacts[0].source_details = 'Szczegóły równoległe';
+        changed = true;
+      }
+    };
+    expect((await request({ referer: 'https://makson.space/?utm_medium=www' })).status).toBe(201);
+    expect(tables.contacts[0]).toMatchObject({
+      source: 'Źródło równoległe', source_details: 'Szczegóły równoległe',
+    });
+  });
+
+  it.each([false, undefined, null, 'true', 1])('brak rzeczywistej zgody (%j) nie zmienia wcześniejszej', async (consent) => {
+    expect((await request()).status).toBe(201);
+    const before = JSON.stringify(tables);
+    expect((await request({}, { ...base, consent })).status).toBe(400);
+    expect(JSON.stringify(tables)).toBe(before);
+    await expect(saveFinancialQuestionnaire(
+      harness.db as never,
+      { ...parseFinancialQuestionnaire(base), consent } as never,
+      metadata
+    )).rejects.toMatchObject({ status: 400 });
+    expect(JSON.stringify(tables)).toBe(before);
+  });
+
+  it('metadane z payloadu pozostają w historii, lecz nie zastępują śladu serwera', async () => {
+    const forged = { source: 'forged', granted: false, stated_at: 'forged' };
+    expect((await request({ origin: 'https://makson.space' }, {
+      ...base, source_record: forged, consent_record: forged,
+    })).status).toBe(201);
+    const responses = tables.financial_questionnaire_submissions[0].responses as Row;
+    expect(responses.source_record).toMatchObject({ source: 'makson.space' });
+    expect(responses.consent_record).toMatchObject({ granted: true });
+    expect(responses.original_answers).toMatchObject({ source_record: forged, consent_record: forged });
+  });
+
+  it('retry po awarii notatki zachowuje pierwotną datę i jeden ślad zgody', async () => {
+    failure = { table: 'contact_notes', operation: 'insert' };
+    expect((await request()).status).toBe(500);
+    const submissionBefore = JSON.stringify(tables.financial_questionnaire_submissions);
+    failure = null;
+    expect((await request()).status).toBe(201);
+    expect((await request()).status).toBe(201);
+    expect(JSON.stringify(tables.financial_questionnaire_submissions)).toBe(submissionBefore);
+    expect(tables.contact_notes).toHaveLength(1);
+    expect(tables.contact_notes[0].note_text).toContain(
+      `Zgoda na analizę (v1-2026-10) — ${tables.financial_questionnaire_submissions[0].consented_at}`
+    );
+  });
+
+  it.each([
+    [{ code: '23502', message: 'null value in column "metric_date" of relation "daily_sales_metrics" violates not-null constraint' },
+      { code: '23502', reason: 'not_null', column: 'metric_date', table: 'daily_sales_metrics' }],
+    [{ code: 'PGRST204', message: "Could not find the 'next_action' column of 'sales_activities' in the schema cache" },
+      { code: 'PGRST204', reason: 'schema_cache_column', column: 'next_action', table: 'sales_activities' }],
+    [{ code: '23514', message: 'new row violates check constraint "sales_activities_activity_status_check"' },
+      { code: '23514', reason: 'check_constraint', constraint: 'sales_activities_activity_status_check' }],
+    [{ code: '23503', message: 'insert on table "sales_activities" violates foreign key constraint "sales_activities_user_id_fkey"' },
+      { code: '23503', reason: 'foreign_key', table: 'sales_activities', constraint: 'sales_activities_user_id_fkey' }],
+    [{ code: '23502', message: `null value in column "${contact.name}" of relation "${contact.phone}" violates constraint "${contact.email}"` },
+      { code: '23502', reason: 'not_null' }],
+  ])('błąd działania: bezpieczny dokładniejszy powód %j, nadal 201 i retry bez duplikatów', async (error, diagnostic) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    beforeQuery = async (table, operation) => {
+      if (table === 'sales_activities' && operation === 'insert')
+        throw { ...error, details: contact, hint: contact.email };
+    };
+    try {
+      expect((await request()).status).toBe(201);
+      expect(log.mock.calls).toEqual([['financial_questionnaire_activity_failed', { operation: 'insert', ...diagnostic }]]);
+      expect(tables.sales_activities ?? []).toHaveLength(0);
+      beforeQuery = null;
+      expect((await request()).status).toBe(201);
+      expect((await request()).status).toBe(201);
+      expect(tables.sales_activities).toHaveLength(1);
+      expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
+
 describe('K3/01-I: działanie best-effort po zapisie ankiety', () => {
   const successBody = {
     ok: true,
@@ -1073,7 +1275,10 @@ describe('K3/01-I: działanie best-effort po zapisie ankiety', () => {
         expect(log.mock.calls).toEqual(
           Array.from({ length: 2 }, () => [
             'financial_questionnaire_activity_failed',
-            { operation, code: mode === 'returned' ? '42501' : '42703' },
+            {
+              operation, code: mode === 'returned' ? '42501' : '42703',
+              reason: mode === 'returned' ? 'permission_or_rls' : 'missing_column',
+            },
           ])
         );
         failure = null;
@@ -1110,7 +1315,7 @@ describe('K3/01-I: działanie best-effort po zapisie ankiety', () => {
       expect(log.mock.calls).toEqual([
         [
           'financial_questionnaire_activity_failed',
-          { operation: 'insert', code: 'UNKNOWN' },
+          { operation: 'insert', code: 'UNKNOWN', reason: 'unknown' },
         ],
       ]);
     } finally {
@@ -1141,7 +1346,7 @@ describe('K3/01-I: działanie best-effort po zapisie ankiety', () => {
       expect(log.mock.calls).toEqual([
         [
           'financial_questionnaire_activity_failed',
-          { operation: 'select', code: 'UNKNOWN' },
+          { operation: 'select', code: 'UNKNOWN', reason: 'unknown' },
         ],
       ]);
     } finally {
@@ -1297,7 +1502,11 @@ describe('K3/01-G: jedna ankieta publiczna i doradcy', () => {
       consent_to_analysis: true,
       consented_at: expect.any(String),
       created_at: expect.any(String),
-      responses: { source: 'crm', submitted_by: harness.userId },
+      responses: {
+        source: 'crm', submitted_by: harness.userId,
+        source_record: { source: 'crm', origin: 'https://crm.makson.space' },
+        consent_record: { granted: true, scope: 'analiza', text_version: 'v1-2026-10' },
+      },
     });
     expect(tables.client_intakes[0]).toMatchObject({
       source: 'crm',
@@ -1429,6 +1638,7 @@ describe('K3/01-G: jedna ankieta publiczna i doradcy', () => {
       {
         operation: 'insert',
         code: '42501',
+        reason: 'permission_or_rls',
       }
     );
     log.mockRestore();
