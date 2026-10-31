@@ -391,3 +391,11 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - Odpowiedź asystenta: *„Pilna sprawa z weryfikacją blokuje start kampanii WhatsApp — przekieruję Cię do wsparcia, aby szybko zaktualizować numer.”* Widoczny przycisk „Przeglądanie szczegółów” (przekierowanie do wsparcia).
 - **Numer sprawy nie został jeszcze nadany** — w sekcji „Twoje zgłoszenia do działu obsługi → Aktywne” nadal „Brak zgłoszeń”; zgłoszenie istnieje jako wątek czatu. Odbiór odpowiedzi: Business Support Home → asystent/kokpit czatu, oraz powiadomienia (badge „2 nieprzeczytane”).
 - Nie wysłano dokumentów, nie wybrano wpisu w kreatorze, nie wysłano kodu, konfiguracja WhatsApp/WABA nietknięta.
+
+### 13.20. Numer zgłoszenia Meta i propozycja alternatywnej weryfikacji (30.10.2026)
+- **Numer zgłoszenia: `1510263704199443`** — status **„Otwarte / Open”**, utworzone „mniej niż godzinę temu”.
+- **Opis sprawy wg Meta nie odpowiada naszemu tematowi**: „Prośba o ręczną weryfikację blokady anty-spam na profilu, która uniemożliwia korzystanie z Meta Developers i WhatsApp Business API” — czyli asystent podpiął zgłoszenie do sprawy blokady konta, nie do korekty numeru telefonu. Do potwierdzenia u konsultanta.
+- Nowy wątek czatu utworzony przez Meta: **„Weryfikacja Firmy I Aktualizacja Numeru”**. Wątki powiązane: „Aktualizacja Numeru Telefonu W Weryfikacji Firmy”, „Weryfikacja Firmy W Portfolio”.
+- **Rekomendacja asystenta Meta (istotna):** „Weryfikacja rejestrowa firmy nie wymaga przesyłania prywatnych dokumentów tożsamości — wystarczają dokumenty rejestrowe podmiotu gospodarczego lub potwierdzenie przez firmową domenę i e-mail”. Alternatywy: **kod e-mail w domenie witryny (@makson.space)**, **weryfikacja domeny (DNS)**, albo **urzędowy dokument firmy** (wydruk z CEIDG / rachunek firmowy).
+- Miejsce dalszej korespondencji: `Business Support Home` → czat „Asystent biznesowy Meta AI” (badge „2 nieprzeczytane”), wątek „Weryfikacja Firmy I Aktualizacja Numeru”; ewentualnie „Twoje zgłoszenia do działu obsługi → Aktywne”.
+- Otwarte technicznie: ponowne otwarcie wątku czatu przez automatykę nie powiodło się (3 metody, element listy nieaktywny w DOM) — odczyt treści wymaga ręcznego kliknięcia w panelu czatu.
