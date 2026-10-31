@@ -74,7 +74,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/dashboard'
       url.search = ''
     }
-    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`))
+    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`, request))
   }
 
   // Protected pages - redirect to login if not authenticated.
@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`))
+    return withRefreshedCookies(relativeRedirect(`${url.pathname}${url.search}`, request))
   }
 
   // API routes that need auth (not webhooks)

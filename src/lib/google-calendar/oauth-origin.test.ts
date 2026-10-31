@@ -56,34 +56,34 @@ describe('Google OAuth proxy origins', () => {
 
   it('rejects an evil host before initiating OAuth', async () => {
     const response = await start(request('start', 'evil.example'));
-    expect(response.headers.get('location')).toBe('/settings?tab=calendar&google=configuration_required');
+    expect(response.headers.get('location')).toBe('https://evil.example/settings?tab=calendar&google=configuration_required');
     expect(doubles.cookie.set).not.toHaveBeenCalled();
     expect(doubles.fetch).not.toHaveBeenCalled();
   });
 
-  it('uses a relative redirect when Google is unconfigured', async () => {
+  it('uses an absolute redirect when Google is unconfigured', async () => {
     vi.stubEnv('GOOGLE_CALENDAR_CLIENT_ID', '');
     const response = await start(request('start'));
-    expect(response.headers.get('location')).toBe('/settings?tab=calendar&google=configuration_required');
+    expect(response.headers.get('location')).toBe(`${live}/settings?tab=calendar&google=configuration_required`);
   });
 
-  it('uses a relative redirect for an invalid callback', async () => {
+  it('uses an absolute redirect for an invalid callback', async () => {
     const response = await callback(request('callback?code=synthetic&state=wrong'));
-    expect(response.headers.get('location')).toBe('/settings?tab=calendar&google=authorization_failed');
+    expect(response.headers.get('location')).toBe(`${live}/settings?tab=calendar&google=authorization_failed`);
     expect(doubles.fetch).not.toHaveBeenCalled();
   });
 
   it('rejects an evil callback host before any token exchange', async () => {
     const response = await callback(request('callback?code=synthetic&state=synthetic-state', 'evil.example'));
-    expect(response.headers.get('location')).toBe('/settings?tab=calendar&google=authorization_failed');
+    expect(response.headers.get('location')).toBe('https://evil.example/settings?tab=calendar&google=authorization_failed');
     expect(doubles.fetch).not.toHaveBeenCalled();
   });
 
-  it('uses the same public redirect_uri in the exchange and a relative success redirect', async () => {
+  it('uses the same public redirect_uri in the exchange and an absolute success redirect', async () => {
     doubles.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'synthetic-token' }) })
       .mockResolvedValueOnce({ json: async () => ({ email: 'synthetic@example.invalid' }) });
     const response = await callback(request('callback?code=synthetic&state=synthetic-state'));
-    expect(response.headers.get('location')).toBe('/settings?tab=calendar&google=connected');
+    expect(response.headers.get('location')).toBe(`${live}/settings?tab=calendar&google=connected`);
     expect(doubles.fetch).toHaveBeenCalledTimes(2);
     expect(doubles.fetch.mock.calls[0][1].body.get('redirect_uri'))
       .toBe(`${live}/api/google-calendar/oauth/callback`);

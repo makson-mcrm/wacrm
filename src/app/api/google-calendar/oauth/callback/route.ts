@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const state = request.nextUrl.searchParams.get('state');
     const code = request.nextUrl.searchParams.get('code');
     if (!expected || !state || expected !== state || !code)
-      return relativeRedirect('/settings?tab=calendar&google=authorization_failed');
+      return relativeRedirect('/settings?tab=calendar&google=authorization_failed', request);
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim();
     const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim();
     if (!clientId || !clientSecret) throw new Error('Brak konfiguracji OAuth Google Calendar.');
@@ -68,10 +68,10 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
-    return relativeRedirect('/settings?tab=calendar&google=connected');
+    return relativeRedirect('/settings?tab=calendar&google=connected', request);
   } catch (error) {
     console.error('[google-calendar/oauth/callback]', error);
-    return relativeRedirect('/settings?tab=calendar&google=authorization_failed');
+    return relativeRedirect('/settings?tab=calendar&google=authorization_failed', request);
   }
 }
 

@@ -61,6 +61,39 @@ describe("public legal pages", () => {
   });
 });
 
+describe('anonymous page access', () => {
+  it.each([
+    [{ 'x-forwarded-host': 'public.test', 'x-forwarded-proto': 'https', host: 'internal.test' }, 'https://public.test/login'],
+    [{ host: 'public.test:3111' }, 'http://public.test:3111/login'],
+    [{}, 'http://fallback.test:3111/login'],
+  ] as const)('redirects all protected pages using headers %j', async (headers, location) => {
+    vi.stubEnv('NODE_ENV', 'development');
+    try {
+      for (const path of ['/contacts', '/deals', '/pipelines', '/companies', '/tasks', '/settings']) {
+        const res = await middleware(new NextRequest(`http://fallback.test:3111${path}`, { headers }));
+        expect(res.status).toBe(307);
+        expect(res.headers.get('location')).toBe(location);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('allows /login without a session', async () => {
+    const res = await middleware(new NextRequest('https://public.test/login'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('keeps WhatsApp API authentication and webhook access unchanged', async () => {
+    const api = await middleware(new NextRequest('https://public.test/api/whatsapp/messages'));
+    expect(api.status).toBe(401);
+    expect(await api.json()).toEqual({ error: 'Unauthorized' });
+    const webhook = await middleware(new NextRequest('https://public.test/api/whatsapp/webhook'));
+    expect(webhook.status).toBe(200);
+  });
+});
+
 const ROTATED = {
   name: "sb-test-auth-token",
   value: "rotated-refresh-token",
@@ -73,14 +106,14 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
     ['/signup?invite=synthetic-token', true, '/join/synthetic-token'],
     ['/forgot-password', true, '/dashboard'],
     ['/dashboard', false, '/login'],
-  ])('uses a relative redirect for %s with the internal listener URL', async (path, signedIn, location) => {
+  ])('uses the public origin for %s with the internal listener URL', async (path, signedIn, location) => {
     mockUser = signedIn ? { id: 'synthetic-user' } : null;
     refreshedCookies = [ROTATED];
     const res = await middleware(new NextRequest(`https://0.0.0.0:3000${path}`, {
-      headers: { 'x-forwarded-host': 'evil.example' },
+      headers: { 'x-forwarded-host': 'public.test', 'x-forwarded-proto': 'https' },
     }));
     expect(res.status).toBe(307);
-    expect(res.headers.get('location')).toBe(location);
+    expect(res.headers.get('location')).toBe(`https://public.test${location}`);
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
   });
 

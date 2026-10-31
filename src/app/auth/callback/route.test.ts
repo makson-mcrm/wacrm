@@ -24,35 +24,36 @@ describe('auth callback behind the standalone proxy', () => {
     },
   ];
   describe.each(headers)('headers %j', (header) => {
+    const origin = `https://${header['x-forwarded-host'] || '0.0.0.0:3000'}`;
     const request = (query = '') =>
       new NextRequest(`https://0.0.0.0:3000/auth/callback${query}`, { headers: header });
 
-    it('redirects a missing code relatively, without initializing auth', async () => {
+    it('redirects a missing code to the request origin, without initializing auth', async () => {
       const response = await GET(request('?next=//evil'));
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('/login?error=missing_auth_code');
+      expect(response.headers.get('location')).toBe(`${origin}/login?error=missing_auth_code`);
       expect(createClient).not.toHaveBeenCalled();
     });
 
-    it('redirects an invalid code relatively', async () => {
+    it('redirects an invalid code to the request origin', async () => {
       exchange.mockResolvedValue({ error: { message: 'Synthetic invalid code' } });
       const response = await GET(request('?code=abc123'));
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('/login?error=auth_callback_failed');
+      expect(response.headers.get('location')).toBe(`${origin}/login?error=auth_callback_failed`);
       expect(exchange).toHaveBeenCalledExactlyOnceWith('abc123');
     });
 
     it('exchanges a valid code and returns to /dashboard', async () => {
       const response = await GET(request('?code=synthetic-valid'));
       expect(response.status).toBe(307);
-      expect(response.headers.get('location')).toBe('/dashboard');
+      expect(response.headers.get('location')).toBe(`${origin}/dashboard`);
       expect(exchange).toHaveBeenCalledExactlyOnceWith('synthetic-valid');
     });
 
     it.each(['/reset-password', '/join/synthetic-token', '/dashboard?tab=sales']) (
       'preserves the local destination %s', async (next) => {
         const response = await GET(request(`?code=ok&next=${encodeURIComponent(next)}`));
-        expect(response.headers.get('location')).toBe(next);
+        expect(response.headers.get('location')).toBe(`${origin}${next}`);
       },
     );
 
@@ -62,7 +63,7 @@ describe('auth callback behind the standalone proxy', () => {
       '/\t/evil.example', '/%0d%0aLocation:https://evil.example', '%',
     ])('ignores an unsafe next=%s', async (next) => {
       const response = await GET(request(`?code=ok&next=${encodeURIComponent(next)}`));
-      expect(response.headers.get('location')).toBe('/dashboard');
+      expect(response.headers.get('location')).toBe(`${origin}/dashboard`);
     });
   });
 });

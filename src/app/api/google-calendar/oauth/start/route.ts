@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
     await requireRole('agent');
     const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim();
     if (!clientId)
-      return relativeRedirect('/settings?tab=calendar&google=configuration_required');
+      return relativeRedirect('/settings?tab=calendar&google=configuration_required', request);
     const origin = getPublicAppOrigin(request.headers);
     if (!origin)
-      return relativeRedirect('/settings?tab=calendar&google=configuration_required');
+      return relativeRedirect('/settings?tab=calendar&google=configuration_required', request);
     const state = randomBytes(24).toString('hex');
     const cookieStore = await cookies();
     cookieStore.set('google_calendar_oauth_state', state, {

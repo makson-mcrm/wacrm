@@ -10,15 +10,15 @@ export async function GET(request: NextRequest) {
   const safeNext = safeRedirectPath(next);
 
   if (!code) {
-    return relativeRedirect('/login?error=missing_auth_code');
+    return relativeRedirect('/login?error=missing_auth_code', request);
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return relativeRedirect('/login?error=auth_callback_failed');
+    return relativeRedirect('/login?error=auth_callback_failed', request);
   }
 
-  return relativeRedirect(safeNext);
+  return relativeRedirect(safeNext, request);
 }
