@@ -430,3 +430,27 @@ Logi: `/tmp/k3-h-targeted.log`, `/tmp/k3-h-vitest.log`, `/tmp/k3-h-tsc.log`, `/t
 Zmienione pliki H: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, nowy `src/lib/questionnaires/public-payload.fixture.ts`, niniejszy raport. Zastany nieśledzony `package-lock.json` pozostawiono poza paczką. Bez commit/push/deploy i zmian konfiguracji środowiska. Wyniki lokalne nie stanowią odbioru LIVE.
 
 **GOTOWE DO WERYFIKACJI**
+
+
+## K3/01-I
+
+2026-10-31. Poprawka lokalna na zastanej gałęzi `k3/01-crm-core`, HEAD `40f0c81efbb8920bf0e181afad035ab1c0338e9f`. W lokalnym repo brak wskazanej `k3/01-crm-base` i obiektu `a52a890`; nie cofano wcześniejszych zmian.
+
+**Przyczyna:** potwierdzono, że błąd odczytu `sales_activities` był zamieniany na wyjątek HTTP 500 już po zapisaniu submisji, notatki i intake. Analogicznie działał błąd insertu działania. Oryginalny kod błędu Supabase był tracony. Samo zapytanie (`id`, `account_id`, `contact_id`, `title`, `limit(1).maybeSingle()`) jest zgodne z migracją 044, pola zapisu z 058/059, a publiczny handler używa klienta admin z kluczem service role. Nie znaleziono prostej lokalnej pomyłki kolumny lub klienta. **Dokładna przyczyna błędu Supabase na produkcji pozostaje niepotwierdzona** bez jego oryginalnego kodu/logu i stanu wdrożonego schematu/uprawnień. Migracje 051/059 jawnie nadają dostęp do działań roli `authenticated`, a 056 nie obejmuje tej tabeli dla `service_role`; to trop dotyczący uprawnień, nie dowód ich braku w produkcji. Nie zmieniano uprawnień ani schematu na podstawie przypuszczenia.
+
+**Poprawka:** cały blok działania jest best-effort, zarówno dla zwróconego `error`, jak i rzuconego wyjątku. Błąd odczytu pomija insert. Błąd działania nie przerywa sukcesu ankiety: handler nadal zwraca 201 z dotychczasowymi `ok`, `status`, `missingItems`, `preparationItems`, `message`. Log serwera `financial_questionnaire_activity_failed` zawiera wyłącznie `operation` (`select`/`insert`) i sprawdzony kod SQLSTATE/PostgREST albo `UNKNOWN`; bez treści błędu, danych klienta, identyfikatorów i sekretów. Nie zmieniono modelu danych, 13 pól, API ani wyglądu.
+
+**Idempotencja/testy:** identyczne sekwencyjne ponowienia zachowują jedną submisję i jedno działanie. Po awarii retry uzupełnia brakujące działanie; po utracie odpowiedzi insertu rozpoznaje już zapisane. Testy obejmują sukces, zwrócone i rzucone błędy odczytu/insertu, retry, częściową ankietę i brak danych osobowych w logu/odpowiedzi. Zaktualizowano wcześniejsze oczekiwania 500 dla działania oraz adapter testowy, aby poprawnie propagował odrzucenie Promise przy insercie. Zachowano wcześniejsze ograniczenie: brak unikalnego indeksu/transakcji nie gwarantuje deduplikacji równoległych żądań wielu workerów.
+
+| Komenda | Wynik |
+|---|---|
+| `npx vitest run` | PASS, exit 0: 1693/1693, 133 pliki; ankieta 91/91 |
+| `npx tsc --noEmit` | PASS, exit 0 |
+| `npx eslint src` | PASS, exit 0: 0 błędów, 43 dotychczasowe ostrzeżenia |
+| `git diff --check` | PASS |
+
+Wymagane kontrole wykonano w `/private/tmp/k3-01-a-check` z identycznym `src` (potwierdzone `diff -qr`), wyczyszczonym środowiskiem i blokadą sieci oraz odczytu `.env*` przez `/tmp/k3-no-network.cjs`. Wyłącznie syntetyczna baza w pamięci. Logi końcowe: `/tmp/k3-i-vitest.log`, `/tmp/k3-i-tsc.log`, `/tmp/k3-i-eslint.log`. Pierwszy test celowany wykrył brak przekazania callbacku odrzucenia w adapterze testowym; poprawiono go przed pełnym przebiegiem.
+
+Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, niniejszy raport. Bez commit/push/deploy, dostępu do prawdziwej bazy, odczytu `.env` i sekretów. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Wynik lokalny nie potwierdza naprawy LIVE ani dokładnego źródła błędu Supabase.
+
+**GOTOWE DO WERYFIKACJI**

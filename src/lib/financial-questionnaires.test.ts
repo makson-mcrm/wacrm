@@ -319,8 +319,9 @@ function database() {
         single: () => execute('single'),
         maybeSingle: () => execute('maybe'),
         then: (
-          resolve: (value: Awaited<ReturnType<typeof execute>>) => unknown
-        ) => execute().then(resolve),
+          resolve: (value: Awaited<ReturnType<typeof execute>>) => unknown,
+          reject: (error: unknown) => unknown
+        ) => execute().then(resolve, reject),
       };
       return query;
     }),
@@ -685,8 +686,6 @@ describe('K3/01-B/C: ankieta → Kontakt na istniejącym schemacie', () => {
     ['contact_notes', 'insert'],
     ['client_intakes', 'select'],
     ['client_intakes', 'insert'],
-    ['sales_activities', 'select'],
-    ['sales_activities', 'insert'],
   ])(
     'jawny błąd API przy awarii %s / %s; retry nie mnoży kontaktów',
     async (table, operation) => {
@@ -1009,6 +1008,148 @@ describe('K3/01-H: zgodność publicznej koperty i historia odpowiedzi', () => {
   });
 });
 
+describe('K3/01-I: działanie best-effort po zapisie ankiety', () => {
+  const successBody = {
+    ok: true,
+    status: 'submitted',
+    missingItems: [],
+    preparationItems: [],
+    message: 'Dziękujemy. Ankieta została zapisana.',
+  };
+
+  it('sukces i identyczne ponowienie → 201, jedna submisja i jedno działanie', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await api(publicQuestionnairePayload);
+        expect(response.status).toBe(201);
+        expect(await response.json()).toEqual(successBody);
+      }
+      expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+      expect(tables.sales_activities).toHaveLength(1);
+      expect(tables.sales_activities[0]).toMatchObject({
+        title: `Ankieta ${tables.financial_questionnaire_submissions[0].id}`,
+        contact_id: tables.contacts[0].id,
+        activity_type: 'zadanie',
+        activity_status: 'PLANOWANE',
+        next_action: 'Omówić ankietę i przygotować spotkanie.',
+      });
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it.each([
+    ['select', 'returned'],
+    ['select', 'thrown'],
+    ['insert', 'returned'],
+    ['insert', 'thrown'],
+  ])(
+    '%s / %s: 201 bez ujawnienia błędu; retry bez duplikatów',
+    async (operation, mode) => {
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const sensitiveError = {
+        code: '42703',
+        message: contact.name,
+        details: contact.phone,
+        hint: contact.email,
+      };
+      if (mode === 'returned')
+        failure = { table: 'sales_activities', operation };
+      else
+        beforeQuery = async (table, queryOperation) => {
+          if (table === 'sales_activities' && queryOperation === operation)
+            throw sensitiveError;
+        };
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const response = await api(publicQuestionnairePayload);
+          expect(response.status).toBe(201);
+          expect(await response.json()).toEqual(successBody);
+        }
+        expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+        expect(tables.sales_activities ?? []).toHaveLength(0);
+        expect(log.mock.calls).toEqual(
+          Array.from({ length: 2 }, () => [
+            'financial_questionnaire_activity_failed',
+            { operation, code: mode === 'returned' ? '42501' : '42703' },
+          ])
+        );
+        failure = null;
+        beforeQuery = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const response = await api(publicQuestionnairePayload);
+          expect(response.status).toBe(201);
+          expect(await response.json()).toEqual(successBody);
+        }
+        expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+        expect(tables.sales_activities).toHaveLength(1);
+        expect(tables.client_intakes).toHaveLength(1);
+        expect(tables.contact_notes).toHaveLength(1);
+        expect(log).toHaveBeenCalledTimes(2);
+      } finally {
+        log.mockRestore();
+      }
+    }
+  );
+
+  it('utracona odpowiedź INSERT: 201 i retry rozpoznaje zapisane działanie', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    afterQuery = async (table, operation) => {
+      if (table === 'sales_activities' && operation === 'insert')
+        throw new Error(`synthetic response lost: ${contact.email}`);
+    };
+    try {
+      expect((await api(publicQuestionnairePayload)).status).toBe(201);
+      expect(tables.sales_activities).toHaveLength(1);
+      afterQuery = null;
+      expect((await api(publicQuestionnairePayload)).status).toBe(201);
+      expect(tables.sales_activities).toHaveLength(1);
+      expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+      expect(log.mock.calls).toEqual([
+        [
+          'financial_questionnaire_activity_failed',
+          { operation: 'insert', code: 'UNKNOWN' },
+        ],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('częściowa ankieta i błąd odczytu: zachowuje status, braki i komunikat 201; nie loguje treści code', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    beforeQuery = async (table) => {
+      if (table === 'sales_activities') throw { code: contact.email };
+    };
+    try {
+      const response = await api({
+        ...publicQuestionnairePayload,
+        responses: { ...publicQuestionnaireResponses, city: '' },
+      });
+      expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({
+        ...successBody,
+        status: 'partial',
+        missingItems: ['Miejscowość'],
+        message:
+          'Dziękujemy. Ankieta została zapisana z listą informacji do uzupełnienia.',
+      });
+      expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+      expect(tables.sales_activities ?? []).toHaveLength(0);
+      expect(log.mock.calls).toEqual([
+        [
+          'financial_questionnaire_activity_failed',
+          { operation: 'select', code: 'UNKNOWN' },
+        ],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
+
 const crmContactId = '00000000-0000-4000-8000-000000000001';
 const foreignContactId = '00000000-0000-4000-8000-000000000002';
 function advisor() {
@@ -1276,12 +1417,21 @@ describe('K3/01-G: jedna ankieta publiczna i doradcy', () => {
       'crm',
     ]);
   });
-  it('awaria CRM zapisu jest jawna; retry naprawia zapis bez duplikowania submisji', async () => {
+  it('awaria działania CRM nie odrzuca ankiety; retry naprawia zapis bez duplikowania submisji', async () => {
     advisor();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     failure = { table: 'sales_activities', operation: 'insert' };
     const response = await crmApi();
-    expect(response.status).toBe(500);
-    expect((await response.json()).error).toContain('kolejnego działania');
+    expect(response.status).toBe(201);
+    expect(await response.json()).not.toHaveProperty('error');
+    expect(log).toHaveBeenCalledWith(
+      'financial_questionnaire_activity_failed',
+      {
+        operation: 'insert',
+        code: '42501',
+      }
+    );
+    log.mockRestore();
     failure = null;
     expect((await crmApi()).status).toBe(201);
     expect(tables.financial_questionnaire_submissions).toHaveLength(1);

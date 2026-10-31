@@ -426,41 +426,52 @@ export async function saveFinancialQuestionnaire(
         500
       );
   }
-  // Use the existing follow-up fields without inventing a deadline or a Deal.
-  const activityTitle = `Ankieta ${submission.id}`;
-  const { data: activity, error: activityLookupError } = await db
-    .from('sales_activities')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contact.id)
-    .eq('title', activityTitle)
-    .limit(1)
-    .maybeSingle();
-  if (activityLookupError)
-    throw new FinancialQuestionnaireError(
-      'Nie odczytano kolejnego działania.',
-      500
-    );
-  if (!activity) {
-    const nextAction = missingItems.length
-      ? `Uzupełnić ankietę: ${missingItems.join(', ')}.`
-      : 'Omówić ankietę i przygotować spotkanie.';
-    const { error } = await db.from('sales_activities').insert({
-      account_id: accountId,
-      user_id: auditUserId,
-      contact_id: contact.id,
-      activity_type: 'zadanie',
-      activity_status: 'PLANOWANE',
-      completed: false,
-      title: activityTitle,
-      source,
-      next_action: nextAction,
+  // Follow-up is best-effort: its failure must not reject a saved questionnaire.
+  // Keep the lookup on retries; never insert blindly after a failed read.
+  let activityOperation: 'select' | 'insert' = 'select';
+  try {
+    const activityTitle = `Ankieta ${submission.id}`;
+    const { data: activity, error: activityLookupError } = await db
+      .from('sales_activities')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contact.id)
+      .eq('title', activityTitle)
+      .limit(1)
+      .maybeSingle();
+    if (activityLookupError) throw activityLookupError;
+    if (!activity) {
+      activityOperation = 'insert';
+      const nextAction = missingItems.length
+        ? `Uzupełnić ankietę: ${missingItems.join(', ')}.`
+        : 'Omówić ankietę i przygotować spotkanie.';
+      const { error } = await db.from('sales_activities').insert({
+        account_id: accountId,
+        user_id: auditUserId,
+        contact_id: contact.id,
+        activity_type: 'zadanie',
+        activity_status: 'PLANOWANE',
+        completed: false,
+        title: activityTitle,
+        source,
+        next_action: nextAction,
+      });
+      if (error) throw error;
+    }
+  } catch (error) {
+    // Error messages/details, payloads and IDs can contain personal data.
+    // Log only the operation and a validated SQLSTATE/PostgREST error code.
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? error.code
+        : undefined;
+    console.error('financial_questionnaire_activity_failed', {
+      operation: activityOperation,
+      code:
+        typeof code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code)
+          ? code
+          : 'UNKNOWN',
     });
-    if (error)
-      throw new FinancialQuestionnaireError(
-        'Nie zapisano kolejnego działania.',
-        500
-      );
   }
   return {
     id: submission.id as string,
