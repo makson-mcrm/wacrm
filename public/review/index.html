@@ -46,7 +46,16 @@
 <script>
   var q = new URLSearchParams(location.search);
   if (q.get('open')) document.getElementById('live').src = '/contacts?open=' + encodeURIComponent(q.get('open'));
-  if (q.get('commit')) document.getElementById('cmt').textContent = q.get('commit');
+  var frame = document.getElementById('live');
+  var cmt = document.getElementById('cmt');
+  frame.addEventListener('load', function () {
+    try {
+      var p = frame.contentWindow.location.pathname + frame.contentWindow.location.search;
+      cmt.textContent = p.indexOf('/login') === 0 ? 'BLOKADA: brak sesji w panelu LIVE' : 'sesja zalogowana: ' + p;
+    } catch (e) {
+      cmt.textContent = 'sesja: nieodczytana (cross-origin)';
+    }
+  });
 </script>
 </body>
 </html>
