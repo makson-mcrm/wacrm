@@ -897,6 +897,19 @@ export function ContactDetailView({
             <h1 className="text-lg font-semibold">Karta klienta</h1>
           ) : (
             <>
+              <nav
+                aria-label="Ścieżka nawigacji"
+                className="mb-2 flex items-center gap-2 text-xs text-slate-700"
+              >
+                <Link
+                  href="/contacts"
+                  className="font-semibold hover:underline"
+                >
+                  Klienci
+                </Link>
+                <span aria-hidden="true">›</span>
+                <span aria-current="page">{contact.name || t('unnamed')}</span>
+              </nav>
               <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
                 Klient
               </p>
@@ -1101,7 +1114,7 @@ export function ContactDetailView({
                   <ContactDetailColumn
                     key={`${contact.id}-context`}
                     area="context"
-                    title="Deale i osoby"
+                    label="Deale i osoby"
                     expanded={contextExpanded}
                     onExpandedChange={setContextExpanded}
                   >
@@ -1207,7 +1220,7 @@ export function ContactDetailView({
                   <ContactDetailColumn
                     key={`${contact.id}-work`}
                     area="work"
-                    title="Działania i dokumenty"
+                    label="Działania i dokumenty"
                   >
                     <ContactNextAction
                       contact={contact}
@@ -1246,7 +1259,7 @@ export function ContactDetailView({
                   <ContactDetailColumn
                     key={`${contact.id}-results`}
                     area="results"
-                    title="Aktywność i relacje"
+                    label="Aktywność i relacje"
                   >
                     <section
                       className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1259,6 +1272,7 @@ export function ContactDetailView({
                         Ostatnia aktywność
                       </h3>
                       <ActivityHistory
+                        compactNotes
                         contactId={contact.id}
                         snapshot={historySnapshot}
                         className="mt-2 border-l-2 border-emerald-200 pl-3"
@@ -1908,6 +1922,7 @@ export function ContactDetailView({
                 className="flex-1 overflow-y-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)]"
               >
                 <ActivityHistory
+                  compactNotes
                   contactId={contact.id}
                   snapshot={historySnapshot}
                 />

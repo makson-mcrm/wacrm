@@ -24,6 +24,7 @@ type ActivityHistoryProps = {
   dealId?: string | null;
   className?: string;
   snapshot?: ActivityHistorySnapshot;
+  compactNotes?: boolean;
 };
 
 export type QueueEvent = {
@@ -113,6 +114,7 @@ export function ActivityHistory({
   dealId,
   className,
   snapshot,
+  compactNotes = false,
 }: ActivityHistoryProps) {
   const db = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
@@ -170,6 +172,7 @@ export function ActivityHistory({
     <ActivityHistoryList
       {...(snapshot ?? { activities, queueEvents, notes, loading })}
       className={className}
+      compactNotes={compactNotes}
     />
   );
 }
@@ -181,7 +184,8 @@ export function ActivityHistoryList({
   loading,
   error,
   className,
-}: ActivityHistorySnapshot & { className?: string }) {
+  compactNotes = false,
+}: ActivityHistorySnapshot & { className?: string; compactNotes?: boolean }) {
   if (error)
     return (
       <p className="py-8 text-center text-sm text-slate-700">
@@ -206,6 +210,29 @@ export function ActivityHistoryList({
       <div className="space-y-2">
         {mergeActivityHistory(activities, notes).map((item) => {
           if (item.kind === 'note') {
+            if (compactNotes && item.note.note_text.startsWith('Ankieta')) {
+              return (
+                <details
+                  key={`note-${item.note.id}`}
+                  className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950"
+                >
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs">
+                    <span className="min-w-0 flex-1 truncate font-bold text-emerald-800">
+                      Ankieta — otrzymana
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-slate-700">
+                      {formatWarsawDateTime(item.note.created_at)}
+                    </span>
+                    <span className="shrink-0 font-semibold underline">
+                      Szczegóły
+                    </span>
+                  </summary>
+                  <p className="mt-1 text-sm whitespace-pre-wrap">
+                    {item.note.note_text}
+                  </p>
+                </details>
+              );
+            }
             return (
               <article
                 key={`note-${item.note.id}`}

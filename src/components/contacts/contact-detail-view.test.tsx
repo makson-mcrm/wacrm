@@ -16,6 +16,9 @@ const fixture = vi.hoisted(() => ({
   backClick: undefined as undefined | (() => void),
   tab: 'overview',
   expanded: true,
+  emptyArrayIndex: 0,
+  tags: [] as import('@/types').Tag[],
+  notes: [] as import('@/types').ContactNote[],
   tasks: [] as {
     id: string;
     title: string;
@@ -60,8 +63,15 @@ vi.mock('react', async (importOriginal) => {
       fixture.refs.push(ref);
       return ref;
     },
-    useState: (initial: unknown) =>
-      react.useState(
+    useState: (initial: unknown) => {
+      // Seed the existing tag, tag-ID and note states without running database effects.
+      if (Array.isArray(initial) && initial.length === 0) {
+        const index = fixture.emptyArrayIndex++;
+        if (index === 0) initial = fixture.tags;
+        if (index === 1) initial = fixture.tags.map(({ id }) => id);
+        if (index === 2) initial = fixture.notes;
+      }
+      return react.useState(
         initial === null
           ? fixture.contact
           : initial === 'overview'
@@ -69,7 +79,8 @@ vi.mock('react', async (importOriginal) => {
             : initial === true
               ? fixture.expanded
               : initial
-      ),
+      );
+    },
   };
 });
 vi.mock('./contact-detail-sections', async (importOriginal) => {
@@ -186,8 +197,16 @@ vi.mock('@/components/tags/entity-tags-editor', () => ({
   EntityTagsEditor: () => <div>Edytor tagów</div>,
 }));
 vi.mock('@/components/sales/activity-history', () => ({
-  ActivityHistory: ({ contactId }: { contactId: string }) => (
-    <div data-history={contactId}>Historia aktywności</div>
+  ActivityHistory: ({
+    contactId,
+    compactNotes,
+  }: {
+    contactId: string;
+    compactNotes?: boolean;
+  }) => (
+    <div data-history={contactId} data-compact-notes={compactNotes}>
+      Historia aktywności
+    </div>
   ),
 }));
 vi.mock('@/components/sales/call-action', () => ({
@@ -199,8 +218,9 @@ vi.mock('@/components/sales/whatsapp-action', () => ({
 
 const render = (
   props: Partial<React.ComponentProps<typeof ContactDetailView>> = {}
-) =>
-  renderToStaticMarkup(
+) => {
+  fixture.emptyArrayIndex = 0;
+  return renderToStaticMarkup(
     <ContactDetailView
       open
       contactId={fixture.contact.id}
@@ -209,12 +229,15 @@ const render = (
       {...props}
     />
   );
+};
 beforeEach(() => {
   fixture.effects = [];
   fixture.refs = [];
   fixture.backClick = undefined;
   fixture.tab = 'overview';
   fixture.expanded = true;
+  fixture.tags = [];
+  fixture.notes = [];
   fixture.tasks = [];
   fixture.documents = [];
   fixture.activities = [];
@@ -325,8 +348,8 @@ describe('02A-2: zatwierdzony układ i wspólne dane', () => {
       html.indexOf('role="tablist"')
     );
     expect(html).toContain('Miejscowość: Brak danych');
-    expect(html).toContain('VIP: Brak danych');
-    expect(html).toContain('Status: Brak danych');
+    expect(html).not.toContain('VIP: Brak danych');
+    expect(html).not.toContain('Status: Brak danych');
   });
   it('wszystkie osiem liczników pokazuje zero przy pustych danych', () => {
     const html = render();
@@ -490,7 +513,7 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
     expect(html).toContain('Dane klienta');
     // Reused sections have only one mounted instance in the active panel.
     expect(html.match(/placeholder="notesTab.placeholder"/g)).toHaveLength(1);
-    expect(html.match(/<dt[^>]*>Opiekun/g)).toHaveLength(1);
+    expect(html.match(/data-contact-info-card="Opiekun"/g)).toHaveLength(1);
   });
 
   it.each([1280, 1440, 1920])(
@@ -667,4 +690,97 @@ describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
     fixture.backClick!();
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
+});
+
+describe('K3-02A-6: zatwierdzone poprawki karty', () => {
+  it('nagłówek zawiera breadcrumbs z linkiem do klientów i bieżącą nazwą bez linku', () => {
+    const html = render();
+    const nav = html.match(
+      /<nav aria-label="Ścieżka nawigacji"[^>]*>(.*?)<\/nav>/
+    )![1];
+    expect(nav).toMatch(/<a href="\/contacts"[^>]*>Klienci<\/a>/);
+    expect(nav).toContain(
+      `<span aria-current="page">${fixture.contact.name}</span>`
+    );
+    expect(nav.match(/<a /g)).toHaveLength(1);
+    expect(html.indexOf('Ścieżka nawigacji')).toBeLessThan(html.indexOf('<h1'));
+    expect(html).not.toContain('Status: Brak danych');
+    expect(html).not.toContain('VIP: Brak danych');
+  });
+
+  it('istniejący VIP jest chipem w nagłówku', () => {
+    fixture.tags = [
+      { id: 'vip-synthetic', name: 'VIP' },
+    ] as import('@/types').Tag[];
+    const header = render().split('</header>')[0];
+    expect(header).toMatch(/data-contact-status="true".*lucide-star.*VIP/);
+    expect(header).not.toContain('VIP: Brak danych');
+    expect(header).not.toContain('Status: Brak danych');
+  });
+
+  it('kolumny zachowują etykiety i mobilne przyciski bez nagłówków h2', () => {
+    const html = render();
+    for (const label of [
+      'Deale i osoby',
+      'Działania i dokumenty',
+      'Aktywność i relacje',
+    ]) {
+      expect(html).toContain(`aria-label="${label}"`);
+      expect(html).not.toMatch(new RegExp(`<h2[^>]*>.*${label}.*?</h2>`));
+      expect(html).toMatch(
+        new RegExp(`<button[^>]*aria-expanded="true"[^>]*>${label}<span`)
+      );
+    }
+  });
+
+  it.each(['overview', 'notes'])(
+    'Notatki zachowują pełną ankietę w zakładce %s',
+    (tab) => {
+      const text = 'Ankieta syntetyczna\nOdpowiedź: pełna treść bez zmian';
+      fixture.notes = [
+        {
+          id: 'note-synthetic',
+          note_text: text,
+          created_at: '2026-10-31T10:00:00Z',
+        },
+      ] as import('@/types').ContactNote[];
+      fixture.tab = tab;
+      const html = render();
+      const notes =
+        tab === 'overview'
+          ? html.split('id="contact-overview-notes"')[1].split('</section>')[0]
+          : html;
+      expect(notes).toContain(text);
+      expect(notes).toContain('whitespace-pre-wrap');
+    }
+  );
+
+  it.each(['overview', 'history'])(
+    'tylko karta kontaktu włącza kompaktowe notatki (%s)',
+    (tab) => {
+      fixture.tab = tab;
+      expect(render()).toContain(
+        'data-history="contact-synthetic" data-compact-notes="true"'
+      );
+    }
+  );
+
+  it.each([1280, 1440, 1920])(
+    'pięć kart mieści się w jednym rzędzie przy %i px bez przewijania poziomego',
+    async (width) => {
+      const html = render();
+      const classes = html.match(
+        /data-contact-info-cards="true" class="([^"]+)"/
+      )![1];
+      const styles = await layoutStyles(html);
+      expect(styles(classes, width)['grid-template-columns']).toBe(
+        'repeat(5,minmax(0,1fr))'
+      );
+      expect(styles(classes, width)['overflow-x']).toBeUndefined();
+      expect(styles(classes, 375)['grid-template-columns']).toBe(
+        'repeat(5,minmax(160px,1fr))'
+      );
+      expect(styles(classes, 375)['overflow-x']).toBe('auto');
+    }
+  );
 });

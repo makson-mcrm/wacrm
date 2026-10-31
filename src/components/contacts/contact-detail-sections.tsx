@@ -2,7 +2,16 @@
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Loader2, Mail } from 'lucide-react';
+import {
+  Building2,
+  Layers,
+  Link2,
+  Loader2,
+  Mail,
+  Star,
+  UserRound,
+  Users,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { Button } from '@/components/ui/button';
@@ -22,12 +31,14 @@ type Client = ReturnType<typeof createClient>;
 export function ContactDetailColumn({
   area,
   title,
+  label,
   children,
   expanded: controlledExpanded,
   onExpandedChange,
 }: {
   area: 'context' | 'work' | 'results';
-  title: string;
+  title?: string;
+  label: string;
   children: ReactNode;
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
@@ -38,28 +49,27 @@ export function ContactDetailColumn({
   return (
     <section
       data-contact-column={area}
-      aria-labelledby={`${id}-heading`}
+      aria-label={label}
       className="min-h-0 min-w-0 xl:overflow-y-auto xl:overscroll-contain"
     >
-      <h2
-        id={`${id}-heading`}
-        className="mb-3 text-sm font-black text-slate-950"
-      >
-        <span className="hidden xl:block">{title}</span>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-controls={`${id}-content`}
-          onClick={() => {
-            setLocalExpanded(!expanded);
-            onExpandedChange?.(!expanded);
-          }}
-          className="flex min-h-11 w-full items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 text-left xl:hidden"
-        >
+      {title && (
+        <h2 className="mb-3 hidden text-sm font-black text-slate-950 xl:block">
           {title}
-          <span aria-hidden>{expanded ? '−' : '+'}</span>
-        </button>
-      </h2>
+        </h2>
+      )}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={`${id}-content`}
+        onClick={() => {
+          setLocalExpanded(!expanded);
+          onExpandedChange?.(!expanded);
+        }}
+        className="mb-3 flex min-h-11 w-full items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 text-left text-sm font-black text-slate-950 xl:hidden"
+      >
+        {title ?? label}
+        <span aria-hidden>{expanded ? '−' : '+'}</span>
+      </button>
       <div
         id={`${id}-content`}
         className={`${expanded ? 'block' : 'hidden'} space-y-3 break-words xl:block`}
@@ -205,43 +215,50 @@ export function ContactInfoCards({
   const cards = [
     {
       title: 'Firma',
+      icon: Building2,
       value: company?.name,
-      detail: `NIP: ${company?.nip || 'Brak danych'}`,
+      detail: company?.nip ? `NIP: ${company.nip}` : undefined,
       href: company ? `/companies?open=${company.id}` : undefined,
     },
     {
       title: 'Współmałżonek/Partner',
+      icon: Users,
       value: spouse?.name,
-      detail: `Telefon: ${spouse?.phone || 'Brak danych'}`,
+      detail: spouse?.phone ? `Telefon: ${spouse.phone}` : undefined,
       href: spouse ? `/contacts?open=${spouse.id}` : undefined,
     },
     {
       title: 'Źródło',
+      icon: Link2,
       value: contact.source?.trim(),
       detail: contact.source_details,
       extra: contact.created_at
-        ? `Dodano do CRM: ${formatWarsawDateTime(contact.created_at)} · Data pozyskania: Brak danych`
-        : 'Data pozyskania: Brak danych',
+        ? `Dodano do CRM: ${formatWarsawDateTime(contact.created_at)}`
+        : undefined,
     },
-    { title: 'Segment', value: segments.join(' · ') },
+    { title: 'Segment', icon: Layers, value: segments.join(' · ') },
     {
       title: 'Opiekun',
+      icon: UserRound,
       value: ownerError ? 'Nie udało się wczytać opiekuna.' : owner,
-      detail: `Rola: ${ownerRole || 'Brak danych'}`,
+      detail: ownerRole ? `Rola: ${ownerRole}` : undefined,
     },
   ];
   return (
     <dl
       data-contact-info-cards
-      className="grid min-w-0 shrink-0 grid-cols-[repeat(5,minmax(160px,1fr))] gap-[var(--card-gap)] overflow-x-auto px-[var(--content-pad-x)] py-[var(--content-pad-y)] text-xs"
+      className="grid min-w-0 shrink-0 grid-cols-[repeat(5,minmax(160px,1fr))] gap-[var(--card-gap)] px-[var(--content-pad-x)] py-[var(--content-pad-y)] text-xs max-xl:overflow-x-auto xl:grid-cols-[repeat(5,minmax(0,1fr))]"
     >
-      {cards.map(({ title, value, detail, extra, href }) => (
+      {cards.map(({ title, icon: Icon, value, detail, extra, href }) => (
         <div
           key={title}
           data-contact-info-card={title}
-          className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+          className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
         >
-          <dt className="font-black text-slate-800">{title}</dt>
+          <dt className="flex items-start gap-2 font-black break-words text-slate-800">
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            {title}
+          </dt>
           <dd className="mt-2 font-semibold break-words text-slate-950">
             {href ? (
               <Link href={href} className="text-emerald-800 hover:underline">
@@ -254,7 +271,14 @@ export function ContactInfoCards({
           {detail && (
             <dd className="mt-1 break-words text-slate-700">{detail}</dd>
           )}
-          {extra && <dd className="mt-1 text-slate-700">{extra}</dd>}
+          {extra && (
+            <dd
+              className="mt-auto truncate pt-1 text-[11px] text-slate-600"
+              title={extra}
+            >
+              {extra}
+            </dd>
+          )}
         </div>
       ))}
     </dl>
@@ -264,25 +288,23 @@ export function ContactInfoCards({
 export function ContactStatusTags({ tags }: { tags: Tag[] }) {
   const vip = tags.find((tag) => /^vip$/i.test(tag.name.trim()));
   const statuses = tags.filter((tag) => tag !== vip);
+  if (!tags.length) return null;
   return (
     <div data-contact-status className="mt-1 flex flex-wrap gap-1 text-xs">
-      {statuses.length ? (
-        statuses.map((tag) => (
-          <span
-            key={tag.id}
-            className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900"
-          >
-            {tag.name}
-          </span>
-        ))
-      ) : (
-        <span className="rounded-full bg-slate-100 px-2 py-1">
-          Status: Brak danych
+      {statuses.map((tag) => (
+        <span
+          key={tag.id}
+          className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900"
+        >
+          {tag.name}
+        </span>
+      ))}
+      {vip && (
+        <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-900">
+          <Star aria-hidden="true" className="size-3" />
+          VIP
         </span>
       )}
-      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-900">
-        VIP: {vip ? 'Tak' : 'Brak danych'}
-      </span>
     </div>
   );
 }

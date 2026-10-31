@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { Contact, Deal } from '@/types';
 import { createClient } from '@/lib/supabase/client';
-import { ActivityHistoryList } from '@/components/sales/activity-history';
+import {
+  ActivityHistory,
+  ActivityHistoryList,
+} from '@/components/sales/activity-history';
 import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import {
   ContactInfoCards,
@@ -16,9 +19,13 @@ import {
   loadContactOwnerProfile,
   ContactNextAction,
   ContactStatusTags,
+  ContactDetailColumn,
 } from './contact-detail-sections';
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn() }));
+vi.mock('@/hooks/use-auth', () => ({
+  useAuth: () => ({ accountId: 'account-test' }),
+}));
 const contact = {
   id: 'contact-test',
   user_id: 'auth-user-test',
@@ -309,7 +316,6 @@ describe('02A-2: dane kart i Next action', () => {
       'Rola: agent',
       '/companies?open=primary',
       '/contacts?open=spouse-test',
-      'Data pozyskania: Brak danych',
     ])
       expect(html).toContain(text);
     expect(html).not.toContain('Inna firma');
@@ -326,11 +332,9 @@ describe('02A-2: dane kart i Next action', () => {
         }
       />
     );
-    for (const text of ['Klient indywidualny', 'Aktywny', 'VIP: Tak'])
+    for (const text of ['Klient indywidualny', 'Aktywny', 'VIP'])
       expect(html).toContain(text);
-    expect(renderToStaticMarkup(<ContactStatusTags tags={[]} />)).toContain(
-      'Status: Brak danych'
-    );
+    expect(renderToStaticMarkup(<ContactStatusTags tags={[]} />)).toBe('');
   });
   it('Next action wybiera jedno najwcześniejsze działanie z kontaktu, otwartych Deali i aktywności', () => {
     const html = renderToStaticMarkup(
@@ -407,7 +411,7 @@ describe('02A-2: dane kart i Next action', () => {
       />
     );
     expect(html).toContain('Dodano do CRM:');
-    expect(html).toContain('Data pozyskania: Brak danych');
+    expect(html).not.toContain('Data pozyskania:');
   });
   it('historia ogranicza odczyt do kontaktu i konta oraz odróżnia awarie', async () => {
     const row = { contact_id: contact.id, account_id: contact.account_id };
@@ -511,5 +515,185 @@ describe('02A-2: wspólne komponenty zachowują dotychczasowe zachowanie', () =>
       expect(html).toContain(
         '/quick-call?contact=contact-test&amp;action=message'
       );
+  });
+});
+
+describe('K3-02A-6: prezentacja kart, oznaczeń i ankiety', () => {
+  it('pięć kart zawiera po jednej ikonie size-4 i datę drugorzędną tylko gdy istnieje', () => {
+    const html = renderToStaticMarkup(
+      <ContactInfoCards
+        contact={{ ...contact, created_at: '2026-10-31T10:00:00Z' }}
+        owner=""
+      />
+    );
+    const cards = html.split('data-contact-info-card=').slice(1);
+    expect(cards).toHaveLength(5);
+    for (const card of cards) {
+      expect(card.match(/<svg /g)).toHaveLength(1);
+      expect(card).toMatch(/<svg[^>]*class="[^"]*size-4/);
+      expect(card).toContain('aria-hidden="true"');
+    }
+    const date = html.match(
+      /<dd class="([^"]*text-\[11px\][^"]*)"[^>]*>(.*?)<\/dd>/
+    )!;
+    expect(date[1]).toContain('text-slate-600');
+    expect(date[1]).toContain('mt-auto');
+    expect(date[1]).toContain('truncate');
+    expect(date[2]).toContain('Dodano do CRM:');
+    expect(date[2]).not.toContain('Brak danych');
+    expect(
+      renderToStaticMarkup(<ContactInfoCards contact={contact} owner="" />)
+    ).not.toContain('text-[11px]');
+  });
+
+  it('oznaczenia zawierają tylko istniejące tagi i opcjonalny chip VIP', () => {
+    expect(renderToStaticMarkup(<ContactStatusTags tags={[]} />)).toBe('');
+    const status = renderToStaticMarkup(
+      <ContactStatusTags
+        tags={[{ id: 'active', name: 'Aktywny' }] as import('@/types').Tag[]}
+      />
+    );
+    expect(status).toContain('Aktywny');
+    expect(status).not.toContain('VIP');
+    expect(status).not.toContain('Brak danych');
+    const vip = renderToStaticMarkup(
+      <ContactStatusTags
+        tags={[{ id: 'vip', name: 'VIP' }] as import('@/types').Tag[]}
+      />
+    );
+    expect(vip).toContain('lucide-star');
+    expect(vip).toContain('VIP');
+    expect(vip).not.toContain('Brak danych');
+  });
+
+  it('tytuł kolumny jest opcjonalny, etykieta i mobilny przycisk pozostają', () => {
+    const html = renderToStaticMarkup(
+      <ContactDetailColumn area="context" label="Deale i osoby">
+        <p>Treść</p>
+      </ContactDetailColumn>
+    );
+    expect(html).toContain('aria-label="Deale i osoby"');
+    expect(html).not.toContain('<h2');
+    expect(html).toMatch(
+      /<button[^>]*aria-expanded="true"[^>]*class="[^"]*xl:hidden[^>]*>Deale i osoby/
+    );
+    expect(
+      renderToStaticMarkup(
+        <ContactDetailColumn
+          area="context"
+          label="Deale i osoby"
+          title="Tytuł opcjonalny"
+        >
+          <p>Treść</p>
+        </ContactDetailColumn>
+      )
+    ).toMatch(/<h2[^>]*>Tytuł opcjonalny<\/h2>/);
+  });
+
+  const text =
+    'Ankieta syntetyczna\nOdpowiedź 1: pełna treść\nOdpowiedź 2: bez zmian';
+  const snapshot = {
+    activities: [],
+    queueEvents: [],
+    loading: false,
+    notes: [
+      {
+        id: 'survey-synthetic',
+        note_text: text,
+        created_at: '2026-10-31T10:00:00Z',
+        user_id: 'user-synthetic',
+      },
+    ],
+  };
+
+  it('kompaktowa ankieta ma jeden zamknięty details z wierszem podsumowania i pełną treścią do rozwinięcia', () => {
+    const html = renderToStaticMarkup(
+      <ActivityHistoryList {...snapshot} compactNotes />
+    );
+    expect(html.match(/<details[ >]/g)).toHaveLength(1);
+    expect(html).not.toMatch(/<details[^>]*\bopen/);
+    const summary = html.match(/<summary[^>]*>(.*?)<\/summary>/)![1];
+    expect(summary).toContain('Ankieta — otrzymana');
+    expect(summary).toContain('31.10.2026');
+    expect(summary).toContain('Szczegóły');
+    expect(summary).not.toContain(text);
+    // Native details/summary exposes this unchanged child when opened, without a fetch.
+    expect(html).toContain(
+      `</summary><p class="mt-1 text-sm whitespace-pre-wrap">${text}</p></details>`
+    );
+    expect(html.match(/<summary/g)).toHaveLength(1);
+    expect(html.match(/Ankieta — otrzymana/g)).toHaveLength(1);
+  });
+
+  it('ActivityHistory przekazuje compactNotes do istniejącego snapshotu', () => {
+    const compact = renderToStaticMarkup(
+      <ActivityHistory
+        contactId={contact.id}
+        snapshot={snapshot}
+        compactNotes
+      />
+    );
+    expect(compact).toBe(
+      renderToStaticMarkup(<ActivityHistoryList {...snapshot} compactNotes />)
+    );
+    expect(compact).toContain('Ankieta — otrzymana');
+    expect(compact).toContain(text);
+    for (const relation of [
+      { dealId: 'deal-synthetic' },
+      { companyId: 'company-synthetic' },
+    ]) {
+      expect(
+        renderToStaticMarkup(
+          <ActivityHistory {...relation} snapshot={snapshot} />
+        )
+      ).toBe(renderToStaticMarkup(<ActivityHistoryList {...snapshot} />));
+    }
+  });
+
+  it('domyślny tryb i jawne false zachowują poprzednią prezentację ankiety', () => {
+    const original = renderToStaticMarkup(
+      <ActivityHistoryList {...snapshot} />
+    );
+    expect(original).toBe(
+      renderToStaticMarkup(
+        <ActivityHistoryList {...snapshot} compactNotes={false} />
+      )
+    );
+    expect(original).toContain('Notatka');
+    expect(original).toContain(text);
+    expect(original).not.toContain('<details');
+    expect(original).not.toContain('Szczegóły');
+  });
+
+  it('compactNotes nie zmienia pozostałych notatek, aktywności ani zdarzeń', () => {
+    const data = {
+      ...snapshot,
+      notes: [
+        {
+          ...snapshot.notes[0],
+          note_text: 'Zwykła notatka\nAnkieta w środku treści',
+        },
+      ],
+      activities: [
+        {
+          id: 'activity-synthetic',
+          activity_type: 'telefon',
+          title: 'Rozmowa syntetyczna',
+          occurred_at: '2026-10-31T10:00:00Z',
+          deal_id: 'deal-synthetic',
+        },
+      ] as import('@/lib/sales/activity-history').ActivityHistoryRow[],
+      queueEvents: [
+        {
+          id: 'event-synthetic',
+          event_type: 'next_action',
+          occurred_at: '2026-10-31T10:00:00Z',
+          deal_id: 'deal-synthetic',
+        },
+      ],
+    };
+    expect(
+      renderToStaticMarkup(<ActivityHistoryList {...data} compactNotes />)
+    ).toBe(renderToStaticMarkup(<ActivityHistoryList {...data} />));
   });
 });
