@@ -4,10 +4,16 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { compile } from 'tailwindcss';
 import { parse } from 'postcss';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactDetailView } from './contact-detail-view';
 
 const fixture = vi.hoisted(() => ({
+  effects: [] as {
+    effect: () => void | (() => void);
+    deps?: readonly unknown[];
+  }[],
+  refs: [] as { current: unknown }[],
+  backClick: undefined as undefined | (() => void),
   tab: 'overview',
   expanded: true,
   tasks: [] as {
@@ -43,6 +49,17 @@ vi.mock('react', async (importOriginal) => {
   const react = await importOriginal<typeof import('react')>();
   return {
     ...react,
+    useEffect: (
+      effect: () => void | (() => void),
+      deps?: readonly unknown[]
+    ) => {
+      fixture.effects.push({ effect, deps });
+    },
+    useRef: (initial: unknown) => {
+      const ref = react.useRef(initial);
+      fixture.refs.push(ref);
+      return ref;
+    },
     useState: (initial: unknown) =>
       react.useState(
         initial === null
@@ -105,27 +122,6 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('@/components/ui/sheet', () => ({
-  Sheet: ({ children }: { children: ReactNode }) => children,
-  SheetContent: ({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className: string;
-  }) => (
-    <div data-sheet className={className}>
-      {children}
-    </div>
-  ),
-  SheetHeader: ({ children }: { children: ReactNode }) => (
-    <header>{children}</header>
-  ),
-  SheetTitle: ({ children }: { children: ReactNode }) => <h1>{children}</h1>,
-  SheetDescription: ({ children }: { children: ReactNode }) => (
-    <p>{children}</p>
-  ),
-}));
 vi.mock('@/components/ui/tabs', () => ({
   Tabs: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TabsList: ({ children }: { children: ReactNode }) => (
@@ -169,17 +165,18 @@ vi.mock('@/components/ui/button', async () => {
     Button: ({
       children,
       render,
-      disabled,
-    }: {
-      children: ReactNode;
+      ...props
+    }: React.ComponentProps<'button'> & {
       render?: React.ReactElement;
-      disabled?: boolean;
-    }) =>
-      render ? (
+    }) => {
+      if (props['aria-label'] === 'Wróć do listy')
+        fixture.backClick = props.onClick as () => void;
+      return render ? (
         cloneElement(render, {}, children)
       ) : (
-        <button disabled={disabled}>{children}</button>
-      ),
+        <button {...props}>{children}</button>
+      );
+    },
   };
 });
 vi.mock('@/components/inbox/template-picker', () => ({
@@ -200,16 +197,22 @@ vi.mock('@/components/sales/whatsapp-action', () => ({
   WhatsAppAction: () => <button>WIADOMOŚĆ</button>,
 }));
 
-const render = () =>
+const render = (
+  props: Partial<React.ComponentProps<typeof ContactDetailView>> = {}
+) =>
   renderToStaticMarkup(
     <ContactDetailView
       open
       contactId={fixture.contact.id}
       onOpenChange={vi.fn()}
       onUpdated={vi.fn()}
+      {...props}
     />
   );
 beforeEach(() => {
+  fixture.effects = [];
+  fixture.refs = [];
+  fixture.backClick = undefined;
   fixture.tab = 'overview';
   fixture.expanded = true;
   fixture.tasks = [];
@@ -218,6 +221,8 @@ beforeEach(() => {
   fixture.dataLoading = false;
   fixture.dataError = false;
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('K3/01-L: karta klienta 02A', () => {
   it('renderuje dokładnie 8 zakładek we właściwej kolejności', () => {
@@ -503,8 +508,7 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
           'overflow-y': 'auto',
         });
       }
-      expect(html).toContain('xl:data-[side=right]:w-[calc(100vw-2rem)]');
-      expect(html).toContain('xl:data-[side=right]:max-w-[1440px]');
+      expect(html).toContain('data-contact-detail-view');
     }
   );
 
@@ -550,5 +554,102 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
       expect(styles(className, 1279).display).toBe('none');
       expect(styles(className, 1280).display).toBe('block');
     }
+  });
+});
+
+describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
+  it('renderuje zwykłą sekcję bez dialogu, portalu i komponentów Sheet', async () => {
+    const html = render();
+    expect(html).toContain(
+      '<section aria-label="Karta klienta" data-contact-detail-view'
+    );
+    expect(html).not.toMatch(
+      /role="dialog"|aria-modal=|data-sheet|data-slot="sheet/
+    );
+    const source = readFileSync(
+      'src/components/contacts/contact-detail-view.tsx',
+      'utf8'
+    );
+    expect(source).not.toMatch(
+      /\bSheet(?:Content|Header|Title|Description)?\b/
+    );
+    const classes = html.match(
+      /data-contact-detail-view="true" class="([^"]+)"/
+    )![1];
+    expect(classes.split(' ')).toContain('w-full');
+    expect(html).not.toContain('max-w-xl');
+    const styles = await layoutStyles(html);
+    expect(styles(classes, 1440)).toMatchObject({
+      width: '100%',
+      height: 'calc(100dvh - var(--app-header-height,4rem))',
+      'min-height': '0px',
+      overflow: 'hidden',
+    });
+    expect(classes).not.toMatch(/rounded|shadow|fixed|absolute/);
+    expect(html).toMatch(/role="tabpanel" class="[^"]*overflow-y-auto/);
+  });
+
+  it('przycisk Wróć do listy ma dostępną nazwę, strzałkę i zamyka widok', () => {
+    const onOpenChange = vi.fn();
+    const html = render({ onOpenChange });
+    expect(html).toMatch(/<button[^>]*aria-label="Wróć do listy"/);
+    expect(html).toContain('lucide-arrow-left');
+    expect(fixture.backClick).toBeTypeOf('function');
+    fixture.backClick!();
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it('zamknięty widok nie renderuje zawartości ani nie rejestruje klawiatury', () => {
+    const onOpenChange = vi.fn();
+    expect(render({ open: false, onOpenChange })).toBe('');
+    const addEventListener = vi.fn();
+    vi.stubGlobal('document', { addEventListener });
+    fixture.effects.find(({ deps }) => deps?.includes(onOpenChange))!.effect();
+    expect(addEventListener).not.toHaveBeenCalled();
+  });
+
+  it('fokusuje nagłówek przy otwarciu, zamyka Escape i usuwa nasłuch po zamknięciu', () => {
+    const onOpenChange = vi.fn();
+    const html = render({ onOpenChange });
+    expect(html).toMatch(
+      /<header tabindex="-1" aria-label="Nagłówek karty klienta"/
+    );
+    const focus = vi.fn();
+    fixture.refs[0].current = { focus };
+    const document = new EventTarget();
+    vi.stubGlobal('document', document);
+    fixture.effects
+      .find(({ deps }) => deps?.[0] === true && deps?.[1] === fixture.contact.id)!
+      .effect();
+    const cleanup = fixture.effects
+      .find(({ deps }) => deps?.includes(onOpenChange))!
+      .effect();
+    expect(focus).toHaveBeenCalledOnce();
+    const keydown = (key: string, consumed = false) => {
+      const event = new Event('keydown', { cancelable: true });
+      Object.defineProperty(event, 'key', { value: key });
+      if (consumed) event.preventDefault();
+      document.dispatchEvent(event);
+      return event;
+    };
+    keydown('Enter');
+    keydown('Escape', true);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(keydown('Escape').defaultPrevented).toBe(true);
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    if (cleanup) cleanup();
+    keydown('Escape');
+    expect(onOpenChange).toHaveBeenCalledOnce();
+  });
+
+  it('umożliwia powrót i fokus nagłówka również przed wczytaniem kontaktu', () => {
+    const onOpenChange = vi.fn();
+    const html = render({ contactId: 'pending-synthetic', onOpenChange });
+    expect(html).toContain('aria-label="Ładowanie karty klienta"');
+    expect(html).toContain('aria-label="Wróć do listy"');
+    expect(html).not.toContain('Osoba syntetyczna');
+    expect(fixture.refs[0]).toBeDefined();
+    fixture.backClick!();
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 });

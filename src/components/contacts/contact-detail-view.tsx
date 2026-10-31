@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -22,13 +22,6 @@ import {
   TemplatePicker,
   type TemplateSendValues,
 } from '@/components/inbox/template-picker';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
+  ArrowLeft,
   Phone,
   Mail,
   CalendarDays,
@@ -97,6 +91,24 @@ export function ContactDetailView({
   const t = useTranslations('Contacts.detailView');
   const supabase = useMemo(() => createClient(), []);
   const { accountId, defaultCurrency } = useAuth();
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (open) headerRef.current?.focus();
+  }, [open, contactId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Nested popups can consume Escape before it reaches this view.
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault();
+        onOpenChange(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onOpenChange]);
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -857,1045 +869,1060 @@ export function ContactDetailView({
     </>
   );
 
+  if (!open) return null;
+
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="right"
-          className="w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl md:data-[side=right]:w-full md:data-[side=right]:max-w-xl xl:data-[side=right]:w-[calc(100vw-2rem)] xl:data-[side=right]:max-w-[1440px]"
+      <section
+        aria-label="Karta klienta"
+        data-contact-detail-view
+        className="flex h-[calc(100dvh-var(--app-header-height,4rem))] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white text-slate-950"
+      >
+        <header
+          ref={headerRef}
+          tabIndex={-1}
+          aria-label="Nagłówek karty klienta"
+          className="border-border/50 shrink-0 border-b p-3 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset sm:p-4"
         >
+          <Button
+            variant="ghost"
+            aria-label="Wróć do listy"
+            className="mb-3 min-h-11"
+            onClick={() => onOpenChange(false)}
+          >
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            Wróć do listy
+          </Button>
           {loading || !contact || contact.id !== contactId ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="text-primary size-6 animate-spin" />
-            </div>
+            <h1 className="text-lg font-semibold">Karta klienta</h1>
           ) : (
-            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-              {/* Header */}
-              <SheetHeader className="border-border/50 shrink-0 border-b p-3 pr-12 sm:p-4 sm:pr-10">
-                <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
-                  Klient
-                </p>
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="bg-muted border-border size-12 border">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                        {getInitials(contact.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <SheetTitle className="text-popover-foreground truncate">
-                        {contact.name || t('unnamed')}
-                      </SheetTitle>
-                      <ContactStatusTags
-                        tags={allTags.filter((tag) =>
-                          contactTagIds.includes(tag.id)
+            <>
+              <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
+                Klient
+              </p>
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar className="bg-muted border-border size-12 border">
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                      {getInitials(contact.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-popover-foreground truncate text-lg font-semibold">
+                      {contact.name || t('unnamed')}
+                    </h1>
+                    <ContactStatusTags
+                      tags={allTags.filter((tag) =>
+                        contactTagIds.includes(tag.id)
+                      )}
+                    />
+                    <p className="sr-only">{t('contactDetailsDesc')}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
+                      <button
+                        onClick={copyPhone}
+                        className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
+                      >
+                        <Phone className="size-3" />
+                        {contact.phone}
+                        {copiedPhone ? (
+                          <Check className="text-primary size-3" />
+                        ) : (
+                          <Copy className="size-3" />
                         )}
-                      />
-                      <SheetDescription className="sr-only">
-                        {t('contactDetailsDesc')}
-                      </SheetDescription>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
-                        <button
-                          onClick={copyPhone}
-                          className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
-                        >
-                          <Phone className="size-3" />
-                          {contact.phone}
-                          {copiedPhone ? (
-                            <Check className="text-primary size-3" />
-                          ) : (
-                            <Copy className="size-3" />
-                          )}
-                        </button>
-                        {contact.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="size-3" />
-                            {contact.email}
-                          </span>
-                        )}
-                        <Link
-                          href={`/ankieta?contact=${contact.id}`}
-                          className="min-h-8 rounded px-1 font-semibold text-emerald-800 hover:underline"
-                        >
-                          Wypełnij ankietę
-                        </Link>
-                        <span>
-                          Miejscowość: {contact.city?.trim() || 'Brak danych'}
+                      </button>
+                      {contact.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="size-3" />
+                          {contact.email}
                         </span>
-                      </div>
+                      )}
+                      <Link
+                        href={`/ankieta?contact=${contact.id}`}
+                        className="min-h-8 rounded px-1 font-semibold text-emerald-800 hover:underline"
+                      >
+                        Wypełnij ankietę
+                      </Link>
+                      <span>
+                        Miejscowość: {contact.city?.trim() || 'Brak danych'}
+                      </span>
                     </div>
                   </div>
-                  <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
-                    <CallAction
-                      phone={contact.phone}
-                      contactId={contact.id}
-                      companyId={
-                        contactCompanies.find((link) => link.is_primary)
-                          ?.company_id ?? contactCompanies[0]?.company_id
-                      }
-                      className="border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 hover:text-white"
-                    />
-                    <WhatsAppAction
-                      phone={contact.phone}
-                      contactId={contact.id}
-                      label="WhatsApp"
-                      className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
-                    />
-                    <ContactEmailAction email={contact.email} />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setActiveTab('overview');
-                        setContextExpanded(true);
-                        window.setTimeout(() => {
-                          const details = document.getElementById(
-                            'contact-deeper-details'
-                          );
-                          details?.setAttribute('open', '');
-                          details
-                            ?.querySelector('details')
-                            ?.setAttribute('open', '');
-                          details?.scrollIntoView({ behavior: 'smooth' });
-                        }, 0);
-                      }}
-                    >
-                      <MoreHorizontal className="size-4" /> WIĘCEJ
-                    </Button>
-                    <Button
-                      size="sm"
-                      render={
-                        <Link
-                          href={`/pipelines?new=deal&contact=${contact.id}`}
-                        />
-                      }
-                      className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
-                    >
-                      + NOWY DEAL
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hidden sm:inline-flex"
-                      render={
-                        <Link
-                          href={`/quick-call?contact=${contact.id}&action=dictate`}
-                        />
-                      }
-                    >
-                      <Mic className="size-4" /> DYKTUJ
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hidden sm:inline-flex"
-                      render={
-                        <Link
-                          href={`/calendar?new=event&contact=${contact.id}`}
-                        />
-                      }
-                    >
-                      <CalendarDays className="size-4" /> DODAJ TERMIN
-                    </Button>
-                  </div>
                 </div>
-              </SheetHeader>
-
-              {/* Tabs */}
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="flex min-h-0 flex-1 flex-col"
-              >
-                <ContactInfoCards
-                  contact={contact}
-                  companies={contactCompanies}
-                  spouses={spouseLinks}
-                  deals={deals}
-                  owner={
-                    overview.owner.loading
-                      ? 'Ładowanie…'
-                      : overview.owner.data?.full_name?.trim() || ''
-                  }
-                  ownerRole={overview.owner.data?.account_role || ''}
-                  ownerError={overview.owner.error}
-                />
-                <TabsList
-                  aria-label="Karta klienta"
-                  className="mx-3 mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 sm:mx-4 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
-                >
-                  {tabItems.map(([value, label, count]) => (
-                    <TabsTrigger key={value} value={value}>
-                      {label}
-                      <span
-                        data-tab-count={value}
-                        className="ml-1 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums"
-                        aria-label={`Liczba: ${value === 'overview' ? (overviewError ? 'niedostępna' : overviewLoading ? 'ładowanie' : count) : countError[value] ? 'niedostępna' : countLoading[value] ? 'ładowanie' : count}`}
-                      >
-                        (
-                        {value === 'overview'
-                          ? overviewError
-                            ? '—'
-                            : overviewLoading
-                              ? '…'
-                              : count
-                          : countError[value]
-                            ? '—'
-                            : countLoading[value]
-                              ? '…'
-                              : count}
-                        )
-                      </span>
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                <TabsContent
-                  value="overview"
-                  className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-                >
-                  <div
-                    data-contact-columns
-                    className="grid min-h-0 shrink-0 grid-cols-1 gap-3 overflow-y-auto overscroll-contain px-4 py-3 xl:max-h-[60vh] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] xl:overflow-hidden"
+                <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                  <CallAction
+                    phone={contact.phone}
+                    contactId={contact.id}
+                    companyId={
+                      contactCompanies.find((link) => link.is_primary)
+                        ?.company_id ?? contactCompanies[0]?.company_id
+                    }
+                    className="border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 hover:text-white"
+                  />
+                  <WhatsAppAction
+                    phone={contact.phone}
+                    contactId={contact.id}
+                    label="WhatsApp"
+                    className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
+                  />
+                  <ContactEmailAction email={contact.email} />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setActiveTab('overview');
+                      setContextExpanded(true);
+                      window.setTimeout(() => {
+                        const details = document.getElementById(
+                          'contact-deeper-details'
+                        );
+                        details?.setAttribute('open', '');
+                        details
+                          ?.querySelector('details')
+                          ?.setAttribute('open', '');
+                        details?.scrollIntoView({ behavior: 'smooth' });
+                      }, 0);
+                    }}
                   >
-                    <ContactDetailColumn
-                      key={`${contact.id}-context`}
-                      area="context"
-                      title="Deale i osoby"
-                      expanded={contextExpanded}
-                      onExpandedChange={setContextExpanded}
+                    <MoreHorizontal className="size-4" /> WIĘCEJ
+                  </Button>
+                  <Button
+                    size="sm"
+                    render={
+                      <Link
+                        href={`/pipelines?new=deal&contact=${contact.id}`}
+                      />
+                    }
+                    className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
+                  >
+                    + NOWY DEAL
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hidden sm:inline-flex"
+                    render={
+                      <Link
+                        href={`/quick-call?contact=${contact.id}&action=dictate`}
+                      />
+                    }
+                  >
+                    <Mic className="size-4" /> DYKTUJ
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hidden sm:inline-flex"
+                    render={
+                      <Link
+                        href={`/calendar?new=event&contact=${contact.id}`}
+                      />
+                    }
+                  >
+                    <CalendarDays className="size-4" /> DODAJ TERMIN
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </header>
+        {loading || !contact || contact.id !== contactId ? (
+          <div
+            className="flex min-h-0 flex-1 items-center justify-center"
+            role="status"
+            aria-label="Ładowanie karty klienta"
+          >
+            <Loader2
+              aria-hidden="true"
+              className="text-primary size-6 animate-spin"
+            />
+          </div>
+        ) : (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {/* Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <ContactInfoCards
+                contact={contact}
+                companies={contactCompanies}
+                spouses={spouseLinks}
+                deals={deals}
+                owner={
+                  overview.owner.loading
+                    ? 'Ładowanie…'
+                    : overview.owner.data?.full_name?.trim() || ''
+                }
+                ownerRole={overview.owner.data?.account_role || ''}
+                ownerError={overview.owner.error}
+              />
+              <TabsList
+                aria-label="Karta klienta"
+                className="mx-3 mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 sm:mx-4 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
+              >
+                {tabItems.map(([value, label, count]) => (
+                  <TabsTrigger key={value} value={value}>
+                    {label}
+                    <span
+                      data-tab-count={value}
+                      className="ml-1 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums"
+                      aria-label={`Liczba: ${value === 'overview' ? (overviewError ? 'niedostępna' : overviewLoading ? 'ładowanie' : count) : countError[value] ? 'niedostępna' : countLoading[value] ? 'ładowanie' : count}`}
                     >
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="mobile-contact-deals"
+                      (
+                      {value === 'overview'
+                        ? overviewError
+                          ? '—'
+                          : overviewLoading
+                            ? '…'
+                            : count
+                        : countError[value]
+                          ? '—'
+                          : countLoading[value]
+                            ? '…'
+                            : count}
+                      )
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent
+                value="overview"
+                className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+              >
+                <div
+                  data-contact-columns
+                  className="grid min-h-0 shrink-0 grid-cols-1 gap-3 overflow-y-auto overscroll-contain px-4 py-3 xl:max-h-[60vh] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] xl:overflow-hidden"
+                >
+                  <ContactDetailColumn
+                    key={`${contact.id}-context`}
+                    area="context"
+                    title="Deale i osoby"
+                    expanded={contextExpanded}
+                    onExpandedChange={setContextExpanded}
+                  >
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="mobile-contact-deals"
+                    >
+                      <h3
+                        id="mobile-contact-deals"
+                        className="text-sm font-black tracking-wide text-slate-950 uppercase"
                       >
-                        <h3
-                          id="mobile-contact-deals"
-                          className="text-sm font-black tracking-wide text-slate-950 uppercase"
-                        >
-                          Aktywne Deale (
-                          {
-                            deals.filter(
-                              (deal) =>
-                                deal.status !== 'won' && deal.status !== 'lost'
-                            ).length
-                          }
-                          )
-                        </h3>
-                        {loadingDeals ? (
-                          <div className="flex justify-center py-6">
-                            <Loader2 className="size-5 animate-spin text-slate-700" />
-                          </div>
-                        ) : deals.some(
+                        Aktywne Deale (
+                        {
+                          deals.filter(
                             (deal) =>
                               deal.status !== 'won' && deal.status !== 'lost'
-                          ) ? (
-                          <div className="mt-2 space-y-2">
-                            {deals
-                              .filter(
-                                (deal) =>
-                                  deal.status !== 'won' &&
-                                  deal.status !== 'lost'
-                              )
-                              .slice(0, 3)
-                              .map((deal) => (
-                                <Link
-                                  key={deal.id}
-                                  href={`/deals/${deal.id}`}
-                                  className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
-                                >
-                                  <span className="block text-sm font-black">
-                                    {deal.title} ·{' '}
-                                    {formatCurrency(
-                                      deal.value ?? 0,
-                                      deal.currency || defaultCurrency
-                                    )}{' '}
-                                    · {deal.stage?.name || 'Etap nieustalony'}
-                                  </span>
-                                  <span className="mt-1 block text-xs text-slate-700">
-                                    następny krok:{' '}
-                                    {deal.next_action || 'nie ustalono'} ·
-                                    termin:{' '}
-                                    {deal.next_action_at
-                                      ? formatWarsawDateTime(
-                                          deal.next_action_at
-                                        )
-                                      : 'nie ustalono'}
-                                  </span>
-                                </Link>
-                              ))}
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-sm text-slate-700">
-                            Brak powiązanych deali.
-                          </p>
-                        )}
-                      </section>
-
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-people"
-                      >
-                        <h3
-                          id="contact-overview-people"
-                          className="text-sm font-black text-slate-950"
-                        >
-                          Osoby powiązane
-                        </h3>
+                          ).length
+                        }
+                        )
+                      </h3>
+                      {loadingDeals ? (
+                        <div className="flex justify-center py-6">
+                          <Loader2 className="size-5 animate-spin text-slate-700" />
+                        </div>
+                      ) : deals.some(
+                          (deal) =>
+                            deal.status !== 'won' && deal.status !== 'lost'
+                        ) ? (
                         <div className="mt-2 space-y-2">
-                          {people.length ? (
-                            people.map((person) => (
+                          {deals
+                            .filter(
+                              (deal) =>
+                                deal.status !== 'won' && deal.status !== 'lost'
+                            )
+                            .slice(0, 3)
+                            .map((deal) => (
                               <Link
-                                key={person.id}
-                                href={`/contacts?open=${person.id}`}
-                                className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
+                                key={deal.id}
+                                href={`/deals/${deal.id}`}
+                                className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
                               >
-                                {person.name || person.phone}
-                                <span className="block text-xs font-normal text-slate-700">
-                                  {spouseLinks.some(
-                                    ({ spouse }) => spouse.id === person.id
-                                  )
-                                    ? 'Współmałżonek/Partner'
-                                    : person.role || 'Rola: Brak danych'}
+                                <span className="block text-sm font-black">
+                                  {deal.title} ·{' '}
+                                  {formatCurrency(
+                                    deal.value ?? 0,
+                                    deal.currency || defaultCurrency
+                                  )}{' '}
+                                  · {deal.stage?.name || 'Etap nieustalony'}
+                                </span>
+                                <span className="mt-1 block text-xs text-slate-700">
+                                  następny krok:{' '}
+                                  {deal.next_action || 'nie ustalono'} · termin:{' '}
+                                  {deal.next_action_at
+                                    ? formatWarsawDateTime(deal.next_action_at)
+                                    : 'nie ustalono'}
                                 </span>
                               </Link>
-                            ))
-                          ) : (
-                            <p className="py-4 text-center text-sm text-slate-700">
-                              Brak danych — brak osób powiązanych.
-                            </p>
-                          )}
+                            ))}
                         </div>
-                      </section>
-                    </ContactDetailColumn>
-                    <ContactDetailColumn
-                      key={`${contact.id}-work`}
-                      area="work"
-                      title="Działania i dokumenty"
+                      ) : (
+                        <p className="mt-2 text-sm text-slate-700">
+                          Brak powiązanych deali.
+                        </p>
+                      )}
+                    </section>
+
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="contact-overview-people"
                     >
-                      <ContactNextAction
-                        contact={contact}
-                        deals={deals}
-                        activities={historySnapshot.activities}
-                      />
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-tasks"
+                      <h3
+                        id="contact-overview-people"
+                        className="text-sm font-black text-slate-950"
                       >
-                        <h3
-                          id="contact-overview-tasks"
-                          className="mb-2 text-sm font-black text-slate-950"
-                        >
-                          Najbliższe zadania
-                        </h3>
-                        {overview.tasks.loading || overview.tasks.error ? (
-                          <DataState {...overview.tasks} />
+                        Osoby powiązane
+                      </h3>
+                      <div className="mt-2 space-y-2">
+                        {people.length ? (
+                          people.map((person) => (
+                            <Link
+                              key={person.id}
+                              href={`/contacts?open=${person.id}`}
+                              className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
+                            >
+                              {person.name || person.phone}
+                              <span className="block text-xs font-normal text-slate-700">
+                                {spouseLinks.some(
+                                  ({ spouse }) => spouse.id === person.id
+                                )
+                                  ? 'Współmałżonek/Partner'
+                                  : person.role || 'Rola: Brak danych'}
+                              </span>
+                            </Link>
+                          ))
                         ) : (
-                          <ContactTaskList tasks={upcomingTasks} />
+                          <p className="py-4 text-center text-sm text-slate-700">
+                            Brak danych — brak osób powiązanych.
+                          </p>
                         )}
-                      </section>
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-documents"
-                      >
-                        <h3
-                          id="contact-overview-documents"
-                          className="mb-2 text-sm font-black text-slate-950"
-                        >
-                          Dokumenty
-                        </h3>
-                        {documentsContent}
-                      </section>
-                    </ContactDetailColumn>
-                    <ContactDetailColumn
-                      key={`${contact.id}-results`}
-                      area="results"
-                      title="Aktywność i relacje"
-                    >
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="mobile-contact-activities"
-                      >
-                        <h3
-                          id="mobile-contact-activities"
-                          className="text-sm font-black text-slate-950"
-                        >
-                          Ostatnia aktywność
-                        </h3>
-                        <ActivityHistory
-                          contactId={contact.id}
-                          snapshot={historySnapshot}
-                          className="mt-2 border-l-2 border-emerald-200 pl-3"
-                        />
-                      </section>
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-notes"
-                      >
-                        <h3
-                          id="contact-overview-notes"
-                          className="mb-2 text-sm font-black text-slate-950"
-                        >
-                          Notatki
-                        </h3>
-                        {notesContent}
-                      </section>
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-relations"
-                      >
-                        <h3
-                          id="contact-overview-relations"
-                          className="text-sm font-black text-slate-950"
-                        >
-                          Relacje
-                        </h3>
-                        {relationsContent}
-                      </section>
-                    </ContactDetailColumn>
-                  </div>
-                  <div
-                    data-contact-full-details
-                    className="shrink-0 space-y-3 px-4 pb-4"
+                      </div>
+                    </section>
+                  </ContactDetailColumn>
+                  <ContactDetailColumn
+                    key={`${contact.id}-work`}
+                    area="work"
+                    title="Działania i dokumenty"
                   >
-                    {' '}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 w-full border-slate-300 font-black text-slate-950"
-                      onClick={() => {
-                        setActiveTab('overview');
-                        setContextExpanded(true);
-                        window.setTimeout(() => {
-                          const details = document.getElementById(
-                            'contact-deeper-details'
-                          );
-                          details?.setAttribute('open', '');
-                          details
-                            ?.querySelector('details')
-                            ?.setAttribute('open', '');
-                          details?.scrollIntoView({ behavior: 'smooth' });
-                        }, 0);
-                      }}
+                    <ContactNextAction
+                      contact={contact}
+                      deals={deals}
+                      activities={historySnapshot.activities}
+                    />
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="contact-overview-tasks"
                     >
-                      PEŁNA KARTA KLIENTA
-                    </Button>
-                    <details
-                      id="contact-deeper-details"
-                      className="rounded-xl border bg-slate-50 p-3"
+                      <h3
+                        id="contact-overview-tasks"
+                        className="mb-2 text-sm font-black text-slate-950"
+                      >
+                        Najbliższe zadania
+                      </h3>
+                      {overview.tasks.loading || overview.tasks.error ? (
+                        <DataState {...overview.tasks} />
+                      ) : (
+                        <ContactTaskList tasks={upcomingTasks} />
+                      )}
+                    </section>
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="contact-overview-documents"
                     >
-                      <summary className="cursor-pointer text-xs font-bold text-slate-800">
-                        WIĘCEJ DANYCH KLIENTA
-                      </summary>
-                      <div className="mt-3 space-y-3">
-                        <details className="rounded-lg border bg-white p-3">
-                          <summary className="cursor-pointer text-xs font-bold">
-                            Dane klienta
-                          </summary>
-                          <div className="mt-3">
+                      <h3
+                        id="contact-overview-documents"
+                        className="mb-2 text-sm font-black text-slate-950"
+                      >
+                        Dokumenty
+                      </h3>
+                      {documentsContent}
+                    </section>
+                  </ContactDetailColumn>
+                  <ContactDetailColumn
+                    key={`${contact.id}-results`}
+                    area="results"
+                    title="Aktywność i relacje"
+                  >
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="mobile-contact-activities"
+                    >
+                      <h3
+                        id="mobile-contact-activities"
+                        className="text-sm font-black text-slate-950"
+                      >
+                        Ostatnia aktywność
+                      </h3>
+                      <ActivityHistory
+                        contactId={contact.id}
+                        snapshot={historySnapshot}
+                        className="mt-2 border-l-2 border-emerald-200 pl-3"
+                      />
+                    </section>
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="contact-overview-notes"
+                    >
+                      <h3
+                        id="contact-overview-notes"
+                        className="mb-2 text-sm font-black text-slate-950"
+                      >
+                        Notatki
+                      </h3>
+                      {notesContent}
+                    </section>
+                    <section
+                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      aria-labelledby="contact-overview-relations"
+                    >
+                      <h3
+                        id="contact-overview-relations"
+                        className="text-sm font-black text-slate-950"
+                      >
+                        Relacje
+                      </h3>
+                      {relationsContent}
+                    </section>
+                  </ContactDetailColumn>
+                </div>
+                <div
+                  data-contact-full-details
+                  className="shrink-0 space-y-3 px-4 pb-4"
+                >
+                  {' '}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 w-full border-slate-300 font-black text-slate-950"
+                    onClick={() => {
+                      setActiveTab('overview');
+                      setContextExpanded(true);
+                      window.setTimeout(() => {
+                        const details = document.getElementById(
+                          'contact-deeper-details'
+                        );
+                        details?.setAttribute('open', '');
+                        details
+                          ?.querySelector('details')
+                          ?.setAttribute('open', '');
+                        details?.scrollIntoView({ behavior: 'smooth' });
+                      }, 0);
+                    }}
+                  >
+                    PEŁNA KARTA KLIENTA
+                  </Button>
+                  <details
+                    id="contact-deeper-details"
+                    className="rounded-xl border bg-slate-50 p-3"
+                  >
+                    <summary className="cursor-pointer text-xs font-bold text-slate-800">
+                      WIĘCEJ DANYCH KLIENTA
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      <details className="rounded-lg border bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-bold">
+                          Dane klienta
+                        </summary>
+                        <div className="mt-3">
+                          <div className="space-y-3">
+                            <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
+                              <div>
+                                <dt className="font-black text-slate-600 uppercase">
+                                  Następny krok
+                                </dt>
+                                <dd className="mt-0.5 font-semibold text-slate-800">
+                                  {contact.next_step || '—'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-black text-slate-600 uppercase">
+                                  Termin
+                                </dt>
+                                <dd className="mt-0.5 font-semibold text-slate-800">
+                                  {contact.follow_up_at
+                                    ? new Date(
+                                        contact.follow_up_at
+                                      ).toLocaleString('pl-PL', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
+                                    : '—'}
+                                </dd>
+                              </div>
+                            </dl>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setTemplatePickerOpen(true)}
+                              disabled={sendingTemplate}
+                            >
+                              {sendingTemplate ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <LayoutTemplate className="size-4" />
+                              )}
+                              {t('sendTemplateBtn')}
+                            </Button>
+                            <div className="grid gap-2 md:max-w-md md:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  Imię
+                                </Label>
+                                <Input
+                                  value={editFirstName}
+                                  onChange={(e) =>
+                                    setEditFirstName(e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  Nazwisko
+                                </Label>
+                                <Input
+                                  value={editLastName}
+                                  onChange={(e) =>
+                                    setEditLastName(e.target.value)
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-slate-700">
+                                {t('name')}
+                              </Label>
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="bg-muted border-border text-foreground h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-slate-700">
+                                {t('phone')}{' '}
+                                <span className="text-red-400">*</span>
+                              </Label>
+                              <Input
+                                value={editPhone}
+                                onChange={(e) => setEditPhone(e.target.value)}
+                                className="bg-muted border-border text-foreground h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-slate-700">
+                                {t('email')}
+                              </Label>
+                              <Input
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className="bg-muted border-border text-foreground h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-slate-700">
+                                LinkedIn
+                              </Label>
+                              <Input
+                                type="url"
+                                value={editLinkedin}
+                                onChange={(e) =>
+                                  setEditLinkedin(e.target.value)
+                                }
+                                placeholder="https://linkedin.com/in/..."
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-slate-700">
+                                Opis Kontaktu
+                              </Label>
+                              <Textarea
+                                value={editDescription}
+                                onChange={(e) =>
+                                  setEditDescription(e.target.value)
+                                }
+                                className="min-h-32 resize-y"
+                                placeholder="Pełny opis osoby i ustaleń"
+                              />
+                            </div>
+                            <details className="rounded-lg border p-3">
+                              <summary className="cursor-pointer text-xs font-semibold">
+                                Dane do wniosku — wrażliwe
+                              </summary>
+                              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                <Input
+                                  value={editPesel}
+                                  onChange={(e) => setEditPesel(e.target.value)}
+                                  placeholder="PESEL"
+                                />
+                                <Input
+                                  value={editIdentityDocument}
+                                  onChange={(e) =>
+                                    setEditIdentityDocument(e.target.value)
+                                  }
+                                  placeholder="Seria i numer dokumentu"
+                                />
+                                <select
+                                  value={editBikStatus}
+                                  onChange={(e) =>
+                                    setEditBikStatus(e.target.value)
+                                  }
+                                  className="bg-muted h-9 rounded-md border px-2 text-sm"
+                                >
+                                  <option value="">BIK — brak danych</option>
+                                  <option>Sprawdzony — OK</option>
+                                  <option>Wymaga analizy</option>
+                                  <option>Negatywny</option>
+                                </select>
+                                <Input
+                                  value={editIncomeType}
+                                  onChange={(e) =>
+                                    setEditIncomeType(e.target.value)
+                                  }
+                                  placeholder="Źródło dochodu"
+                                />
+                                <Input
+                                  type="number"
+                                  value={editMonthlyIncome}
+                                  onChange={(e) =>
+                                    setEditMonthlyIncome(e.target.value)
+                                  }
+                                  placeholder="Dochód miesięczny"
+                                />
+                              </div>
+                            </details>
+                            <Button
+                              onClick={saveDetails}
+                              disabled={savingDetails}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                              size="sm"
+                            >
+                              {savingDetails ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Save className="size-3.5" />
+                              )}
+                              {t('saveChangesBtn')}
+                            </Button>
+                          </div>
+                        </div>
+                      </details>
+                      <details className="rounded-lg border bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-bold">
+                          Tagi
+                        </summary>
+                        <div className="mt-3">
+                          <div className="space-y-3">
+                            {accountId && contactId && (
+                              <section className="rounded-xl border p-4">
+                                <h3 className="mb-3 text-sm font-semibold">
+                                  Tagi CRM Kontaktu
+                                </h3>
+                                <EntityTagsEditor
+                                  accountId={accountId}
+                                  entityType="contact"
+                                  entityId={contactId}
+                                />
+                              </section>
+                            )}
+                            <p className="text-xs text-slate-700">
+                              {t('tagsTab.clickTagDesc')}
+                            </p>
+                            {allTags.length === 0 ? (
+                              <p className="text-sm text-slate-700">
+                                {t('tagsTab.noTagsAvailable')}
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {allTags.map((tag) => {
+                                  const selected = contactTagIds.includes(
+                                    tag.id
+                                  );
+                                  return (
+                                    <button
+                                      key={tag.id}
+                                      onClick={() => toggleTag(tag.id)}
+                                      disabled={savingTags}
+                                      className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                                        selected
+                                          ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
+                                          : 'opacity-50 hover:opacity-80'
+                                      }`}
+                                      style={{
+                                        backgroundColor: tag.color + '20',
+                                        color: tag.color,
+                                      }}
+                                    >
+                                      {selected && (
+                                        <Check className="mr-1 size-3" />
+                                      )}
+                                      {tag.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </details>
+                      <details className="rounded-lg border bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-bold">
+                          Pola dodatkowe
+                        </summary>
+                        <div className="mt-3">
+                          {loadingCustom ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="size-5 animate-spin text-slate-700" />
+                            </div>
+                          ) : customFields.length === 0 ? (
+                            <p className="py-8 text-center text-sm text-slate-700">
+                              {t('noCustomFields')}
+                            </p>
+                          ) : (
                             <div className="space-y-3">
-                              <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
-                                <div>
-                                  <dt className="font-black text-slate-600 uppercase">
-                                    Następny krok
-                                  </dt>
-                                  <dd className="mt-0.5 font-semibold text-slate-800">
-                                    {contact.next_step || '—'}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="font-black text-slate-600 uppercase">
-                                    Termin
-                                  </dt>
-                                  <dd className="mt-0.5 font-semibold text-slate-800">
-                                    {contact.follow_up_at
-                                      ? new Date(
-                                          contact.follow_up_at
-                                        ).toLocaleString('pl-PL', {
-                                          day: '2-digit',
-                                          month: '2-digit',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
-                                      : '—'}
-                                  </dd>
-                                </div>
-                              </dl>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setTemplatePickerOpen(true)}
-                                disabled={sendingTemplate}
-                              >
-                                {sendingTemplate ? (
-                                  <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                  <LayoutTemplate className="size-4" />
-                                )}
-                                {t('sendTemplateBtn')}
-                              </Button>
-                              <div className="grid gap-2 md:max-w-md md:grid-cols-2">
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    Imię
+                              {customFields.map((field) => (
+                                <div key={field.id} className="space-y-1.5">
+                                  <Label className="text-xs text-slate-700 capitalize">
+                                    {field.field_name}
                                   </Label>
                                   <Input
-                                    value={editFirstName}
+                                    value={customValues[field.id] ?? ''}
                                     onChange={(e) =>
-                                      setEditFirstName(e.target.value)
+                                      setCustomValues((prev) => ({
+                                        ...prev,
+                                        [field.id]: e.target.value,
+                                      }))
                                     }
+                                    placeholder={t('enterCustomField', {
+                                      name: field.field_name,
+                                    })}
+                                    className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
                                   />
                                 </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    Nazwisko
-                                  </Label>
-                                  <Input
-                                    value={editLastName}
-                                    onChange={(e) =>
-                                      setEditLastName(e.target.value)
-                                    }
-                                  />
-                                </div>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  {t('name')}
-                                </Label>
-                                <Input
-                                  value={editName}
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  className="bg-muted border-border text-foreground h-8 text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  {t('phone')}{' '}
-                                  <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                  value={editPhone}
-                                  onChange={(e) => setEditPhone(e.target.value)}
-                                  className="bg-muted border-border text-foreground h-8 text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  {t('email')}
-                                </Label>
-                                <Input
-                                  value={editEmail}
-                                  onChange={(e) => setEditEmail(e.target.value)}
-                                  className="bg-muted border-border text-foreground h-8 text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  LinkedIn
-                                </Label>
-                                <Input
-                                  type="url"
-                                  value={editLinkedin}
-                                  onChange={(e) =>
-                                    setEditLinkedin(e.target.value)
-                                  }
-                                  placeholder="https://linkedin.com/in/..."
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  Opis Kontaktu
-                                </Label>
-                                <Textarea
-                                  value={editDescription}
-                                  onChange={(e) =>
-                                    setEditDescription(e.target.value)
-                                  }
-                                  className="min-h-32 resize-y"
-                                  placeholder="Pełny opis osoby i ustaleń"
-                                />
-                              </div>
-                              <details className="rounded-lg border p-3">
-                                <summary className="cursor-pointer text-xs font-semibold">
-                                  Dane do wniosku — wrażliwe
-                                </summary>
-                                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                  <Input
-                                    value={editPesel}
-                                    onChange={(e) =>
-                                      setEditPesel(e.target.value)
-                                    }
-                                    placeholder="PESEL"
-                                  />
-                                  <Input
-                                    value={editIdentityDocument}
-                                    onChange={(e) =>
-                                      setEditIdentityDocument(e.target.value)
-                                    }
-                                    placeholder="Seria i numer dokumentu"
-                                  />
-                                  <select
-                                    value={editBikStatus}
-                                    onChange={(e) =>
-                                      setEditBikStatus(e.target.value)
-                                    }
-                                    className="bg-muted h-9 rounded-md border px-2 text-sm"
-                                  >
-                                    <option value="">BIK — brak danych</option>
-                                    <option>Sprawdzony — OK</option>
-                                    <option>Wymaga analizy</option>
-                                    <option>Negatywny</option>
-                                  </select>
-                                  <Input
-                                    value={editIncomeType}
-                                    onChange={(e) =>
-                                      setEditIncomeType(e.target.value)
-                                    }
-                                    placeholder="Źródło dochodu"
-                                  />
-                                  <Input
-                                    type="number"
-                                    value={editMonthlyIncome}
-                                    onChange={(e) =>
-                                      setEditMonthlyIncome(e.target.value)
-                                    }
-                                    placeholder="Dochód miesięczny"
-                                  />
-                                </div>
-                              </details>
+                              ))}
                               <Button
-                                onClick={saveDetails}
-                                disabled={savingDetails}
+                                onClick={saveCustomFields}
+                                disabled={savingCustom}
                                 className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
                                 size="sm"
                               >
-                                {savingDetails ? (
+                                {savingCustom ? (
                                   <Loader2 className="size-3.5 animate-spin" />
                                 ) : (
                                   <Save className="size-3.5" />
                                 )}
-                                {t('saveChangesBtn')}
+                                {t('saveCustomFieldsBtn')}
                               </Button>
                             </div>
-                          </div>
-                        </details>
-                        <details className="rounded-lg border bg-white p-3">
-                          <summary className="cursor-pointer text-xs font-bold">
-                            Tagi
-                          </summary>
-                          <div className="mt-3">
-                            <div className="space-y-3">
-                              {accountId && contactId && (
-                                <section className="rounded-xl border p-4">
-                                  <h3 className="mb-3 text-sm font-semibold">
-                                    Tagi CRM Kontaktu
-                                  </h3>
-                                  <EntityTagsEditor
-                                    accountId={accountId}
-                                    entityType="contact"
-                                    entityId={contactId}
-                                  />
-                                </section>
-                              )}
-                              <p className="text-xs text-slate-700">
-                                {t('tagsTab.clickTagDesc')}
-                              </p>
-                              {allTags.length === 0 ? (
-                                <p className="text-sm text-slate-700">
-                                  {t('tagsTab.noTagsAvailable')}
-                                </p>
-                              ) : (
-                                <div className="flex flex-wrap gap-2">
-                                  {allTags.map((tag) => {
-                                    const selected = contactTagIds.includes(
-                                      tag.id
-                                    );
-                                    return (
-                                      <button
-                                        key={tag.id}
-                                        onClick={() => toggleTag(tag.id)}
-                                        disabled={savingTags}
-                                        className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                                          selected
-                                            ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
-                                            : 'opacity-50 hover:opacity-80'
-                                        }`}
-                                        style={{
-                                          backgroundColor: tag.color + '20',
-                                          color: tag.color,
-                                        }}
-                                      >
-                                        {selected && (
-                                          <Check className="mr-1 size-3" />
-                                        )}
-                                        {tag.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </details>
-                        <details className="rounded-lg border bg-white p-3">
-                          <summary className="cursor-pointer text-xs font-bold">
-                            Pola dodatkowe
-                          </summary>
-                          <div className="mt-3">
-                            {loadingCustom ? (
-                              <div className="flex items-center justify-center py-8">
-                                <Loader2 className="size-5 animate-spin text-slate-700" />
-                              </div>
-                            ) : customFields.length === 0 ? (
-                              <p className="py-8 text-center text-sm text-slate-700">
-                                {t('noCustomFields')}
-                              </p>
-                            ) : (
-                              <div className="space-y-3">
-                                {customFields.map((field) => (
-                                  <div key={field.id} className="space-y-1.5">
-                                    <Label className="text-xs text-slate-700 capitalize">
-                                      {field.field_name}
-                                    </Label>
-                                    <Input
-                                      value={customValues[field.id] ?? ''}
-                                      onChange={(e) =>
-                                        setCustomValues((prev) => ({
-                                          ...prev,
-                                          [field.id]: e.target.value,
-                                        }))
-                                      }
-                                      placeholder={t('enterCustomField', {
-                                        name: field.field_name,
-                                      })}
-                                      className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
-                                    />
-                                  </div>
-                                ))}
-                                <Button
-                                  onClick={saveCustomFields}
-                                  disabled={savingCustom}
-                                  className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                                  size="sm"
-                                >
-                                  {savingCustom ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Save className="size-3.5" />
-                                  )}
-                                  {t('saveCustomFieldsBtn')}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </details>
-                      </div>
-                    </details>
-                  </div>
-                </TabsContent>
-
-                {/* Notes Tab */}
-                <TabsContent
-                  value="notes"
-                  className="flex min-h-0 flex-1 flex-col px-4 py-3"
-                >
-                  {notesContent}
-                </TabsContent>
-
-                {/* Relations Tab */}
-                <TabsContent
-                  value="relations"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  <div className="my-3 space-y-3">
-                    <SpouseLinks links={spouseLinks} />
-                    <section className="rounded-xl border border-slate-200 p-3">
-                      <h3 className="text-sm font-black">Relacja małżeńska</h3>
-                      {spouseLinks.length ? (
-                        <Button
-                          className="mt-2 min-h-10"
-                          variant="outline"
-                          onClick={() => void unlinkSpouse()}
-                        >
-                          Odłącz współmałżonka
-                        </Button>
-                      ) : (
-                        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                          <select
-                            value={selectedSpouseId}
-                            onChange={(event) =>
-                              setSelectedSpouseId(event.target.value)
-                            }
-                            className="min-h-10 flex-1 rounded-md border bg-white px-3 text-sm"
-                            aria-label="Wybierz współmałżonka"
-                          >
-                            <option value="">Wybierz Kontakt</option>
-                            {spouseCandidates.map((candidate) => (
-                              <option key={candidate.id} value={candidate.id}>
-                                {candidate.name || candidate.phone}
-                              </option>
-                            ))}
-                          </select>
-                          <Button
-                            className="min-h-10"
-                            disabled={!selectedSpouseId || savingSpouse}
-                            onClick={() => void linkSpouse()}
-                          >
-                            {savingSpouse ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : null}
-                            Powiąż
-                          </Button>
+                          )}
                         </div>
-                      )}
-                    </section>
-                  </div>
-                  <h3 className="mb-3 text-sm font-black">Firma</h3>
-                  <div className="space-y-3">
-                    {contactCompanies.length === 0 ? (
-                      <p className="text-sm text-slate-700">
-                        Kontakt nie jest jeszcze przypisany do żadnej firmy.
-                      </p>
-                    ) : (
-                      contactCompanies.map((link) => (
-                        <div
-                          key={link.company_id}
-                          className="border-border bg-muted/50 flex items-center justify-between gap-3 rounded-lg border p-3"
-                        >
-                          <Link
-                            href={`/companies?open=${link.company_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-w-0 rounded px-1 py-1 hover:bg-emerald-50"
-                          >
-                            <p className="text-foreground truncate text-sm font-medium hover:text-emerald-800 hover:underline">
-                              {link.company?.name ?? 'Firma'}
-                            </p>
-                            {link.role && (
-                              <p className="text-xs text-slate-700">
-                                Rola: {link.role}
-                              </p>
-                            )}
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => unlinkCompany(link.company_id)}
-                          >
-                            Odłącz
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                    <div className="border-border space-y-2 border-t pt-3">
-                      <select
-                        value={selectedCompanyId}
-                        onChange={(event) =>
-                          setSelectedCompanyId(event.target.value)
-                        }
-                        className="border-border bg-muted text-foreground h-9 w-full rounded-lg border px-2.5 text-sm"
+                      </details>
+                    </div>
+                  </details>
+                </div>
+              </TabsContent>
+
+              {/* Notes Tab */}
+              <TabsContent
+                value="notes"
+                className="flex min-h-0 flex-1 flex-col px-4 py-3"
+              >
+                {notesContent}
+              </TabsContent>
+
+              {/* Relations Tab */}
+              <TabsContent
+                value="relations"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                <div className="my-3 space-y-3">
+                  <SpouseLinks links={spouseLinks} />
+                  <section className="rounded-xl border border-slate-200 p-3">
+                    <h3 className="text-sm font-black">Relacja małżeńska</h3>
+                    {spouseLinks.length ? (
+                      <Button
+                        className="mt-2 min-h-10"
+                        variant="outline"
+                        onClick={() => void unlinkSpouse()}
                       >
-                        <option value="">Wybierz firmę</option>
-                        {companies
-                          .filter(
-                            (company) =>
-                              !contactCompanies.some(
-                                (link) => link.company_id === company.id
-                              )
-                          )
-                          .map((company) => (
-                            <option key={company.id} value={company.id}>
-                              {company.name}
+                        Odłącz współmałżonka
+                      </Button>
+                    ) : (
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <select
+                          value={selectedSpouseId}
+                          onChange={(event) =>
+                            setSelectedSpouseId(event.target.value)
+                          }
+                          className="min-h-10 flex-1 rounded-md border bg-white px-3 text-sm"
+                          aria-label="Wybierz współmałżonka"
+                        >
+                          <option value="">Wybierz Kontakt</option>
+                          {spouseCandidates.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.name || candidate.phone}
                             </option>
                           ))}
-                      </select>
-                      <Input
-                        value={companyRole}
-                        onChange={(event) => setCompanyRole(event.target.value)}
-                        placeholder="Rola w firmie, np. właściciel"
-                      />
-                      <Button
-                        variant="outline"
-                        render={
-                          <Link
-                            href={`/companies?new=company&contact=${contact.id}`}
-                          />
-                        }
-                        className="w-full"
-                      >
-                        <Plus className="size-4" />
-                        Nowa Firma dla tego Kontaktu
-                      </Button>
-
-                      <Button
-                        onClick={linkCompany}
-                        disabled={!selectedCompanyId || savingCompanyLink}
-                        className="w-full"
-                      >
-                        {savingCompanyLink ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <Plus className="size-4" />
-                        )}
-                        Przypisz firmę
-                      </Button>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {/* Deals Tab */}
-                <TabsContent
-                  value="deals"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  {loadingDeals ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="text-primary size-5 animate-spin" />
-                    </div>
-                  ) : deals.filter(
-                      (deal) => deal.status !== 'won' && deal.status !== 'lost'
-                    ).length === 0 ? (
-                    <p className="text-xs text-slate-700">
-                      {t('dealsTab.noDeals')}
+                        </select>
+                        <Button
+                          className="min-h-10"
+                          disabled={!selectedSpouseId || savingSpouse}
+                          onClick={() => void linkSpouse()}
+                        >
+                          {savingSpouse ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : null}
+                          Powiąż
+                        </Button>
+                      </div>
+                    )}
+                  </section>
+                </div>
+                <h3 className="mb-3 text-sm font-black">Firma</h3>
+                <div className="space-y-3">
+                  {contactCompanies.length === 0 ? (
+                    <p className="text-sm text-slate-700">
+                      Kontakt nie jest jeszcze przypisany do żadnej firmy.
                     </p>
                   ) : (
-                    <div className="space-y-2">
-                      {deals
-                        .filter(
-                          (deal) =>
-                            deal.status !== 'won' && deal.status !== 'lost'
-                        )
-                        .map((deal) => (
-                          <Link
-                            key={deal.id}
-                            href={`/deals/${deal.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block rounded-lg border border-emerald-950/10 bg-white p-3"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-foreground text-sm font-medium">
-                                {deal.title}
-                              </p>
-                              {deal.stage && (
-                                <span
-                                  className="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium"
-                                  style={{
-                                    backgroundColor: `${deal.stage.color}20`,
-                                    color: deal.stage.color,
-                                  }}
-                                >
-                                  {deal.stage.name}
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-xs text-slate-700">
-                              Następny krok:{' '}
-                              {deal.next_action || 'Nie ustalono'}
-                            </p>
-                            {deal.next_action_at && (
-                              <p className="mt-1 text-xs text-slate-700">
-                                {formatWarsawDateTime(deal.next_action_at)}
-                              </p>
-                            )}
-                            <div className="mt-1.5 flex items-center justify-between text-xs text-slate-700">
-                              <span className="flex items-center gap-1">
-                                <DollarSign className="size-3" />
-                                {formatCurrency(
-                                  deal.value ?? 0,
-                                  deal.currency || defaultCurrency
-                                )}
-                              </span>
-                              {deal.status && deal.status !== 'open' && (
-                                <span
-                                  className={
-                                    deal.status === 'won'
-                                      ? 'text-primary'
-                                      : 'text-red-700'
-                                  }
-                                >
-                                  {deal.status}
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        ))}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent
-                  value="documents"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  {documentsContent}
-                </TabsContent>
-                <TabsContent
-                  value="tasks"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  {taskContent}
-                </TabsContent>
-                <TabsContent
-                  value="people"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  {loadingDeals ? (
-                    <Loader2
-                      aria-label="Ładowanie"
-                      className="size-5 animate-spin"
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      {[
-                        ...new Map(
-                          [
-                            ...spouseLinks.map(({ spouse }) => spouse),
-                            ...relatedPeople,
-                          ].map((person) => [person.id, person])
-                        ).values(),
-                      ].map((person) => (
+                    contactCompanies.map((link) => (
+                      <div
+                        key={link.company_id}
+                        className="border-border bg-muted/50 flex items-center justify-between gap-3 rounded-lg border p-3"
+                      >
                         <Link
-                          key={person.id}
-                          href={`/contacts?open=${person.id}`}
-                          className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm font-bold text-slate-950 hover:bg-slate-100"
+                          href={`/companies?open=${link.company_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 rounded px-1 py-1 hover:bg-emerald-50"
                         >
-                          {person.name || person.phone}
+                          <p className="text-foreground truncate text-sm font-medium hover:text-emerald-800 hover:underline">
+                            {link.company?.name ?? 'Firma'}
+                          </p>
+                          {link.role && (
+                            <p className="text-xs text-slate-700">
+                              Rola: {link.role}
+                            </p>
+                          )}
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unlinkCompany(link.company_id)}
+                        >
+                          Odłącz
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                  <div className="border-border space-y-2 border-t pt-3">
+                    <select
+                      value={selectedCompanyId}
+                      onChange={(event) =>
+                        setSelectedCompanyId(event.target.value)
+                      }
+                      className="border-border bg-muted text-foreground h-9 w-full rounded-lg border px-2.5 text-sm"
+                    >
+                      <option value="">Wybierz firmę</option>
+                      {companies
+                        .filter(
+                          (company) =>
+                            !contactCompanies.some(
+                              (link) => link.company_id === company.id
+                            )
+                        )
+                        .map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                    </select>
+                    <Input
+                      value={companyRole}
+                      onChange={(event) => setCompanyRole(event.target.value)}
+                      placeholder="Rola w firmie, np. właściciel"
+                    />
+                    <Button
+                      variant="outline"
+                      render={
+                        <Link
+                          href={`/companies?new=company&contact=${contact.id}`}
+                        />
+                      }
+                      className="w-full"
+                    >
+                      <Plus className="size-4" />
+                      Nowa Firma dla tego Kontaktu
+                    </Button>
+
+                    <Button
+                      onClick={linkCompany}
+                      disabled={!selectedCompanyId || savingCompanyLink}
+                      className="w-full"
+                    >
+                      {savingCompanyLink ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
+                      Przypisz firmę
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Deals Tab */}
+              <TabsContent
+                value="deals"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                {loadingDeals ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="text-primary size-5 animate-spin" />
+                  </div>
+                ) : deals.filter(
+                    (deal) => deal.status !== 'won' && deal.status !== 'lost'
+                  ).length === 0 ? (
+                  <p className="text-xs text-slate-700">
+                    {t('dealsTab.noDeals')}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {deals
+                      .filter(
+                        (deal) =>
+                          deal.status !== 'won' && deal.status !== 'lost'
+                      )
+                      .map((deal) => (
+                        <Link
+                          key={deal.id}
+                          href={`/deals/${deal.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-lg border border-emerald-950/10 bg-white p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-foreground text-sm font-medium">
+                              {deal.title}
+                            </p>
+                            {deal.stage && (
+                              <span
+                                className="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium"
+                                style={{
+                                  backgroundColor: `${deal.stage.color}20`,
+                                  color: deal.stage.color,
+                                }}
+                              >
+                                {deal.stage.name}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-700">
+                            Następny krok: {deal.next_action || 'Nie ustalono'}
+                          </p>
+                          {deal.next_action_at && (
+                            <p className="mt-1 text-xs text-slate-700">
+                              {formatWarsawDateTime(deal.next_action_at)}
+                            </p>
+                          )}
+                          <div className="mt-1.5 flex items-center justify-between text-xs text-slate-700">
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="size-3" />
+                              {formatCurrency(
+                                deal.value ?? 0,
+                                deal.currency || defaultCurrency
+                              )}
+                            </span>
+                            {deal.status && deal.status !== 'open' && (
+                              <span
+                                className={
+                                  deal.status === 'won'
+                                    ? 'text-primary'
+                                    : 'text-red-700'
+                                }
+                              >
+                                {deal.status}
+                              </span>
+                            )}
+                          </div>
                         </Link>
                       ))}
-                      {!spouseLinks.length && !relatedPeople.length && (
-                        <p className="py-8 text-center text-sm text-slate-700">
-                          Brak danych
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent
-                  value="history"
-                  className="flex-1 overflow-y-auto px-4 py-3"
-                >
-                  <ActivityHistory
-                    contactId={contact.id}
-                    snapshot={historySnapshot}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent
+                value="documents"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                {documentsContent}
+              </TabsContent>
+              <TabsContent
+                value="tasks"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                {taskContent}
+              </TabsContent>
+              <TabsContent
+                value="people"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                {loadingDeals ? (
+                  <Loader2
+                    aria-label="Ładowanie"
+                    className="size-5 animate-spin"
                   />
-                </TabsContent>
-              </Tabs>
-              <div className="shrink-0 border-t bg-white p-3">
-                <Button
-                  aria-label="+ UTWÓRZ NOWY DEAL"
-                  className="w-full bg-emerald-800 text-white"
-                  render={
-                    <Link
-                      href={`/quick-call?contact=${contact.id}&newDeal=1`}
-                    />
-                  }
-                >
-                  + NOWY DEAL
-                </Button>
-              </div>
+                ) : (
+                  <div className="space-y-2">
+                    {[
+                      ...new Map(
+                        [
+                          ...spouseLinks.map(({ spouse }) => spouse),
+                          ...relatedPeople,
+                        ].map((person) => [person.id, person])
+                      ).values(),
+                    ].map((person) => (
+                      <Link
+                        key={person.id}
+                        href={`/contacts?open=${person.id}`}
+                        className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm font-bold text-slate-950 hover:bg-slate-100"
+                      >
+                        {person.name || person.phone}
+                      </Link>
+                    ))}
+                    {!spouseLinks.length && !relatedPeople.length && (
+                      <p className="py-8 text-center text-sm text-slate-700">
+                        Brak danych
+                      </p>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent
+                value="history"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
+                <ActivityHistory
+                  contactId={contact.id}
+                  snapshot={historySnapshot}
+                />
+              </TabsContent>
+            </Tabs>
+            <div className="shrink-0 border-t bg-white p-3">
+              <Button
+                aria-label="+ UTWÓRZ NOWY DEAL"
+                className="w-full bg-emerald-800 text-white"
+                render={
+                  <Link href={`/quick-call?contact=${contact.id}&newDeal=1`} />
+                }
+              >
+                + NOWY DEAL
+              </Button>
             </div>
-          )}
-        </SheetContent>
-      </Sheet>
+          </div>
+        )}
+      </section>
       <TemplatePicker
         open={templatePickerOpen}
         onOpenChange={setTemplatePickerOpen}

@@ -633,6 +633,17 @@ export default function ContactsPage() {
     toast.success('Kontakt utworzony. Możesz rozpocząć połączenie.');
   }
 
+  if (detailOpen) {
+    return (
+      <ContactDetailView
+        open={detailOpen}
+        onOpenChange={handleDetailOpenChange}
+        contactId={detailContactId}
+        onUpdated={fetchContacts}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <MobileContactsView
@@ -1170,14 +1181,6 @@ export default function ContactsPage() {
           setFormOpen(false);
           openDetail(id);
         }}
-      />
-
-      {/* Contact Detail Sheet */}
-      <ContactDetailView
-        open={detailOpen}
-        onOpenChange={handleDetailOpenChange}
-        contactId={detailContactId}
-        onUpdated={fetchContacts}
       />
 
       {/* Import Modal */}
