@@ -399,3 +399,23 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 - **Rekomendacja asystenta Meta (istotna):** „Weryfikacja rejestrowa firmy nie wymaga przesyłania prywatnych dokumentów tożsamości — wystarczają dokumenty rejestrowe podmiotu gospodarczego lub potwierdzenie przez firmową domenę i e-mail”. Alternatywy: **kod e-mail w domenie witryny (@makson.space)**, **weryfikacja domeny (DNS)**, albo **urzędowy dokument firmy** (wydruk z CEIDG / rachunek firmowy).
 - Miejsce dalszej korespondencji: `Business Support Home` → czat „Asystent biznesowy Meta AI” (badge „2 nieprzeczytane”), wątek „Weryfikacja Firmy I Aktualizacja Numeru”; ewentualnie „Twoje zgłoszenia do działu obsługi → Aktywne”.
 - Otwarte technicznie: ponowne otwarcie wątku czatu przez automatykę nie powiodło się (3 metody, element listy nieaktywny w DOM) — odczyt treści wymaga ręcznego kliknięcia w panelu czatu.
+
+### 14. Stały dostęp techniczny Meta — stan na 31.10.2026
+**Token `hermes-mcrm` (ID użytkownika `122101890999527262`):** ważny, `days_to_expiry: 60` (kontrola 31.10.2026 08:10Z, `~/.hermes/meta-token-status.json`, cron 8:00). Uprawnienia faktycznie przyznane (`/me/permissions`): `whatsapp_business_management`, `whatsapp_business_messaging`, `public_profile`.
+**Czego token NIE może (odczyt realny, kod błędu):**
+- WABA produkcyjne `2678122512584634` → `code 100 / error_subcode 33` (brak przypisania zasobu do użytkownika systemowego).
+- WABA testowe `1787728705756368` → jak wyżej.
+- Portfolio `1670356917366790` i `owned_domains` → `code 200: Requires business_management permission`.
+- `subscribed_apps` na węźle aplikacji → brak pola dla tego typu tokenu; weryfikacja subskrypcji wymaga tokenu aplikacji (`app_id|app_secret`), a `META_APP_SECRET` nie jest skonfigurowany.
+**Wniosek:** token służy dziś tylko do wysyłki/odbioru przez WABA po przypisaniu zasobu; do zarządzania konfiguracją (domeny, subskrypcje, odczyt WABA) potrzebne: (a) przypisanie `hermes-mcrm` do WABA + aplikacji z pełną kontrolą, (b) uprawnienie `business_management` w tokenie. To zmiana uprawnień administracyjnych → wymaga zgody właściciela.
+
+### 14.1. Sprawa Meta `1510263704199443` — sprostowanie wysłane (31.10.2026)
+- Wysłano w istniejącym wątku „Aktualizacja Numeru Telefonu W Weryfikacji Firmy” (bez tworzenia nowej sprawy), 1055 znaków: sprostowanie opisu (nie blokada antyspamowa/Developer, lecz nieaktualny numer w bazie weryfikacyjnej), dane CEIDG, prośba o weryfikację domeny `makson.space` + kod na `biuro@makson.space`, kontakt `tomasz.makson@gmail.com`, brak dokumentów.
+- Odpowiedź Meta: **„Twoja korekta do sprawy 1510263704199443 została odnotowana — przekazuję ją do weryfikacji numeru firmy.”**
+- Korespondencja: Business Support Home → asystent → wątek „Aktualizacja Numeru Telefonu W Weryfikacji Firmy”; dodatkowo „Weryfikacja Firmy I Aktualizacja Numeru”.
+
+### 14.2. Domena makson.space — konfiguracja wyjściowa i blokada dodania (31.10.2026)
+- DNS wyjściowy (zapisany przed jakąkolwiek zmianą): `A makson.space = 185.224.138.23`, `A www = 185.224.138.23`, `A test = 185.224.138.23` (Hostinger), `MX = aspmx.l.google.com` + alt1–alt4 (Google Workspace), `TXT SPF = v=spf1 include:_spf.google.com include:_spf.lh.pl include:one.zoho.eu ~all`. **Brak rekordu `facebook-domain-verification`.** Strona, poczta i CRM nietknięte — żadnej zmiany DNS nie wykonano.
+- Meta → Ustawienia → Domeny (portfolio `1670356917366790`): **„Nie dodano domen”**. Przycisk „Dodaj” otwiera wyłącznie „Utwórz domenę” (zakup nowej) lub „Poproś o dostęp do domeny” (dostęp od innej firmy) — **brak opcji dodania domeny już posiadanej**. Kod weryfikacyjny Meta pojawia się w innym miejscu (kreator weryfikacji / App Dashboard), więc rekordu TXT nie można jeszcze wytworzyć.
+- `biuro@makson.space`: istnienie skrzynki **niepotwierdzone** — obecny token Google ma tylko `drive.readonly` i `documents.readonly` (brak Gmail API), więc nie mogę sprawdzić skrzynki ani odebrać kodu bez rozszerzenia zakresu.
+- Koszt/wysyłka: żadnych nowych usług nie kupiono, żadnego DNS nie zmieniono.
