@@ -444,3 +444,21 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
   `GET /2678122512584634/message_templates` → `{"data":[]}` (odczyt działa, brak szablonów).
 - **Nowe ustalenie:** `GET /2678122512584634/subscribed_apps` → `{"data":[]}` — **aplikacja mCRM AI nie jest subskrybowana do produkcyjnego WABA**, więc zdarzenia webhooka nie będą dla niego dostarczane. To konfiguracja do wykonania (wymaga zgody: dotyczy webhooka).
 - **`business_management`:** nadal brak. Sprawdzone: bez niego padają tylko operacje na portfelu (`GET /1670356917366790`, `GET /…/owned_domains` → code 200). Wszystkie operacje WhatsApp (WABA, numery, szablony) działają bez tego uprawnienia. Rozszerzenie wymaga nowej generacji tokenu → do zgody, nie wykonane.
+
+### 17. Minimum operacyjne CRM — stan na 31.10.2026 (31.10.2026)
+**Subskrypcja aplikacji do produkcyjnego WABA — PASS**
+- `POST /2678122512584634/subscribed_apps` → `{"success":true}`.
+- `GET /2678122512584634/subscribed_apps` → `{"data":[{"whatsapp_business_api_data":{"link":"https://www.facebook.com/games/?app_id=1116881471020279","name":"mCRM AI","id":"1116881471020279"}}]}` — aplikacja mCRM AI subskrybowana; webhook `https://test.makson.space/api/whatsapp/webhook` bez zmian.
+
+**Coexistence — ZABLOKOWANE PRZEZ META (dokładne komunikaty)**
+- Numer `1269557046240313`: `platform_type: ON_PREMISE`, `code_verification_status: NOT_VERIFIED`, `status: DISCONNECTED`, `is_on_biz_app: true` (numer jest na WhatsApp Business w telefonie), `quality_rating: UNKNOWN`.
+- WABA `2678122512584634`: `account_review_status: APPROVED`, `business_verification_status: pending_submission`.
+- `GET /2678122512584634` z polami własności → **`code 10: „You do not have permission to perform this action. This action requires that the Business that owns this App is a Business Solution Provider for WhatsApp.”`** — to jest twarda blokada: aplikacja musi być Tech Provider/BSP, co wymaga zakończonej weryfikacji firmy. Nie wykonano żadnej migracji, rejestracji ani wyrejestrowania numeru.
+
+**Funkcje CRM — potwierdzone w kodzie i testach**
+- Etapy lejka faktycznie zapisane w CRM (`src/lib/mcrm/client-journey.ts`, `REQUIRED_SALES_STAGES`): `1. KONTAKT POZYSKOWY`, `2. SPOTKANIE / AUDYT`, `3. POCZEKALNIA`, `4. KOMPLETACJA / OFERTA`, `5. WNIOSKI / DECYZJA`, `6. URUCHOMIENIE / FV` (sześć, nie dziewięć — lejka nie przebudowywano).
+- Karta sprawy zawiera 7 sekcji kontrolnych: kontakt i opis sprawy, następny krok i termin, analiza i rekomendacja, banki i warianty, kompletacja dokumentów, uruchomienie produktu, faktura i rozliczenie.
+- WhatsApp zastępczo: komponent `WhatsAppAction` (otwiera rozmowę z numerem klienta) — 4 miejsca na karcie sprawy.
+- E-mail zastępczo: `mailto:` z adresem kontaktu na karcie sprawy.
+- Testy modułów kluczowych (świeży przebieg 31.10.2026): `client-journey.test.ts` + `whatsapp-coexistence-connect.test.tsx` → **26/26 PASS**, 2 pliki.
+- Wysyłka e-mail przez API: **brak** — token Google ma tylko `drive.readonly`, `documents.readonly` (brak Gmaila), więc działa wyłącznie wariant `mailto:`.
