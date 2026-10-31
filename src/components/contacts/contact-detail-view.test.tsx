@@ -15,6 +15,10 @@ const fixture = vi.hoisted(() => ({
   refs: [] as { current: unknown }[],
   backClick: undefined as undefined | (() => void),
   tab: 'overview',
+  stateIndex: 0,
+  moreTabsOpen: false,
+  moreClick: undefined as undefined | (() => void),
+  footerClicks: [] as (() => void)[],
   expanded: true,
   emptyArrayIndex: 0,
   tags: [] as import('@/types').Tag[],
@@ -64,6 +68,22 @@ vi.mock('react', async (importOriginal) => {
       return ref;
     },
     useState: (initial: unknown) => {
+      const stateIndex = fixture.stateIndex++;
+      if (stateIndex === 2)
+        return [
+          fixture.tab,
+          (value: string) => {
+            fixture.tab = value;
+          },
+        ];
+      if (stateIndex === 4)
+        return [
+          fixture.moreTabsOpen,
+          (value: boolean | ((previous: boolean) => boolean)) => {
+            fixture.moreTabsOpen =
+              typeof value === 'function' ? value(fixture.moreTabsOpen) : value;
+          },
+        ];
       // Seed the existing tag, tag-ID and note states without running database effects.
       if (Array.isArray(initial) && initial.length === 0) {
         const index = fixture.emptyArrayIndex++;
@@ -88,6 +108,12 @@ vi.mock('./contact-detail-sections', async (importOriginal) => {
     await importOriginal<typeof import('./contact-detail-sections')>();
   return {
     ...actual,
+    ContactCardFooter: (
+      props: React.ComponentProps<typeof actual.ContactCardFooter>
+    ) => {
+      if ('onClick' in props) fixture.footerClicks.push(props.onClick);
+      return <actual.ContactCardFooter {...props} />;
+    },
     useContactOverviewData: () => ({
       owner: { data: null, loading: false, error: false },
       tasks: {
@@ -180,6 +206,8 @@ vi.mock('@/components/ui/button', async () => {
     }: React.ComponentProps<'button'> & {
       render?: React.ReactElement;
     }) => {
+      if (props['aria-controls'] === 'contact-more-tabs')
+        fixture.moreClick = props.onClick as () => void;
       if (props['aria-label'] === 'Wróć do listy')
         fixture.backClick = props.onClick as () => void;
       return render ? (
@@ -213,13 +241,15 @@ vi.mock('@/components/sales/call-action', () => ({
   CallAction: () => <button>ZADZWOŃ</button>,
 }));
 vi.mock('@/components/sales/whatsapp-action', () => ({
-  WhatsAppAction: () => <button>WIADOMOŚĆ</button>,
+  WhatsAppAction: ({ label }: { label: string }) => <button>{label}</button>,
 }));
 
 const render = (
   props: Partial<React.ComponentProps<typeof ContactDetailView>> = {}
 ) => {
   fixture.emptyArrayIndex = 0;
+  fixture.stateIndex = 0;
+  fixture.footerClicks = [];
   return renderToStaticMarkup(
     <ContactDetailView
       open
@@ -235,6 +265,8 @@ beforeEach(() => {
   fixture.refs = [];
   fixture.backClick = undefined;
   fixture.tab = 'overview';
+  fixture.moreTabsOpen = false;
+  fixture.moreClick = undefined;
   fixture.expanded = true;
   fixture.tags = [];
   fixture.notes = [];
@@ -583,7 +615,7 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
     const styles = await layoutStyles(html);
     const contents = [...html.matchAll(/id="[^"]+-content" class="([^"]+)"/g)];
     expect(contents).toHaveLength(3);
-    expect(html.match(/aria-expanded="false"/g)).toHaveLength(3);
+    expect(html.match(/aria-expanded="false"/g)).toHaveLength(4);
     for (const [, className] of contents) {
       expect(styles(className, 375).display).toBe('none');
       expect(styles(className, 1279).display).toBe('none');
@@ -783,4 +815,153 @@ describe('K3-02A-6: zatwierdzone poprawki karty', () => {
       expect(styles(classes, 375)['overflow-x']).toBe('auto');
     }
   );
+});
+
+describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
+  it('ma dokładnie siedem stopek we właściwych kartach i dwa filtrowane adresy', () => {
+    const html = render();
+    expect(html.match(/Zobacz wszystkie →/g)).toHaveLength(7);
+    const sections = [
+      'mobile-contact-deals',
+      'contact-overview-people',
+      'contact-overview-tasks',
+      'contact-overview-documents',
+      'mobile-contact-activities',
+      'contact-overview-notes',
+      'contact-overview-relations',
+    ];
+    for (const id of sections) {
+      const card = html
+        .split(`aria-labelledby="${id}"`)[1]
+        .split('</section>')[0];
+      expect(card).toContain('Zobacz wszystkie →');
+      expect(card).toContain('min-h-11');
+      expect(card).toContain(
+        'text-xs font-semibold text-emerald-800 hover:underline'
+      );
+    }
+    expect(html).toContain('href="/deals?contact=contact-synthetic"');
+    expect(html).toContain('href="/tasks?contact=contact-synthetic"');
+  });
+
+  it.each(['people', 'documents', 'history', 'notes', 'relations'])(
+    'stopka otwiera zakładkę %s',
+    (tab) => {
+      render();
+      const index = [
+        'people',
+        'documents',
+        'history',
+        'notes',
+        'relations',
+      ].indexOf(tab);
+      fixture.footerClicks[index]();
+      expect(fixture.tab).toBe(tab);
+      expect(render()).toContain('role="tabpanel"');
+      if (tab !== 'history') expect(fixture.moreTabsOpen).toBe(true);
+    }
+  );
+
+  it('Więcej rozwija i zwija cztery dalsze zakładki bez duplikowania ani zmiany kolejności', () => {
+    let html = render();
+    const order = (value: string) =>
+      [...value.matchAll(/role="tab" data-value="([^"]+)"/g)].map(
+        (match) => match[1]
+      );
+    const expected = [
+      'overview',
+      'deals',
+      'history',
+      'tasks',
+      'notes',
+      'documents',
+      'people',
+      'relations',
+    ];
+    expect(order(html)).toEqual(expected);
+    expect(html).toContain(
+      'aria-expanded="false" aria-controls="contact-more-tabs"'
+    );
+    expect(html).toContain('id="contact-more-tabs" hidden=""');
+    expect(html).toContain('Więcej ⌄');
+    fixture.moreClick!();
+    html = render();
+    expect(html).toContain(
+      'aria-expanded="true" aria-controls="contact-more-tabs"'
+    );
+    expect(html).not.toContain('id="contact-more-tabs" hidden');
+    expect(order(html)).toEqual(expected);
+    fixture.moreClick!();
+    expect(render()).toContain('id="contact-more-tabs" hidden=""');
+  });
+
+  it.each([
+    ['deals', 'mobile-contact-deals'],
+    ['people', 'contact-overview-people'],
+    ['tasks', 'contact-overview-tasks'],
+    ['documents', 'contact-overview-documents'],
+    ['notes', 'contact-overview-notes'],
+    ['relations', 'contact-overview-relations'],
+  ])(
+    'licznik karty %s jest zgodny z zakładką także przy ładowaniu i błędzie',
+    (tab, id) => {
+      fixture.tasks = [
+        {
+          id: 'task',
+          title: 'Test',
+          completed: true,
+          activity_status: null,
+          scheduled_at: null,
+          next_action_date: null,
+        },
+      ];
+      for (const state of ['ready', 'loading', 'error']) {
+        fixture.dataLoading = state === 'loading';
+        fixture.dataError = state === 'error';
+        const html = render();
+        const count = html.match(
+          new RegExp(`data-tab-count="${tab}"[^>]*>\\(([^<]+)\\)`)
+        )![1];
+        expect(html.split(`id="${id}"`)[1].split('</h3>')[0]).toContain(
+          `(${count})`
+        );
+        if (tab === 'tasks' || tab === 'documents') {
+          expect(count).toBe(
+            state === 'loading'
+              ? '…'
+              : state === 'error'
+                ? '—'
+                : tab === 'tasks'
+                  ? '1'
+                  : '0'
+          );
+        }
+      }
+    }
+  );
+
+  it('nagłówek pokazuje tylko przypisane tagi, bez pustych statusów', () => {
+    expect(render()).not.toContain('data-contact-status');
+    expect(render()).not.toContain('Status: Brak danych');
+    fixture.tags = [
+      { id: 'tag', name: 'Tag syntetyczny', color: '#006644' },
+    ] as import('@/types').Tag[];
+    const header = render().split('</header>')[0];
+    expect(header).toContain('data-contact-status');
+    expect(header).toContain('Tag syntetyczny</span>');
+  });
+
+  it('zachowuje wszystkie siedem akcji nagłówka', () => {
+    const header = render().split('</header>')[0];
+    for (const label of [
+      'ZADZWOŃ',
+      'WhatsApp',
+      'E-mail',
+      'WIĘCEJ',
+      '+ NOWY DEAL',
+      'DYKTUJ',
+      'DODAJ TERMIN',
+    ])
+      expect(header).toContain(label);
+  });
 });

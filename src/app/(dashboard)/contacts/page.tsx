@@ -1814,7 +1814,7 @@ function DesktopContactsView({
                           <span className="block text-xs text-slate-700">
                             {contact.companies
                               ?.map((company) => company.name)
-                              .join(', ') || 'Klient indywidualny'}
+                              .join(', ') || '—'}
                           </span>
                         </button>
                       </TableCell>

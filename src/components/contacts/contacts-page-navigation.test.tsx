@@ -113,3 +113,70 @@ describe('02A-4: lista ↔ pełny widok i parametr open', () => {
     expect(findListOpen(renderPage())).toBeTypeOf('function');
   });
 });
+
+function findElement(
+  node: ReactNode,
+  predicate: (element: React.ReactElement<Record<string, unknown>>) => boolean
+): React.ReactElement<Record<string, unknown>> | undefined {
+  if (!isValidElement<Record<string, unknown>>(node)) return;
+  if (predicate(node)) return node;
+  for (const child of Children.toArray(node.props.children as ReactNode)) {
+    const found = findElement(child, predicate);
+    if (found) return found;
+  }
+}
+
+function textContent(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textContent).join('');
+  if (isValidElement<{ children?: ReactNode }>(node))
+    return textContent(node.props.children);
+  return '';
+}
+
+describe('K3-02A-8: rzeczywista kolumna Tagi listy', () => {
+  it.each([
+    { tags: [] },
+    { tags: [{ id: 'tag-test', name: 'Tag syntetyczny', color: '#006644' }] },
+  ])(
+    'renderuje tagi lub kreskę, bez sztucznego typu klienta: %j',
+    ({ tags }) => {
+      renderPage();
+      harness.state[0] = [
+        {
+          id: 'contact-test',
+          name: 'Kontakt syntetyczny',
+          phone: '+48000000000',
+          tags,
+        },
+      ];
+      harness.state[2] = false;
+      const desktop = findElement(
+        renderPage(),
+        (element) =>
+          typeof element.type === 'function' &&
+          element.type.name === 'DesktopContactsView'
+      )!;
+      const list = (
+        desktop.type as (props: Record<string, unknown>) => ReactNode
+      )(desktop.props);
+      const row = findElement(
+        list,
+        (element) =>
+          element.props['aria-label'] ===
+          'Otwórz kartę klienta Kontakt syntetyczny'
+      )!;
+      const cells = Children.toArray(row.props.children as ReactNode);
+      expect(textContent(cells[5])).toBe(tags.length ? 'Tag syntetyczny' : '—');
+      expect(textContent(row)).not.toContain('Klient indywidualny');
+      const tagCell = cells[5] as React.ReactElement<{ children: ReactNode }>;
+      const chips = findElement(
+        tagCell,
+        (element) =>
+          typeof element.props.className === 'string' &&
+          element.props.className.includes('rounded-full')
+      );
+      expect(Boolean(chips)).toBe(tags.length > 0);
+    }
+  );
+});

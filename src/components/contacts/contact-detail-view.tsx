@@ -52,6 +52,7 @@ import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
 import {
   ContactDetailColumn,
+  ContactCardFooter,
   ContactInfoCards,
   ContactDocumentList,
   ContactEmailAction,
@@ -114,6 +115,7 @@ export function ContactDetailView({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [contextExpanded, setContextExpanded] = useState(true);
+  const [moreTabsOpen, setMoreTabsOpen] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Send template — lets the business initiate (or re-open) a conversation
@@ -170,6 +172,7 @@ export function ContactDetailView({
     if (open && contactId) {
       setActiveTab('overview');
       setContextExpanded(true);
+      setMoreTabsOpen(false);
     }
   }, [contactId, open]);
   const [companyRole, setCompanyRole] = useState('');
@@ -464,6 +467,32 @@ export function ContactDetailView({
     ['people', 'Osoby', counts.people],
     ['relations', 'Relacje', counts.relations],
   ] as const;
+  const selectTab = (value: string) => {
+    setActiveTab(value);
+    if (tabItems.slice(4).some(([tab]) => tab === value)) setMoreTabsOpen(true);
+  };
+  const displayCount = (value: keyof typeof counts) =>
+    countError[value] ? '—' : countLoading[value] ? '…' : counts[value];
+  const renderTab = ([value, label, count]: (typeof tabItems)[number]) => (
+    <TabsTrigger key={value} value={value}>
+      {label}
+      <span
+        data-tab-count={value}
+        className="ml-1 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums"
+        aria-label={`Liczba: ${value === 'overview' ? (overviewError ? 'niedostępna' : overviewLoading ? 'ładowanie' : count) : countError[value] ? 'niedostępna' : countLoading[value] ? 'ładowanie' : count}`}
+      >
+        (
+        {value === 'overview'
+          ? overviewError
+            ? '—'
+            : overviewLoading
+              ? '…'
+              : count
+          : displayCount(value)}
+        )
+      </span>
+    </TabsTrigger>
+  );
   const taskContent =
     overview.tasks.loading || overview.tasks.error ? (
       <DataState {...overview.tasks} />
@@ -1054,7 +1083,7 @@ export function ContactDetailView({
             {/* Tabs */}
             <Tabs
               value={activeTab}
-              onValueChange={setActiveTab}
+              onValueChange={selectTab}
               className="flex min-h-0 flex-1 flex-col"
             >
               <ContactInfoCards
@@ -1072,32 +1101,26 @@ export function ContactDetailView({
               />
               <TabsList
                 aria-label="Karta klienta"
-                className="mx-[var(--content-pad-x)] mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
+                className="mx-[var(--content-pad-x)] mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] flex-wrap justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
               >
-                {tabItems.map(([value, label, count]) => (
-                  <TabsTrigger key={value} value={value}>
-                    {label}
-                    <span
-                      data-tab-count={value}
-                      className="ml-1 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums"
-                      aria-label={`Liczba: ${value === 'overview' ? (overviewError ? 'niedostępna' : overviewLoading ? 'ładowanie' : count) : countError[value] ? 'niedostępna' : countLoading[value] ? 'ładowanie' : count}`}
-                    >
-                      (
-                      {value === 'overview'
-                        ? overviewError
-                          ? '—'
-                          : overviewLoading
-                            ? '…'
-                            : count
-                        : countError[value]
-                          ? '—'
-                          : countLoading[value]
-                            ? '…'
-                            : count}
-                      )
-                    </span>
-                  </TabsTrigger>
-                ))}
+                {tabItems.slice(0, 4).map(renderTab)}
+                <div
+                  id="contact-more-tabs"
+                  hidden={!moreTabsOpen}
+                  className={`order-2 w-full flex-wrap gap-1 ${moreTabsOpen ? 'flex' : 'hidden'}`}
+                >
+                  {tabItems.slice(4).map(renderTab)}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-expanded={moreTabsOpen}
+                  aria-controls="contact-more-tabs"
+                  className="order-1 min-h-11 shrink-0 px-3 text-sm font-semibold text-slate-800"
+                  onClick={() => setMoreTabsOpen((expanded) => !expanded)}
+                >
+                  Więcej ⌄
+                </Button>
               </TabsList>
               <TabsContent
                 value="overview"
@@ -1126,14 +1149,7 @@ export function ContactDetailView({
                         id="mobile-contact-deals"
                         className="text-sm font-black tracking-wide text-slate-950 uppercase"
                       >
-                        Aktywne Deale (
-                        {
-                          deals.filter(
-                            (deal) =>
-                              deal.status !== 'won' && deal.status !== 'lost'
-                          ).length
-                        }
-                        )
+                        Aktywne Deale ({displayCount('deals')})
                       </h3>
                       {loadingDeals ? (
                         <div className="flex justify-center py-6">
@@ -1179,6 +1195,9 @@ export function ContactDetailView({
                           Brak powiązanych deali.
                         </p>
                       )}
+                      <ContactCardFooter
+                        href={`/deals?contact=${contact.id}`}
+                      />
                     </section>
 
                     <section
@@ -1189,7 +1208,7 @@ export function ContactDetailView({
                         id="contact-overview-people"
                         className="text-sm font-black text-slate-950"
                       >
-                        Osoby powiązane
+                        Osoby powiązane ({displayCount('people')})
                       </h3>
                       <div className="mt-2 space-y-2">
                         {people.length ? (
@@ -1215,6 +1234,7 @@ export function ContactDetailView({
                           </p>
                         )}
                       </div>
+                      <ContactCardFooter onClick={() => selectTab('people')} />
                     </section>
                   </ContactDetailColumn>
                   <ContactDetailColumn
@@ -1235,13 +1255,16 @@ export function ContactDetailView({
                         id="contact-overview-tasks"
                         className="mb-2 text-sm font-black text-slate-950"
                       >
-                        Najbliższe zadania
+                        Najbliższe zadania ({displayCount('tasks')})
                       </h3>
                       {overview.tasks.loading || overview.tasks.error ? (
                         <DataState {...overview.tasks} />
                       ) : (
                         <ContactTaskList tasks={upcomingTasks} />
                       )}
+                      <ContactCardFooter
+                        href={`/tasks?contact=${contact.id}`}
+                      />
                     </section>
                     <section
                       className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1251,9 +1274,12 @@ export function ContactDetailView({
                         id="contact-overview-documents"
                         className="mb-2 text-sm font-black text-slate-950"
                       >
-                        Dokumenty
+                        Dokumenty ({displayCount('documents')})
                       </h3>
                       {documentsContent}
+                      <ContactCardFooter
+                        onClick={() => selectTab('documents')}
+                      />
                     </section>
                   </ContactDetailColumn>
                   <ContactDetailColumn
@@ -1277,6 +1303,7 @@ export function ContactDetailView({
                         snapshot={historySnapshot}
                         className="mt-2 border-l-2 border-emerald-200 pl-3"
                       />
+                      <ContactCardFooter onClick={() => selectTab('history')} />
                     </section>
                     <section
                       className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1286,9 +1313,10 @@ export function ContactDetailView({
                         id="contact-overview-notes"
                         className="mb-2 text-sm font-black text-slate-950"
                       >
-                        Notatki
+                        Notatki ({displayCount('notes')})
                       </h3>
                       {notesContent}
+                      <ContactCardFooter onClick={() => selectTab('notes')} />
                     </section>
                     <section
                       className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1298,9 +1326,12 @@ export function ContactDetailView({
                         id="contact-overview-relations"
                         className="text-sm font-black text-slate-950"
                       >
-                        Relacje
+                        Relacje ({displayCount('relations')})
                       </h3>
                       {relationsContent}
+                      <ContactCardFooter
+                        onClick={() => selectTab('relations')}
+                      />
                     </section>
                   </ContactDetailColumn>
                 </div>

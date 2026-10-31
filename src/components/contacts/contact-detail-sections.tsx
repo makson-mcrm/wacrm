@@ -80,6 +80,22 @@ export function ContactDetailColumn({
   );
 }
 
+export function ContactCardFooter(
+  props: { href: string } | { onClick: () => void }
+) {
+  const className =
+    'mt-2 flex min-h-11 items-center text-xs font-semibold text-emerald-800 hover:underline';
+  return 'href' in props ? (
+    <Link href={props.href} className={className}>
+      Zobacz wszystkie →
+    </Link>
+  ) : (
+    <button type="button" onClick={props.onClick} className={className}>
+      Zobacz wszystkie →
+    </button>
+  );
+}
+
 export type ContactTask = {
   id: string;
   title: string;

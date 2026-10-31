@@ -9,6 +9,7 @@ import {
 import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import {
   ContactInfoCards,
+  ContactCardFooter,
   ContactEmailAction,
   ContactTaskList,
   ContactDocumentList,
@@ -695,5 +696,26 @@ describe('K3-02A-6: prezentacja kart, oznaczeń i ankiety', () => {
     expect(
       renderToStaticMarkup(<ActivityHistoryList {...data} compactNotes />)
     ).toBe(renderToStaticMarkup(<ActivityHistoryList {...data} />));
+  });
+});
+
+describe('K3-02A-8: stopka karty', () => {
+  it('przekazuje kliknięcie do istniejącego przełącznika widoku', () => {
+    const onClick = vi.fn();
+    const footer = ContactCardFooter({ onClick });
+    expect(footer.type).toBe('button');
+    footer.props.onClick();
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(renderToStaticMarkup(footer)).toContain('Zobacz wszystkie →');
+  });
+  it('renderuje adres listy jako link o wymaganej wysokości', () => {
+    const html = renderToStaticMarkup(
+      <ContactCardFooter href="/tasks?contact=contact-test" />
+    );
+    expect(html).toContain('href="/tasks?contact=contact-test"');
+    expect(html).toContain('min-h-11');
+    expect(html).toContain(
+      'text-xs font-semibold text-emerald-800 hover:underline'
+    );
   });
 });
