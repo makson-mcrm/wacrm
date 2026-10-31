@@ -394,3 +394,39 @@ Logi: `/tmp/k3-g-targeted.log`, `/tmp/k3-g-vitest.log`, `/tmp/k3-g-tsc.log`, `/t
 - Nie wykonano builda, commit, push ani deploy. Nie zmieniano `.env`, sekretów, plansz, lejka i danych klientów. Zastany nieśledzony `package-lock.json` pozostawiono poza paczką. Wyniki lokalne nie stanowią odbioru biznesowego LIVE.
 
 **GOTOWE DO WERYFIKACJI**
+
+## K3/01-H
+
+2026-10-31. Katalog `/Users/mcrm-ai/wacrm-k3`, gałąź `k3/01-crm-core`, zastany HEAD `eb008dab8f0bcd46885a602d16ded315b8baed03`. Wskazany w zleceniu `2ccb69a` nie jest dostępny w lokalnych obiektach Git. Nie cofano ani nie odtwarzano wcześniejszych zmian; poprawkę wykonano na zastanym kodzie.
+
+### Poprawka zgodności
+
+- Usunięto odrzucanie nieznanych kluczy. Parser przyjmuje dotychczasowy bezpośredni payload CRM (13 pól plus `contact` i `startedAt`) oraz publiczną kopertę z czterema polami tożsamości na głównym poziomie, `responses`, `preparationPlan` i płaskimi duplikatami. Koperty muszą być obiektami; ich wartości mają pierwszeństwo przed płaskimi odpowiednikami, także gdy są puste. Nie stosuje się fallbacku do starej wartości po błędzie typu zagnieżdżonego pola.
+- Zachowano walidację wymaganych odpowiedzi i znanych typów, imienia, telefonu normalizowanego do E.164, zgody wyłącznie `true`, opcjonalnego e-maila, długości i honeypotu. Puste zagnieżdżone `website` nie omija wypełnionej pułapki na głównym poziomie. Brak imienia/telefonu/zgody daje czytelny błąd 400 przed dostępem do bazy.
+- Wszystkie dodatkowe niepuste odpowiedzi z głównego poziomu i obu kopert są zachowane w istniejącym JSON `financial_questionnaire_submissions.responses` oraz `client_intakes.raw_payload`, także tablice/obiekty i wartości `0`/`false`. Plan z koperty trafia również do istniejącego `preparation_plan`. Dodatkowe pola nie generują fałszywych braków ani etykiet `undefined` w notatce. Pola tożsamości i techniczne elementy koperty pozostają poza odpowiedziami.
+- Metadane serwera pozostają nadrzędne. Przy kolizji z nazwami metadanych oryginalne odpowiedzi są dodatkowo zachowane w `original_answers`; przesłane `source`, `submitted_by`, `crm` czy `contactId` nie nadają uprawnień ani nie zmieniają konta/Kontaktu/autora zapisu.
+- Klucz ponowienia zachowuje algorytm C i dotychczasową kolejność pól CRM; dodatkowe klucze są porządkowane. Identyczna ankieta tworzy jeden komplet rekordów przy sekwencyjnym ponowieniu, również po zmianie kolejności kluczy obu kopert. Zmiana dodatkowej odpowiedzi tworzy następną pozycję historii. **Zachowano ograniczenie C: brak transakcji/unikalnego indeksu oznacza możliwość fizycznych duplikatów przy równoległych żądaniach wielu workerów.**
+- Bez zmian tabel, migracji, 13 nazw kontraktu CRM, wyglądu formularzy i handlerów HTTP. Test dokładnie sprawdza dotychczasową odpowiedź 201 z `ok`, `status`, `missingItems`, `preparationItems`, `message`; nie dodano pola odpowiedzi ani nowego zachowania `preparationItems`.
+
+### Testy i źródło fixture
+
+Dodano 21 przypadków regresji H; usunięto jeden nieaktualny przypadek wymagający 400 za nieznane pole. Testy bezpieczeństwa G dostosowano do akceptacji dodatkowych kluczy, nadal sprawdzając autorytatywne metadane serwera i brak przejęcia kontekstu CRM.
+
+Fixture zawiera 33 odpowiedzi, 5 pól przygotowania, 4 pola tożsamości oraz płaskie duplikaty. Nazwy pochodzą z pierwotnego parsera `2a09889:src/lib/financial-questionnaires.ts`, wartości są wyłącznie syntetyczne. Test rzeczywistego POST potwierdza 201 oraz zachowanie każdej niepustej odpowiedzi i każdego pola przygotowania w obu zapisach JSON. Pozostałe przypadki obejmują payload CRM, koperty bez duplikatów, pierwszeństwo pustych/wypełnionych wartości, nieznane klucze na każdym poziomie, braki tożsamości/zgody, honeypot, błędne typy, retry i historię zmienionej odpowiedzi.
+
+**Ograniczenie dowodu:** nie uzyskano aktualnego payloadu ani kodu publicznej witryny. Próby odczytu `https://makson.space/ankieta/` zakończyły się niedostępnością w narzędziu web, błędem DNS w lokalnym `curl` i niedostępnym hostem przeglądarki. Fixture odtwarza strukturę 33+5 ze zlecenia i nazwy z historii repo; nie jest przechwyconym JSON-em bieżącej produkcji. Nie wysyłano formularza ani testowych danych na LIVE.
+
+Weryfikacja: kopia `/private/tmp/k3-01-a-check`, identyczne `src` (`diff -qr`: brak różnic), istniejące zależności, wyczyszczone środowisko, dwa puste pliki konfiguracji npm. Preload `/tmp/k3-no-network.cjs` blokuje połączenia sieciowe i odczyt `.env*`. Testy używają bazy w pamięci; bez rzeczywistej bazy, klientów, sekretów i usług AI.
+
+| Komenda | Wynik |
+|---|---|
+| `npx vitest run` | **PASS**, exit 0: **1688/1688**, 133 pliki; start 19:21:12 CET, czas 27,80 s |
+| `npx tsc --noEmit` | **PASS**, exit 0, 0 błędów |
+| `npx eslint src` | **PASS**, exit 0, 0 błędów, 43 dotychczasowe ostrzeżenia |
+| `git diff --check` | **PASS** |
+
+Logi: `/tmp/k3-h-targeted.log`, `/tmp/k3-h-vitest.log`, `/tmp/k3-h-tsc.log`, `/tmp/k3-h-eslint.log`.
+
+Zmienione pliki H: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, nowy `src/lib/questionnaires/public-payload.fixture.ts`, niniejszy raport. Zastany nieśledzony `package-lock.json` pozostawiono poza paczką. Bez commit/push/deploy i zmian konfiguracji środowiska. Wyniki lokalne nie stanowią odbioru LIVE.
+
+**GOTOWE DO WERYFIKACJI**

@@ -9,7 +9,6 @@ import {
 import { parseCrmPhone } from '@/lib/contacts/phone';
 import { findExistingContact } from '@/lib/contacts/dedupe';
 import {
-  QUESTIONNAIRE_FIELDS,
   QUESTIONNAIRE_TEXT_FIELDS,
   type QuestionnaireAnswers,
 } from '@/lib/questionnaires/contract';
@@ -19,7 +18,8 @@ export interface FinancialQuestionnaireInput {
   phone: string;
   email: string | null;
   company: string | null;
-  responses: QuestionnaireAnswers;
+  responses: QuestionnaireAnswers & Record<string, unknown>;
+  preparationPlan: Record<string, unknown>;
   consent: true;
   startedAt: number | null;
 }
@@ -46,33 +46,60 @@ function string(value: unknown, max: number): string {
   if (typeof value !== 'string' || value.length > max) fail();
   return value.trim();
 }
+function envelope(value: unknown): Record<string, unknown> {
+  if (value === undefined) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail();
+  return value as Record<string, unknown>;
+}
+// Existing public questionnaire fields, beyond the unchanged CRM contract.
+const PUBLIC_TEXT_FIELDS = [
+  'expectedOutcome',
+  'applicationMode',
+  'propertyRegime',
+  'incomeSource1',
+  'incomeNet1',
+  'incomeSince1',
+  'businessTaxation1',
+  'businessSince1',
+  'secondPersonName',
+  'secondPersonPhone',
+  'incomeSource2',
+  'incomeNet2',
+  'incomeSince2',
+  'businessTaxation2',
+  'businessSince2',
+  'otherIncome',
+  'livingCosts',
+  'monthlyBalance',
+  'debtPlan',
+  'realEstate',
+  'reserveMonths',
+  'financialGoal',
+] as const;
+const PREPARATION_FIELDS = [
+  'incomePreparation',
+  'costsPreparation',
+  'debtsPreparation',
+  'assetsPreparation',
+  'documentsPreparation',
+] as const;
 export function parseFinancialQuestionnaire(
   body: unknown
 ): FinancialQuestionnaireInput {
   if (!body || typeof body !== 'object' || Array.isArray(body)) fail();
   const raw = body as Record<string, unknown>;
-  const allowed = new Set<string>([
-    ...QUESTIONNAIRE_FIELDS,
-    'contact',
-    'startedAt',
-  ]);
-  if (Object.keys(raw).some((key) => !allowed.has(key))) fail();
+  const responses = envelope(raw.responses);
+  const preparationPlan = envelope(raw.preparationPlan);
+  const fields = { ...raw, ...responses, ...preparationPlan };
+  // A nested empty value must never hide a populated top-level honeypot.
   if (string(raw.website, 200)) fail('Ankieta została odrzucona.');
-  if (
-    !raw.contact ||
-    typeof raw.contact !== 'object' ||
-    Array.isArray(raw.contact)
-  )
-    fail('Uzupełnij dane kontaktowe w ankiecie.');
-  const contact = raw.contact as Record<string, unknown>;
-  if (
-    Object.keys(contact).some(
-      (key) => !['name', 'phone', 'email', 'company'].includes(key)
-    )
-  )
-    fail();
-  const name = string(contact.name, 120);
-  const phone = parseCrmPhone(string(contact.phone, 40));
+  for (const nested of [responses, preparationPlan]) {
+    if (nested.website !== undefined && string(nested.website, 200))
+      fail('Ankieta została odrzucona.');
+  }
+  const contact = raw.contact === undefined ? raw : envelope(raw.contact);
+  const name = string(contact.name ?? '', 120);
+  const phone = parseCrmPhone(string(contact.phone ?? '', 40));
   const email = string(contact.email ?? '', 254);
   const company = string(contact.company ?? '', 160);
   if (name.length < 2) fail('Podaj imię i nazwisko.');
@@ -80,10 +107,13 @@ export function parseFinancialQuestionnaire(
     fail('Podaj poprawny numer telefonu z kodem kraju (np. +48).');
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     fail('Podaj poprawny adres e-mail.');
-  if (raw.consent !== true)
+  if (fields.consent !== true)
     fail('Zgoda na przygotowanie analizy jest wymagana.');
   const texts = Object.fromEntries(
-    QUESTIONNAIRE_TEXT_FIELDS.map((field) => [field, string(raw[field], 4000)])
+    QUESTIONNAIRE_TEXT_FIELDS.map((field) => [
+      field,
+      string(fields[field], 4000),
+    ])
   ) as Record<(typeof QUESTIONNAIRE_TEXT_FIELDS)[number], string>;
   for (const field of ['adults', 'children'] as const) {
     if (
@@ -94,20 +124,58 @@ export function parseFinancialQuestionnaire(
     )
       fail();
   }
-  if (!Array.isArray(raw.documents) || raw.documents.length > 20) fail();
-  const documents = raw.documents.map((value) => string(value, 160));
+  if (!Array.isArray(fields.documents) || fields.documents.length > 20) fail();
+  const documents = fields.documents.map((value) => string(value, 160));
   if (documents.some((value) => !value)) fail();
   if (
     raw.startedAt !== undefined &&
     (typeof raw.startedAt !== 'number' || !Number.isFinite(raw.startedAt))
   )
     fail();
+  for (const field of [...PUBLIC_TEXT_FIELDS, ...PREPARATION_FIELDS]) {
+    if (fields[field] !== undefined) string(fields[field], 4000);
+  }
+  const structuralFields = new Set([
+    'contact',
+    'name',
+    'phone',
+    'email',
+    'company',
+    'responses',
+    'preparationPlan',
+    'website',
+    'startedAt',
+  ]);
+  // Keep arbitrary JSON answers for history; validate only known fields.
+  // Sort extras so duplicate envelopes/key order do not change the retry key.
+  const extras = Object.fromEntries(
+    Object.entries({
+      ...Object.fromEntries(
+        Object.entries(raw).filter(([key]) => !structuralFields.has(key))
+      ),
+      ...responses,
+      ...preparationPlan,
+    })
+      .filter(
+        ([key, value]) =>
+          key !== 'website' &&
+          !Object.hasOwn(texts, key) &&
+          key !== 'documents' &&
+          key !== 'consent' &&
+          value !== undefined &&
+          value !== null &&
+          value !== '' &&
+          !(Array.isArray(value) && value.length === 0)
+      )
+      .sort(([a], [b]) => a.localeCompare(b))
+  );
   return {
     name,
     phone: phone.canonical,
     email: email || null,
     company: company || null,
-    responses: { ...texts, documents, consent: true },
+    responses: { ...texts, documents, consent: true, ...extras },
+    preparationPlan,
     consent: true,
     startedAt: typeof raw.startedAt === 'number' ? raw.startedAt : null,
   };
@@ -129,10 +197,13 @@ const LABELS: Record<keyof QuestionnaireAnswers, string> = {
 export function questionnaireMissingItems(
   input: FinancialQuestionnaireInput
 ): string[] {
-  return Object.entries(input.responses).flatMap(([field, value]) =>
-    value === '' || (Array.isArray(value) && !value.length)
-      ? [LABELS[field as keyof QuestionnaireAnswers]]
-      : []
+  return [...QUESTIONNAIRE_TEXT_FIELDS, 'documents' as const].flatMap(
+    (field) => {
+      const value = input.responses[field];
+      return value === '' || (Array.isArray(value) && !value.length)
+        ? [LABELS[field]]
+        : [];
+    }
   );
 }
 export function buildPreliminaryAnalysis(
@@ -142,7 +213,7 @@ export function buildPreliminaryAnalysis(
   return [
     ...Object.entries(input.responses).map(
       ([field, value]) =>
-        `${LABELS[field as keyof QuestionnaireAnswers]}: ${Array.isArray(value) ? value.join(', ') || 'brak danych' : value === true ? 'tak' : value || 'brak danych'}.`
+        `${LABELS[field as keyof QuestionnaireAnswers] ?? field}: ${Array.isArray(value) ? value.join(', ') || 'brak danych' : value === true ? 'tak' : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '') || 'brak danych'}.`
     ),
     `Braki: ${missingItems.join(', ') || 'brak'}.`,
     'To jest wstępne podsumowanie danych klienta, a nie decyzja kredytowa ani rekomendacja bankowa.',
@@ -219,6 +290,18 @@ export async function saveFinancialQuestionnaire(
       ])
     )
     .digest('hex');
+  // Server metadata remains authoritative. Retain conflicting client answers
+  // in the history too, rather than silently discarding them on spread.
+  const historicalAnswers = [
+    'submission_key',
+    'source',
+    'submitted_by',
+    'submission_id',
+    'contact',
+    'consent_to_analysis',
+  ].some((key) => Object.hasOwn(input.responses, key))
+    ? { ...input.responses, original_answers: input.responses }
+    : input.responses;
   const lookup = async () => {
     const { data, error } = await db
       .from('financial_questionnaire_submissions')
@@ -247,12 +330,12 @@ export async function saveFinancialQuestionnaire(
       submitted_email: input.email,
       submitted_company: input.company,
       responses: {
-        ...input.responses,
+        ...historicalAnswers,
         submission_key: submissionKey,
         source,
         submitted_by: metadata.crm?.userId ?? null,
       },
-      preparation_plan: {},
+      preparation_plan: input.preparationPlan,
       status,
       missing_items: missingItems,
       preliminary_analysis: preliminaryAnalysis,
@@ -323,7 +406,7 @@ export async function saveFinancialQuestionnaire(
       source,
       status: 'nowe',
       raw_payload: {
-        ...input.responses,
+        ...historicalAnswers,
         source,
         submitted_by: metadata.crm?.userId ?? null,
         consent_to_analysis: true,

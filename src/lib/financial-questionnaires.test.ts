@@ -17,6 +17,11 @@ import { POST as leadPost } from '@/app/api/public/leads/route';
 import { loadCrmQuestionnaireContext } from '@/lib/questionnaires/crm-context';
 import QuestionnairePage from '@/app/ankieta/page';
 import { FinancialQuestionnaireForm } from '@/app/ankieta/questionnaire-form';
+import {
+  publicQuestionnairePayload,
+  publicQuestionnairePreparation,
+  publicQuestionnaireResponses,
+} from './questionnaires/public-payload.fixture';
 import type { ReactElement, ReactNode } from 'react';
 
 const harness = vi.hoisted(() => ({
@@ -719,7 +724,6 @@ describe('K3/01-B/C: ankieta → Kontakt na istniejącym schemacie', () => {
     { ...base, website: {} },
     { ...base, contact: { ...contact, phone: '123' } },
     { ...base, contact: undefined },
-    { ...base, unknownField: 'nie gub pola po cichu' },
     { ...base, goal: 'x'.repeat(4001) },
   ])(
     'odrzuca błędny lub niekompletny payload %# przed zapisem',
@@ -778,6 +782,230 @@ describe('K3/01-B/C: ankieta → Kontakt na istniejącym schemacie', () => {
         .insert({ questionnaire_submission_id: 'id' })
         .single()
     ).rejects.toThrow('Unknown column');
+  });
+});
+
+describe('K3/01-H: zgodność publicznej koperty i historia odpowiedzi', () => {
+  it('33 odpowiedzi + 5 przygotowań + 4 dane + płaskie duplikaty → 201 i pełny zapis', async () => {
+    expect(Object.keys(publicQuestionnaireResponses)).toHaveLength(33);
+    expect(Object.keys(publicQuestionnairePreparation)).toHaveLength(5);
+    for (const [key, value] of Object.entries({
+      ...publicQuestionnaireResponses,
+      ...publicQuestionnairePreparation,
+    }))
+      expect(publicQuestionnairePayload).toHaveProperty(key, value);
+    const response = await api(publicQuestionnairePayload);
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      ok: true,
+      status: 'submitted',
+      missingItems: [],
+      preparationItems: [],
+      message: 'Dziękujemy. Ankieta została zapisana.',
+    });
+    const saved = tables.financial_questionnaire_submissions[0];
+    expect(saved).toMatchObject({
+      submitted_name: publicQuestionnairePayload.name,
+      submitted_phone: publicQuestionnairePayload.phone,
+      submitted_email: publicQuestionnairePayload.email,
+      submitted_company: publicQuestionnairePayload.company,
+      preparation_plan: publicQuestionnairePreparation,
+    });
+    for (const [key, value] of Object.entries({
+      ...publicQuestionnaireResponses,
+      ...publicQuestionnairePreparation,
+    })) {
+      if (value !== '') {
+        expect(saved.responses).toHaveProperty(key, value);
+        expect(tables.client_intakes[0].raw_payload).toHaveProperty(key, value);
+      }
+    }
+    expect(String(tables.contact_notes[0].note_text)).not.toContain(
+      'undefined:'
+    );
+  });
+  it('CRM: zachowuje 13 pól i odpowiedź 201 bez rozszerzenia kontraktu', async () => {
+    expect(QUESTIONNAIRE_FIELDS).toHaveLength(13);
+    expect((await api(base)).status).toBe(201);
+    expect(
+      tables.financial_questionnaire_submissions[0].responses
+    ).toMatchObject(answers);
+  });
+  it('wartości z kopert wygrywają z płaskimi duplikatami, także pustymi i złego typu', async () => {
+    const body = {
+      ...publicQuestionnairePayload,
+      goal: 123,
+      documents: 'stary format',
+      incomePreparation: false,
+      responses: { ...publicQuestionnaireResponses, city: '' },
+    };
+    expect((await api(body)).status).toBe(201);
+    const saved = tables.financial_questionnaire_submissions[0];
+    expect(saved.responses).toMatchObject({
+      goal: publicQuestionnaireResponses.goal,
+      documents: publicQuestionnaireResponses.documents,
+      city: '',
+      incomePreparation: publicQuestionnairePreparation.incomePreparation,
+    });
+    expect(saved.missing_items).toEqual(['Miejscowość']);
+  });
+  it('koperty działają bez płaskich duplikatów odpowiedzi', async () => {
+    const {
+      name,
+      phone,
+      email,
+      company,
+      consent,
+      website,
+      responses,
+      preparationPlan,
+    } = publicQuestionnairePayload;
+    expect(
+      (
+        await api({
+          name,
+          phone,
+          email,
+          company,
+          consent,
+          website,
+          responses,
+          preparationPlan,
+        })
+      ).status
+    ).toBe(201);
+  });
+  it('nieznane klucze w każdym miejscu są akceptowane i zachowane, bez fałszywych braków', async () => {
+    const body = {
+      ...publicQuestionnairePayload,
+      extraRoot: { publicVersion: 2 },
+      extraEmpty: '',
+      extraNull: null,
+      extraArray: [],
+      responses: {
+        ...publicQuestionnaireResponses,
+        extraAnswer: ['A', 'B'],
+        extraZero: 0,
+        extraFalse: false,
+      },
+      preparationPlan: {
+        ...publicQuestionnairePreparation,
+        extraPreparation: 'sprawdzić',
+        extraEmptyPlan: '',
+      },
+    };
+    const response = await api(body);
+    expect(response.status).toBe(201);
+    expect((await response.json()).missingItems).toEqual([]);
+    expect(
+      tables.financial_questionnaire_submissions[0].responses
+    ).toMatchObject({
+      extraRoot: { publicVersion: 2 },
+      extraAnswer: ['A', 'B'],
+      extraZero: 0,
+      extraFalse: false,
+      extraPreparation: 'sprawdzić',
+    });
+    expect(
+      (await api({ ...base, contact: { ...contact, extraContact: 'ignored' } }))
+        .status
+    ).toBe(201);
+  });
+  it.each(['name', 'phone', 'consent'] as const)(
+    'brak %s → czytelne 400 przed bazą',
+    async (key) => {
+      const body: Record<string, unknown> = { ...publicQuestionnairePayload };
+      delete body[key];
+      const response = await api(body);
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/imię|telefonu|Zgoda/);
+      expect(harness.adminCalls).toBe(0);
+    }
+  );
+  it.each([
+    { ...publicQuestionnairePayload, website: 'bot.example' },
+    {
+      ...publicQuestionnairePayload,
+      responses: { ...publicQuestionnaireResponses, website: 'bot.example' },
+    },
+    {
+      ...publicQuestionnairePayload,
+      website: 'bot.example',
+      responses: { ...publicQuestionnaireResponses, website: '' },
+    },
+  ])('honeypot → 400 przed bazą (%#)', async (body) => {
+    const response = await api(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('Ankieta została odrzucona.');
+    expect(harness.adminCalls).toBe(0);
+  });
+  it.each([
+    { ...publicQuestionnairePayload, phone: '123' },
+    { ...publicQuestionnairePayload, consent: false },
+    { ...publicQuestionnairePayload, responses: [] },
+    { ...publicQuestionnairePayload, preparationPlan: 'bad' },
+    {
+      ...publicQuestionnairePayload,
+      responses: { ...publicQuestionnaireResponses, city: 123 },
+    },
+    {
+      ...publicQuestionnairePayload,
+      responses: { ...publicQuestionnaireResponses, incomeNet1: 9000 },
+    },
+    {
+      ...publicQuestionnairePayload,
+      responses: { ...publicQuestionnaireResponses, documents: 'polisa' },
+    },
+    {
+      ...publicQuestionnairePayload,
+      preparationPlan: {
+        ...publicQuestionnairePreparation,
+        incomePreparation: false,
+      },
+    },
+    {
+      ...publicQuestionnairePayload,
+      responses: { ...publicQuestionnaireResponses, consent: false },
+    },
+  ])('znane pole ze złym typem/wartością → 400 (%#)', async (body) => {
+    expect((await api(body)).status).toBe(400);
+    expect(harness.adminCalls).toBe(0);
+  });
+  it('identyczny payload i zmiana kolejności kluczy → jeden komplet rekordów; zmiana odpowiedzi → historia', async () => {
+    expect((await api(publicQuestionnairePayload)).status).toBe(201);
+    expect((await api(publicQuestionnairePayload)).status).toBe(201);
+    const reverse = (object: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(object).reverse());
+    expect(
+      (
+        await api({
+          ...reverse(publicQuestionnairePayload),
+          responses: reverse(publicQuestionnaireResponses),
+          preparationPlan: reverse(publicQuestionnairePreparation),
+        })
+      ).status
+    ).toBe(201);
+    for (const table of [
+      'contacts',
+      'financial_questionnaire_submissions',
+      'client_intakes',
+      'contact_notes',
+      'sales_activities',
+    ])
+      expect(tables[table]).toHaveLength(1);
+    expect(
+      (
+        await api({
+          ...publicQuestionnairePayload,
+          responses: { ...publicQuestionnaireResponses, incomeNet1: '9500' },
+        })
+      ).status
+    ).toBe(201);
+    expect(tables.contacts).toHaveLength(1);
+    expect(tables.financial_questionnaire_submissions).toHaveLength(2);
+    expect(
+      (harness.db as ReturnType<typeof database>).from
+    ).not.toHaveBeenCalledWith('deals');
   });
 });
 
@@ -1013,8 +1241,19 @@ describe('K3/01-G: jedna ankieta publiczna i doradcy', () => {
   it.each(['contactId', 'source', 'crm', 'submitted_by'])(
     'publiczny payload nie może podszyć się pod kontekst CRM: %s',
     async (key) => {
-      expect((await api({ ...base, [key]: crmContactId })).status).toBe(400);
-      expect(harness.adminCalls).toBe(0);
+      expect((await api({ ...base, [key]: crmContactId })).status).toBe(201);
+      expect(tables.financial_questionnaire_submissions[0]).toMatchObject({
+        contact_id: tables.contacts[0].id,
+        responses: { source: 'makson.space/ankieta', submitted_by: null },
+      });
+      expect(tables.client_intakes[0].source).toBe('makson.space/ankieta');
+      if (key === 'source' || key === 'submitted_by') {
+        expect(
+          tables.financial_questionnaire_submissions[0].responses
+        ).toHaveProperty(`original_answers.${key}`, crmContactId);
+      }
+      expect(tables.sales_activities[0].source).toBe('makson.space/ankieta');
+      expect(tables.profiles).toBeUndefined();
     }
   );
   it('retry publiczny zachowuje istniejące zaplanowane działanie', async () => {
