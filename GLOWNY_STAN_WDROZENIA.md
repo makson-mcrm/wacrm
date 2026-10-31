@@ -485,3 +485,18 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 **BLOKADA META:** `code 10 — „This action requires that the Business that owns this App is a Business Solution Provider for WhatsApp.”` Numer: `platform_type ON_PREMISE`, `code_verification_status NOT_VERIFIED`, `status DISCONNECTED`, `is_on_biz_app: true`, WABA `business_verification_status: pending_submission`.
 
 **DO WYKONANIA PO ODBLOKOWANIU:** kroki 3–7 powyżej + produkcyjny test dwukierunkowy; brakujący `META_APP_SECRET` w środowisku (potrzebny do weryfikacji podpisu na produkcji — dziś endpoint odrzuca wszystko jako `Invalid signature`).
+
+### 19. Checkpoint K2 — 31.10.2026 (praca w tle, bez przejmowania ekranu)
+**`META_APP_SECRET` — ZABLOKOWANE (wymaga jednej czynności właściciela)**
+- Sprawdzone lokalnie: brak w `~/wa-coex/.env*` (istnieje tylko wpis w `.env.local.example`), brak w `~/.hermes/*.env`, brak w zmiennych środowiska procesu. Zgodne z wcześniejszym ustaleniem (`CODEX_TASK_WHATSAPP_COEX.md`: „nie istnieje jeszcze w repo ani w hPanel”).
+- Nie da się go pobrać przez Graph API (App Secret wymaga tokenu aplikacji, który sam wymaga sekretu — obieg zamknięty).
+- Test negatywny wykonany realnie: syntetyczne zdarzenie bez podpisu → **HTTP 401 `{"error":"Invalid signature"}`**. Test pozytywny (poprawnie podpisane zdarzenie → przyjęte) **niewykonalny bez sekretu** — nie zadeklarowany.
+- Logika podpisu pokryta testami jednostkowymi: `src/lib/whatsapp/webhook-signature.test.ts` → **7/7 PASS**.
+- **Jedna czynność właściciela:** Meta App Dashboard → aplikacja `mCRM AI` (1116881471020279) → Ustawienia → Podstawowe → „App secret” → „Pokaż”, a następnie wpisanie go w Hostinger hPanel jako zmienną `META_APP_SECRET` (bez wysyłania wartości w czacie). Po tym Hermes powtarza test pozytywny.
+
+**10 szablonów + Stopka B — ODNALEZIONE I PRZYGOTOWANE**
+- Źródło dosłowne: D1, sekcja `=== 2026-09-10 — FINALNY ZESTAW KRÓTKICH SZABLONÓW + STOPKA B ===` (odczyt D1 przez Drive export, HTTP 200, 376 050 znaków).
+- Zapisane bez zmian treści: `docs/whatsapp/approved-templates-2026-09-10.json` — **10/10 identyfikatorów**: `MSG_AFTER_CALL_SOFT_CLOSE`, `MSG_MEETING_CONFIRM`, `MSG_DOCS_MISSING`, `MSG_MEETING_REMINDER`, `MSG_CALL_BACK`, `MSG_FOLLOWUP_NO_REPLY`, `MSG_STATUS_BANK`, `MSG_BANK_DECISION`, `MSG_DATE_SHIFT`, `MSG_DOCS_RECEIVED`.
+- **Stopka B** (5 linii, zarządzana centralnie, `[STOPKA_B]` w każdym szablonie), polityka `LINK_SPOTKANIE` (domyślnie profil mFinanse, makson.space po odbiorze strony), lista 17 zmiennych.
+- Status rejestracji w Meta: **OCZEKUJE** — `GET /2678122512584634/message_templates` = `[]`; rejestracja oficjalnych szablonów wymaga Tech Provider/BSP.
+- Nie podłączono szablonów do UI CRM: pliki współdzielone, nad którymi pracuje K3 — granica zmian do uzgodnienia. Żadnych nowych treści nie napisano.

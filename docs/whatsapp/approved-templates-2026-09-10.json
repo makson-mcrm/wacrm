@@ -1,0 +1,100 @@
+{
+  "source": "D1 (GLOWNY_STAN_WDROZENIA / załącznik komunikacyjny) — sekcja '=== 2026-09-10 — FINALNY ZESTAW KRÓTKICH SZABLONÓW + STOPKA B ==='",
+  "status": "ZATWIERDZONE DO WDROŻENIA W mCRM AI — teksty źródłowe, bez zmian",
+  "authoritative_date": "2026-09-10",
+  "channel": "whatsapp",
+  "footer": {
+    "id": "STOPKA_B",
+    "title": "STOPKA B — pełna operacyjna",
+    "text": "Tomasz Maksoń\nmFinanse Rzeszów, al. Piłsudskiego 31\ntel. 605 737 500 / 881 560 200\ntomasz.makson@mfinanse.pl\nUmów spotkanie: https://mfinanse.pl/ekspert/tomasz-makson/",
+    "managed_centrally": true,
+    "link_policy": {
+      "variable": "LINK_SPOTKANIE",
+      "default": "https://mfinanse.pl/ekspert/tomasz-makson/",
+      "makson_space": "tylko po uruchomieniu i zatwierdzeniu strony; do tego czasu fallback = profil mFinanse"
+    }
+  },
+  "variables": [
+    "[ZWROT]",
+    "[IMIĘ]",
+    "[DATA_SPOTKANIA]",
+    "[GODZINA_SPOTKANIA]",
+    "[MIEJSCE_LUB_LINK]",
+    "[CEL_SPOTKANIA]",
+    "[USTALENIE]",
+    "[NASTĘPNY_KROK]",
+    "[TERMIN]",
+    "[TEMAT]",
+    "[BRAKI_DOKUMENTÓW]",
+    "[STATUS]",
+    "[NASTĘPNY_KROK_LUB_BRAK_DZIAŁANIA]",
+    "[DECYZJA]",
+    "[STARY_TERMIN]",
+    "[NOWY_TERMIN]",
+    "[STOPKA_B]"
+  ],
+  "templates": [
+    {
+      "id": "MSG_AFTER_CALL_SOFT_CLOSE",
+      "name": "Podziękowanie po rozmowie / nie teraz",
+      "body": "[ZWROT] [IMIĘ], dziękuję za rozmowę. Dziś temat odkładamy, ale gdyby w przyszłości pojawiła się potrzeba finansowania firmowego, hipotecznego albo po prostu przeliczenia możliwości — proszę pamiętać, że w mFinanse Rzeszów kawa czeka. Zapraszam.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_MEETING_CONFIRM",
+      "name": "Potwierdzenie spotkania",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], potwierdzam nasze spotkanie: [DATA_SPOTKANIA], godz. [GODZINA_SPOTKANIA], [MIEJSCE_LUB_LINK]. Jeśli termin przestanie być aktualny, proszę o krótką wiadomość.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_DOCS_MISSING",
+      "name": "Brak dokumentów",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], do dalszej analizy brakuje mi jeszcze: [BRAKI_DOKUMENTÓW]. Proszę dosłać, gdy będzie to możliwe. Po otrzymaniu kompletu ruszam dalej z analizą.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_MEETING_REMINDER",
+      "name": "Przypomnienie o spotkaniu",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], krótkie przypomnienie o naszym spotkaniu [DATA_SPOTKANIA] o [GODZINA_SPOTKANIA], [MIEJSCE_LUB_LINK]. Do zobaczenia.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_CALL_BACK",
+      "name": "Prośba o kontakt / nieodebrane połączenie",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], próbowałem się dziś skontaktować w sprawie [TEMAT]. Proszę o krótką informację, kiedy mogę oddzwonić, żeby nie przeszkadzać.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_FOLLOWUP_NO_REPLY",
+      "name": "Follow-up po braku odpowiedzi",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], wracam krótko do naszego tematu [TEMAT]. Czy jest nadal aktualny, czy na razie go odkładamy? Wystarczy krótka odpowiedź.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_STATUS_BANK",
+      "name": "Status sprawy / informacja z banku",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], krótka aktualizacja w sprawie [TEMAT]: [STATUS]. Na ten moment [NASTĘPNY_KROK_LUB_BRAK_DZIAŁANIA]. Odezwę się, gdy pojawi się kolejna istotna informacja.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_BANK_DECISION",
+      "name": "Decyzja banku",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], mamy decyzję banku w sprawie [TEMAT]: [DECYZJA]. Proponuję, żebyśmy omówili teraz dalszy krok. Proszę o informację, kiedy mogę zadzwonić.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_DATE_SHIFT",
+      "name": "Przesunięcie terminu",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], potrzebujemy przesunąć ustalony termin [STARY_TERMIN]. Proponuję [NOWY_TERMIN]. Proszę o krótkie potwierdzenie, czy pasuje.\n[STOPKA_B]"
+    },
+    {
+      "id": "MSG_DOCS_RECEIVED",
+      "name": "Dokumenty otrzymane",
+      "body": "Dzień dobry [ZWROT] [IMIĘ], dziękuję, dokumenty dotarły. Sprawdzam komplet i wracam z informacją, jeśli będzie czegoś brakowało albo będziemy mogli przejść do kolejnego kroku.\n[STOPKA_B]"
+    }
+  ],
+  "rules": [
+    "szablony krótkie, naturalne, bez sztucznego języka CRM",
+    "żadnych obietnic decyzji, wyniku ani terminu banku, jeśli nie są potwierdzone",
+    "zmienne uzupełniane automatycznie z CRM",
+    "Tomasz edytuje treść przed wysyłką",
+    "szablony nie wysyłają się automatycznie bez akceptacji Tomasza",
+    "Stopka B konfigurowalna centralnie, nie powielana ręcznie w każdym szablonie"
+  ],
+  "meta_registration": {
+    "state": "OCZEKUJE",
+    "reason": "Rejestracja jako oficjalne szablony Meta (message_templates) wymaga statusu Tech Provider/BSP oraz zatwierdzenia treści przez Meta; obecnie GET /2678122512584634/message_templates = [] (brak zarejestrowanych szablonów)."
+  }
+}
