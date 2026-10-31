@@ -512,3 +512,19 @@ Po kliknięciu „Dalej” na ekranie „Sprawdź szczegółowe informacje” Me
 
 **Jedna czynność właściciela (bez wpisywania sekretu w czacie):**
 Meta App Dashboard → aplikacja `mCRM AI` (`1116881471020279`) → **WhatsApp → Configuration → Webhook → „Test”** (Meta wyśle podpisane zdarzenie testowe na `https://test.makson.space/api/whatsapp/webhook`). Panel pokaże wynik dostawy: **200 = PASS pozytywny**, błąd = sekret w `META_APP_SECRET` jest nieaktualny i wystarczy go podmienić w Hostinger hPanel → Environment Variables.
+
+### 21. Ankieta `/ankieta` — testy odbiorowe 31.10.2026
+**Adres działający:** `https://makson.space/ankieta/` (301 z `/ankieta` → `/ankieta/`, potem 200). Strona statyczna na Hostingerze (`assets/ankieta.js?v=r15`), API: `https://mediumseagreen-pelican-353577.hostingersite.com/api/public/questionnaires` (origin `https://makson.space` jest na liście dozwolonych w `src/lib/public-leads.ts`).
+
+| Test | Wynik | Dowód |
+|---|---|---|
+| T1 HTTPS + cert | **PASS** | `http=200`, cert Let's Encrypt CN=`makson.space`, ważny 30.10.2026–28.01.2027, `ssl_verify_result=0` |
+| T2 desktop/mobile | **CZĘŚCIOWO** | `meta viewport` obecny, 17 media queries w `styles.css`; brak realnego testu na urządzeniu |
+| T3 przejście ze strony | **PASS** | `assets/app.js?v=r15` zawiera `ankieta?src=booking` (2 wystąpienia) — link z formularza/rezerwacji prowadzi do ankiety z parametrem źródła |
+| T4 13 zatwierdzonych pól | **DO POTWIERDZENIA** | live formularz ma **47 pól `name=`** (6 kroków); parser zapisuje 32 pola odpowiedzi + 7 pól przygotowania. D1 mówi „ankieta wersjonowana 13 pól” — rozbieżność definicji, pól nie zmieniano |
+| T5 zapis do Kontaktu | **PASS** | 2× POST syntetyczny → `201`, `{"ok":true,"status":"partial"}`; wiersz `financial_questionnaire_submissions` `83cc82fc-0290-428c-9cea-261a56142ae4`, `contact_id 3c943caa-a343-4af6-9f55-ab437398ec9d` |
+| T6 brak duplikatu | **FAIL** | ten sam payload 2× → **2 wiersze** ankiet (`…6a` 17:25:53 i `…e4` 17:25:56) dla tego samego kontaktu. `saveFinancialQuestionnaire` robi czysty `INSERT` bez upsertu/dedupe po `contact_id` |
+| T7 zgody i źródło | **FAIL** | Contact `3c943caa`: `source=null`, `source_details=null`, `contact_consent=false`; zgoda zapisana tylko na wierszu ankiety (`consent_to_analysis: true`). Parametr `?src=` nie trafia do Kontaktu |
+| T8 trwałość po ponownym wejściu | **PASS (dane)** | wiersze ankiety i Kontakt nadal w bazie po ponownym odczycie SQL; kontakt zdeduplikowany po telefonie (1 rekord na +48555000111) |
+
+**Wnioski:** ścieżka publikacji i zapisu działa. Dwa realne braki (T6, T7) wymagają zmiany `src/lib/financial-questionnaires.ts` — plik współdzielony z pracami K3, więc **bez uzgodnienia granic nie modyfikowany**. Nie zmieniano DNS, poczty, certyfikatu, 13 pól ani grafik FINAL-PASS. Koszt: 0 (brak nowych usług).
