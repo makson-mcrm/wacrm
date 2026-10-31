@@ -97,6 +97,11 @@ export async function savePublicBooking(
     })
     .select('id')
     .single();
+  if (error?.code === '23505')
+    throw new PublicLeadError(
+      'Ten termin został już zajęty. Wybierz proszę inną godzinę.',
+      409
+    );
   if (error || !booking)
     throw new PublicLeadError('Nie udało się zapisać rezerwacji.', 500);
 
