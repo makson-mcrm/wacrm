@@ -23,18 +23,27 @@ type ActivityHistoryProps = {
   companyId?: string | null;
   dealId?: string | null;
   className?: string;
+  snapshot?: ActivityHistorySnapshot;
 };
 
-type QueueEvent = {
+export type QueueEvent = {
   id: string;
   event_type: string;
   occurred_at: string;
   deal_id: string | null;
 };
-type ContactNoteRow = Pick<
+export type ContactNoteRow = Pick<
   ContactNote,
   'id' | 'note_text' | 'created_at' | 'user_id'
 >;
+
+export type ActivityHistorySnapshot = {
+  activities: ActivityHistoryRow[];
+  queueEvents: QueueEvent[];
+  notes: ContactNoteRow[];
+  loading: boolean;
+  error?: boolean;
+};
 
 type HistoryItem =
   | { kind: 'activity'; occurredAt: string; activity: ActivityHistoryRow }
@@ -103,6 +112,7 @@ export function ActivityHistory({
   companyId,
   dealId,
   className,
+  snapshot,
 }: ActivityHistoryProps) {
   const db = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
@@ -112,6 +122,7 @@ export function ActivityHistory({
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (snapshot) return;
     const relation = activityHistoryRelation({ contactId, companyId, dealId });
     if (!relation || !accountId) {
       setActivities([]);
@@ -151,10 +162,32 @@ export function ActivityHistory({
     setQueueEvents((eventData ?? []) as QueueEvent[]);
     setNotes((noteData ?? []) as ContactNoteRow[]);
     setLoading(false);
-  }, [accountId, contactId, companyId, dealId, db]);
+  }, [accountId, contactId, companyId, dealId, db, snapshot]);
 
   useEffect(() => void load(), [load]);
 
+  return (
+    <ActivityHistoryList
+      {...(snapshot ?? { activities, queueEvents, notes, loading })}
+      className={className}
+    />
+  );
+}
+
+export function ActivityHistoryList({
+  activities,
+  queueEvents,
+  notes,
+  loading,
+  error,
+  className,
+}: ActivityHistorySnapshot & { className?: string }) {
+  if (error)
+    return (
+      <p className="py-8 text-center text-sm text-slate-700">
+        Nie udało się wczytać aktywności.
+      </p>
+    );
   if (loading)
     return (
       <div className="flex justify-center py-8">

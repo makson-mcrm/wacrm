@@ -575,3 +575,53 @@ Kontrole wykonano w `/private/tmp/k3-01-l-check`, z identycznym `src` (porównan
 Pliki paczki: `src/components/contacts/contact-detail-view.tsx`, `src/components/contacts/contact-detail-sections.tsx`, ich dwa pliki testowe oraz niniejszy raport. Bez commit/push/deploy, nowych tabel/migracji/endpointów, zmian API serwera, odczytu `.env`/sekretów, prawdziwej bazy i danych klientów. Nie uruchamiano płatnej sesji Nous ani dodatkowych wywołań modeli. Wynik lokalny nie stanowi odbioru LIVE.
 
 **GOTOWE DO WERYFIKACJI**
+
+## 02A-2 — karta klienta według zatwierdzonego układu (31.10.2026)
+
+**Baza:** `k3/01-crm-core` @ `c70feea`. Lokalna paczka 02A, bez commit/push/deploy. Podstawą jest opis zatwierdzonego oryginału 1536×1024 przekazany w zleceniu; nie odczytywano obrazu ani danych klientów z LIVE.
+
+### Co dodano
+
+- Nagłówek: istniejący avatar i dane kontaktowe, tagi Kontaktu, status VIP i miejscowość. Akcje Zadzwoń / WhatsApp / E-mail / Więcej są po prawej na desktopie. Zachowano ankietę, nowy Deal, dyktowanie i terminy oraz ich dotychczasowe adresy. Etykieta WhatsApp dotyczy wyłącznie tej karty; na pozostałych ekranach domyślna etykieta komponentu pozostaje bez zmian.
+- Jeden rząd pięciu zawsze widocznych kart: **Firma, Współmałżonek/Partner, Źródło, Segment, Opiekun**. Na wąskich ekranach rząd przewija się poziomo. Brak wartości ma komunikat „Brak danych”; awaria odczytu opiekuna ma odrębny komunikat.
+- Osiem dotychczasowych zakładek, w tej samej kolejności i z tymi samymi nazwami, otrzymało liczniki. Listy i liczniki zadań, dokumentów oraz historii współdzielą odczyt, niezależnie od aktualnej zakładki. Ładowanie nowych odczytów pokazuje `…`, a ich awaria `—`, zamiast fałszywego zera.
+- Podsumowanie: lewa kolumna — aktywne Deale (dotychczasowy podgląd maksymalnie trzech, z kwotą i etapem) oraz osoby powiązane z rolą; środkowa — wyróżniony **Next action**, najbliższe niezakończone zadania z datą i miejscem na priorytet oraz dokumenty; prawa — oś aktywności z typem i datą, edytowalne notatki oraz relacje z firmami i współmałżonkiem. Puste listy mają komunikaty. Zachowano proporcje 1:1,2:1 i niezależne przewijanie kolumn na desktopie oraz dostępne przełączniki kolumn na mobile.
+- Sekcja pełnych danych i edycji klienta znajduje się pod kolumnami. Usunięto z niej powtórzone prezentacje Źródła i kategorii produktu; zachowano formularze, tagi, pola dodatkowe oraz dotychczasowy przycisk pełnej karty. Nie zmieniano shellu 00S ani obsługi `?open=<id>`.
+
+### Źródła danych i ich granice
+
+| Element | Istniejące źródło |
+|---|---|
+| Firma / NIP | `contact_companies` → `companies`, główne powiązanie `is_primary`, w jego braku pierwsze istniejące |
+| Współmałżonek/Partner / telefon | `contact_spouses` przez istniejące `loadSpouseLinks` → Kontakt małżonka |
+| Źródło / szczegóły | `contacts.source`, `contacts.source_details` |
+| Data w karcie Źródło | `contacts.created_at`, jawnie podpisana „Dodano do CRM”; odrębna data pozyskania pozostaje „Brak danych” |
+| Segment | unikalne wartości `contacts.product_category` oraz `deals.product_type` |
+| Opiekun / rola | `contacts.user_id` → `profiles.user_id`, nazwa `full_name` i rola konta `account_role`, z ograniczeniem `account_id` |
+| Tagi / VIP / miejscowość | `contact_tags` → `tags`; VIP wyłącznie na podstawie tagu `VIP`; `contacts.city` |
+| Next action | jedno działanie z najwcześniejszym zapisanym terminem z `contacts.next_step/follow_up_at`, otwartych Deali `next_action` + termin i historii `sales_activities.next_action/next_action_date`; działania bez daty na końcu, zamknięte Deale i anulowane działania pomijane |
+| Zadania | istniejący odczyt `sales_activities`, typ `zadanie`, Kontakt i konto; Podsumowanie pomija zakończone/anulowane, zakładka zachowuje wszystkie |
+| Dokumenty | `deal_documents` + `deal_document_requirements`, wyłącznie powiązane Deale i konto |
+| Historia / notatki | `sales_activities`, `work_queue_events`, istniejące `contact_notes` |
+| Osoby / relacje | istniejące powiązania uczestników Deali, role `deal_contacts.role`, małżeństwo i powiązania firm |
+
+Liczniki: Aktywne Deale — wszystkie otwarte powiązane Deale; Aktywność — aktywności, zdarzenia kolejki i notatki widoczne w historii; Zadania — wszystkie zapisane zadania; Notatki — notatki Kontaktu; Dokumenty — pliki i wymagania; Osoby — unikalne osoby powiązane i współmałżonek; Relacje — powiązania firm i małżeństwa. Podsumowanie pokazuje sumę siedmiu pozostałych liczników, a nie liczbę unikalnych rekordów całego CRM.
+
+**Braki w modelu/rekordach:** nie ma osobnych pól statusu klienta, VIP, daty pozyskania źródła ani priorytetu zadania. Statusy wykorzystują wyłącznie faktyczne tagi; brak tagów nie oznacza automatycznie „Aktywny”, brak tagu VIP nie oznacza „Nie”. Brakujące dane oraz priorytet i nieznane role mają jawny pusty stan. Nie tworzono nowych pól, tabel, migracji ani endpointów. Nie potwierdzano kompletności rekordów ani uprawnień produkcyjnych.
+
+### Weryfikacja
+
+| Komenda | Wynik |
+|---|---|
+| `npx vitest run` | PASS: **1791/1791**, **135 plików**, exit 0 |
+| `npx tsc --noEmit` | PASS, exit 0 |
+| `npx eslint src` | PASS, exit 0; **0 błędów, 43 dotychczasowe ostrzeżenia**, żadne w zmienionych plikach |
+| `git diff --check` | PASS |
+
+Dwa pliki testów karty obejmują **46 testów**: pięć kart z danymi i bez nich, osiem liczników i ich wspólne źródła, położenie kart przed zakładkami, sekcje w każdej kolumnie, Next action (w tym ustalenie z zakończonej rozmowy), daty, zadania zakończone, dokumenty, role, ograniczenia odczytów do Kontaktu/konta, błędy i dotychczasowe akcje. Istniejący test kontraktu UX 2.1 wymagał starych nagłówków Firma/Współmałżonek wewnątrz Podsumowania; dostosowano go do pięciu kart, zachowując kontrolę limitu trzech Deali oraz akcji pełnej karty. Nie zmieniano testów innych ekranów.
+
+Kontrole wykonano w `/private/tmp/k3-02a-check`, na identycznym `src` i lokalnych zależnościach, z wyczyszczonym środowiskiem i blokadą połączeń sieciowych oraz odczytu `.env*` (`/private/tmp/k3-no-network.cjs`). Logi: `/private/tmp/k3-02a-vitest.log`, `/private/tmp/k3-02a-tsc.log`, `/private/tmp/k3-02a-eslint.log`. Testy renderują syntetyczne dane w SSR i sprawdzają reguły CSS dla desktopu/mobile; to nie jest porównanie obrazu 1:1 ani odbiór LIVE.
+
+Pliki paczki: `contact-detail-view.tsx`, `contact-detail-sections.tsx`, ich testy, współdzielone komponenty `activity-history.tsx` (opcjonalne przyjęcie gotowego odczytu) i `whatsapp-action.tsx` (opcjonalna etykieta), test kontraktu `package-02-03-08-ux21.test.ts` oraz ten raport. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Nie uruchamiano płatnej sesji Nous ani dodatkowych wywołań modeli.
+
+**GOTOWE DO WERYFIKACJI**

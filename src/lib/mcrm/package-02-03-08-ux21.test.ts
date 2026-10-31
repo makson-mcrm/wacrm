@@ -8,8 +8,15 @@ const source = (file: string) =>
 describe('kontrakt PACZKA 02/03/08 UX 2.1', () => {
   it('utrzymuje lekki preview klienta z relacjami i maksymalnie trzema Dealami', () => {
     const contact = source('src/components/contacts/contact-detail-view.tsx');
-    expect(contact).toContain('Firma ({contactCompanies.length})');
-    expect(contact).toContain('Współmałżonek ({spouseLinks.length})');
+    // 02A-2 moves these relations into the five information cards.
+    const sections = source(
+      'src/components/contacts/contact-detail-sections.tsx'
+    );
+    expect(contact).toContain('<ContactInfoCards');
+    expect(contact).toContain('companies={contactCompanies}');
+    expect(contact).toContain('spouses={spouseLinks}');
+    expect(sections).toContain("title: 'Firma'");
+    expect(sections).toContain("title: 'Współmałżonek/Partner'");
     expect(contact).toContain('.slice(0, 3)');
     expect(contact).toContain('PEŁNA KARTA KLIENTA');
     expect(contact).toContain('bg-emerald-900 text-white');

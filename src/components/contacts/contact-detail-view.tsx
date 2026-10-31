@@ -38,7 +38,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Phone,
   Mail,
-  Building2,
   CalendarDays,
   Copy,
   Check,
@@ -59,10 +58,14 @@ import { CallAction } from '@/components/sales/call-action';
 import { ActivityHistory } from '@/components/sales/activity-history';
 import {
   ContactDetailColumn,
-  ContactDataCards,
-  ContactDocuments,
+  ContactInfoCards,
+  ContactDocumentList,
   ContactEmailAction,
-  ContactTasks,
+  ContactTaskList,
+  ContactNextAction,
+  ContactStatusTags,
+  DataState,
+  useContactOverviewData,
 } from './contact-detail-sections';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import {
@@ -77,10 +80,11 @@ interface ContactDetailViewProps {
   onUpdated: () => void;
 }
 
-type RelatedPerson = Pick<Contact, 'id' | 'name' | 'phone'>;
+type RelatedPerson = Pick<Contact, 'id' | 'name' | 'phone'> & { role?: string };
 
 type RelatedPersonRow = {
   contact_id: string;
+  role?: string;
   contact: RelatedPerson | null;
 };
 
@@ -297,13 +301,14 @@ export function ContactDetailView({
       const { data: peopleRows } = await supabase
         .from('deal_contacts')
         .select(
-          'contact_id,contact:contacts!deal_contacts_contact_id_fkey(id,name,phone)'
+          'contact_id,role,contact:contacts!deal_contacts_contact_id_fkey(id,name,phone)'
         )
         .in('deal_id', dealIds)
         .neq('contact_id', contactId);
       const people = new Map<string, RelatedPerson>();
       ((peopleRows ?? []) as unknown as RelatedPersonRow[]).forEach((row) => {
-        if (row.contact) people.set(row.contact.id, row.contact);
+        if (row.contact)
+          people.set(row.contact.id, { ...row.contact, role: row.role });
       });
       const participantIds = [
         ...new Set(
@@ -322,7 +327,9 @@ export function ContactDetailView({
           .from('contacts')
           .select('id,name,phone')
           .in('id', participantIds);
-        (participants ?? []).forEach((person) => people.set(person.id, person));
+        (participants ?? []).forEach((person) => {
+          if (!people.has(person.id)) people.set(person.id, person);
+        });
       }
       setRelatedPeople([...people.values()]);
     }
@@ -374,6 +381,127 @@ export function ContactDetailView({
     fetchCompanies,
     fetchSpouse,
   ]);
+
+  const overview = useContactOverviewData(
+    supabase,
+    contact,
+    deals,
+    open && contact?.id === contactId,
+    loadingDeals
+  );
+  const activeDeals = deals.filter(
+    (deal) => deal.status !== 'won' && deal.status !== 'lost'
+  );
+  const people = [
+    ...new Map(
+      [
+        ...spouseLinks.map(({ spouse }) => ({
+          ...spouse,
+          role: 'Współmałżonek/Partner',
+        })),
+        ...relatedPeople,
+      ].map((person) => [person.id, person])
+    ).values(),
+  ];
+  const relationCount = contactCompanies.length + spouseLinks.length;
+  const historySnapshot = {
+    activities: overview.history.data?.activities ?? [],
+    queueEvents: overview.history.data?.queueEvents ?? [],
+    notes,
+    loading: overview.history.loading || loadingNotes,
+    error: overview.history.error,
+  };
+  const counts = {
+    deals: activeDeals.length,
+    history:
+      historySnapshot.activities.length +
+      historySnapshot.queueEvents.length +
+      notes.length,
+    tasks: overview.tasks.data?.length ?? 0,
+    notes: notes.length,
+    documents: overview.documents.data?.length ?? 0,
+    people: people.length,
+    relations: relationCount,
+  };
+  const countLoading: Record<string, boolean> = {
+    deals: loadingDeals,
+    history: historySnapshot.loading,
+    tasks: overview.tasks.loading,
+    notes: loadingNotes,
+    documents: loadingDeals || overview.documents.loading,
+    people: loadingDeals,
+  };
+  const countError: Record<string, boolean> = {
+    history: overview.history.error,
+    tasks: overview.tasks.error,
+    documents: overview.documents.error,
+  };
+  const overviewLoading = Object.values(countLoading).some(Boolean);
+  const overviewError = Object.values(countError).some(Boolean);
+  const tabItems = [
+    [
+      'overview',
+      'Podsumowanie',
+      Object.values(counts).reduce((sum, count) => sum + count, 0),
+    ],
+    ['deals', 'Aktywne Deale', counts.deals],
+    ['history', 'Aktywność', counts.history],
+    ['tasks', 'Zadania', counts.tasks],
+    ['notes', 'Notatki', counts.notes],
+    ['documents', 'Dokumenty', counts.documents],
+    ['people', 'Osoby', counts.people],
+    ['relations', 'Relacje', counts.relations],
+  ] as const;
+  const taskContent =
+    overview.tasks.loading || overview.tasks.error ? (
+      <DataState {...overview.tasks} />
+    ) : (
+      <ContactTaskList tasks={overview.tasks.data ?? []} />
+    );
+  const upcomingTasks = (overview.tasks.data ?? [])
+    .filter(
+      (task) =>
+        !task.completed &&
+        !['WYKONANE', 'ANULOWANE'].includes(task.activity_status ?? '')
+    )
+    .sort((a, b) =>
+      (a.scheduled_at || a.next_action_date || '9999').localeCompare(
+        b.scheduled_at || b.next_action_date || '9999'
+      )
+    );
+  const relationsContent = (
+    <div className="mt-2 space-y-2">
+      {spouseLinks.map(({ spouse }) => (
+        <Link
+          key={spouse.id}
+          href={`/contacts?open=${spouse.id}`}
+          className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
+        >
+          {spouse.name || spouse.phone}
+          <span className="block text-xs font-normal text-slate-700">
+            Współmałżonek/Partner
+          </span>
+        </Link>
+      ))}
+      {contactCompanies.map((link) => (
+        <Link
+          key={link.company_id}
+          href={`/companies?open=${link.company_id}`}
+          className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
+        >
+          {link.company?.name || 'Brak danych'}
+          <span className="block text-xs font-normal text-slate-700">
+            Firma · {link.role || 'Rola: Brak danych'}
+          </span>
+        </Link>
+      ))}
+      {!relationCount && (
+        <p className="py-4 text-center text-sm text-slate-700">
+          Brak danych — brak powiązanych relacji.
+        </p>
+      )}
+    </div>
+  );
 
   async function linkSpouse() {
     if (!contactId || !selectedSpouseId || !accountId) return;
@@ -705,12 +833,19 @@ export function ContactDetailView({
   );
   const documentsContent = contact && (
     <>
-      <ContactDocuments
-        key={contact.id}
-        contact={contact}
-        deals={deals}
-        loadingDeals={loadingDeals}
-      />
+      {loadingDeals ||
+      overview.documents.loading ||
+      overview.documents.error ? (
+        <DataState
+          loading={loadingDeals || overview.documents.loading}
+          error={overview.documents.error}
+        />
+      ) : (
+        <ContactDocumentList
+          documents={overview.documents.data ?? []}
+          deals={deals}
+        />
+      )}
       <Button
         variant="outline"
         render={
@@ -729,7 +864,7 @@ export function ContactDetailView({
           side="right"
           className="w-full gap-0 bg-white p-0 text-slate-950 data-[side=right]:w-full sm:max-w-xl md:data-[side=right]:w-full md:data-[side=right]:max-w-xl xl:data-[side=right]:w-[calc(100vw-2rem)] xl:data-[side=right]:max-w-[1440px]"
         >
-          {loading || !contact ? (
+          {loading || !contact || contact.id !== contactId ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="text-primary size-6 animate-spin" />
             </div>
@@ -740,129 +875,129 @@ export function ContactDetailView({
                 <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
                   Klient
                 </p>
-                <div className="flex items-center gap-3">
-                  <Avatar className="bg-muted border-border size-12 border">
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                      {getInitials(contact.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <SheetTitle className="text-popover-foreground truncate">
-                      {contact.name || t('unnamed')}
-                    </SheetTitle>
-                    <SheetDescription className="sr-only">
-                      {t('contactDetailsDesc')}
-                    </SheetDescription>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
-                      <button
-                        onClick={copyPhone}
-                        className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
-                      >
-                        <Phone className="size-3" />
-                        {contact.phone}
-                        {copiedPhone ? (
-                          <Check className="text-primary size-3" />
-                        ) : (
-                          <Copy className="size-3" />
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar className="bg-muted border-border size-12 border">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                        {getInitials(contact.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <SheetTitle className="text-popover-foreground truncate">
+                        {contact.name || t('unnamed')}
+                      </SheetTitle>
+                      <ContactStatusTags
+                        tags={allTags.filter((tag) =>
+                          contactTagIds.includes(tag.id)
                         )}
-                      </button>
-                      {contact.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="size-3" />
-                          {contact.email}
-                        </span>
-                      )}
-                      <Link
-                        href={`/ankieta?contact=${contact.id}`}
-                        className="min-h-8 rounded px-1 font-semibold text-emerald-800 hover:underline"
-                      >
-                        Wypełnij ankietę
-                      </Link>
-                      {contactCompanies.map((link) => (
-                        <Link
-                          key={link.company_id}
-                          href={`/companies?open=${link.company_id}`}
-                          className="flex min-h-8 items-center gap-1 rounded px-1 font-semibold text-emerald-800 hover:bg-emerald-50 hover:underline"
+                      />
+                      <SheetDescription className="sr-only">
+                        {t('contactDetailsDesc')}
+                      </SheetDescription>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
+                        <button
+                          onClick={copyPhone}
+                          className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
                         >
-                          <Building2 className="size-3" />
-                          {link.company?.name}
+                          <Phone className="size-3" />
+                          {contact.phone}
+                          {copiedPhone ? (
+                            <Check className="text-primary size-3" />
+                          ) : (
+                            <Copy className="size-3" />
+                          )}
+                        </button>
+                        {contact.email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="size-3" />
+                            {contact.email}
+                          </span>
+                        )}
+                        <Link
+                          href={`/ankieta?contact=${contact.id}`}
+                          className="min-h-8 rounded px-1 font-semibold text-emerald-800 hover:underline"
+                        >
+                          Wypełnij ankietę
                         </Link>
-                      ))}
+                        <span>
+                          Miejscowość: {contact.city?.trim() || 'Brak danych'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
-                  <CallAction
-                    phone={contact.phone}
-                    contactId={contact.id}
-                    companyId={
-                      contactCompanies.find((link) => link.is_primary)
-                        ?.company_id ?? contactCompanies[0]?.company_id
-                    }
-                    className="border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 hover:text-white"
-                  />
-                  <WhatsAppAction
-                    phone={contact.phone}
-                    contactId={contact.id}
-                    className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
-                  />
-                  <ContactEmailAction email={contact.email} />
-                  <Button
-                    size="sm"
-                    render={
-                      <Link
-                        href={`/pipelines?new=deal&contact=${contact.id}`}
-                      />
-                    }
-                    className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
-                  >
-                    + NOWY DEAL
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    render={
-                      <Link
-                        href={`/quick-call?contact=${contact.id}&action=dictate`}
-                      />
-                    }
-                  >
-                    <Mic className="size-4" /> DYKTUJ
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    render={
-                      <Link
-                        href={`/calendar?new=event&contact=${contact.id}`}
-                      />
-                    }
-                  >
-                    <CalendarDays className="size-4" /> DODAJ TERMIN
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    onClick={() => {
-                      setActiveTab('overview');
-                      setContextExpanded(true);
-                      window.setTimeout(() => {
-                        const details = document.getElementById(
-                          'contact-deeper-details'
-                        );
-                        details?.setAttribute('open', '');
-                        details
-                          ?.querySelector('details')
-                          ?.setAttribute('open', '');
-                        details?.scrollIntoView({ behavior: 'smooth' });
-                      }, 0);
-                    }}
-                  >
-                    <MoreHorizontal className="size-4" /> WIĘCEJ
-                  </Button>
+                  <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                    <CallAction
+                      phone={contact.phone}
+                      contactId={contact.id}
+                      companyId={
+                        contactCompanies.find((link) => link.is_primary)
+                          ?.company_id ?? contactCompanies[0]?.company_id
+                      }
+                      className="border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 hover:text-white"
+                    />
+                    <WhatsAppAction
+                      phone={contact.phone}
+                      contactId={contact.id}
+                      label="WhatsApp"
+                      className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
+                    />
+                    <ContactEmailAction email={contact.email} />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setActiveTab('overview');
+                        setContextExpanded(true);
+                        window.setTimeout(() => {
+                          const details = document.getElementById(
+                            'contact-deeper-details'
+                          );
+                          details?.setAttribute('open', '');
+                          details
+                            ?.querySelector('details')
+                            ?.setAttribute('open', '');
+                          details?.scrollIntoView({ behavior: 'smooth' });
+                        }, 0);
+                      }}
+                    >
+                      <MoreHorizontal className="size-4" /> WIĘCEJ
+                    </Button>
+                    <Button
+                      size="sm"
+                      render={
+                        <Link
+                          href={`/pipelines?new=deal&contact=${contact.id}`}
+                        />
+                      }
+                      className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
+                    >
+                      + NOWY DEAL
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hidden sm:inline-flex"
+                      render={
+                        <Link
+                          href={`/quick-call?contact=${contact.id}&action=dictate`}
+                        />
+                      }
+                    >
+                      <Mic className="size-4" /> DYKTUJ
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="hidden sm:inline-flex"
+                      render={
+                        <Link
+                          href={`/calendar?new=event&contact=${contact.id}`}
+                        />
+                      }
+                    >
+                      <CalendarDays className="size-4" /> DODAJ TERMIN
+                    </Button>
+                  </div>
                 </div>
               </SheetHeader>
 
@@ -872,504 +1007,62 @@ export function ContactDetailView({
                 onValueChange={setActiveTab}
                 className="flex min-h-0 flex-1 flex-col"
               >
+                <ContactInfoCards
+                  contact={contact}
+                  companies={contactCompanies}
+                  spouses={spouseLinks}
+                  deals={deals}
+                  owner={
+                    overview.owner.loading
+                      ? 'Ładowanie…'
+                      : overview.owner.data?.full_name?.trim() || ''
+                  }
+                  ownerRole={overview.owner.data?.account_role || ''}
+                  ownerError={overview.owner.error}
+                />
                 <TabsList
                   aria-label="Karta klienta"
                   className="mx-3 mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 sm:mx-4 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
                 >
-                  <TabsTrigger value="overview">Podsumowanie</TabsTrigger>
-                  <TabsTrigger value="deals">Aktywne Deale</TabsTrigger>
-                  <TabsTrigger value="history">Aktywność</TabsTrigger>
-                  <TabsTrigger value="tasks">Zadania</TabsTrigger>
-                  <TabsTrigger value="notes">Notatki</TabsTrigger>
-                  <TabsTrigger value="documents">Dokumenty</TabsTrigger>
-                  <TabsTrigger value="people">Osoby</TabsTrigger>
-                  <TabsTrigger value="relations">Relacje</TabsTrigger>
+                  {tabItems.map(([value, label, count]) => (
+                    <TabsTrigger key={value} value={value}>
+                      {label}
+                      <span
+                        data-tab-count={value}
+                        className="ml-1 rounded-full bg-slate-100 px-1.5 text-xs tabular-nums"
+                        aria-label={`Liczba: ${value === 'overview' ? (overviewError ? 'niedostępna' : overviewLoading ? 'ładowanie' : count) : countError[value] ? 'niedostępna' : countLoading[value] ? 'ładowanie' : count}`}
+                      >
+                        (
+                        {value === 'overview'
+                          ? overviewError
+                            ? '—'
+                            : overviewLoading
+                              ? '…'
+                              : count
+                          : countError[value]
+                            ? '—'
+                            : countLoading[value]
+                              ? '…'
+                              : count}
+                        )
+                      </span>
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
                 <TabsContent
                   value="overview"
-                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                  className="flex min-h-0 flex-1 flex-col overflow-y-auto"
                 >
                   <div
                     data-contact-columns
-                    className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto overscroll-contain px-4 py-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] xl:overflow-hidden"
+                    className="grid min-h-0 shrink-0 grid-cols-1 gap-3 overflow-y-auto overscroll-contain px-4 py-3 xl:max-h-[60vh] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] xl:overflow-hidden"
                   >
                     <ContactDetailColumn
                       key={`${contact.id}-context`}
                       area="context"
-                      title="Kontekst i wybór"
+                      title="Deale i osoby"
                       expanded={contextExpanded}
                       onExpandedChange={setContextExpanded}
-                    >
-                      <ContactDataCards key={contact.id} contact={contact} />
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="mobile-contact-relations"
-                      >
-                        <h3
-                          id="mobile-contact-relations"
-                          className="text-sm font-black tracking-wide text-slate-950 uppercase"
-                        >
-                          Powiązania
-                        </h3>
-
-                        <div className="mt-3">
-                          <h4 className="text-xs font-black text-slate-800">
-                            Firma ({contactCompanies.length})
-                          </h4>
-                          <div className="mt-1 space-y-2">
-                            {contactCompanies.length ? (
-                              contactCompanies.map((link) => (
-                                <Link
-                                  key={link.company_id}
-                                  href={`/companies?open=${link.company_id}`}
-                                  className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
-                                >
-                                  <span>
-                                    {link.company?.name || 'Firma bez nazwy'}
-                                  </span>
-                                  <span aria-hidden className="text-slate-700">
-                                    →
-                                  </span>
-                                </Link>
-                              ))
-                            ) : (
-                              <p className="text-sm text-slate-700">
-                                Brak powiązania
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 border-t border-slate-200 pt-3">
-                          <h4 className="text-xs font-black text-slate-800">
-                            Współmałżonek ({spouseLinks.length})
-                          </h4>
-                          <div className="mt-1 space-y-2">
-                            {spouseLinks.length ? (
-                              spouseLinks.map(({ spouse }) => (
-                                <Link
-                                  key={spouse.id}
-                                  href={`/contacts?open=${spouse.id}`}
-                                  className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
-                                >
-                                  <span>{spouse.name || spouse.phone}</span>
-                                  <span aria-hidden className="text-slate-700">
-                                    →
-                                  </span>
-                                </Link>
-                              ))
-                            ) : (
-                              <p className="text-sm text-slate-700">
-                                Brak powiązania
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 border-t border-slate-200 pt-3">
-                          <h4 className="text-xs font-black text-slate-800">
-                            Osoby ({relatedPeople.length})
-                          </h4>
-                          <div className="mt-1 space-y-2">
-                            {relatedPeople.filter(
-                              (person) =>
-                                !spouseLinks.some(
-                                  ({ spouse }) => spouse.id === person.id
-                                )
-                            ).length ? (
-                              relatedPeople
-                                .filter(
-                                  (person) =>
-                                    !spouseLinks.some(
-                                      ({ spouse }) => spouse.id === person.id
-                                    )
-                                )
-                                .map((person) => (
-                                  <Link
-                                    key={person.id}
-                                    href={`/contacts?open=${person.id}`}
-                                    className="flex min-h-11 items-center justify-between rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100"
-                                  >
-                                    <span>{person.name || person.phone}</span>
-                                    <span
-                                      aria-hidden
-                                      className="text-slate-700"
-                                    >
-                                      →
-                                    </span>
-                                  </Link>
-                                ))
-                            ) : (
-                              <p className="text-sm text-slate-700">
-                                Brak powiązania
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </section>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="min-h-11 w-full border-slate-300 font-black text-slate-950"
-                        onClick={() => {
-                          setActiveTab('overview');
-                          setContextExpanded(true);
-                          window.setTimeout(() => {
-                            const details = document.getElementById(
-                              'contact-deeper-details'
-                            );
-                            details?.setAttribute('open', '');
-                            details
-                              ?.querySelector('details')
-                              ?.setAttribute('open', '');
-                            details?.scrollIntoView({ behavior: 'smooth' });
-                          }, 0);
-                        }}
-                      >
-                        PEŁNA KARTA KLIENTA
-                      </Button>
-
-                      <details
-                        id="contact-deeper-details"
-                        className="rounded-xl border bg-slate-50 p-3"
-                      >
-                        <summary className="cursor-pointer text-xs font-bold text-slate-800">
-                          WIĘCEJ DANYCH KLIENTA
-                        </summary>
-                        <div className="mt-3 space-y-3">
-                          <details className="rounded-lg border bg-white p-3">
-                            <summary className="cursor-pointer text-xs font-bold">
-                              Dane klienta
-                            </summary>
-                            <div className="mt-3">
-                              <div className="space-y-3">
-                                <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
-                                  <div>
-                                    <dt className="font-black text-slate-600 uppercase">
-                                      Źródło
-                                    </dt>
-                                    <dd className="mt-0.5 font-semibold text-slate-800">
-                                      {contact.source || '—'}
-                                    </dd>
-                                  </div>
-                                  <div>
-                                    <dt className="font-black text-slate-600 uppercase">
-                                      Kategoria
-                                    </dt>
-                                    <dd className="mt-0.5 font-semibold text-slate-800">
-                                      {contact.product_category || '—'}
-                                    </dd>
-                                  </div>
-                                  <div>
-                                    <dt className="font-black text-slate-600 uppercase">
-                                      Następny krok
-                                    </dt>
-                                    <dd className="mt-0.5 font-semibold text-slate-800">
-                                      {contact.next_step || '—'}
-                                    </dd>
-                                  </div>
-                                  <div>
-                                    <dt className="font-black text-slate-600 uppercase">
-                                      Termin
-                                    </dt>
-                                    <dd className="mt-0.5 font-semibold text-slate-800">
-                                      {contact.follow_up_at
-                                        ? new Date(
-                                            contact.follow_up_at
-                                          ).toLocaleString('pl-PL', {
-                                            day: '2-digit',
-                                            month: '2-digit',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                          })
-                                        : '—'}
-                                    </dd>
-                                  </div>
-                                </dl>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setTemplatePickerOpen(true)}
-                                  disabled={sendingTemplate}
-                                >
-                                  {sendingTemplate ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                  ) : (
-                                    <LayoutTemplate className="size-4" />
-                                  )}
-                                  {t('sendTemplateBtn')}
-                                </Button>
-                                <div className="grid gap-2 md:max-w-md md:grid-cols-2">
-                                  <div className="space-y-1.5">
-                                    <Label className="text-xs text-slate-700">
-                                      Imię
-                                    </Label>
-                                    <Input
-                                      value={editFirstName}
-                                      onChange={(e) =>
-                                        setEditFirstName(e.target.value)
-                                      }
-                                    />
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <Label className="text-xs text-slate-700">
-                                      Nazwisko
-                                    </Label>
-                                    <Input
-                                      value={editLastName}
-                                      onChange={(e) =>
-                                        setEditLastName(e.target.value)
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    {t('name')}
-                                  </Label>
-                                  <Input
-                                    value={editName}
-                                    onChange={(e) =>
-                                      setEditName(e.target.value)
-                                    }
-                                    className="bg-muted border-border text-foreground h-8 text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    {t('phone')}{' '}
-                                    <span className="text-red-400">*</span>
-                                  </Label>
-                                  <Input
-                                    value={editPhone}
-                                    onChange={(e) =>
-                                      setEditPhone(e.target.value)
-                                    }
-                                    className="bg-muted border-border text-foreground h-8 text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    {t('email')}
-                                  </Label>
-                                  <Input
-                                    value={editEmail}
-                                    onChange={(e) =>
-                                      setEditEmail(e.target.value)
-                                    }
-                                    className="bg-muted border-border text-foreground h-8 text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    LinkedIn
-                                  </Label>
-                                  <Input
-                                    type="url"
-                                    value={editLinkedin}
-                                    onChange={(e) =>
-                                      setEditLinkedin(e.target.value)
-                                    }
-                                    placeholder="https://linkedin.com/in/..."
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700">
-                                    Opis Kontaktu
-                                  </Label>
-                                  <Textarea
-                                    value={editDescription}
-                                    onChange={(e) =>
-                                      setEditDescription(e.target.value)
-                                    }
-                                    className="min-h-32 resize-y"
-                                    placeholder="Pełny opis osoby i ustaleń"
-                                  />
-                                </div>
-                                <details className="rounded-lg border p-3">
-                                  <summary className="cursor-pointer text-xs font-semibold">
-                                    Dane do wniosku — wrażliwe
-                                  </summary>
-                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                    <Input
-                                      value={editPesel}
-                                      onChange={(e) =>
-                                        setEditPesel(e.target.value)
-                                      }
-                                      placeholder="PESEL"
-                                    />
-                                    <Input
-                                      value={editIdentityDocument}
-                                      onChange={(e) =>
-                                        setEditIdentityDocument(e.target.value)
-                                      }
-                                      placeholder="Seria i numer dokumentu"
-                                    />
-                                    <select
-                                      value={editBikStatus}
-                                      onChange={(e) =>
-                                        setEditBikStatus(e.target.value)
-                                      }
-                                      className="bg-muted h-9 rounded-md border px-2 text-sm"
-                                    >
-                                      <option value="">
-                                        BIK — brak danych
-                                      </option>
-                                      <option>Sprawdzony — OK</option>
-                                      <option>Wymaga analizy</option>
-                                      <option>Negatywny</option>
-                                    </select>
-                                    <Input
-                                      value={editIncomeType}
-                                      onChange={(e) =>
-                                        setEditIncomeType(e.target.value)
-                                      }
-                                      placeholder="Źródło dochodu"
-                                    />
-                                    <Input
-                                      type="number"
-                                      value={editMonthlyIncome}
-                                      onChange={(e) =>
-                                        setEditMonthlyIncome(e.target.value)
-                                      }
-                                      placeholder="Dochód miesięczny"
-                                    />
-                                  </div>
-                                </details>
-                                <Button
-                                  onClick={saveDetails}
-                                  disabled={savingDetails}
-                                  className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                                  size="sm"
-                                >
-                                  {savingDetails ? (
-                                    <Loader2 className="size-3.5 animate-spin" />
-                                  ) : (
-                                    <Save className="size-3.5" />
-                                  )}
-                                  {t('saveChangesBtn')}
-                                </Button>
-                              </div>
-                            </div>
-                          </details>
-                          <details className="rounded-lg border bg-white p-3">
-                            <summary className="cursor-pointer text-xs font-bold">
-                              Tagi
-                            </summary>
-                            <div className="mt-3">
-                              <div className="space-y-3">
-                                {accountId && contactId && (
-                                  <section className="rounded-xl border p-4">
-                                    <h3 className="mb-3 text-sm font-semibold">
-                                      Tagi CRM Kontaktu
-                                    </h3>
-                                    <EntityTagsEditor
-                                      accountId={accountId}
-                                      entityType="contact"
-                                      entityId={contactId}
-                                    />
-                                  </section>
-                                )}
-                                <p className="text-xs text-slate-700">
-                                  {t('tagsTab.clickTagDesc')}
-                                </p>
-                                {allTags.length === 0 ? (
-                                  <p className="text-sm text-slate-700">
-                                    {t('tagsTab.noTagsAvailable')}
-                                  </p>
-                                ) : (
-                                  <div className="flex flex-wrap gap-2">
-                                    {allTags.map((tag) => {
-                                      const selected = contactTagIds.includes(
-                                        tag.id
-                                      );
-                                      return (
-                                        <button
-                                          key={tag.id}
-                                          onClick={() => toggleTag(tag.id)}
-                                          disabled={savingTags}
-                                          className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                                            selected
-                                              ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
-                                              : 'opacity-50 hover:opacity-80'
-                                          }`}
-                                          style={{
-                                            backgroundColor: tag.color + '20',
-                                            color: tag.color,
-                                          }}
-                                        >
-                                          {selected && (
-                                            <Check className="mr-1 size-3" />
-                                          )}
-                                          {tag.name}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </details>
-                          <details className="rounded-lg border bg-white p-3">
-                            <summary className="cursor-pointer text-xs font-bold">
-                              Pola dodatkowe
-                            </summary>
-                            <div className="mt-3">
-                              {loadingCustom ? (
-                                <div className="flex items-center justify-center py-8">
-                                  <Loader2 className="size-5 animate-spin text-slate-700" />
-                                </div>
-                              ) : customFields.length === 0 ? (
-                                <p className="py-8 text-center text-sm text-slate-700">
-                                  {t('noCustomFields')}
-                                </p>
-                              ) : (
-                                <div className="space-y-3">
-                                  {customFields.map((field) => (
-                                    <div key={field.id} className="space-y-1.5">
-                                      <Label className="text-xs text-slate-700 capitalize">
-                                        {field.field_name}
-                                      </Label>
-                                      <Input
-                                        value={customValues[field.id] ?? ''}
-                                        onChange={(e) =>
-                                          setCustomValues((prev) => ({
-                                            ...prev,
-                                            [field.id]: e.target.value,
-                                          }))
-                                        }
-                                        placeholder={t('enterCustomField', {
-                                          name: field.field_name,
-                                        })}
-                                        className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
-                                      />
-                                    </div>
-                                  ))}
-                                  <Button
-                                    onClick={saveCustomFields}
-                                    disabled={savingCustom}
-                                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                                    size="sm"
-                                  >
-                                    {savingCustom ? (
-                                      <Loader2 className="size-3.5 animate-spin" />
-                                    ) : (
-                                      <Save className="size-3.5" />
-                                    )}
-                                    {t('saveCustomFieldsBtn')}
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </details>
-                        </div>
-                      </details>
-                    </ContactDetailColumn>
-                    <ContactDetailColumn
-                      key={`${contact.id}-work`}
-                      area="work"
-                      title="Główna praca"
                     >
                       <section
                         className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1440,49 +1133,65 @@ export function ContactDetailView({
 
                       <section
                         className="rounded-xl border border-slate-300 bg-white p-3"
+                        aria-labelledby="contact-overview-people"
+                      >
+                        <h3
+                          id="contact-overview-people"
+                          className="text-sm font-black text-slate-950"
+                        >
+                          Osoby powiązane
+                        </h3>
+                        <div className="mt-2 space-y-2">
+                          {people.length ? (
+                            people.map((person) => (
+                              <Link
+                                key={person.id}
+                                href={`/contacts?open=${person.id}`}
+                                className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
+                              >
+                                {person.name || person.phone}
+                                <span className="block text-xs font-normal text-slate-700">
+                                  {spouseLinks.some(
+                                    ({ spouse }) => spouse.id === person.id
+                                  )
+                                    ? 'Współmałżonek/Partner'
+                                    : person.role || 'Rola: Brak danych'}
+                                </span>
+                              </Link>
+                            ))
+                          ) : (
+                            <p className="py-4 text-center text-sm text-slate-700">
+                              Brak danych — brak osób powiązanych.
+                            </p>
+                          )}
+                        </div>
+                      </section>
+                    </ContactDetailColumn>
+                    <ContactDetailColumn
+                      key={`${contact.id}-work`}
+                      area="work"
+                      title="Działania i dokumenty"
+                    >
+                      <ContactNextAction
+                        contact={contact}
+                        deals={deals}
+                        activities={historySnapshot.activities}
+                      />
+                      <section
+                        className="rounded-xl border border-slate-300 bg-white p-3"
                         aria-labelledby="contact-overview-tasks"
                       >
                         <h3
                           id="contact-overview-tasks"
-                          className="mb-2 text-sm font-black text-slate-950 uppercase"
+                          className="mb-2 text-sm font-black text-slate-950"
                         >
-                          Zadania
+                          Najbliższe zadania
                         </h3>
-                        <ContactTasks key={contact.id} contact={contact} />
-                      </section>
-                    </ContactDetailColumn>
-                    <ContactDetailColumn
-                      key={`${contact.id}-results`}
-                      area="results"
-                      title="Wyniki i bieżące działania"
-                    >
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="mobile-contact-activities"
-                      >
-                        <h3
-                          id="mobile-contact-activities"
-                          className="text-sm font-black tracking-wide text-slate-950 uppercase"
-                        >
-                          Ostatnie aktywności
-                        </h3>
-                        <ActivityHistory
-                          contactId={contact.id}
-                          className="mt-2"
-                        />
-                      </section>
-
-                      <section
-                        className="rounded-xl border border-slate-300 bg-white p-3"
-                        aria-labelledby="contact-overview-notes"
-                      >
-                        <h3
-                          id="contact-overview-notes"
-                          className="mb-2 text-sm font-black text-slate-950 uppercase"
-                        >
-                          Notatki
-                        </h3>
-                        {notesContent}
+                        {overview.tasks.loading || overview.tasks.error ? (
+                          <DataState {...overview.tasks} />
+                        ) : (
+                          <ContactTaskList tasks={upcomingTasks} />
+                        )}
                       </section>
                       <section
                         className="rounded-xl border border-slate-300 bg-white p-3"
@@ -1490,13 +1199,397 @@ export function ContactDetailView({
                       >
                         <h3
                           id="contact-overview-documents"
-                          className="mb-2 text-sm font-black text-slate-950 uppercase"
+                          className="mb-2 text-sm font-black text-slate-950"
                         >
                           Dokumenty
                         </h3>
                         {documentsContent}
                       </section>
                     </ContactDetailColumn>
+                    <ContactDetailColumn
+                      key={`${contact.id}-results`}
+                      area="results"
+                      title="Aktywność i relacje"
+                    >
+                      <section
+                        className="rounded-xl border border-slate-300 bg-white p-3"
+                        aria-labelledby="mobile-contact-activities"
+                      >
+                        <h3
+                          id="mobile-contact-activities"
+                          className="text-sm font-black text-slate-950"
+                        >
+                          Ostatnia aktywność
+                        </h3>
+                        <ActivityHistory
+                          contactId={contact.id}
+                          snapshot={historySnapshot}
+                          className="mt-2 border-l-2 border-emerald-200 pl-3"
+                        />
+                      </section>
+                      <section
+                        className="rounded-xl border border-slate-300 bg-white p-3"
+                        aria-labelledby="contact-overview-notes"
+                      >
+                        <h3
+                          id="contact-overview-notes"
+                          className="mb-2 text-sm font-black text-slate-950"
+                        >
+                          Notatki
+                        </h3>
+                        {notesContent}
+                      </section>
+                      <section
+                        className="rounded-xl border border-slate-300 bg-white p-3"
+                        aria-labelledby="contact-overview-relations"
+                      >
+                        <h3
+                          id="contact-overview-relations"
+                          className="text-sm font-black text-slate-950"
+                        >
+                          Relacje
+                        </h3>
+                        {relationsContent}
+                      </section>
+                    </ContactDetailColumn>
+                  </div>
+                  <div
+                    data-contact-full-details
+                    className="shrink-0 space-y-3 px-4 pb-4"
+                  >
+                    {' '}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 w-full border-slate-300 font-black text-slate-950"
+                      onClick={() => {
+                        setActiveTab('overview');
+                        setContextExpanded(true);
+                        window.setTimeout(() => {
+                          const details = document.getElementById(
+                            'contact-deeper-details'
+                          );
+                          details?.setAttribute('open', '');
+                          details
+                            ?.querySelector('details')
+                            ?.setAttribute('open', '');
+                          details?.scrollIntoView({ behavior: 'smooth' });
+                        }, 0);
+                      }}
+                    >
+                      PEŁNA KARTA KLIENTA
+                    </Button>
+                    <details
+                      id="contact-deeper-details"
+                      className="rounded-xl border bg-slate-50 p-3"
+                    >
+                      <summary className="cursor-pointer text-xs font-bold text-slate-800">
+                        WIĘCEJ DANYCH KLIENTA
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Dane klienta
+                          </summary>
+                          <div className="mt-3">
+                            <div className="space-y-3">
+                              <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
+                                <div>
+                                  <dt className="font-black text-slate-600 uppercase">
+                                    Następny krok
+                                  </dt>
+                                  <dd className="mt-0.5 font-semibold text-slate-800">
+                                    {contact.next_step || '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="font-black text-slate-600 uppercase">
+                                    Termin
+                                  </dt>
+                                  <dd className="mt-0.5 font-semibold text-slate-800">
+                                    {contact.follow_up_at
+                                      ? new Date(
+                                          contact.follow_up_at
+                                        ).toLocaleString('pl-PL', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      : '—'}
+                                  </dd>
+                                </div>
+                              </dl>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setTemplatePickerOpen(true)}
+                                disabled={sendingTemplate}
+                              >
+                                {sendingTemplate ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <LayoutTemplate className="size-4" />
+                                )}
+                                {t('sendTemplateBtn')}
+                              </Button>
+                              <div className="grid gap-2 md:max-w-md md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-slate-700">
+                                    Imię
+                                  </Label>
+                                  <Input
+                                    value={editFirstName}
+                                    onChange={(e) =>
+                                      setEditFirstName(e.target.value)
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-slate-700">
+                                    Nazwisko
+                                  </Label>
+                                  <Input
+                                    value={editLastName}
+                                    onChange={(e) =>
+                                      setEditLastName(e.target.value)
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('name')}
+                                </Label>
+                                <Input
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('phone')}{' '}
+                                  <span className="text-red-400">*</span>
+                                </Label>
+                                <Input
+                                  value={editPhone}
+                                  onChange={(e) => setEditPhone(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('email')}
+                                </Label>
+                                <Input
+                                  value={editEmail}
+                                  onChange={(e) => setEditEmail(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  LinkedIn
+                                </Label>
+                                <Input
+                                  type="url"
+                                  value={editLinkedin}
+                                  onChange={(e) =>
+                                    setEditLinkedin(e.target.value)
+                                  }
+                                  placeholder="https://linkedin.com/in/..."
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  Opis Kontaktu
+                                </Label>
+                                <Textarea
+                                  value={editDescription}
+                                  onChange={(e) =>
+                                    setEditDescription(e.target.value)
+                                  }
+                                  className="min-h-32 resize-y"
+                                  placeholder="Pełny opis osoby i ustaleń"
+                                />
+                              </div>
+                              <details className="rounded-lg border p-3">
+                                <summary className="cursor-pointer text-xs font-semibold">
+                                  Dane do wniosku — wrażliwe
+                                </summary>
+                                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  <Input
+                                    value={editPesel}
+                                    onChange={(e) =>
+                                      setEditPesel(e.target.value)
+                                    }
+                                    placeholder="PESEL"
+                                  />
+                                  <Input
+                                    value={editIdentityDocument}
+                                    onChange={(e) =>
+                                      setEditIdentityDocument(e.target.value)
+                                    }
+                                    placeholder="Seria i numer dokumentu"
+                                  />
+                                  <select
+                                    value={editBikStatus}
+                                    onChange={(e) =>
+                                      setEditBikStatus(e.target.value)
+                                    }
+                                    className="bg-muted h-9 rounded-md border px-2 text-sm"
+                                  >
+                                    <option value="">BIK — brak danych</option>
+                                    <option>Sprawdzony — OK</option>
+                                    <option>Wymaga analizy</option>
+                                    <option>Negatywny</option>
+                                  </select>
+                                  <Input
+                                    value={editIncomeType}
+                                    onChange={(e) =>
+                                      setEditIncomeType(e.target.value)
+                                    }
+                                    placeholder="Źródło dochodu"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={editMonthlyIncome}
+                                    onChange={(e) =>
+                                      setEditMonthlyIncome(e.target.value)
+                                    }
+                                    placeholder="Dochód miesięczny"
+                                  />
+                                </div>
+                              </details>
+                              <Button
+                                onClick={saveDetails}
+                                disabled={savingDetails}
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                                size="sm"
+                              >
+                                {savingDetails ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="size-3.5" />
+                                )}
+                                {t('saveChangesBtn')}
+                              </Button>
+                            </div>
+                          </div>
+                        </details>
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Tagi
+                          </summary>
+                          <div className="mt-3">
+                            <div className="space-y-3">
+                              {accountId && contactId && (
+                                <section className="rounded-xl border p-4">
+                                  <h3 className="mb-3 text-sm font-semibold">
+                                    Tagi CRM Kontaktu
+                                  </h3>
+                                  <EntityTagsEditor
+                                    accountId={accountId}
+                                    entityType="contact"
+                                    entityId={contactId}
+                                  />
+                                </section>
+                              )}
+                              <p className="text-xs text-slate-700">
+                                {t('tagsTab.clickTagDesc')}
+                              </p>
+                              {allTags.length === 0 ? (
+                                <p className="text-sm text-slate-700">
+                                  {t('tagsTab.noTagsAvailable')}
+                                </p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {allTags.map((tag) => {
+                                    const selected = contactTagIds.includes(
+                                      tag.id
+                                    );
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        onClick={() => toggleTag(tag.id)}
+                                        disabled={savingTags}
+                                        className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                                          selected
+                                            ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
+                                            : 'opacity-50 hover:opacity-80'
+                                        }`}
+                                        style={{
+                                          backgroundColor: tag.color + '20',
+                                          color: tag.color,
+                                        }}
+                                      >
+                                        {selected && (
+                                          <Check className="mr-1 size-3" />
+                                        )}
+                                        {tag.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </details>
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Pola dodatkowe
+                          </summary>
+                          <div className="mt-3">
+                            {loadingCustom ? (
+                              <div className="flex items-center justify-center py-8">
+                                <Loader2 className="size-5 animate-spin text-slate-700" />
+                              </div>
+                            ) : customFields.length === 0 ? (
+                              <p className="py-8 text-center text-sm text-slate-700">
+                                {t('noCustomFields')}
+                              </p>
+                            ) : (
+                              <div className="space-y-3">
+                                {customFields.map((field) => (
+                                  <div key={field.id} className="space-y-1.5">
+                                    <Label className="text-xs text-slate-700 capitalize">
+                                      {field.field_name}
+                                    </Label>
+                                    <Input
+                                      value={customValues[field.id] ?? ''}
+                                      onChange={(e) =>
+                                        setCustomValues((prev) => ({
+                                          ...prev,
+                                          [field.id]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder={t('enterCustomField', {
+                                        name: field.field_name,
+                                      })}
+                                      className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
+                                    />
+                                  </div>
+                                ))}
+                                <Button
+                                  onClick={saveCustomFields}
+                                  disabled={savingCustom}
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                                  size="sm"
+                                >
+                                  {savingCustom ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Save className="size-3.5" />
+                                  )}
+                                  {t('saveCustomFieldsBtn')}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    </details>
                   </div>
                 </TabsContent>
 
@@ -1513,7 +1606,6 @@ export function ContactDetailView({
                   value="relations"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <ContactDataCards key={contact.id} contact={contact} />
                   <div className="my-3 space-y-3">
                     <SpouseLinks links={spouseLinks} />
                     <section className="rounded-xl border border-slate-200 p-3">
@@ -1740,7 +1832,7 @@ export function ContactDetailView({
                   value="tasks"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <ContactTasks key={contact.id} contact={contact} />
+                  {taskContent}
                 </TabsContent>
                 <TabsContent
                   value="people"
@@ -1781,7 +1873,10 @@ export function ContactDetailView({
                   value="history"
                   className="flex-1 overflow-y-auto px-4 py-3"
                 >
-                  <ActivityHistory contactId={contact.id} />
+                  <ActivityHistory
+                    contactId={contact.id}
+                    snapshot={historySnapshot}
+                  />
                 </TabsContent>
               </Tabs>
               <div className="shrink-0 border-t bg-white p-3">

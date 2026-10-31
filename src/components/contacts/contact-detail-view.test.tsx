@@ -10,6 +10,24 @@ import { ContactDetailView } from './contact-detail-view';
 const fixture = vi.hoisted(() => ({
   tab: 'overview',
   expanded: true,
+  tasks: [] as {
+    id: string;
+    title: string;
+    completed: boolean;
+    activity_status: string | null;
+    scheduled_at: string | null;
+    next_action_date: string | null;
+  }[],
+  documents: [] as {
+    id: string;
+    deal_id: string;
+    name: string;
+    status: string;
+    kind: 'document';
+  }[],
+  activities: [] as import('@/lib/sales/activity-history').ActivityHistoryRow[],
+  dataLoading: false,
+  dataError: false,
   contact: {
     id: 'contact-synthetic',
     account_id: 'account-synthetic',
@@ -35,6 +53,31 @@ vi.mock('react', async (importOriginal) => {
               ? fixture.expanded
               : initial
       ),
+  };
+});
+vi.mock('./contact-detail-sections', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./contact-detail-sections')>();
+  return {
+    ...actual,
+    useContactOverviewData: () => ({
+      owner: { data: null, loading: false, error: false },
+      tasks: {
+        data: fixture.tasks,
+        loading: fixture.dataLoading,
+        error: fixture.dataError,
+      },
+      documents: {
+        data: fixture.documents,
+        loading: fixture.dataLoading,
+        error: fixture.dataError,
+      },
+      history: {
+        data: { activities: fixture.activities, queueEvents: [] },
+        loading: fixture.dataLoading,
+        error: fixture.dataError,
+      },
+    }),
   };
 });
 vi.mock('@/lib/supabase/client', () => ({
@@ -169,6 +212,11 @@ const render = () =>
 beforeEach(() => {
   fixture.tab = 'overview';
   fixture.expanded = true;
+  fixture.tasks = [];
+  fixture.documents = [];
+  fixture.activities = [];
+  fixture.dataLoading = false;
+  fixture.dataError = false;
 });
 
 describe('K3/01-L: karta klienta 02A', () => {
@@ -176,7 +224,9 @@ describe('K3/01-L: karta klienta 02A', () => {
     const html = render();
     expect(
       [
-        ...html.matchAll(/role="tab" data-value="[^"]+">([^<]+)<\/button>/g),
+        ...html.matchAll(
+          /role="tab" data-value="[^"]+">([^<]+)<span[^>]*>[^<]*<\/span><\/button>/g
+        ),
       ].map((match) => match[1])
     ).toEqual([
       'Podsumowanie',
@@ -192,12 +242,11 @@ describe('K3/01-L: karta klienta 02A', () => {
   it('zachowuje sekcje podsumowania, ankietę, dyktowanie, terminy, nowy deal i edycję', () => {
     const html = render();
     for (const text of [
-      'Powiązania',
-      'Firma (',
-      'Współmałżonek (',
-      'Osoby (',
+      'Firma',
+      'Współmałżonek/Partner',
+      'Osoby powiązane',
       'Aktywne Deale',
-      'Ostatnie aktywności',
+      'Ostatnia aktywność',
       'Źródło',
       'Opiekun',
       'WIĘCEJ DANYCH KLIENTA',
@@ -247,6 +296,112 @@ describe('K3/01-L: karta klienta 02A', () => {
     expect(render()).toContain(
       'href="/quick-call?contact=contact-synthetic&amp;action=document"'
     );
+  });
+});
+
+describe('02A-2: zatwierdzony układ i wspólne dane', () => {
+  it('umieszcza pięć kart między nagłówkiem a zakładkami, również bez powiązań', () => {
+    const html = render();
+    expect(
+      [...html.matchAll(/data-contact-info-card="([^"]+)"/g)].map(
+        (match) => match[1]
+      )
+    ).toEqual([
+      'Firma',
+      'Współmałżonek/Partner',
+      'Źródło',
+      'Segment',
+      'Opiekun',
+    ]);
+    expect(html.indexOf('data-contact-info-cards')).toBeGreaterThan(
+      html.indexOf('</header>')
+    );
+    expect(html.indexOf('data-contact-info-cards')).toBeLessThan(
+      html.indexOf('role="tablist"')
+    );
+    expect(html).toContain('Miejscowość: Brak danych');
+    expect(html).toContain('VIP: Brak danych');
+    expect(html).toContain('Status: Brak danych');
+  });
+  it('wszystkie osiem liczników pokazuje zero przy pustych danych', () => {
+    const html = render();
+    const counts = [
+      ...html.matchAll(/data-tab-count="([^"]+)"[^>]*>\(([^<]+)\)<\/span>/g),
+    ];
+    expect(counts).toHaveLength(8);
+    expect(counts.map((match) => match[2])).toEqual(Array(8).fill('0'));
+  });
+  it('liczniki i listy korzystają z tych samych zadań, dokumentów i aktywności', () => {
+    fixture.tasks = [
+      {
+        id: 'task-test',
+        title: 'Zadanie syntetyczne',
+        completed: false,
+        activity_status: null,
+        scheduled_at: '2026-11-02T10:00:00Z',
+        next_action_date: null,
+      },
+    ];
+    fixture.documents = [
+      {
+        id: 'doc-test',
+        deal_id: 'deal-test',
+        name: 'Dokument syntetyczny',
+        status: 'brak',
+        kind: 'document',
+      },
+    ];
+    fixture.activities = [
+      {
+        id: 'activity-test',
+        title: 'Rozmowa testowa',
+        activity_type: 'telefon',
+        description: null,
+        activity_status: null,
+        call_result: null,
+        phone_number: null,
+        next_action: 'Oddzwoń testowo',
+        next_action_date: '2026-11-01T10:00:00Z',
+        occurred_at: '2026-10-31T10:00:00Z',
+      },
+    ];
+    const html = render();
+    for (const tab of ['tasks', 'documents', 'history'])
+      expect(html).toMatch(new RegExp(`data-tab-count="${tab}"[^>]*>\\(1\\)`));
+    expect(html).toMatch(/data-tab-count="overview"[^>]*>\(3\)/);
+    for (const text of [
+      'Zadanie syntetyczne',
+      'Dokument syntetyczny',
+      'Oddzwoń testowo',
+      'Priorytet: Brak danych',
+      'Termin:',
+    ])
+      expect(html).toContain(text);
+  });
+  it('najbliższe zadania pomijają zakończone i zachowują licznik wszystkich zadań', () => {
+    fixture.tasks = [
+      {
+        id: 'done',
+        title: 'Już zakończone zadanie',
+        completed: true,
+        activity_status: null,
+        scheduled_at: null,
+        next_action_date: null,
+      },
+    ];
+    const html = render();
+    expect(html).not.toContain('Już zakończone zadanie');
+    expect(html).toMatch(/data-tab-count="tasks"[^>]*>\(1\)/);
+    fixture.tab = 'tasks';
+    expect(render()).toContain('Już zakończone zadanie');
+  });
+  it('liczniki odróżniają ładowanie i błąd od pustego wyniku', () => {
+    fixture.dataLoading = true;
+    expect(render()).toMatch(/data-tab-count="tasks"[^>]*>\(…\)/);
+    fixture.dataLoading = false;
+    fixture.dataError = true;
+    expect(render()).toMatch(/data-tab-count="tasks"[^>]*>\(—\)/);
+    expect(render()).toContain('Nie udało się wczytać danych.');
   });
 });
 
@@ -308,27 +463,24 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
     const [context, work, results] = html
       .split(/data-contact-column="[^"]+"/)
       .slice(1);
-    for (const text of [
-      'Źródło',
-      'Opiekun',
-      'Powiązania',
-      'Dane klienta',
-      'Firma (',
-      'Współmałżonek (',
-      'Osoby (',
-    ]) {
-      expect(context).toContain(text);
-      expect(work).not.toContain(text);
-      expect(results).not.toContain(text);
-    }
-    expect(work).toContain('Aktywne Deale');
-    expect(work).toContain('id="contact-overview-tasks"');
-    expect(results).toContain('Ostatnie aktywności');
+    expect(context).toContain('Aktywne Deale');
+    expect(context).toContain('Osoby powiązane');
+    expect(context).not.toContain('Next action');
+    expect(work).toContain('Next action');
+    expect(work).toContain('Najbliższe zadania');
+    expect(work).toContain('id="contact-overview-documents"');
+    expect(work).toContain('Dodaj dokument');
+    expect(work).not.toContain('Ostatnia aktywność');
+    expect(results).toContain('Ostatnia aktywność');
     expect(results).toContain('id="contact-overview-notes"');
     expect(results).toContain('textarea');
     expect(results).toContain('notesTab.save');
-    expect(results).toContain('id="contact-overview-documents"');
-    expect(results).toContain('Dodaj dokument');
+    expect(results).toContain('id="contact-overview-relations"');
+    expect(results).not.toContain('id="contact-overview-documents"');
+    expect(html.indexOf('data-contact-full-details')).toBeGreaterThan(
+      html.indexOf('data-contact-column="results"')
+    );
+    expect(html).toContain('Dane klienta');
     // Reused sections have only one mounted instance in the active panel.
     expect(html.match(/placeholder="notesTab.placeholder"/g)).toHaveLength(1);
     expect(html.match(/<dt[^>]*>Opiekun/g)).toHaveLength(1);

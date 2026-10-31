@@ -6,7 +6,15 @@ import { Loader2, Mail } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { Button } from '@/components/ui/button';
-import type { Contact, Deal } from '@/types';
+import type {
+  Contact,
+  Deal,
+  ContactCompany,
+  ContactSpouseLink,
+  Tag,
+} from '@/types';
+import type { ActivityHistoryRow } from '@/lib/sales/activity-history';
+import type { ActivityHistorySnapshot } from '@/components/sales/activity-history';
 
 type Client = ReturnType<typeof createClient>;
 
@@ -140,7 +148,7 @@ export async function loadContactDocuments(
   ];
 }
 
-function useContactData<T>(load: () => Promise<T>) {
+export function useContactData<T>(load: () => Promise<T>) {
   const [result, setResult] = useState<{
     load: (() => Promise<T>) | null;
     data: T | null;
@@ -170,50 +178,260 @@ function useContactData<T>(load: () => Promise<T>) {
 export function ContactInfoCards({
   contact,
   owner,
+  ownerRole = '',
   ownerError = false,
+  companies = [],
+  spouses = [],
+  deals = [],
 }: {
   contact: Contact;
   owner: string;
+  ownerRole?: string;
   ownerError?: boolean;
+  companies?: ContactCompany[];
+  spouses?: ContactSpouseLink[];
+  deals?: Deal[];
 }) {
+  const company = (companies.find((link) => link.is_primary) ?? companies[0])
+    ?.company;
+  const spouse = spouses[0]?.spouse;
+  const segments = [
+    ...new Set(
+      [contact.product_category, ...deals.map((deal) => deal.product_type)]
+        .map((value) => value?.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const cards = [
+    {
+      title: 'Firma',
+      value: company?.name,
+      detail: `NIP: ${company?.nip || 'Brak danych'}`,
+      href: company ? `/companies?open=${company.id}` : undefined,
+    },
+    {
+      title: 'Współmałżonek/Partner',
+      value: spouse?.name,
+      detail: `Telefon: ${spouse?.phone || 'Brak danych'}`,
+      href: spouse ? `/contacts?open=${spouse.id}` : undefined,
+    },
+    {
+      title: 'Źródło',
+      value: contact.source?.trim(),
+      detail: contact.source_details,
+      extra: contact.created_at
+        ? `Dodano do CRM: ${formatWarsawDateTime(contact.created_at)} · Data pozyskania: Brak danych`
+        : 'Data pozyskania: Brak danych',
+    },
+    { title: 'Segment', value: segments.join(' · ') },
+    {
+      title: 'Opiekun',
+      value: ownerError ? 'Nie udało się wczytać opiekuna.' : owner,
+      detail: `Rola: ${ownerRole || 'Brak danych'}`,
+    },
+  ];
   return (
-    <dl className="grid grid-cols-2 gap-2 text-xs">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <dt className="font-black text-slate-800">Źródło</dt>
-        <dd className="mt-1 break-words text-slate-700">
-          {contact.source?.trim() || 'Brak danych'}
-        </dd>
-        {contact.source_details?.trim() && (
-          <dd className="mt-1 break-words text-slate-700">
-            {contact.source_details}
+    <dl
+      data-contact-info-cards
+      className="grid min-w-0 shrink-0 grid-cols-[repeat(5,minmax(160px,1fr))] gap-2 overflow-x-auto px-4 py-3 text-xs"
+    >
+      {cards.map(({ title, value, detail, extra, href }) => (
+        <div
+          key={title}
+          data-contact-info-card={title}
+          className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+        >
+          <dt className="font-black text-slate-800">{title}</dt>
+          <dd className="mt-2 font-semibold break-words text-slate-950">
+            {href ? (
+              <Link href={href} className="text-emerald-800 hover:underline">
+                {value || 'Brak danych'}
+              </Link>
+            ) : (
+              value || 'Brak danych'
+            )}
           </dd>
-        )}
-      </div>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <dt className="font-black text-slate-800">Opiekun</dt>
-        <dd className="mt-1 break-words text-slate-700">
-          {ownerError
-            ? 'Nie udało się wczytać opiekuna.'
-            : owner || 'Brak danych'}
-        </dd>
-      </div>
+          {detail && (
+            <dd className="mt-1 break-words text-slate-700">{detail}</dd>
+          )}
+          {extra && <dd className="mt-1 text-slate-700">{extra}</dd>}
+        </div>
+      ))}
     </dl>
   );
 }
 
-export function ContactDataCards({ contact }: { contact: Contact }) {
-  const db = useMemo(() => createClient(), []);
-  const load = useMemo(
-    () => () => loadContactOwner(db, contact),
-    [db, contact]
-  );
-  const result = useContactData(load);
+export function ContactStatusTags({ tags }: { tags: Tag[] }) {
+  const vip = tags.find((tag) => /^vip$/i.test(tag.name.trim()));
+  const statuses = tags.filter((tag) => tag !== vip);
   return (
-    <ContactInfoCards
-      contact={contact}
-      owner={result.loading ? 'Ładowanie…' : (result.data ?? '')}
-      ownerError={result.error}
-    />
+    <div data-contact-status className="mt-1 flex flex-wrap gap-1 text-xs">
+      {statuses.length ? (
+        statuses.map((tag) => (
+          <span
+            key={tag.id}
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-900"
+          >
+            {tag.name}
+          </span>
+        ))
+      ) : (
+        <span className="rounded-full bg-slate-100 px-2 py-1">
+          Status: Brak danych
+        </span>
+      )}
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-semibold text-amber-900">
+        VIP: {vip ? 'Tak' : 'Brak danych'}
+      </span>
+    </div>
+  );
+}
+
+export async function loadContactOwnerProfile(db: Client, contact: Contact) {
+  if (!contact.user_id) return null;
+  const { data, error } = await db
+    .from('profiles')
+    .select('full_name,account_role')
+    .eq('user_id', contact.user_id)
+    .eq('account_id', contact.account_id)
+    .maybeSingle();
+  if (error) throw new Error('CONTACT_OWNER_UNAVAILABLE');
+  return data as {
+    full_name: string | null;
+    account_role: string | null;
+  } | null;
+}
+
+export async function loadContactHistory(
+  db: Client,
+  contact: Contact
+): Promise<ActivityHistorySnapshot> {
+  const [activities, events] = await Promise.all([
+    db
+      .from('sales_activities')
+      .select(
+        'id,deal_id,title,description,activity_type,activity_status,call_result,call_category,phone_number,next_action,next_action_date,occurred_at'
+      )
+      .eq('contact_id', contact.id)
+      .eq('account_id', contact.account_id)
+      .order('occurred_at', { ascending: false }),
+    db
+      .from('work_queue_events')
+      .select('id,event_type,occurred_at,deal_id')
+      .eq('contact_id', contact.id)
+      .eq('account_id', contact.account_id)
+      .order('occurred_at', { ascending: false }),
+  ]);
+  if (activities.error || events.error)
+    throw new Error('CONTACT_HISTORY_UNAVAILABLE');
+  return {
+    activities: activities.data ?? [],
+    queueEvents: events.data ?? [],
+    notes: [],
+    loading: false,
+  };
+}
+
+export function useContactOverviewData(
+  db: Client,
+  contact: Contact | null,
+  deals: Deal[],
+  enabled: boolean,
+  loadingDeals: boolean
+) {
+  const ownerLoad = useMemo(
+    () => () =>
+      enabled && contact
+        ? loadContactOwnerProfile(db, contact)
+        : Promise.resolve(null),
+    [db, contact, enabled]
+  );
+  const taskLoad = useMemo(
+    () => () =>
+      enabled && contact ? loadContactTasks(db, contact) : Promise.resolve([]),
+    [db, contact, enabled]
+  );
+  const historyLoad = useMemo(
+    () => () =>
+      enabled && contact
+        ? loadContactHistory(db, contact)
+        : Promise.resolve(null),
+    [db, contact, enabled]
+  );
+  const documentsLoad = useMemo(
+    () => () =>
+      enabled && contact && !loadingDeals
+        ? loadContactDocuments(
+            db,
+            contact.account_id,
+            deals.map((deal) => deal.id)
+          )
+        : Promise.resolve([]),
+    [db, contact, deals, enabled, loadingDeals]
+  );
+  return {
+    owner: useContactData(ownerLoad),
+    tasks: useContactData(taskLoad),
+    history: useContactData(historyLoad),
+    documents: useContactData(documentsLoad),
+  };
+}
+
+export function ContactNextAction({
+  contact,
+  deals,
+  activities = [],
+}: {
+  contact: Contact;
+  deals: Deal[];
+  activities?: ActivityHistoryRow[];
+}) {
+  const activeDeals = deals.filter(
+    (deal) => deal.status !== 'won' && deal.status !== 'lost'
+  );
+  const candidates = [
+    ...(contact.next_step?.trim()
+      ? [{ text: contact.next_step, date: contact.follow_up_at }]
+      : []),
+    ...activeDeals
+      .filter((deal) => deal.next_action?.trim())
+      .map((deal) => ({
+        text: deal.next_action!,
+        date: deal.next_action_at || deal.next_action_date || deal.follow_up_at,
+      })),
+    ...activities
+      .filter(
+        (activity) =>
+          activity.next_action?.trim() &&
+          activity.activity_status !== 'ANULOWANE' &&
+          (activity.activity_type !== 'zadanie' ||
+            activity.activity_status !== 'WYKONANE')
+      )
+      .map((activity) => ({
+        text: activity.next_action!,
+        date: activity.next_action_date,
+      })),
+  ].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const next = candidates[0];
+  return (
+    <section
+      data-contact-next-action
+      className="rounded-xl border-2 border-emerald-700 bg-emerald-50 p-4"
+      aria-labelledby="contact-next-action-title"
+    >
+      <h3
+        id="contact-next-action-title"
+        className="text-sm font-black text-emerald-950"
+      >
+        Next action
+      </h3>
+      <p className="mt-2 text-base font-bold text-emerald-950">
+        {next?.text || 'Brak danych — ustal następne działanie.'}
+      </p>
+      <p className="mt-1 text-xs text-emerald-900">
+        Termin: {next?.date ? formatWarsawDateTime(next.date) : 'Brak danych'}
+      </p>
+    </section>
   );
 }
 
@@ -237,7 +455,13 @@ export function ContactEmailAction({ email }: { email?: string }) {
   );
 }
 
-function DataState({ loading, error }: { loading: boolean; error: boolean }) {
+export function DataState({
+  loading,
+  error,
+}: {
+  loading: boolean;
+  error: boolean;
+}) {
   if (loading)
     return (
       <div className="flex justify-center py-8">
@@ -268,10 +492,15 @@ export function ContactTaskList({ tasks }: { tasks: ContactTask[] }) {
                 ? 'Zakończone'
                 : task.activity_status?.replaceAll('_', ' ') || 'Planowane'}
             </p>
-            {date && (
+            <p className="mt-1 text-xs text-slate-700">
+              Priorytet: Brak danych
+            </p>
+            {date ? (
               <p className="mt-1 text-xs text-slate-700">
                 Termin: {formatWarsawDateTime(date)}
               </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-700">Termin: Brak danych</p>
             )}
           </article>
         );

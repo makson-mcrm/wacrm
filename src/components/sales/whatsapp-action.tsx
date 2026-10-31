@@ -8,6 +8,7 @@ interface WhatsAppActionProps {
   dealId?: string | null;
   phone?: string | null;
   className?: string;
+  label?: string;
 }
 
 export function WhatsAppAction({
@@ -15,6 +16,7 @@ export function WhatsAppAction({
   dealId,
   phone,
   className,
+  label = 'WIADOMOŚĆ',
 }: WhatsAppActionProps) {
   if (!contactId || !phone) return null;
   const query = new URLSearchParams({ contact: contactId, action: 'message' });
@@ -30,7 +32,7 @@ export function WhatsAppAction({
       )}
       render={<Link href={`/quick-call?${query.toString()}`} />}
     >
-      <MessageSquare className="size-4" /> WIADOMOŚĆ
+      <MessageSquare className="size-4" /> {label}
     </Button>
   );
 }

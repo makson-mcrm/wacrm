@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { Contact, Deal } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { ActivityHistoryList } from '@/components/sales/activity-history';
+import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import {
   ContactInfoCards,
   ContactEmailAction,
@@ -10,6 +12,10 @@ import {
   loadContactOwner,
   loadContactTasks,
   loadContactDocuments,
+  loadContactHistory,
+  loadContactOwnerProfile,
+  ContactNextAction,
+  ContactStatusTags,
 } from './contact-detail-sections';
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: vi.fn() }));
@@ -82,7 +88,9 @@ describe('K3/01-L: dane istniejących sekcji', () => {
         owner=""
       />
     );
-    expect(html.match(/Brak danych/g)).toHaveLength(2);
+    expect(html.match(/data-contact-info-card=/g)).toHaveLength(5);
+    for (const card of html.split('data-contact-info-card=').slice(1))
+      expect(card).toContain('Brak danych');
   });
   it('pokazuje source_details również gdy brak głównego źródła', () => {
     expect(
@@ -249,5 +257,259 @@ describe('K3/01-L: dane istniejących sekcji', () => {
         ])
       ).rejects.toThrow('CONTACT_DOCUMENTS_UNAVAILABLE');
     }
+  });
+});
+
+describe('02A-2: dane kart i Next action', () => {
+  it('Firma wybiera główne powiązanie, małżonek ma telefon, a Segment łączy typy produktów bez duplikatów', () => {
+    const html = renderToStaticMarkup(
+      <ContactInfoCards
+        contact={{ ...contact, product_category: 'Hipoteka' }}
+        owner="Opiekun testowy"
+        ownerRole="agent"
+        companies={
+          [
+            {
+              company_id: 'other',
+              is_primary: false,
+              company: { id: 'other', name: 'Inna firma' },
+            },
+            {
+              company_id: 'primary',
+              is_primary: true,
+              company: {
+                id: 'primary',
+                name: 'Firma syntetyczna',
+                nip: '0000000000',
+              },
+            },
+          ] as import('@/types').ContactCompany[]
+        }
+        spouses={[
+          {
+            contactId: contact.id,
+            spouse: {
+              id: 'spouse-test',
+              name: 'Partner syntetyczny',
+              phone: '+48000000001',
+            },
+          },
+        ]}
+        deals={
+          [{ product_type: 'Hipoteka' }, { product_type: 'Leasing' }] as Deal[]
+        }
+      />
+    );
+    for (const text of [
+      'Firma syntetyczna',
+      'NIP: 0000000000',
+      'Partner syntetyczny',
+      '+48000000001',
+      'Hipoteka · Leasing',
+      'Rola: agent',
+      '/companies?open=primary',
+      '/contacts?open=spouse-test',
+      'Data pozyskania: Brak danych',
+    ])
+      expect(html).toContain(text);
+    expect(html).not.toContain('Inna firma');
+  });
+  it('pokazuje istniejące tagi i VIP, bez wymyślania aktywności kontaktu', () => {
+    const html = renderToStaticMarkup(
+      <ContactStatusTags
+        tags={
+          [
+            { id: 'type', name: 'Klient indywidualny' },
+            { id: 'active', name: 'Aktywny' },
+            { id: 'vip', name: 'VIP' },
+          ] as import('@/types').Tag[]
+        }
+      />
+    );
+    for (const text of ['Klient indywidualny', 'Aktywny', 'VIP: Tak'])
+      expect(html).toContain(text);
+    expect(renderToStaticMarkup(<ContactStatusTags tags={[]} />)).toContain(
+      'Status: Brak danych'
+    );
+  });
+  it('Next action wybiera jedno najwcześniejsze działanie z kontaktu, otwartych Deali i aktywności', () => {
+    const html = renderToStaticMarkup(
+      <ContactNextAction
+        contact={{
+          ...contact,
+          next_step: 'Krok kontaktu',
+          follow_up_at: '2026-11-03T10:00:00Z',
+        }}
+        deals={
+          [
+            {
+              status: 'lost',
+              next_action: 'Krok zamkniętego Deala',
+              next_action_at: '2026-10-01T10:00:00Z',
+            },
+            {
+              status: 'open',
+              next_action: 'Krok aktywnego Deala',
+              next_action_at: '2026-11-02T10:00:00Z',
+            },
+          ] as Deal[]
+        }
+        activities={
+          [
+            {
+              next_action: 'Najbliższy krok',
+              next_action_date: '2026-11-01T10:00:00Z',
+              activity_status: null,
+            },
+          ] as import('@/lib/sales/activity-history').ActivityHistoryRow[]
+        }
+      />
+    );
+    expect(html).toContain('Najbliższy krok');
+    expect(html).not.toContain('Krok kontaktu');
+    expect(html).not.toContain('Krok aktywnego Deala');
+    expect(html).not.toContain('Krok zamkniętego Deala');
+    expect(
+      renderToStaticMarkup(<ContactNextAction contact={contact} deals={[]} />)
+    ).toContain('Brak danych — ustal następne działanie.');
+  });
+  it('Next action zachowuje ustalenie z zakończonej rozmowy i pomija anulowane działania', () => {
+    const html = renderToStaticMarkup(
+      <ContactNextAction
+        contact={contact}
+        deals={[]}
+        activities={
+          [
+            {
+              activity_type: 'telefon',
+              activity_status: 'WYKONANE',
+              next_action: 'Ustalenie z rozmowy',
+              next_action_date: '2026-11-02T10:00:00Z',
+            },
+            {
+              activity_type: 'telefon',
+              activity_status: 'ANULOWANE',
+              next_action: 'Anulowane ustalenie',
+              next_action_date: '2026-11-01T10:00:00Z',
+            },
+          ] as import('@/lib/sales/activity-history').ActivityHistoryRow[]
+        }
+      />
+    );
+    expect(html).toContain('Ustalenie z rozmowy');
+    expect(html).not.toContain('Anulowane ustalenie');
+  });
+  it('data dodania do CRM ma odrębny podpis od nieznanej daty pozyskania źródła', () => {
+    const html = renderToStaticMarkup(
+      <ContactInfoCards
+        contact={{ ...contact, created_at: '2026-10-31T10:00:00Z' }}
+        owner=""
+      />
+    );
+    expect(html).toContain('Dodano do CRM:');
+    expect(html).toContain('Data pozyskania: Brak danych');
+  });
+  it('historia ogranicza odczyt do kontaktu i konta oraz odróżnia awarie', async () => {
+    const row = { contact_id: contact.id, account_id: contact.account_id };
+    const { db, queries } = database({
+      sales_activities: [
+        { ...row, id: 'activity' },
+        { ...row, account_id: 'other', id: 'other-account' },
+      ],
+      work_queue_events: [
+        { ...row, id: 'event' },
+        { ...row, contact_id: 'other', id: 'other-contact' },
+      ],
+    });
+    const result = await loadContactHistory(db, contact);
+    expect(result.activities.map(({ id }) => id)).toEqual(['activity']);
+    expect(result.queueEvents.map(({ id }) => id)).toEqual(['event']);
+    for (const query of queries)
+      expect(query.filters).toEqual([
+        ['contact_id', contact.id],
+        ['account_id', contact.account_id],
+      ]);
+    for (const table of ['sales_activities', 'work_queue_events'])
+      await expect(
+        loadContactHistory(database({}, table).db, contact)
+      ).rejects.toThrow('CONTACT_HISTORY_UNAVAILABLE');
+  });
+  it('rola i nazwa opiekuna pochodzą z profilu właściciela kontaktu', async () => {
+    const { db } = database({
+      profiles: [
+        {
+          user_id: contact.user_id,
+          account_id: contact.account_id,
+          full_name: 'Opiekun testowy',
+          account_role: 'agent',
+        },
+      ],
+    });
+    expect(await loadContactOwnerProfile(db, contact)).toMatchObject({
+      full_name: 'Opiekun testowy',
+      account_role: 'agent',
+    });
+    await expect(
+      loadContactOwnerProfile(database({}, 'profiles').db, contact)
+    ).rejects.toThrow('CONTACT_OWNER_UNAVAILABLE');
+  });
+});
+
+describe('02A-2: wspólne komponenty zachowują dotychczasowe zachowanie', () => {
+  it('historia renderuje typ i datę aktywności z przekazanego odczytu oraz puste stany i błąd', () => {
+    const empty = {
+      activities: [],
+      queueEvents: [],
+      notes: [],
+      loading: false,
+    };
+    expect(renderToStaticMarkup(<ActivityHistoryList {...empty} />)).toContain(
+      'Brak zapisanych aktywności.'
+    );
+    expect(
+      renderToStaticMarkup(<ActivityHistoryList {...empty} error />)
+    ).toContain('Nie udało się wczytać aktywności.');
+    expect(
+      renderToStaticMarkup(<ActivityHistoryList {...empty} loading />)
+    ).toContain('animate-spin');
+    const html = renderToStaticMarkup(
+      <ActivityHistoryList
+        {...empty}
+        activities={[
+          {
+            id: 'call-synthetic',
+            title: 'Rozmowa syntetyczna',
+            activity_type: 'telefon',
+            activity_status: 'WYKONANE',
+            occurred_at: '2026-10-31T10:00:00Z',
+            description: null,
+            call_result: null,
+            next_action: null,
+            next_action_date: null,
+            phone_number: null,
+          },
+        ]}
+      />
+    );
+    for (const text of ['TELEFON', 'Rozmowa syntetyczna', '31.10.2026'])
+      expect(html).toContain(text);
+  });
+  it('etykieta WhatsApp zmienia się tylko na karcie 02A, a adres akcji pozostaje ten sam', () => {
+    const previous = renderToStaticMarkup(
+      <WhatsAppAction contactId="contact-test" phone="+48000000000" />
+    );
+    const current = renderToStaticMarkup(
+      <WhatsAppAction
+        contactId="contact-test"
+        phone="+48000000000"
+        label="WhatsApp"
+      />
+    );
+    expect(previous).toContain('WIADOMOŚĆ');
+    expect(current).toContain('WhatsApp');
+    for (const html of [previous, current])
+      expect(html).toContain(
+        '/quick-call?contact=contact-test&amp;action=message'
+      );
   });
 });
