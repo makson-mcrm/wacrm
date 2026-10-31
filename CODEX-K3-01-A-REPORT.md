@@ -498,3 +498,43 @@ Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-quest
 Bez commit/push/deploy, nowych kolumn/migracji, odczytu `.env`/sekretów i operacji na rzeczywistej bazie. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Lokalny PASS nie stanowi odbioru LIVE; historyczna przyczyna braku działania na produkcji wymaga dowodu serwerowego.
 
 **GOTOWE DO WERYFIKACJI**
+
+## K3/01-K
+
+31.10.2026. Minimalna poprawka na `k3/01-crm-core` @ `034ae5c`. Nie cofano J ani wcześniejszych zmian. Bez commit/push/deploy.
+
+### Przyczyna 500 i zachowanie T7
+
+Potwierdzona przyczyna przerwania zapisu: blok J zamieniał błąd UPDATE `contacts.source`/`source_details` na `FinancialQuestionnaireError('Nie zapisano źródła kontaktu.', 500)` **przed** insertem submisji. Z tego żądania nie dochodziło więc do trwałego zapisu śladu T7. **Przyczyna samego odrzucenia UPDATE na produkcji pozostaje nieustalona**: brak oryginalnego błędu PostgREST i zakaz dostępu do prawdziwej bazy. Lokalnie `source` jest TEXT (041), `source_details` i `contact_consent` istnieją w 043; dostęp/trigger mogą różnić się na LIVE. Nie zmieniano schematu ani uprawnień na podstawie przypuszczeń.
+
+- Odczyt pochodzenia i każdy UPDATE źródła na Kontakcie są best-effort dla zwróconego `error` oraz rzuconego wyjątku. Błąd jednego pola nie blokuje próby drugiego pola ani zgody, submisji, notatki, intake i działania. Zachowano warunkowy UPDATE chroniący pierwsze niepuste źródło. Po błędzie odczytu nie nadpisuje się źródła w ciemno.
+- Submisja nadal zapisuje w istniejącym `responses` pełny, serwerowy `source_record` (`source`, `source_details`/UTM, `origin`, `received_at`) oraz `consent_record`. Nie usunięto żadnego śladu T7, dat ani ochrony przed podmianą metadanych przez klienta.
+- Zawsze podejmowana jest próba ustawienia `contact_consent:true`; jej błąd jest logowany i nie przerywa ankiety. Odczyt/insert notatki zgody również są best-effort. Po nieudanym odczycie notatki nie wykonuje się ślepego insertu; retry ponawia odczyt i naprawia brak. `marketing_consent` pozostaje nietknięte. Brak rzeczywistej zgody nadal daje 400.
+- Nowe logi `financial_questionnaire_source_failed`, `financial_questionnaire_consent_failed`, `financial_questionnaire_note_failed` zawierają operację, dla UPDATE źródła również nazwę pola, oraz **`code`, `details`, `hint`, `message`** i kategorię przyczyny. Kod SQLSTATE/PostgREST jest walidowany. Znane komunikaty o uprawnieniach/RLS, brakującej kolumnie/cache i ograniczeniach zachowują bezpieczną treść; identyfikatory spoza listy, wartości rekordów, niestandardowe komunikaty triggerów i nieznany tekst są zastępowane `[REDACTED]`. Kod `P0001` oznaczany jest jako `raised_exception`, bez przypisywania go konkretnemu triggerowi. Nie loguje się surowych błędów, danych wejściowych ani danych osobowych. Diagnostyka celowo nie odtwarza dowolnej treści błędu kosztem prywatności.
+
+### 400 dla płaskiego payloadu — ustalenia i granica dowodu
+
+Na bazowym parserze brak kopert `responses`/`preparationPlan` **sam w sobie nie powoduje 400**: obie są opcjonalne, a odpowiedzi są pobierane również z głównego poziomu. Pełne 13 pól z formularza CRM (w tym `website:''`) plus `contact` i opcjonalny `startedAt` są poprawne. Testy potwierdzają 201 także z tożsamością na głównym poziomie i dla publicznych kopert witryny.
+
+Odtwarzalna pułapka walidacyjna: **pominięte `website`** trafiało do `string(undefined, 200)`, gdzie reguła `typeof value !== 'string'` dawała ogólne 400. Brak honeypotu traktowany jest teraz jako pusty tekst. Wypełniona pułapka oraz jawne `null`/obiekt nadal są odrzucane. Dodano bezpieczne komunikaty 400 wskazujące konkretne pole/regułę: wymagany tekst i limit, całkowite `adults >= 1`/`children >= 0`, tablica `documents` (maks. 20 niepustych tekstów), liczbowy `startedAt`. Nie poluzowano zgody, danych tożsamości ani typów odpowiedzi.
+
+**Nie przedstawia się braku `website` jako udowodnionej przyczyny zgłoszonego produkcyjnego 400.** W zleceniu nie ma odrzuconego JSON-u; kompletnego, zgodnego kontraktu 13 pól nie udało się lokalnie odtworzyć jako błędu. Nowe odpowiedzi walidacyjne pozwalają wskazać regułę bez logowania wartości klienta.
+
+### Weryfikacja
+
+Dodano 27 przypadków K i zastąpiono dwa stare oczekiwania 500 dla notatki testami best-effort. Pokrycie: zwrócone i rzucone błędy SELECT/UPDATE źródła, osobna awaria zgody, SELECT/INSERT notatki, 201 z trwałym śladem T7 mimo awarii, próby pozostałych zapisów, oba payloady, wariant bez honeypotu, konkretne reguły 400, bezpieczne cztery pola diagnostyki i sekwencyjne retry bez duplikatów z naprawą braków. Zachowano ograniczenie istniejącego schematu: brak transakcji/unikalnego indeksu nadal nie gwarantuje deduplikacji równoległych żądań wielu workerów.
+
+| Komenda | Wynik końcowy |
+|---|---|
+| `npx vitest run` | PASS, exit 0: 1745/1745, 133 pliki; ankieta 143/143; czas 17,67 s |
+| `npx tsc --noEmit` | PASS, exit 0, 0 błędów |
+| `npx eslint src` | PASS, exit 0: 0 błędów, 43 dotychczasowe ostrzeżenia |
+| `git diff --check` | PASS |
+
+Kontrole w `/private/tmp/k3-01-k-check`, z identycznym `src`, kopią migracji/zasobów/tłumaczeń i istniejącymi zależnościami. Wyczyszczone środowisko, puste konfiguracje npm, tryb offline; preload `/private/tmp/k3-no-network.cjs` blokuje sieć i odczyt `.env*`. Wyłącznie syntetyczna baza w pamięci. Pierwszy typecheck wykrył zbędną flagę RegExp `s`, niezgodną z docelowym ES2017; usunięto ją przed końcowym przebiegiem.
+
+Zmienione pliki: `src/lib/financial-questionnaires.ts`, `src/lib/financial-questionnaires.test.ts`, niniejszy raport. Bez nowych kolumn/migracji, odczytu `.env`/sekretów, prawdziwej bazy i operacji produkcyjnych. Zastany nieśledzony `package-lock.json` pozostawiono bez zmian. Lokalna weryfikacja nie jest odbiorem LIVE.
+
+Logi końcowe: `/private/tmp/k3-k-vitest-final.log`, `/private/tmp/k3-k-tsc-final.log`, `/private/tmp/k3-k-eslint-final.log`. Zgodność `src` z kopią kontrolną potwierdzona przez `diff -qr` (exit 0).
+
+**GOTOWE DO WERYFIKACJI**

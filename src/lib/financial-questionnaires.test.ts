@@ -66,7 +66,10 @@ const answers = {
 const base = { ...answers, website: '', contact, startedAt: 1 };
 type Row = Record<string, unknown>;
 let tables: Record<string, Row[]>;
-let failure: { table: string; operation: string } | null;
+let failure: {
+  table: string; operation: string; field?: string;
+  error?: Row; throws?: boolean;
+} | null;
 // Explicit existing-schema contract: reject unknown columns in writes, SELECT,
 // filters and ORDER BY. In particular, no constraints/columns from rejected 073.
 const schema: Record<string, string[]> = {
@@ -206,13 +209,17 @@ function database() {
       const filters: ((row: Row) => boolean)[] = [];
       const ordering: { key: string; ascending: boolean }[] = [];
       let rowLimit = Infinity;
+      let selectedColumns = '';
       const run = (mode: 'many' | 'single' | 'maybe' = 'many') => {
         const rows = (tables[table] ??= []);
-        if (failure?.table === table && failure.operation === operation)
-          return {
-            data: null,
-            error: { code: '42501', message: 'synthetic denied' },
-          };
+        if (failure?.table === table && failure.operation === operation &&
+          (!failure.field || (operation === 'select'
+            ? selectedColumns.split(',').includes(failure.field)
+            : Object.hasOwn(payload, failure.field)))) {
+          const error = failure.error ?? { code: '42501', message: 'synthetic denied' };
+          if (failure.throws) throw error;
+          return { data: null, error };
+        }
         let result = rows.filter((row) =>
           filters.every((filter) => filter(row))
         );
@@ -299,6 +306,7 @@ function database() {
       };
       const query = {
         select: (columns: string) => {
+          selectedColumns = columns;
           if (columns === 'company:companies(name)') column('company');
           else if (columns !== '*')
             columns.split(',').forEach((key) => column(key.trim()));
@@ -716,8 +724,6 @@ describe('K3/01-B/C: ankieta → Kontakt na istniejącym schemacie', () => {
     ['contacts', 'update'],
     ['financial_questionnaire_submissions', 'select'],
     ['financial_questionnaire_submissions', 'insert'],
-    ['contact_notes', 'select'],
-    ['contact_notes', 'insert'],
     ['client_intakes', 'select'],
     ['client_intakes', 'insert'],
   ])(
@@ -1166,7 +1172,7 @@ describe('K3/01-J: źródło, historia i rzeczywiste zgody', () => {
 
   it('retry po awarii notatki zachowuje pierwotną datę i jeden ślad zgody', async () => {
     failure = { table: 'contact_notes', operation: 'insert' };
-    expect((await request()).status).toBe(500);
+    expect((await request()).status).toBe(201);
     const submissionBefore = JSON.stringify(tables.financial_questionnaire_submissions);
     failure = null;
     expect((await request()).status).toBe(201);
@@ -1207,6 +1213,152 @@ describe('K3/01-J: źródło, historia i rzeczywiste zgody', () => {
     } finally {
       log.mockRestore();
     }
+  });
+});
+
+describe('K3/01-K: zapis mimo awarii źródła i zgód, bez utraty T7', () => {
+  const request = (body: unknown = base) => POST(new Request(
+    'https://crm.makson.space/api/public/questionnaires', {
+      method: 'POST',
+      headers: {
+        origin: 'https://makson.space',
+        referer: 'https://makson.space/ankieta/?utm_source=synthetic',
+      },
+      body: JSON.stringify(body),
+    }
+  ));
+  const expectTrail = () => {
+    expect(tables.financial_questionnaire_submissions).toHaveLength(1);
+    const submission = tables.financial_questionnaire_submissions[0];
+    expect(submission).toMatchObject({
+      consent_to_analysis: true,
+      responses: {
+        source_record: { source: 'makson.space', source_details: 'utm_source=synthetic',
+          origin: 'https://makson.space', received_at: submission.consented_at },
+        consent_record: { granted: true, scope: 'analiza',
+          text_version: 'v1-2026-10', stated_at: submission.consented_at },
+      },
+    });
+  };
+
+  it.each([
+    ['source', 'update', false], ['source', 'update', true],
+    ['source_details', 'update', false], ['source_details', 'update', true],
+    ['source', 'select', false], ['source', 'select', true],
+    ['contact_consent', 'update', false], ['contact_consent', 'update', true],
+  ] as const)('contacts.%s / %s / throw=%s → 201, ślad, próba pozostałych zapisów i naprawa retry', async (field, operation, throws) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    failure = { table: 'contacts', operation, field, throws,
+      error: { code: '42501', message: 'permission denied for table contacts' } };
+    try {
+      expect((await request()).status).toBe(201);
+      expectTrail();
+      if (field !== 'contact_consent') expect(tables.contacts[0].contact_consent).toBe(true);
+      else expect(tables.contacts[0]).toMatchObject({
+        source: 'makson.space', source_details: 'utm_source=synthetic', contact_consent: false,
+      });
+      if (field === 'source' && operation === 'update')
+        expect(tables.contacts[0].source_details).toBe('utm_source=synthetic');
+      expect(tables.contact_notes[0].note_text).toContain('Zgoda na analizę (v1-2026-10)');
+      expect(log).toHaveBeenCalledWith(
+        field === 'contact_consent' ? 'financial_questionnaire_consent_failed' : 'financial_questionnaire_source_failed',
+        expect.objectContaining({ operation, code: '42501', details: null, hint: null,
+          message: 'permission denied for table contacts' })
+      );
+      const history = JSON.stringify(tables.financial_questionnaire_submissions);
+      failure = null;
+      expect((await request()).status).toBe(201);
+      expect((await request()).status).toBe(201);
+      expect(JSON.stringify(tables.financial_questionnaire_submissions)).toBe(history);
+      expect(tables.contacts[0]).toMatchObject({ source: 'makson.space',
+        source_details: 'utm_source=synthetic', contact_consent: true, marketing_consent: false });
+      for (const table of ['contacts', 'contact_notes', 'client_intakes', 'sales_activities'])
+        expect(tables[table]).toHaveLength(1);
+    } finally { log.mockRestore(); }
+  });
+
+  it.each([
+    ['select', false], ['select', true], ['insert', false], ['insert', true],
+  ] as const)('notatka / %s / throw=%s → 201, zgody i retry bez duplikatów', async (operation, throws) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    failure = { table: 'contact_notes', operation, throws };
+    try {
+      expect((await request()).status).toBe(201);
+      expectTrail();
+      expect(tables.contacts[0].contact_consent).toBe(true);
+      expect(tables.contact_notes ?? []).toHaveLength(0);
+      expect(tables.client_intakes).toHaveLength(1);
+      expect(tables.sales_activities).toHaveLength(1);
+      expect(log).toHaveBeenCalledWith('financial_questionnaire_note_failed',
+        expect.objectContaining({ operation, code: '42501' }));
+      failure = null;
+      expect((await request()).status).toBe(201);
+      expect((await request()).status).toBe(201);
+      expectTrail();
+      expect(tables.contact_notes).toHaveLength(1);
+      expect(tables.contact_notes[0].note_text).toContain(
+        `Zgoda na analizę (v1-2026-10) — ${tables.financial_questionnaire_submissions[0].consented_at}`
+      );
+    } finally { log.mockRestore(); }
+  });
+
+  it.each([
+    ['płaskie 13 + contact', base],
+    ['płaskie 13 + tożsamość na głównym poziomie', { ...answers, website: '', ...contact }],
+    ['bez opcjonalnego honeypotu website', { ...answers, contact }],
+    ['witryna: koperty i duplikaty', publicQuestionnairePayload],
+  ])('%s → 201, pełny T7 i powtórka bez duplikatu', async (_name, body) => {
+    expect((await request(body)).status).toBe(201);
+    expect((await request(body)).status).toBe(201);
+    expectTrail();
+    expect(tables.contacts[0].contact_consent).toBe(true);
+    expect(tables.contact_notes[0].note_text).toContain('Zgoda na analizę (v1-2026-10)');
+    for (const table of ['contacts', 'contact_notes', 'client_intakes', 'sales_activities'])
+      expect(tables[table]).toHaveLength(1);
+  });
+
+  it.each([
+    ['adults', undefined, 'wymagany tekst'],
+    ['adults', 2, 'wymagany tekst'],
+    ['adults', '0', 'co najmniej 1'],
+    ['children', '-1', 'nieujemna liczba całkowita'],
+    ['documents', 'polisa', 'wymagana tablica'],
+    ['website', null, 'wymagany tekst'],
+  ])('400 wskazuje regułę pola %s, bez wartości wejściowej', async (field, value, rule) => {
+    const response = await request({ ...base, [field]: value });
+    expect(response.status).toBe(400);
+    const { error } = await response.json();
+    expect(error).toContain(`Pole ${field}:`);
+    expect(error).toContain(rule);
+    expect((harness.db as ReturnType<typeof database>).from).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ code: 'PGRST204', message: "Could not find the 'source' column of 'contacts' in the schema cache" },
+      'Could not find the "source" column of "contacts" in the schema cache'],
+    [{ code: '42501', message: 'new row violates row-level security policy for table "contacts"' },
+      'new row violates row-level security policy for table "contacts"'],
+    [{ code: '23514', message: 'new row for relation "contacts" violates check constraint "contacts_source_check"' },
+      'new row for relation "contacts" violates check constraint "contacts_source_check"'],
+    [{ code: 'P0001', message: `trigger: ${contact.name} ${contact.phone} ${contact.email}` }, '[REDACTED]'],
+    [{ code: contact.email, message: `permission denied for table "${contact.name}"` },
+      'permission denied for table "[REDACTED]"'],
+  ])('diagnostyka PostgREST %j zachowuje bezpieczny komunikat i usuwa dane z details/hint', async (error, message) => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    failure = { table: 'contacts', operation: 'update', field: 'source', error: {
+      ...error, details: `Failing row contains (${contact.name}, ${contact.phone}, ${contact.email}).`,
+      hint: `Contact ${contact.email}, token=synthetic-secret`,
+    } };
+    try {
+      expect((await request()).status).toBe(201);
+      expect(log).toHaveBeenCalledWith('financial_questionnaire_source_failed',
+        expect.objectContaining({ code: error.code === contact.email ? 'UNKNOWN' : error.code,
+          message, details: 'Failing row contains [REDACTED].', hint: '[REDACTED]' }));
+      const output = JSON.stringify(log.mock.calls);
+      for (const value of [contact.name, contact.phone, contact.email, 'synthetic-secret'])
+        expect(output).not.toContain(value);
+      expectTrail();
+    } finally { log.mockRestore(); }
   });
 });
 

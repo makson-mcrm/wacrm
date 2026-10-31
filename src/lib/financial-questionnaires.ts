@@ -42,8 +42,9 @@ export class FinancialQuestionnaireError extends Error {
 function fail(message = 'Nieprawidłowe lub niekompletne dane ankiety.'): never {
   throw new FinancialQuestionnaireError(message, 400);
 }
-function string(value: unknown, max: number): string {
-  if (typeof value !== 'string' || value.length > max) fail();
+function string(value: unknown, max: number, field?: string): string {
+  if (typeof value !== 'string' || value.length > max)
+    fail(field ? `Pole ${field}: wymagany tekst, maksymalnie ${max} znaków.` : undefined);
   return value.trim();
 }
 function envelope(value: unknown): Record<string, unknown> {
@@ -92,7 +93,7 @@ export function parseFinancialQuestionnaire(
   const preparationPlan = envelope(raw.preparationPlan);
   const fields = { ...raw, ...responses, ...preparationPlan };
   // A nested empty value must never hide a populated top-level honeypot.
-  if (string(raw.website, 200)) fail('Ankieta została odrzucona.');
+  if (string(raw.website === undefined ? '' : raw.website, 200, 'website')) fail('Ankieta została odrzucona.');
   for (const nested of [responses, preparationPlan]) {
     if (nested.website !== undefined && string(nested.website, 200))
       fail('Ankieta została odrzucona.');
@@ -112,7 +113,7 @@ export function parseFinancialQuestionnaire(
   const texts = Object.fromEntries(
     QUESTIONNAIRE_TEXT_FIELDS.map((field) => [
       field,
-      string(fields[field], 4000),
+      string(fields[field], 4000, field),
     ])
   ) as Record<(typeof QUESTIONNAIRE_TEXT_FIELDS)[number], string>;
   for (const field of ['adults', 'children'] as const) {
@@ -122,18 +123,19 @@ export function parseFinancialQuestionnaire(
         !Number.isSafeInteger(Number(texts[field])) ||
         (field === 'adults' && Number(texts[field]) < 1))
     )
-      fail();
+      fail(`Pole ${field}: wymagana nieujemna liczba całkowita${field === 'adults' ? ', co najmniej 1' : ''}.`);
   }
-  if (!Array.isArray(fields.documents) || fields.documents.length > 20) fail();
-  const documents = fields.documents.map((value) => string(value, 160));
-  if (documents.some((value) => !value)) fail();
+  if (!Array.isArray(fields.documents) || fields.documents.length > 20)
+    fail('Pole documents: wymagana tablica, maksymalnie 20 pozycji.');
+  const documents = fields.documents.map((value) => string(value, 160, 'documents'));
+  if (documents.some((value) => !value)) fail('Pole documents: pozycje nie mogą być puste.');
   if (
     raw.startedAt !== undefined &&
     (typeof raw.startedAt !== 'number' || !Number.isFinite(raw.startedAt))
   )
-    fail();
+    fail('Pole startedAt: wymagany skończony znacznik czasu w milisekundach.');
   for (const field of [...PUBLIC_TEXT_FIELDS, ...PREPARATION_FIELDS]) {
-    if (fields[field] !== undefined) string(fields[field], 4000);
+    if (fields[field] !== undefined) string(fields[field], 4000, field);
   }
   const structuralFields = new Set([
     'contact',
@@ -292,6 +294,40 @@ function activityFailureDiagnostic(error: unknown) {
   };
 }
 
+// Postgres errors may embed an entire customer row, including in hints or
+// custom trigger messages. Emit all four diagnostic fields, but only retain
+// recognized database grammar and known schema identifiers, never arbitrary text.
+function questionnaireWriteDiagnostic(error: unknown) {
+  const record = error && typeof error === 'object'
+    ? error as Record<string, unknown> : {};
+  const safeText = (value: unknown) => {
+    if (value == null || value === '') return null;
+    if (typeof value !== 'string') return '[REDACTED]';
+    if (/^Failing row contains /.test(value)) return 'Failing row contains [REDACTED].';
+    if (/^Key \(/.test(value)) return 'Key [REDACTED].';
+    const identifiers = ['contacts', 'source', 'source_details', 'contact_consent',
+      'contact_notes', 'account_id', 'contact_id', 'user_id', 'note_text', 'public',
+      'contacts_source_check', 'update_updated_at_column'];
+    const safe = value.replace(/["']([^"']*)["']/g, (_match, name: string) =>
+      `"${identifiers.includes(name) ? name : '[REDACTED]'}"`);
+    const identifier = '"(?:[a-z_]+|\\[REDACTED\\])"';
+    const patterns = [
+      `permission denied for (?:table|schema|function) (?:${identifier}|contacts|contact_notes|public|update_updated_at_column)`,
+      `(?:new row violates|new row violates forced) row-level security policy for table ${identifier}`,
+      `Could not find the ${identifier} column of ${identifier} in the schema cache`,
+      `column ${identifier}(?: of relation ${identifier})? does not exist`,
+      `null value in column ${identifier} of relation ${identifier} violates not-null constraint`,
+      `new row(?: for relation ${identifier})? violates check constraint ${identifier}`,
+      `Perhaps you meant (?:to reference )?the column ${identifier}\\.`,
+    ];
+    return patterns.some((pattern) => new RegExp(`^${pattern}$`).test(safe))
+      ? safe : '[REDACTED]';
+  };
+  const { code, reason } = activityFailureDiagnostic(error);
+  return { code, reason: code === 'P0001' ? 'raised_exception' : reason, details: safeText(record.details),
+    hint: safeText(record.hint), message: safeText(record.message) };
+}
+
 export async function saveFinancialQuestionnaire(
   db: SupabaseClient,
   input: FinancialQuestionnaireInput,
@@ -362,33 +398,48 @@ export async function saveFinancialQuestionnaire(
       input
     );
   }
-  const { data: attribution, error: attributionError } = await db
-    .from('contacts')
-    .select('source,source_details')
-    .eq('account_id', accountId)
-    .eq('id', contact.id)
-    .single();
-  if (attributionError || !attribution)
-    throw new FinancialQuestionnaireError('Nie odczytano źródła kontaktu.', 500);
-  for (const field of ['source', 'source_details'] as const) {
-    if (String(attribution[field] ?? '').trim() || !sourceRecord[field]) continue;
-    let update = db.from('contacts')
-      .update({ [field]: sourceRecord[field] })
-      .eq('account_id', accountId)
-      .eq('id', contact.id);
-    // A concurrent writer may already have recorded the first acquisition.
-    update = attribution[field] == null
-      ? update.is(field, null) : update.eq(field, attribution[field]);
-    const { error } = await update;
-    if (error)
-      throw new FinancialQuestionnaireError('Nie zapisano źródła kontaktu.', 500);
+  // Attribution on the contact is best-effort; the authoritative per-request
+  // source/consent records are always included in the submission below.
+  let attribution: { source?: unknown; source_details?: unknown } | null = null;
+  try {
+    const { data, error } = await db.from('contacts')
+      .select('source,source_details')
+      .eq('account_id', accountId).eq('id', contact.id).single();
+    if (error) throw error;
+    if (!data) throw new Error('Missing contact attribution');
+    attribution = data;
+  } catch (error) {
+    console.error('financial_questionnaire_source_failed', {
+      operation: 'select', ...questionnaireWriteDiagnostic(error),
+    });
   }
-  const { error: consentError } = await db.from('contacts')
-    .update({ contact_consent: true })
-    .eq('account_id', accountId)
-    .eq('id', contact.id);
-  if (consentError)
-    throw new FinancialQuestionnaireError('Nie zapisano zgody kontaktu.', 500);
+  for (const field of ['source', 'source_details'] as const) {
+    if (!attribution || String(attribution[field] ?? '').trim() || !sourceRecord[field]) continue;
+    try {
+      let update = db.from('contacts')
+        .update({ [field]: sourceRecord[field] })
+        .eq('account_id', accountId).eq('id', contact.id);
+      // Preserve the first acquisition even with a concurrent writer.
+      update = attribution[field] == null
+        ? update.is(field, null) : update.eq(field, attribution[field]);
+      const { error } = await update;
+      if (error) throw error;
+    } catch (error) {
+      console.error('financial_questionnaire_source_failed', {
+        operation: 'update', field, ...questionnaireWriteDiagnostic(error),
+      });
+    }
+  }
+  try {
+    const { error } = await db.from('contacts')
+      .update({ contact_consent: true })
+      .eq('account_id', accountId).eq('id', contact.id);
+    if (error) throw error;
+  } catch (error) {
+    console.error('financial_questionnaire_consent_failed', {
+      operation: 'update', ...questionnaireWriteDiagnostic(error),
+    });
+  }
   const missingItems = questionnaireMissingItems(input);
   const status = missingItems.length ? 'partial' : 'submitted';
   const preliminaryAnalysis = buildPreliminaryAnalysis(input, missingItems);
@@ -481,31 +532,32 @@ export async function saveFinancialQuestionnaire(
     savedConsent.stated_at === submission.consented_at
     ? `\nZgoda na analizę (v1-2026-10) — ${savedConsent.stated_at}` : '';
   const noteText = `Ankieta ${submission.id}\n${preliminaryAnalysis}${consentLine}${input.company ? `\nFirma zgłoszona: ${input.company}` : ''}`;
-  const { data: existingNote, error: noteLookupError } = await db
-    .from('contact_notes')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('contact_id', contact.id)
-    .like('note_text', `Ankieta ${submission.id}\n%`)
-    .limit(1)
-    .maybeSingle();
-  if (noteLookupError)
-    throw new FinancialQuestionnaireError(
-      'Nie odczytano wyników ankiety przy kontakcie.',
-      500
-    );
-  if (!existingNote) {
-    const { error: noteError } = await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contact.id,
-      user_id: auditUserId,
-      note_text: noteText,
+  let noteOperation: 'select' | 'insert' = 'select';
+  try {
+    const { data: existingNote, error: noteLookupError } = await db
+      .from('contact_notes')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contact.id)
+      .like('note_text', `Ankieta ${submission.id}\n%`)
+      .limit(1)
+      .maybeSingle();
+    if (noteLookupError) throw noteLookupError;
+    // Never insert blindly after a failed lookup; retry can repair the note.
+    if (!existingNote) {
+      noteOperation = 'insert';
+      const { error } = await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: contact.id,
+        user_id: auditUserId,
+        note_text: noteText,
+      });
+      if (error) throw error;
+    }
+  } catch (error) {
+    console.error('financial_questionnaire_note_failed', {
+      operation: noteOperation, ...questionnaireWriteDiagnostic(error),
     });
-    if (noteError)
-      throw new FinancialQuestionnaireError(
-        'Nie zapisano wyników ankiety przy kontakcie.',
-        500
-      );
   }
   // Retry repairs a partial save without overwriting a processed intake/note.
   // These check-then-insert steps can also race across independent workers.
