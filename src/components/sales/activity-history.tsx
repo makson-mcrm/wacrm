@@ -1,14 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import {
+  CalendarDays,
+  ClipboardList,
+  Clock3,
+  FileText,
+  ListTodo,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Phone,
+  StickyNote,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { useAuth } from '@/hooks/use-auth';
 import type { ContactNote } from '@/types';
 import {
-  activityHistoryLabel,
   activityHistoryRelation,
   type ActivityHistoryRow,
 } from '@/lib/sales/activity-history';
@@ -49,6 +60,53 @@ export type ActivityHistorySnapshot = {
 type HistoryItem =
   | { kind: 'activity'; occurredAt: string; activity: ActivityHistoryRow }
   | { kind: 'note'; occurredAt: string; note: ContactNoteRow };
+
+const ACTIVITY_TYPES: Record<string, { label: string; icon: LucideIcon }> = {
+  telefon: { label: 'Rozmowa', icon: Phone },
+  whatsapp: { label: 'WhatsApp', icon: MessageCircle },
+  wiadomosc: { label: 'Wiadomość', icon: MessageCircle },
+  email: { label: 'E-mail', icon: Mail },
+  'e-mail': { label: 'E-mail', icon: Mail },
+  spotkanie: { label: 'Spotkanie', icon: CalendarDays },
+  notatka: { label: 'Notatka', icon: StickyNote },
+  ankieta: { label: 'Ankieta', icon: ClipboardList },
+  zadanie: { label: 'Zadanie', icon: ListTodo },
+  dokument: { label: 'Dokument', icon: FileText },
+  follow_up: { label: 'Follow-up', icon: Clock3 },
+};
+
+const GENERAL_ACTIVITY = { label: 'Aktywność', icon: Clock3 };
+
+function activityType(activity: ActivityHistoryRow) {
+  const type = activity.activity_type?.trim().toLowerCase();
+  if (!type) return GENERAL_ACTIVITY;
+  const analytics = parseActivityAnalytics(activity.call_category);
+  const channel = analytics ? analyticsFact(analytics, 'channel') : null;
+  if (
+    type === 'wiadomosc' &&
+    (String(channel).toLowerCase() === 'whatsapp' ||
+      /^whatsapp\b/i.test(activity.title?.trim() || ''))
+  )
+    return ACTIVITY_TYPES.whatsapp;
+  return Object.hasOwn(ACTIVITY_TYPES, type)
+    ? ACTIVITY_TYPES[type]
+    : GENERAL_ACTIVITY;
+}
+
+function ActivityType({
+  label,
+  icon: Icon,
+}: {
+  label: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <span data-activity-type className="inline-flex items-center gap-1">
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <span>{label}</span>
+    </span>
+  );
+}
 
 export function mergeActivityHistory(
   activities: ActivityHistoryRow[],
@@ -217,6 +275,7 @@ export function ActivityHistoryList({
                   className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950"
                 >
                   <summary className="flex cursor-pointer items-center gap-2 text-xs">
+                    <ActivityType {...ACTIVITY_TYPES.ankieta} />
                     <span className="min-w-0 flex-1 truncate font-bold text-emerald-800">
                       Ankieta — otrzymana
                     </span>
@@ -239,7 +298,9 @@ export function ActivityHistoryList({
                 className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="text-xs font-bold text-emerald-800">Notatka</p>
+                  <p className="text-xs font-bold text-emerald-800">
+                    <ActivityType {...ACTIVITY_TYPES.notatka} />
+                  </p>
                   <p className="text-xs text-slate-700">
                     {formatWarsawDateTime(item.note.created_at)}
                   </p>
@@ -252,15 +313,16 @@ export function ActivityHistoryList({
           }
 
           const { activity } = item;
+          const type = activityType(activity);
           const activityCard = (
             <article className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold text-emerald-800 uppercase">
-                    {activityHistoryLabel(activity)}
+                  <p className="text-xs font-bold text-emerald-800">
+                    <ActivityType {...type} />
                   </p>
                   <p className="font-semibold">
-                    {activity.title || activityHistoryLabel(activity)}
+                    {activity.title || type.label}
                   </p>
                 </div>
                 <p className="text-xs text-slate-700">
@@ -315,8 +377,9 @@ export function ActivityHistoryList({
           const eventCard = (
             <article className="rounded-lg border border-slate-300 bg-white p-3 text-slate-950">
               <div className="flex justify-between gap-2">
-                <p className="text-xs font-bold text-emerald-800 uppercase">
-                  DO OBSŁUGI · {event.event_type.replaceAll('_', ' ')}
+                <p className="text-xs font-bold text-emerald-800">
+                  <ActivityType {...GENERAL_ACTIVITY} />
+                  {' · '}DO OBSŁUGI · {event.event_type.replaceAll('_', ' ')}
                 </p>
                 <p className="text-xs text-slate-700">
                   {formatWarsawDateTime(event.occurred_at)}

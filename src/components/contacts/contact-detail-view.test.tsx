@@ -157,7 +157,10 @@ vi.mock('@/lib/supabase/client', () => ({
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({ accountId: 'account-synthetic', defaultCurrency: 'PLN' }),
 }));
-vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) =>
+    key === 'contactDetailsDesc' ? 'Szczegóły Kontaktu' : key,
+}));
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -1173,5 +1176,57 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     expect(render().split('</header>')[0]).not.toContain(
       'id="contact-more-actions"'
     );
+  });
+});
+
+describe('K3-02A-10: kompozycja karty', () => {
+  it('usuwa opis i pozostawia powrót do listy tylko poniżej xl', async () => {
+    const html = render();
+    const header = html.split('</header>')[0];
+    expect(header).not.toContain('Szczegóły Kontaktu');
+    expect(header).not.toContain('contactDetailsDesc');
+    expect(header).toContain('aria-label="Ścieżka nawigacji"');
+    expect(header).toContain('Klienci</a>');
+    expect(header).toContain(`aria-current="page">${fixture.contact.name}`);
+    const classes = header.match(
+      /<button[^>]*aria-label="Wróć do listy"[^>]*class="([^"]+)"/
+    )![1];
+    const styles = await layoutStyles(html);
+    for (const width of [375, 768, 1279])
+      expect(styles(classes, width).display).not.toBe('none');
+    for (const width of [1280, 1440, 1920])
+      expect(styles(classes, width).display).toBe('none');
+  });
+
+  it('wszystkie osiem tytułów kart w kolumnach ma tę samą typografię', () => {
+    const html = render();
+    const columns = html
+      .split('data-contact-columns="true"')[1]
+      .split('data-contact-full-details')[0];
+    const headings = [
+      ...columns.matchAll(/<h3[^>]*class="([^"]+)"[^>]*>(.*?)<\/h3>/g),
+    ];
+    expect(headings).toHaveLength(8);
+    for (const [, classes] of headings) {
+      expect(classes).toContain('text-sm font-black text-slate-950');
+      expect(classes).not.toMatch(/uppercase|tracking-wide/);
+    }
+    expect(headings[0][2]).toBe('Aktywne Deale (0)');
+    expect(html).not.toContain('AKTYWNE DEALE');
+    expect(html).toMatch(/data-tab-count="deals"[^>]*>\(0\)/);
+  });
+
+  it('karty info mają stałą wysokość również przy długich danych', async () => {
+    const html = render();
+    const classes = [
+      ...html.matchAll(/data-contact-info-card="[^"]+" class="([^"]+)"/g),
+    ];
+    expect(classes).toHaveLength(5);
+    const styles = await layoutStyles(html);
+    for (const [, className] of classes) {
+      expect(styles(className, 1440).height).toBe('calc(var(--spacing) * 36)');
+      expect(styles(className, 1440)['flex-direction']).toBe('column');
+    }
+    expect(new Set(classes.map(([, className]) => className)).size).toBe(1);
   });
 });

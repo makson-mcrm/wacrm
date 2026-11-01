@@ -269,13 +269,16 @@ export function ContactInfoCards({
         <div
           key={title}
           data-contact-info-card={title}
-          className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
+          className="flex h-36 min-w-0 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
         >
-          <dt className="flex items-start gap-2 font-black break-words text-slate-800">
+          <dt className="flex h-10 shrink-0 items-start gap-2 font-black break-words text-slate-800">
             <Icon aria-hidden="true" className="size-4 shrink-0" />
-            {title}
+            <span className="line-clamp-2">{title}</span>
           </dt>
-          <dd className="mt-2 font-semibold break-words text-slate-950">
+          <dd
+            className="mt-2 shrink-0 truncate font-semibold text-slate-950"
+            title={value || undefined}
+          >
             {href ? (
               <Link href={href} className="text-emerald-800 hover:underline">
                 {value || 'Brak danych'}
@@ -284,17 +287,20 @@ export function ContactInfoCards({
               value || 'Brak danych'
             )}
           </dd>
-          {detail && (
-            <dd className="mt-1 break-words text-slate-700">{detail}</dd>
-          )}
-          {extra && (
-            <dd
-              className="mt-auto truncate pt-1 text-[11px] text-slate-600"
+          <dd
+            data-contact-info-subtitle
+            className="mt-auto min-w-0 text-slate-700"
+          >
+            <span className="block truncate" title={detail || undefined}>
+              {detail?.trim() || '—'}
+            </span>
+            <span
+              className="block min-h-4 truncate pt-1 text-[11px] text-slate-600"
               title={extra}
             >
               {extra}
-            </dd>
-          )}
+            </span>
+          </dd>
         </div>
       ))}
     </dl>
@@ -459,16 +465,18 @@ export function ContactNextAction({
     >
       <h3
         id="contact-next-action-title"
-        className="text-sm font-black text-emerald-950"
+        className="text-sm font-black text-slate-950"
       >
         Next action
       </h3>
       <p className="mt-2 text-base font-bold text-emerald-950">
-        {next?.text || 'Brak danych — ustal następne działanie.'}
+        {next?.text || 'Ustal następne działanie'}
       </p>
-      <p className="mt-1 text-xs text-emerald-900">
-        Termin: {next?.date ? formatWarsawDateTime(next.date) : 'Brak danych'}
-      </p>
+      {next && (
+        <p className="mt-1 text-xs text-emerald-900">
+          Termin: {next.date ? formatWarsawDateTime(next.date) : 'Brak danych'}
+        </p>
+      )}
     </section>
   );
 }

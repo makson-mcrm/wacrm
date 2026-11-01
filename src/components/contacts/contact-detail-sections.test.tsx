@@ -376,7 +376,7 @@ describe('02A-2: dane kart i Next action', () => {
     expect(html).not.toContain('Krok zamkniętego Deala');
     expect(
       renderToStaticMarkup(<ContactNextAction contact={contact} deals={[]} />)
-    ).toContain('Brak danych — ustal następne działanie.');
+    ).toContain('Ustal następne działanie');
   });
   it('Next action zachowuje ustalenie z zakończonej rozmowy i pomija anulowane działania', () => {
     const html = renderToStaticMarkup(
@@ -496,7 +496,7 @@ describe('02A-2: wspólne komponenty zachowują dotychczasowe zachowanie', () =>
         ]}
       />
     );
-    for (const text of ['TELEFON', 'Rozmowa syntetyczna', '31.10.2026'])
+    for (const text of ['Rozmowa', 'Rozmowa syntetyczna', '31.10.2026'])
       expect(html).toContain(text);
   });
   it('etykieta WhatsApp zmienia się tylko na karcie 02A, a adres akcji pozostaje ten sam', () => {
@@ -535,16 +535,16 @@ describe('K3-02A-6: prezentacja kart, oznaczeń i ankiety', () => {
       expect(card).toContain('aria-hidden="true"');
     }
     const date = html.match(
-      /<dd class="([^"]*text-\[11px\][^"]*)"[^>]*>(.*?)<\/dd>/
+      /<span class="([^"]*text-\[11px\][^"]*)"[^>]*>(Dodano do CRM:.*?)<\/span>/
     )!;
     expect(date[1]).toContain('text-slate-600');
-    expect(date[1]).toContain('mt-auto');
+    expect(html).toContain('mt-auto');
     expect(date[1]).toContain('truncate');
     expect(date[2]).toContain('Dodano do CRM:');
     expect(date[2]).not.toContain('Brak danych');
     expect(
       renderToStaticMarkup(<ContactInfoCards contact={contact} owner="" />)
-    ).not.toContain('text-[11px]');
+    ).not.toContain('Dodano do CRM:');
   });
 
   it('oznaczenia zawierają tylko istniejące tagi i opcjonalny chip VIP', () => {
@@ -639,6 +639,9 @@ describe('K3-02A-6: prezentacja kart, oznaczeń i ankiety', () => {
     expect(html).not.toMatch(/<details[^>]*\bopen/);
     const summary = html.match(/<summary[^>]*>(.*?)<\/summary>/)![1];
     expect(summary).toContain('Ankieta — otrzymana');
+    expect(summary).toContain('data-activity-type="true"');
+    expect(summary).toContain('lucide-clipboard-list');
+    expect(summary).toContain('<span>Ankieta</span>');
     expect(summary).toContain('31.10.2026');
     expect(summary).toContain('Szczegóły');
     expect(summary).not.toContain(text);
@@ -741,5 +744,167 @@ describe('K3-02A-8: stopka karty', () => {
     expect(html).toContain(
       'text-xs font-semibold text-emerald-800 hover:underline'
     );
+  });
+});
+
+describe('K3-02A-10: Next action, karty info i oznaczenia aktywności', () => {
+  it('puste Next action ma jedno CTA i nie pokazuje pustego terminu', () => {
+    const html = renderToStaticMarkup(
+      <ContactNextAction contact={contact} deals={[]} />
+    );
+    expect(html.match(/Ustal następne działanie/g)).toHaveLength(1);
+    expect(html.match(/<p /g)).toHaveLength(1);
+    expect(html).not.toContain('Termin:');
+    expect(html).not.toContain('Brak danych');
+  });
+
+  it.each([undefined, '2026-11-02T10:00:00Z'])(
+    'istniejące Next action zachowuje treść i termin (%s)',
+    (date) => {
+      const html = renderToStaticMarkup(
+        <ContactNextAction
+          contact={{
+            ...contact,
+            next_step: 'Krok syntetyczny',
+            follow_up_at: date,
+          }}
+          deals={[]}
+        />
+      );
+      expect(html).toContain('Krok syntetyczny');
+      expect(html).toContain(date ? '2.11.2026, 11:00' : 'Termin: Brak danych');
+      expect(html).not.toContain('Ustal następne działanie');
+    }
+  );
+
+  it('pięć pustych kart zachowuje strukturę, wysokość i podtytuł —', () => {
+    const html = renderToStaticMarkup(
+      <ContactInfoCards
+        contact={{ ...contact, source: '', source_details: '' }}
+        owner=""
+      />
+    );
+    const cards = [
+      ...html.matchAll(
+        /<div[^>]*data-contact-info-card="[^"]+" class="([^"]+)">(.*?)<\/div>/g
+      ),
+    ];
+    expect(cards).toHaveLength(5);
+    for (const [, classes, card] of cards) {
+      expect(classes).toContain('h-36');
+      expect(card.match(/<dt /g)).toHaveLength(1);
+      expect(card.match(/<dd[ >]/g)).toHaveLength(2);
+      expect(card.match(/<svg /g)).toHaveLength(1);
+      expect(card).toContain('data-contact-info-subtitle="true"');
+      expect(card).toMatch(/<span[^>]*>—<\/span>/);
+      expect(card).toContain('Brak danych');
+    }
+  });
+
+  it('długie istniejące wartości pozostają dostępne bez rozpychania kart', () => {
+    const text = 'Długie syntetyczne źródło '.repeat(12);
+    const html = renderToStaticMarkup(
+      <ContactInfoCards
+        contact={{ ...contact, source: text, source_details: text }}
+        owner={text}
+      />
+    );
+    expect(html).toContain(`title="${text.trim()}"`);
+    expect(html).toContain(`title="${text}"`);
+    expect(html).toContain('truncate');
+    expect(html.match(/data-contact-info-subtitle="true"/g)).toHaveLength(5);
+  });
+
+  const activity = {
+    id: 'type-synthetic',
+    title: 'Wpis syntetyczny',
+    activity_type: 'telefon',
+    occurred_at: '2026-11-01T10:00:00Z',
+    activity_status: null,
+    description: null,
+    call_result: null,
+    next_action: null,
+    next_action_date: null,
+    phone_number: null,
+  };
+
+  it.each([
+    ['telefon', 'Rozmowa', 'phone'],
+    ['whatsapp', 'WhatsApp', 'message-circle'],
+    ['email', 'E-mail', 'mail'],
+    ['e-mail', 'E-mail', 'mail'],
+    ['spotkanie', 'Spotkanie', 'calendar-days'],
+    ['notatka', 'Notatka', 'sticky-note'],
+    ['ankieta', 'Ankieta', 'clipboard-list'],
+    ['wiadomosc', 'Wiadomość', 'message-circle'],
+    ['', 'Aktywność', 'clock-3'],
+    ['nieznany_typ', 'Aktywność', 'clock-3'],
+  ])('typ %s ma ikonę i etykietę %s', (type, label, icon) => {
+    const html = renderToStaticMarkup(
+      <ActivityHistoryList
+        activities={[{ ...activity, activity_type: type }]}
+        notes={[]}
+        queueEvents={[]}
+        loading={false}
+      />
+    );
+    const badge = html.match(
+      /<span data-activity-type="true"[^>]*>(.*?)<\/span><\/span>/
+    )![1];
+    expect(badge).toContain('<svg');
+    expect(badge).toContain('aria-hidden="true"');
+    expect(badge).toContain(`lucide-${icon}`);
+    expect(badge).toContain(`<span>${label}`);
+    expect(html).toContain(activity.title);
+  });
+
+  it('rozpoznaje WhatsApp w istniejącym tytule wiadomości', () => {
+    const html = renderToStaticMarkup(
+      <ActivityHistoryList
+        activities={[
+          {
+            ...activity,
+            activity_type: 'wiadomosc',
+            title: 'WhatsApp — wysłana',
+          },
+        ]}
+        notes={[]}
+        queueEvents={[]}
+        loading={false}
+      />
+    );
+    expect(html).toContain('<span>WhatsApp</span>');
+    expect(html).toContain('WhatsApp — wysłana');
+  });
+
+  it('notatka i zdarzenie kolejki również mają ikonę i etykietę', () => {
+    const html = renderToStaticMarkup(
+      <ActivityHistoryList
+        activities={[]}
+        notes={[
+          {
+            id: 'note-synthetic',
+            note_text: 'Treść syntetyczna',
+            created_at: activity.occurred_at,
+            user_id: 'user-synthetic',
+          },
+        ]}
+        queueEvents={[
+          {
+            id: 'event-synthetic',
+            event_type: 'next_action',
+            occurred_at: activity.occurred_at,
+            deal_id: 'deal-synthetic',
+          },
+        ]}
+        loading={false}
+      />
+    );
+    expect(html.match(/data-activity-type="true"/g)).toHaveLength(2);
+    expect(html.match(/<svg /g)).toHaveLength(2);
+    expect(html).toContain('<span>Notatka</span>');
+    expect(html).toContain('<span>Aktywność</span>');
+    expect(html).toContain('href="/deals/deal-synthetic"');
+    expect(html).toContain('Treść syntetyczna');
   });
 });

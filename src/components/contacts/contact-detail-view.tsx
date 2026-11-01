@@ -923,7 +923,7 @@ export function ContactDetailView({
           <Button
             variant="ghost"
             aria-label="Wróć do listy"
-            className="mb-3 min-h-11"
+            className="mb-3 min-h-11 xl:hidden"
             onClick={() => onOpenChange(false)}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
@@ -965,7 +965,6 @@ export function ContactDetailView({
                         contactTagIds.includes(tag.id)
                       )}
                     />
-                    <p className="sr-only">{t('contactDetailsDesc')}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
                       <button
                         onClick={copyPhone}
@@ -1179,7 +1178,7 @@ export function ContactDetailView({
                     >
                       <h3
                         id="mobile-contact-deals"
-                        className="text-sm font-black tracking-wide text-slate-950 uppercase"
+                        className="text-sm font-black text-slate-950"
                       >
                         Aktywne Deale ({displayCount('deals')})
                       </h3>
