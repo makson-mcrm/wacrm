@@ -24,6 +24,12 @@ import {
 } from '@/components/inbox/template-picker';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -116,6 +122,7 @@ export function ContactDetailView({
   const [activeTab, setActiveTab] = useState('overview');
   const [contextExpanded, setContextExpanded] = useState(true);
   const [moreTabsOpen, setMoreTabsOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Send template — lets the business initiate (or re-open) a conversation
@@ -469,7 +476,7 @@ export function ContactDetailView({
   ] as const;
   const selectTab = (value: string) => {
     setActiveTab(value);
-    if (tabItems.slice(4).some(([tab]) => tab === value)) setMoreTabsOpen(true);
+    setMoreTabsOpen(false);
   };
   const displayCount = (value: keyof typeof counts) =>
     countError[value] ? '—' : countLoading[value] ? '…' : counts[value];
@@ -1007,61 +1014,60 @@ export function ContactDetailView({
                     className="border-slate-300 bg-white text-slate-950 hover:bg-slate-100 hover:text-slate-950"
                   />
                   <ContactEmailAction email={contact.email} />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setActiveTab('overview');
-                      setContextExpanded(true);
-                      window.setTimeout(() => {
-                        const details = document.getElementById(
-                          'contact-deeper-details'
-                        );
-                        details?.setAttribute('open', '');
-                        details
-                          ?.querySelector('details')
-                          ?.setAttribute('open', '');
-                        details?.scrollIntoView({ behavior: 'smooth' });
-                      }, 0);
-                    }}
+                  <DropdownMenu
+                    open={moreActionsOpen}
+                    onOpenChange={setMoreActionsOpen}
                   >
-                    <MoreHorizontal className="size-4" /> WIĘCEJ
-                  </Button>
-                  <Button
-                    size="sm"
-                    render={
-                      <Link
-                        href={`/pipelines?new=deal&contact=${contact.id}`}
-                      />
-                    }
-                    className="col-span-2 bg-emerald-800 text-white hover:bg-emerald-700 sm:col-span-1"
-                  >
-                    + NOWY DEAL
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    render={
-                      <Link
-                        href={`/quick-call?contact=${contact.id}&action=dictate`}
-                      />
-                    }
-                  >
-                    <Mic className="size-4" /> DYKTUJ
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    render={
-                      <Link
-                        href={`/calendar?new=event&contact=${contact.id}`}
-                      />
-                    }
-                  >
-                    <CalendarDays className="size-4" /> DODAJ TERMIN
-                  </Button>
+                    <DropdownMenuTrigger
+                      aria-haspopup="menu"
+                      aria-expanded={moreActionsOpen}
+                      aria-controls="contact-more-actions"
+                      render={<Button size="sm" variant="outline" />}
+                    >
+                      <MoreHorizontal className="size-4" /> WIĘCEJ
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      id="contact-more-actions"
+                      aria-label="Więcej akcji"
+                      align="end"
+                      className="min-w-44"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setMoreActionsOpen(false);
+                        }
+                      }}
+                    >
+                      <DropdownMenuItem
+                        render={
+                          <Link
+                            href={`/pipelines?new=deal&contact=${contact.id}`}
+                          />
+                        }
+                      >
+                        + NOWY DEAL
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        render={
+                          <Link
+                            href={`/quick-call?contact=${contact.id}&action=dictate`}
+                          />
+                        }
+                      >
+                        <Mic className="size-4" /> DYKTUJ
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        render={
+                          <Link
+                            href={`/calendar?new=event&contact=${contact.id}`}
+                          />
+                        }
+                      >
+                        <CalendarDays className="size-4" /> DODAJ TERMIN
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </>
@@ -1099,29 +1105,55 @@ export function ContactDetailView({
                 ownerRole={overview.owner.data?.account_role || ''}
                 ownerError={overview.owner.error}
               />
-              <TabsList
-                aria-label="Karta klienta"
-                className="mx-[var(--content-pad-x)] mt-2 flex h-auto w-auto shrink-0 [scrollbar-width:none] flex-wrap justify-start gap-1 overflow-x-auto rounded-none border-b bg-white p-0 pb-1 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
-              >
-                {tabItems.slice(0, 4).map(renderTab)}
-                <div
-                  id="contact-more-tabs"
-                  hidden={!moreTabsOpen}
-                  className={`order-2 w-full flex-wrap gap-1 ${moreTabsOpen ? 'flex' : 'hidden'}`}
+              <div className="mx-[var(--content-pad-x)] mt-2 flex min-w-0 shrink-0 items-start gap-1 border-b">
+                <TabsList
+                  aria-label="Karta klienta"
+                  className="flex h-auto min-w-0 flex-1 [scrollbar-width:none] flex-nowrap justify-start gap-1 overflow-x-auto rounded-none bg-white p-0 pb-1 [&_[data-slot=tabs-trigger]]:min-h-11 [&_[data-slot=tabs-trigger]]:flex-none [&_[data-slot=tabs-trigger]]:shrink-0 [&_[data-slot=tabs-trigger]]:px-3 [&_[data-slot=tabs-trigger]]:text-slate-800 [&_[data-slot=tabs-trigger][data-active]]:border-slate-300 [&_[data-slot=tabs-trigger][data-active]]:bg-slate-200 [&_[data-slot=tabs-trigger][data-active]]:text-slate-950 [&::-webkit-scrollbar]:hidden"
                 >
-                  {tabItems.slice(4).map(renderTab)}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  aria-expanded={moreTabsOpen}
-                  aria-controls="contact-more-tabs"
-                  className="order-1 min-h-11 shrink-0 px-3 text-sm font-semibold text-slate-800"
-                  onClick={() => setMoreTabsOpen((expanded) => !expanded)}
+                  {tabItems.map(renderTab)}
+                </TabsList>
+                <DropdownMenu
+                  open={moreTabsOpen}
+                  onOpenChange={setMoreTabsOpen}
                 >
-                  Więcej ⌄
-                </Button>
-              </TabsList>
+                  <DropdownMenuTrigger
+                    aria-haspopup="menu"
+                    aria-expanded={moreTabsOpen}
+                    aria-controls="contact-more-tabs"
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-11 shrink-0 px-3 text-sm font-semibold text-slate-800"
+                      />
+                    }
+                  >
+                    Więcej ⌄
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    id="contact-more-tabs"
+                    aria-label="Wszystkie widoki"
+                    align="end"
+                    className="min-w-44"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMoreTabsOpen(false);
+                      }
+                    }}
+                  >
+                    {tabItems.map(([value, label]) => (
+                      <DropdownMenuItem
+                        key={value}
+                        onClick={() => selectTab(value)}
+                      >
+                        {label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <TabsContent
                 value="overview"
                 className="flex min-h-0 flex-1 flex-col overflow-y-auto"

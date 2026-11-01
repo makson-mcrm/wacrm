@@ -18,10 +18,15 @@ const fixture = vi.hoisted(() => ({
   stateIndex: 0,
   moreTabsOpen: false,
   moreClick: undefined as undefined | (() => void),
+  moreActionsOpen: false,
+  moreActionsClick: undefined as undefined | (() => void),
+  viewClicks: [] as (() => void)[],
+  menuKeyDowns: {} as Record<string, React.KeyboardEventHandler>,
   footerClicks: [] as (() => void)[],
   expanded: true,
   emptyArrayIndex: 0,
   tags: [] as import('@/types').Tag[],
+  assignedTagIds: null as string[] | null,
   notes: [] as import('@/types').ContactNote[],
   tasks: [] as {
     id: string;
@@ -84,11 +89,19 @@ vi.mock('react', async (importOriginal) => {
               typeof value === 'function' ? value(fixture.moreTabsOpen) : value;
           },
         ];
+      if (stateIndex === 5)
+        return [
+          fixture.moreActionsOpen,
+          (value: boolean) => {
+            fixture.moreActionsOpen = value;
+          },
+        ];
       // Seed the existing tag, tag-ID and note states without running database effects.
       if (Array.isArray(initial) && initial.length === 0) {
         const index = fixture.emptyArrayIndex++;
         if (index === 0) initial = fixture.tags;
-        if (index === 1) initial = fixture.tags.map(({ id }) => id);
+        if (index === 1)
+          initial = fixture.assignedTagIds ?? fixture.tags.map(({ id }) => id);
         if (index === 2) initial = fixture.notes;
       }
       return react.useState(
@@ -161,8 +174,10 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('@/components/ui/tabs', () => ({
   Tabs: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: ReactNode }) => (
-    <nav role="tablist">{children}</nav>
+  TabsList: ({ children, ...props }: React.ComponentProps<'nav'>) => (
+    <nav role="tablist" {...props}>
+      {children}
+    </nav>
   ),
   TabsTrigger: ({
     children,
@@ -171,7 +186,7 @@ vi.mock('@/components/ui/tabs', () => ({
     children: ReactNode;
     value: string;
   }) => (
-    <button role="tab" data-value={value}>
+    <button role="tab" data-value={value} data-slot="tabs-trigger">
       {children}
     </button>
   ),
@@ -208,12 +223,94 @@ vi.mock('@/components/ui/button', async () => {
     }) => {
       if (props['aria-controls'] === 'contact-more-tabs')
         fixture.moreClick = props.onClick as () => void;
+      if (props['aria-controls'] === 'contact-more-actions')
+        fixture.moreActionsClick = props.onClick as () => void;
       if (props['aria-label'] === 'Wróć do listy')
         fixture.backClick = props.onClick as () => void;
       return render ? (
         cloneElement(render, {}, children)
       ) : (
         <button {...props}>{children}</button>
+      );
+    },
+  };
+});
+// Keep the card's menu state, items and handlers observable in these Node SSR
+// tests. The shared Base UI primitives own browser focus and arrow-key handling.
+vi.mock('@/components/ui/dropdown-menu', async () => {
+  const { cloneElement, createContext, useContext } = await import('react');
+  const MenuContext = createContext<{
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }>({
+    open: false,
+    onOpenChange: vi.fn<(open: boolean) => void>(),
+  });
+  return {
+    DropdownMenu: ({
+      children,
+      ...state
+    }: {
+      children: ReactNode;
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+    }) => <MenuContext.Provider value={state}>{children}</MenuContext.Provider>,
+    DropdownMenuTrigger: ({
+      render,
+      children,
+      ...props
+    }: {
+      render: React.ReactElement<React.ComponentProps<'button'>>;
+      children: ReactNode;
+    }) => {
+      const { open, onOpenChange } = useContext(MenuContext);
+      return cloneElement(
+        render,
+        {
+          ...props,
+          onClick: () => onOpenChange(!open),
+        },
+        children
+      );
+    },
+    DropdownMenuContent: ({
+      children,
+      id,
+      onKeyDown,
+      className,
+      'aria-label': label,
+    }: React.ComponentProps<'div'> & { align: string }) => {
+      const { open } = useContext(MenuContext);
+      if (!open) return null;
+      fixture.menuKeyDowns[id!] = onKeyDown!;
+      return (
+        <div
+          role="menu"
+          id={id}
+          aria-label={label}
+          className={className}
+          onKeyDown={onKeyDown}
+        >
+          {children}
+        </div>
+      );
+    },
+    DropdownMenuItem: ({
+      render,
+      children,
+      onClick,
+    }: {
+      render?: React.ReactElement<React.ComponentProps<'a'>>;
+      children: ReactNode;
+      onClick?: () => void;
+    }) => {
+      if (onClick) fixture.viewClicks.push(onClick);
+      return render ? (
+        cloneElement(render, { role: 'menuitem' }, children)
+      ) : (
+        <button role="menuitem" onClick={onClick}>
+          {children}
+        </button>
       );
     },
   };
@@ -250,6 +347,8 @@ const render = (
   fixture.emptyArrayIndex = 0;
   fixture.stateIndex = 0;
   fixture.footerClicks = [];
+  fixture.viewClicks = [];
+  fixture.menuKeyDowns = {};
   return renderToStaticMarkup(
     <ContactDetailView
       open
@@ -267,8 +366,11 @@ beforeEach(() => {
   fixture.tab = 'overview';
   fixture.moreTabsOpen = false;
   fixture.moreClick = undefined;
+  fixture.moreActionsOpen = false;
+  fixture.moreActionsClick = undefined;
   fixture.expanded = true;
   fixture.tags = [];
+  fixture.assignedTagIds = null;
   fixture.notes = [];
   fixture.tasks = [];
   fixture.documents = [];
@@ -285,7 +387,7 @@ describe('K3/01-L: karta klienta 02A', () => {
     expect(
       [
         ...html.matchAll(
-          /role="tab" data-value="[^"]+">([^<]+)<span[^>]*>[^<]*<\/span><\/button>/g
+          /role="tab" data-value="[^"]+" data-slot="tabs-trigger">([^<]+)<span[^>]*>[^<]*<\/span><\/button>/g
         ),
       ].map((match) => match[1])
     ).toEqual([
@@ -300,6 +402,7 @@ describe('K3/01-L: karta klienta 02A', () => {
     ]);
   });
   it('zachowuje sekcje podsumowania, ankietę, dyktowanie, terminy, nowy deal i edycję', () => {
+    fixture.moreActionsOpen = true;
     const html = render();
     for (const text of [
       'Firma',
@@ -615,7 +718,7 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
     const styles = await layoutStyles(html);
     const contents = [...html.matchAll(/id="[^"]+-content" class="([^"]+)"/g)];
     expect(contents).toHaveLength(3);
-    expect(html.match(/aria-expanded="false"/g)).toHaveLength(4);
+    expect(html.match(/aria-expanded="false"/g)).toHaveLength(5);
     for (const [, className] of contents) {
       expect(styles(className, 375).display).toBe('none');
       expect(styles(className, 1279).display).toBe('none');
@@ -858,42 +961,108 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
       fixture.footerClicks[index]();
       expect(fixture.tab).toBe(tab);
       expect(render()).toContain('role="tabpanel"');
-      if (tab !== 'history') expect(fixture.moreTabsOpen).toBe(true);
+      expect(fixture.moreTabsOpen).toBe(false);
     }
   );
 
-  it('Więcej rozwija i zwija cztery dalsze zakładki bez duplikowania ani zmiany kolejności', () => {
+  const views = [
+    ['overview', 'Podsumowanie'],
+    ['deals', 'Aktywne Deale'],
+    ['history', 'Aktywność'],
+    ['tasks', 'Zadania'],
+    ['notes', 'Notatki'],
+    ['documents', 'Dokumenty'],
+    ['people', 'Osoby'],
+    ['relations', 'Relacje'],
+  ];
+
+  it('pasek ma osiem widocznych TabsTrigger, a Więcej tylko skróty do wszystkich widoków', async () => {
+    const assertBar = (html: string) => {
+      const bar = html.match(/<nav role="tablist"[^>]*>(.*?)<\/nav>/)![1];
+      const triggers = [
+        ...bar.matchAll(
+          /<button role="tab" data-value="([^"]+)" data-slot="tabs-trigger">([^<]+)<span/g
+        ),
+      ];
+      expect(triggers.map(([, value, label]) => [value, label])).toEqual(views);
+      expect(bar.match(/data-slot="tabs-trigger"/g)).toHaveLength(8);
+      expect(html.match(/data-slot="tabs-trigger"/g)).toHaveLength(8);
+      expect(bar).not.toMatch(/hidden|contact-more-tabs/);
+      expect(bar).not.toContain('role="menu"');
+    };
     let html = render();
-    const order = (value: string) =>
-      [...value.matchAll(/role="tab" data-value="([^"]+)"/g)].map(
-        (match) => match[1]
-      );
-    const expected = [
-      'overview',
-      'deals',
-      'history',
-      'tasks',
-      'notes',
-      'documents',
-      'people',
-      'relations',
-    ];
-    expect(order(html)).toEqual(expected);
+    assertBar(html);
     expect(html).toContain(
       'aria-expanded="false" aria-controls="contact-more-tabs"'
     );
-    expect(html).toContain('id="contact-more-tabs" hidden=""');
+    expect(html).not.toContain('id="contact-more-tabs"');
     expect(html).toContain('Więcej ⌄');
+    const classes = html.match(/<nav role="tablist"[^>]*class="([^"]+)"/)![1];
+    const styles = await layoutStyles(html);
+    expect(styles(classes, 1440)).toMatchObject({
+      'overflow-x': 'auto',
+      'flex-wrap': 'nowrap',
+    });
     fixture.moreClick!();
     html = render();
+    assertBar(html);
     expect(html).toContain(
       'aria-expanded="true" aria-controls="contact-more-tabs"'
     );
-    expect(html).not.toContain('id="contact-more-tabs" hidden');
-    expect(order(html)).toEqual(expected);
+    const menu = html.match(
+      /<div role="menu" id="contact-more-tabs"[^>]*>(.*?)<\/div>/
+    )![1];
+    expect(html).toContain('aria-label="Wszystkie widoki"');
+    expect(
+      [...menu.matchAll(/role="menuitem">([^<]+)<\/button>/g)].map(
+        ([, label]) => label
+      )
+    ).toEqual(views.map(([, label]) => label));
+    expect(menu).not.toContain('data-slot="tabs-trigger"');
     fixture.moreClick!();
-    expect(render()).toContain('id="contact-more-tabs" hidden=""');
+    html = render();
+    assertBar(html);
+    expect(html).not.toContain('id="contact-more-tabs"');
   });
+
+  it.each(views)('skrót %s wybiera widok i zamyka menu', (value) => {
+    fixture.moreTabsOpen = true;
+    render();
+    fixture.viewClicks[views.findIndex(([tab]) => tab === value)]();
+    expect(fixture.tab).toBe(value);
+    expect(fixture.moreTabsOpen).toBe(false);
+    const html = render();
+    expect(html).toContain('role="tabpanel"');
+    expect(html).not.toContain('id="contact-more-tabs"');
+  });
+
+  it.each(['contact-more-actions', 'contact-more-tabs'])(
+    'Escape zamyka %s i nie przekazuje zdarzenia do zamknięcia karty',
+    (id) => {
+      fixture.moreTabsOpen = id === 'contact-more-tabs';
+      fixture.moreActionsOpen = id === 'contact-more-actions';
+      render();
+      const handler = fixture.menuKeyDowns[id];
+      const preventDefault = vi.fn();
+      const stopPropagation = vi.fn();
+      const key = (value: string) =>
+        handler({
+          key: value,
+          preventDefault,
+          stopPropagation,
+        } as unknown as React.KeyboardEvent);
+      key('ArrowDown');
+      expect(fixture.moreTabsOpen || fixture.moreActionsOpen).toBe(true);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(stopPropagation).not.toHaveBeenCalled();
+      key('Escape');
+      expect(fixture.moreTabsOpen).toBe(false);
+      expect(fixture.moreActionsOpen).toBe(false);
+      expect(preventDefault).toHaveBeenCalledOnce();
+      expect(stopPropagation).toHaveBeenCalledOnce();
+      expect(render()).not.toContain(`id="${id}"`);
+    }
+  );
 
   it.each([
     ['deals', 'mobile-contact-deals'],
@@ -951,17 +1120,58 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     expect(header).toContain('Tag syntetyczny</span>');
   });
 
-  it('zachowuje wszystkie siedem akcji nagłówka', () => {
+  it('nagłówek filtruje katalog tagów po przypisaniach contact_tags', () => {
+    fixture.tags = [
+      { id: 'type-synthetic', name: 'Klient indywidualny' },
+      { id: 'vip-synthetic', name: 'VIP' },
+      { id: 'unassigned-synthetic', name: 'Nieprzypisany tag' },
+    ] as import('@/types').Tag[];
+    fixture.assignedTagIds = ['type-synthetic', 'vip-synthetic'];
     const header = render().split('</header>')[0];
-    for (const label of [
-      'ZADZWOŃ',
-      'WhatsApp',
-      'E-mail',
-      'WIĘCEJ',
+    expect(header).toContain('Klient indywidualny</span>');
+    expect(header).toContain('lucide-star');
+    expect(header).toContain('VIP</span>');
+    expect(header).not.toContain('Nieprzypisany tag');
+    fixture.assignedTagIds = [];
+    expect(render().split('</header>')[0]).not.toContain('data-contact-status');
+  });
+
+  it('pokazuje cztery główne akcje i udostępnia trzy dotychczasowe trasy pod WIĘCEJ', () => {
+    const primary = ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'];
+    let header = render().split('</header>')[0];
+    for (const label of primary) expect(header).toContain(label);
+    for (const label of ['+ NOWY DEAL', 'DYKTUJ', 'DODAJ TERMIN'])
+      expect(header).not.toContain(label);
+    expect(header).toContain(
+      'aria-haspopup="menu" aria-expanded="false" aria-controls="contact-more-actions"'
+    );
+    fixture.moreActionsClick!();
+    expect(fixture.moreActionsOpen).toBe(true);
+    header = render().split('</header>')[0];
+    expect(header).toContain(
+      'aria-haspopup="menu" aria-expanded="true" aria-controls="contact-more-actions"'
+    );
+    const menu = header.match(
+      /<div role="menu" id="contact-more-actions"[^>]*>(.*?)<\/div>/
+    )![1];
+    const links = [
+      ...menu.matchAll(/<a href="([^"]+)" role="menuitem">(.*?)<\/a>/g),
+    ];
+    expect(links.map(([, href]) => href)).toEqual([
+      '/pipelines?new=deal&amp;contact=contact-synthetic',
+      '/quick-call?contact=contact-synthetic&amp;action=dictate',
+      '/calendar?new=event&amp;contact=contact-synthetic',
+    ]);
+    for (const [index, label] of [
       '+ NOWY DEAL',
       'DYKTUJ',
       'DODAJ TERMIN',
-    ])
-      expect(header).toContain(label);
+    ].entries())
+      expect(links[index][2]).toContain(label);
+    for (const label of primary) expect(header).toContain(label);
+    fixture.moreActionsClick!();
+    expect(render().split('</header>')[0]).not.toContain(
+      'id="contact-more-actions"'
+    );
   });
 });

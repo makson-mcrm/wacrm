@@ -567,6 +567,30 @@ describe('K3-02A-6: prezentacja kart, oznaczeń i ankiety', () => {
     expect(vip).not.toContain('Brak danych');
   });
 
+  it('dwa przypisane tagi tworzą dokładnie dwa chipsy, a VIP ma gwiazdkę', () => {
+    const html = renderToStaticMarkup(
+      <ContactStatusTags
+        tags={
+          [
+            { id: 'type-synthetic', name: 'Klient indywidualny' },
+            { id: 'vip-synthetic', name: 'VIP' },
+          ] as import('@/types').Tag[]
+        }
+      />
+    );
+    expect(html.match(/data-contact-status="true"/g)).toHaveLength(1);
+    const chips = [...html.matchAll(/<span[^>]*>(.*?)<\/span>/g)];
+    expect(chips).toHaveLength(2);
+    expect(chips[0][1]).toBe('Klient indywidualny');
+    expect(chips[1][1]).toContain('lucide-star');
+    expect(chips[1][1]).toContain('VIP');
+    expect(html).not.toContain('Brak danych');
+  });
+
+  it('brak przypisanych tagów nie renderuje nawet kontenera chipsów', () => {
+    expect(renderToStaticMarkup(<ContactStatusTags tags={[]} />)).toBe('');
+  });
+
   it('tytuł kolumny jest opcjonalny, etykieta i mobilny przycisk pozostają', () => {
     const html = renderToStaticMarkup(
       <ContactDetailColumn area="context" label="Deale i osoby">
