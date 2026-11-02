@@ -1056,7 +1056,7 @@ export function ContactDetailView({
           ref={headerRef}
           tabIndex={-1}
           aria-label="Nagłówek karty klienta"
-          className="border-border/50 min-h-[85px] shrink-0 border-b px-[var(--content-pad-x)] py-4 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
+          className="border-border/50 min-h-[85px] shrink-0 border-b px-[var(--content-pad-x)] py-3 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
         >
           <Button
             variant="ghost"
@@ -1092,7 +1092,7 @@ export function ContactDetailView({
                         )}
                       />
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700">
                       <button
                         onClick={copyPhone}
                         className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
@@ -1127,6 +1127,7 @@ export function ContactDetailView({
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
+                    label="Zadzwoń"
                     companyId={
                       contactCompanies.find((link) => link.is_primary)
                         ?.company_id ?? contactCompanies[0]?.company_id
@@ -1145,12 +1146,13 @@ export function ContactDetailView({
                     onOpenChange={setMoreActionsOpen}
                   >
                     <DropdownMenuTrigger
+                      aria-label="Więcej"
                       aria-haspopup="menu"
                       aria-expanded={moreActionsOpen}
                       aria-controls="contact-more-actions"
                       render={<Button size="sm" variant="outline" />}
                     >
-                      <MoreHorizontal className="size-4" /> WIĘCEJ
+                      <MoreHorizontal aria-hidden="true" className="size-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       id="contact-more-actions"
@@ -1191,7 +1193,7 @@ export function ContactDetailView({
                           />
                         }
                       >
-                        <Mic className="size-4" /> DYKTUJ
+                        <Mic className="size-4" /> Dyktuj
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         render={
@@ -1200,7 +1202,7 @@ export function ContactDetailView({
                           />
                         }
                       >
-                        <CalendarDays className="size-4" /> DODAJ TERMIN
+                        <CalendarDays className="size-4" /> Dodaj termin
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

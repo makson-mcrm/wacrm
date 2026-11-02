@@ -104,10 +104,10 @@ describe('plansza UX mCRM AI 10.09', () => {
     ].join('\n');
     const deal = source('src/app/(dashboard)/deals/[id]/page.tsx');
     for (const label of [
-      'WIADOMOŚĆ',
-      'DYKTUJ',
-      'WIĘCEJ',
-      '+ UTWÓRZ NOWY DEAL',
+      'WhatsApp',
+      'Dyktuj',
+      'Więcej',
+      '+ Nowy deal',
     ]) {
       expect(contact).toContain(label);
     }

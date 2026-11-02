@@ -376,7 +376,9 @@ vi.mock('@/components/sales/activity-history', () => ({
   ),
 }));
 vi.mock('@/components/sales/call-action', () => ({
-  CallAction: () => <button>ZADZWOŃ</button>,
+  CallAction: ({ label = 'ZADZWOŃ' }: { label?: string }) => (
+    <button>{label}</button>
+  ),
 }));
 vi.mock('@/components/sales/whatsapp-action', () => ({
   WhatsAppAction: ({ label }: { label: string }) => <button>{label}</button>,
@@ -695,25 +697,25 @@ describe('K3-02A-13: kompaktowy nagłówek', () => {
       'VIP',
       'Miejscowość:',
       'Wypełnij ankietę',
-      'ZADZWOŃ',
+      'Zadzwoń',
       'WhatsApp',
       'E-mail',
-      'WIĘCEJ',
+      'aria-label="Więcej"',
     ])
       expect(header).toContain(value);
   });
 
   it.each([1280, 1536])(
-    '%i px: kontrakt wysokości — py-4, minimum 85 px i jeden rząd akcji (bez pomiaru DOM)',
+    '%i px: kontrakt wysokości — py-3, bez marginesu nad danymi i jeden rząd akcji (bez pomiaru DOM)',
     async (width) => {
       const html = render();
       const header = headerMarkup(html);
       const styles = await layoutStyles(html);
       const classes = header.match(/^<header[^>]*class="([^"]+)"/)![1];
-      expect(classes.split(' ')).toContain('py-4');
-      expect(classes).not.toMatch(/py-6|py-\[var\(--content-pad-y\)\]/);
+      expect(classes.split(' ')).toContain('py-3');
+      expect(classes).not.toMatch(/py-[46]|py-\[var\(--content-pad-y\)\]/);
       expect(styles(classes, width)).toMatchObject({
-        'padding-block': 'calc(var(--spacing) * 4)',
+        'padding-block': 'calc(var(--spacing) * 3)',
         'padding-inline': 'var(--content-pad-x)',
         'min-height': '85px',
       });
@@ -739,6 +741,11 @@ describe('K3-02A-13: kompaktowy nagłówek', () => {
         'align-items': 'center',
       });
       expect(titleRow).toContain('xl:[&amp;&gt;div]:mt-0');
+      const contactRow = header.match(
+        /<div class="([^"]*flex flex-wrap items-center gap-3 text-xs text-slate-700[^"]*)"/
+      )![1];
+      expect(contactRow).not.toMatch(/\bmt-/);
+      expect(styles(contactRow, width)['margin-top']).toBeUndefined();
     }
   );
 
@@ -766,8 +773,45 @@ describe('K3-02A-13: kompaktowy nagłówek', () => {
     ])
       expect(menu).toContain(label);
     // Existing auxiliary actions remain available alongside the three required entries.
-    expect(menu).toContain('DYKTUJ');
-    expect(menu).toContain('DODAJ TERMIN');
+    expect(menu).toContain('Dyktuj');
+    expect(menu).toContain('Dodaj termin');
+  });
+});
+
+describe('K3-02A-13b: etykiety akcji zgodne z 02A', () => {
+  it('pokazuje Zadzwoń i ikonowy przycisk Więcej bez tekstu wersalikami', () => {
+    const header = headerMarkup(render());
+    expect(header).toContain('>Zadzwoń</button>');
+    expect(header).not.toContain('ZADZWOŃ');
+    expect(header).not.toContain('WIĘCEJ');
+    const more = header.match(
+      /<button[^>]*aria-label="Więcej"[^>]*>(.*?)<\/button>/
+    )![1];
+    expect(more).toContain('lucide-ellipsis');
+    expect(more).toContain('aria-hidden="true"');
+    expect(more.replace(/<[^>]*>/g, '').trim()).toBe('');
+    const actions = header.match(/<div class="([^"]*grid-cols-2[^"]*)"/)![1];
+    expect(actions).not.toContain('uppercase');
+  });
+
+  it('menu ma dokładnie pięć pozycji w case wzorca i zachowuje kontakt w linku deala', () => {
+    fixture.moreActionsOpen = true;
+    const menu = headerMarkup(render()).match(
+      /id="contact-more-actions"[^>]*>(.*?)<\/div>/
+    )![1];
+    const labels = [
+      ...menu.matchAll(/role="menuitem"[^>]*>(.*?)<\/(?:button|a)>/g),
+    ].map(([, content]) => content.replace(/<[^>]*>/g, '').trim());
+    expect(labels).toEqual([
+      'Pełna karta klienta',
+      'Więcej danych klienta',
+      '+ Nowy deal',
+      'Dyktuj',
+      'Dodaj termin',
+    ]);
+    expect(menu).toContain(
+      'href="/pipelines?new=deal&amp;contact=contact-synthetic"'
+    );
   });
 });
 
@@ -1296,10 +1340,10 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
   });
 
   it('pokazuje cztery główne akcje i udostępnia trzy dotychczasowe trasy pod WIĘCEJ', () => {
-    const primary = ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'];
+    const primary = ['Zadzwoń', 'WhatsApp', 'E-mail', 'aria-label="Więcej"'];
     let header = headerMarkup(render());
     for (const label of primary) expect(header).toContain(label);
-    for (const label of ['+ Nowy deal', 'DYKTUJ', 'DODAJ TERMIN'])
+    for (const label of ['+ Nowy deal', 'Dyktuj', 'Dodaj termin'])
       expect(header).not.toContain(label);
     expect(header).toContain(
       'aria-haspopup="menu" aria-expanded="false" aria-controls="contact-more-actions"'
@@ -1323,8 +1367,8 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     ]);
     for (const [index, label] of [
       '+ Nowy deal',
-      'DYKTUJ',
-      'DODAJ TERMIN',
+      'Dyktuj',
+      'Dodaj termin',
     ].entries())
       expect(links[index][2]).toContain(label);
     for (const label of primary) expect(header).toContain(label);
@@ -1658,7 +1702,12 @@ describe('K3-02A-11: gęstość i metadane kart', () => {
     expect(html.match(/data-contact-info-card="/g)).toHaveLength(5);
     expect(html.match(/Zobacz wszystkie →/g)).toHaveLength(7);
     const header = headerMarkup(html);
-    for (const action of ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'])
+    for (const action of [
+      'Zadzwoń',
+      'WhatsApp',
+      'E-mail',
+      'aria-label="Więcej"',
+    ])
       expect(header).toContain(action);
     expect(header).not.toContain('<nav');
     expect(html).toContain('aria-label="Ścieżka nawigacji"');
