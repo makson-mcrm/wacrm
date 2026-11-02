@@ -241,7 +241,11 @@ vi.mock('@/components/ui/tabs', () => ({
     ) : null,
 }));
 vi.mock('@/components/ui/avatar', () => ({
-  Avatar: ({ children }: { children: ReactNode }) => <span>{children}</span>,
+  Avatar: ({ children, ...props }: React.ComponentProps<'span'>) => (
+    <span data-slot="avatar" {...props}>
+      {children}
+    </span>
+  ),
   AvatarFallback: ({ children }: { children: ReactNode }) => (
     <span>{children}</span>
   ),
@@ -660,10 +664,112 @@ async function layoutStyles(html: string) {
 
 const gridClasses = (html: string) =>
   html.match(/data-contact-columns="true" class="([^"]+)"/)![1];
+const headerMarkup = (html: string) =>
+  html.match(/<header\b[^>]*>.*?<\/header>/)![0];
 const columnClasses = (html: string) =>
   [...html.matchAll(/data-contact-column="[^"]+"[^>]+class="([^"]+)"/g)].map(
     (match) => match[1]
   );
+
+describe('K3-02A-13: kompaktowy nagłówek', () => {
+  it('breadcrumbs są nad kartą, a nagłówek zachowuje avatar, dane, tagi i cztery akcje', () => {
+    fixture.tags = [
+      { id: 'vip-synthetic', name: 'VIP' },
+    ] as import('@/types').Tag[];
+    const html = render();
+    const header = headerMarkup(html);
+    expect(header).not.toContain('<nav');
+    expect(html.match(/aria-label="Ścieżka nawigacji"/g)).toHaveLength(1);
+    expect(html.indexOf('</nav>')).toBeLessThan(
+      html.indexOf(
+        '<section aria-label="Karta klienta" data-contact-detail-view'
+      )
+    );
+    expect(html).toMatch(/<a href="\/contacts"[^>]*>Klienci<\/a>/);
+    expect(html).toContain(`aria-current="page">${fixture.contact.name}`);
+    expect(header).toMatch(/data-slot="avatar" class="[^"]*size-12/);
+    expect(header).toMatch(/<h1[^>]*>Osoba syntetyczna<\/h1>/);
+    for (const value of [
+      fixture.contact.phone,
+      fixture.contact.email,
+      'VIP',
+      'Miejscowość:',
+      'Wypełnij ankietę',
+      'ZADZWOŃ',
+      'WhatsApp',
+      'E-mail',
+      'WIĘCEJ',
+    ])
+      expect(header).toContain(value);
+  });
+
+  it.each([1280, 1536])(
+    '%i px: kontrakt wysokości — py-4, minimum 85 px i jeden rząd akcji (bez pomiaru DOM)',
+    async (width) => {
+      const html = render();
+      const header = headerMarkup(html);
+      const styles = await layoutStyles(html);
+      const classes = header.match(/^<header[^>]*class="([^"]+)"/)![1];
+      expect(classes.split(' ')).toContain('py-4');
+      expect(classes).not.toMatch(/py-6|py-\[var\(--content-pad-y\)\]/);
+      expect(styles(classes, width)).toMatchObject({
+        'padding-block': 'calc(var(--spacing) * 4)',
+        'padding-inline': 'var(--content-pad-x)',
+        'min-height': '85px',
+      });
+      const row = header.match(/<div class="([^"]*xl:flex-row[^"]*)"/)![1];
+      expect(styles(row, width)).toMatchObject({
+        'flex-direction': 'row',
+        'align-items': 'center',
+        'row-gap': '0px',
+      });
+      const actions = header.match(/<div class="([^"]*grid-cols-2[^"]*)"/)![1];
+      expect(styles(actions, width)).toMatchObject({
+        display: 'grid',
+        'flex-shrink': '0',
+        'grid-template-columns': 'repeat(4, minmax(0, 1fr))',
+        'grid-template-rows': 'repeat(1, minmax(0, 1fr))',
+        'row-gap': '0px',
+      });
+      expect(actions).toContain('[&amp;_a]:min-h-11');
+      expect(actions).toContain('[&amp;_button]:min-h-11');
+      const titleRow = header.match(/<div class="([^"]+)"><h1/)![1];
+      expect(styles(titleRow, width)).toMatchObject({
+        display: 'flex',
+        'align-items': 'center',
+      });
+      expect(titleRow).toContain('xl:[&amp;&gt;div]:mt-0');
+    }
+  );
+
+  it('nie ujawnia poprzedniego kontaktu w breadcrumbs podczas ładowania kolejnego', () => {
+    const html = render({ contactId: 'pending-synthetic' });
+    expect(html).not.toContain('aria-label="Ścieżka nawigacji"');
+    expect(html).not.toContain(fixture.contact.name);
+    expect(html).toContain('data-contact-detail-view');
+    expect(html).toContain('aria-label="Ładowanie karty klienta"');
+  });
+
+  it('zachowuje osiem zakładek, pięć kart info, siedem stopek i trzy wymagane pozycje WIĘCEJ', () => {
+    fixture.moreActionsOpen = true;
+    const html = render();
+    expect(html.match(/data-slot="tabs-trigger"/g)).toHaveLength(8);
+    expect(html.match(/data-contact-info-card="/g)).toHaveLength(5);
+    expect(html.match(/Zobacz wszystkie →/g)).toHaveLength(7);
+    const menu = headerMarkup(html).match(
+      /id="contact-more-actions"[^>]*>(.*?)<\/div>/
+    )![1];
+    for (const label of [
+      'Pełna karta klienta',
+      'Więcej danych klienta',
+      '+ Nowy deal',
+    ])
+      expect(menu).toContain(label);
+    // Existing auxiliary actions remain available alongside the three required entries.
+    expect(menu).toContain('DYKTUJ');
+    expect(menu).toContain('DODAJ TERMIN');
+  });
+});
 
 describe('K3/01-M: trzy obszary karty klienta', () => {
   it('renderuje trzy kolumny w stałej kolejności i umieszcza w nich właściwe sekcje', () => {
@@ -797,9 +903,16 @@ describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
     const styles = await layoutStyles(html);
     expect(styles(classes, 1440)).toMatchObject({
       width: '100%',
-      height: 'calc(100dvh - var(--app-header-height))',
+      flex: '1',
       'min-height': '0px',
       overflow: 'hidden',
+    });
+    const pageClasses = html.match(/^<div class="([^"]+)"/)![1];
+    expect(styles(pageClasses, 1440)).toMatchObject({
+      height: 'calc(100dvh - var(--app-header-height))',
+      display: 'flex',
+      'flex-direction': 'column',
+      'min-height': '0px',
     });
     expect(classes).not.toMatch(/rounded|shadow|fixed|absolute/);
     expect(html).toMatch(/role="tabpanel" class="[^"]*overflow-y-auto/);
@@ -874,7 +987,7 @@ describe('02A-4: pełny widok klienta w obszarze aplikacji', () => {
 });
 
 describe('K3-02A-6: zatwierdzone poprawki karty', () => {
-  it('nagłówek zawiera breadcrumbs z linkiem do klientów i bieżącą nazwą bez linku', () => {
+  it('strona zawiera breadcrumbs z linkiem do klientów i bieżącą nazwą bez linku', () => {
     const html = render();
     const nav = html.match(
       /<nav aria-label="Ścieżka nawigacji"[^>]*>(.*?)<\/nav>/
@@ -893,7 +1006,7 @@ describe('K3-02A-6: zatwierdzone poprawki karty', () => {
     fixture.tags = [
       { id: 'vip-synthetic', name: 'VIP' },
     ] as import('@/types').Tag[];
-    const header = render().split('</header>')[0];
+    const header = headerMarkup(render());
     expect(header).toMatch(/data-contact-status="true".*lucide-star.*VIP/);
     expect(header).not.toContain('VIP: Brak danych');
     expect(header).not.toContain('Status: Brak danych');
@@ -1161,7 +1274,7 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     fixture.tags = [
       { id: 'tag', name: 'Tag syntetyczny', color: '#006644' },
     ] as import('@/types').Tag[];
-    const header = render().split('</header>')[0];
+    const header = headerMarkup(render());
     expect(header).toContain('data-contact-status');
     expect(header).toContain('Tag syntetyczny</span>');
   });
@@ -1173,18 +1286,18 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
       { id: 'unassigned-synthetic', name: 'Nieprzypisany tag' },
     ] as import('@/types').Tag[];
     fixture.assignedTagIds = ['type-synthetic', 'vip-synthetic'];
-    const header = render().split('</header>')[0];
+    const header = headerMarkup(render());
     expect(header).toContain('Klient indywidualny</span>');
     expect(header).toContain('lucide-star');
     expect(header).toContain('VIP</span>');
     expect(header).not.toContain('Nieprzypisany tag');
     fixture.assignedTagIds = [];
-    expect(render().split('</header>')[0]).not.toContain('data-contact-status');
+    expect(headerMarkup(render())).not.toContain('data-contact-status');
   });
 
   it('pokazuje cztery główne akcje i udostępnia trzy dotychczasowe trasy pod WIĘCEJ', () => {
     const primary = ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'];
-    let header = render().split('</header>')[0];
+    let header = headerMarkup(render());
     for (const label of primary) expect(header).toContain(label);
     for (const label of ['+ Nowy deal', 'DYKTUJ', 'DODAJ TERMIN'])
       expect(header).not.toContain(label);
@@ -1193,7 +1306,7 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     );
     fixture.moreActionsClick!();
     expect(fixture.moreActionsOpen).toBe(true);
-    header = render().split('</header>')[0];
+    header = headerMarkup(render());
     expect(header).toContain(
       'aria-haspopup="menu" aria-expanded="true" aria-controls="contact-more-actions"'
     );
@@ -1216,21 +1329,20 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
       expect(links[index][2]).toContain(label);
     for (const label of primary) expect(header).toContain(label);
     fixture.moreActionsClick!();
-    expect(render().split('</header>')[0]).not.toContain(
-      'id="contact-more-actions"'
-    );
+    expect(headerMarkup(render())).not.toContain('id="contact-more-actions"');
   });
 });
 
 describe('K3-02A-10: kompozycja karty', () => {
   it('usuwa opis i pozostawia powrót do listy tylko poniżej xl', async () => {
     const html = render();
-    const header = html.split('</header>')[0];
+    const header = headerMarkup(html);
     expect(header).not.toContain('Szczegóły Kontaktu');
     expect(header).not.toContain('contactDetailsDesc');
-    expect(header).toContain('aria-label="Ścieżka nawigacji"');
-    expect(header).toContain('Klienci</a>');
-    expect(header).toContain(`aria-current="page">${fixture.contact.name}`);
+    expect(header).not.toContain('<nav');
+    expect(html).toContain('aria-label="Ścieżka nawigacji"');
+    expect(html).toContain('Klienci</a>');
+    expect(html).toContain(`aria-current="page">${fixture.contact.name}`);
     const classes = header.match(
       /<button[^>]*aria-label="Wróć do listy"[^>]*class="([^"]+)"/
     )![1];
@@ -1545,10 +1657,11 @@ describe('K3-02A-11: gęstość i metadane kart', () => {
     expect(html.match(/data-slot="tabs-trigger"/g)).toHaveLength(8);
     expect(html.match(/data-contact-info-card="/g)).toHaveLength(5);
     expect(html.match(/Zobacz wszystkie →/g)).toHaveLength(7);
-    const header = html.split('</header>')[0];
+    const header = headerMarkup(html);
     for (const action of ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'])
       expect(header).toContain(action);
-    expect(header).toContain('aria-label="Ścieżka nawigacji"');
+    expect(header).not.toContain('<nav');
+    expect(html).toContain('aria-label="Ścieżka nawigacji"');
     expect(html).toContain('Więcej ⌄');
     for (const id of [
       'mobile-contact-deals',

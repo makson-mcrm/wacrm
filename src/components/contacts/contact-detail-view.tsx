@@ -1034,17 +1034,29 @@ export function ContactDetailView({
   if (!open) return null;
 
   return (
-    <>
+    <div className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 w-full min-w-0 flex-col">
+      {!loading && contact && contact.id === contactId && (
+        <nav
+          aria-label="Ścieżka nawigacji"
+          className="mb-2 flex shrink-0 items-center gap-2 px-[var(--content-pad-x)] text-xs text-slate-700"
+        >
+          <Link href="/contacts" className="font-semibold hover:underline">
+            Klienci
+          </Link>
+          <span aria-hidden="true">›</span>
+          <span aria-current="page">{contact.name || t('unnamed')}</span>
+        </nav>
+      )}
       <section
         aria-label="Karta klienta"
         data-contact-detail-view
-        className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white text-slate-950"
+        className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white text-slate-950"
       >
         <header
           ref={headerRef}
           tabIndex={-1}
           aria-label="Nagłówek karty klienta"
-          className="border-border/50 shrink-0 border-b px-[var(--content-pad-x)] py-[var(--content-pad-y)] outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
+          className="border-border/50 min-h-[85px] shrink-0 border-b px-[var(--content-pad-x)] py-4 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
         >
           <Button
             variant="ghost"
@@ -1059,23 +1071,10 @@ export function ContactDetailView({
             <h1 className="text-lg font-semibold">Karta klienta</h1>
           ) : (
             <>
-              <nav
-                aria-label="Ścieżka nawigacji"
-                className="mb-2 flex items-center gap-2 text-xs text-slate-700"
-              >
-                <Link
-                  href="/contacts"
-                  className="font-semibold hover:underline"
-                >
-                  Klienci
-                </Link>
-                <span aria-hidden="true">›</span>
-                <span aria-current="page">{contact.name || t('unnamed')}</span>
-              </nav>
               <p className="text-xs font-black tracking-[0.14em] text-slate-700 uppercase sm:hidden">
                 Klient
               </p>
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-y-0">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar className="bg-muted border-border size-12 border">
                     <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
@@ -1083,14 +1082,16 @@ export function ContactDetailView({
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
-                    <h1 className="text-popover-foreground truncate text-lg font-semibold">
-                      {contact.name || t('unnamed')}
-                    </h1>
-                    <ContactStatusTags
-                      tags={allTags.filter((tag) =>
-                        contactTagIds.includes(tag.id)
-                      )}
-                    />
+                    <div className="xl:flex xl:items-center xl:gap-3 xl:[&>div]:mt-0">
+                      <h1 className="text-popover-foreground min-w-0 truncate text-lg font-semibold">
+                        {contact.name || t('unnamed')}
+                      </h1>
+                      <ContactStatusTags
+                        tags={allTags.filter((tag) =>
+                          contactTagIds.includes(tag.id)
+                        )}
+                      />
+                    </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-700">
                       <button
                         onClick={copyPhone}
@@ -1122,7 +1123,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 xl:grid-rows-1 xl:gap-y-0 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -2132,6 +2133,6 @@ export function ContactDetailView({
         onOpenChange={setTemplatePickerOpen}
         onSelect={handleSendTemplate}
       />
-    </>
+    </div>
   );
 }
