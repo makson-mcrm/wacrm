@@ -528,3 +528,10 @@ Meta App Dashboard → aplikacja `mCRM AI` (`1116881471020279`) → **WhatsApp �
 | T8 trwałość po ponownym wejściu | **PASS (dane)** | wiersze ankiety i Kontakt nadal w bazie po ponownym odczycie SQL; kontakt zdeduplikowany po telefonie (1 rekord na +48555000111) |
 
 **Wnioski:** ścieżka publikacji i zapisu działa. Dwa realne braki (T6, T7) wymagają zmiany `src/lib/financial-questionnaires.ts` — plik współdzielony z pracami K3, więc **bez uzgodnienia granic nie modyfikowany**. Nie zmieniano DNS, poczty, certyfikatu, 13 pól ani grafik FINAL-PASS. Koszt: 0 (brak nowych usług).
+
+### 22. Stan odbioru K2 na 31.10.2026 (wieczór) — odczyt realny
+- Live Meta: WABA `2678122512584634` → `account_review_status APPROVED`, `business_verification_status pending_submission`; numer `1269557046240313` → `+48 605 737 500`, `ON_PREMISE`, `NOT_VERIFIED`, `DISCONNECTED`, `is_on_biz_app true`; `subscribed_apps` → mCRM AI `1116881471020279`; `message_templates` → `[]`.
+- Token `hermes-mcrm`: `ok:true`, 58 dni do wygaśnięcia.
+- Webhook: `GET` 400, `GET` złe `verify_token` 403, `POST` bez podpisu 401.
+- **Baza mCRM: `messages = 0`, `conversations = 0`** — żadna realna wiadomość WhatsApp nie została zapisana; brak dowodu trwałości historii rozmów. `financial_questionnaire_submissions = 16` (ankiety działają).
+- Wnioski: konfiguracja gotowa, ścieżka wiadomości niedziałająca (blokada BSP/weryfikacja firmy). Lista usterek: patrz raport kierownika 06 (T6/T7 ankiety, brak rejestracji szablonów w Meta, brak testu pozytywnego podpisu).
