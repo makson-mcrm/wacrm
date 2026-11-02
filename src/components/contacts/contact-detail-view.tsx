@@ -60,13 +60,14 @@ import {
   ContactDetailColumn,
   ContactCardFooter,
   ContactInfoCards,
-  ContactDocumentList,
+  type ContactDocument,
   ContactEmailAction,
   ContactTaskList,
   ContactNextAction,
   ContactStatusTags,
   DataState,
   useContactOverviewData,
+  useContactData,
 } from './contact-detail-sections';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import {
@@ -81,13 +82,105 @@ interface ContactDetailViewProps {
   onUpdated: () => void;
 }
 
-type RelatedPerson = Pick<Contact, 'id' | 'name' | 'phone'> & { role?: string };
+type RelatedPerson = Pick<Contact, 'id' | 'name' | 'phone' | 'email'> & {
+  role?: string;
+};
 
 type RelatedPersonRow = {
   contact_id: string;
   role?: string;
   contact: RelatedPerson | null;
 };
+
+type DocumentMetadata = { document_type?: string | null; created_at: string };
+
+export async function loadContactDocumentMetadata(
+  db: ReturnType<typeof createClient>,
+  accountId: string,
+  documents: ContactDocument[]
+): Promise<Record<string, DocumentMetadata>> {
+  const entries = await Promise.all(
+    (['document', 'requirement'] as const).map(async (kind) => {
+      const ids = documents
+        .filter((row) => row.kind === kind)
+        .map((row) => row.id);
+      if (!ids.length) return [];
+      const query =
+        kind === 'document'
+          ? db.from('deal_documents').select('id,document_type,created_at')
+          : db.from('deal_document_requirements').select('id,created_at');
+      const { data, error } = await query
+        .eq('account_id', accountId)
+        .in('id', ids);
+      if (error) throw new Error('CONTACT_DOCUMENT_METADATA_UNAVAILABLE');
+      return (data ?? []).map((row) => [`${kind}-${row.id}`, row] as const);
+    })
+  );
+  return Object.fromEntries(entries.flat());
+}
+
+function ContactDocumentRows({
+  db,
+  accountId,
+  documents,
+  deals,
+}: {
+  db: ReturnType<typeof createClient>;
+  accountId: string;
+  documents: ContactDocument[];
+  deals: Deal[];
+}) {
+  const load = useCallback(
+    () => loadContactDocumentMetadata(db, accountId, documents),
+    [db, accountId, documents]
+  );
+  const metadata = useContactData(load);
+  if (!documents.length) return <DataState loading={false} error={false} />;
+  return (
+    <div className="space-y-2">
+      {metadata.error && (
+        <p className="text-xs text-slate-600">
+          Nie udało się wczytać metadanych dokumentów.
+        </p>
+      )}
+      {documents.map((document) => {
+        const details = metadata.data?.[`${document.kind}-${document.id}`];
+        const extension = document.name.match(/\.([a-z0-9]{1,10})$/i)?.[1];
+        const type = details?.document_type?.trim() || extension?.toUpperCase();
+        const context = [
+          document.kind === 'requirement' ? 'Wymagany dokument' : 'Dokument',
+          document.status.replaceAll('_', ' '),
+          deals.find((deal) => deal.id === document.deal_id)?.title,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return (
+          <Link
+            key={`${document.kind}-${document.id}`}
+            href={`/deals/${document.deal_id}?tab=files`}
+            title={`${document.name} · ${context}`}
+            className="flex min-w-0 items-baseline gap-1 rounded-lg border p-3 text-sm font-semibold"
+          >
+            <span className="min-w-0 truncate">{document.name}</span>
+            {type && (
+              <span className="shrink-0 text-xs font-normal text-slate-600">
+                · {type}
+              </span>
+            )}
+            {details?.created_at && (
+              <time
+                dateTime={details.created_at}
+                className="shrink-0 text-[11px] font-normal whitespace-nowrap text-slate-600"
+              >
+                · {formatWarsawDateTime(details.created_at)}
+              </time>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ContactDetailView({
   open,
@@ -323,7 +416,7 @@ export function ContactDetailView({
       const { data: peopleRows } = await supabase
         .from('deal_contacts')
         .select(
-          'contact_id,role,contact:contacts!deal_contacts_contact_id_fkey(id,name,phone)'
+          'contact_id,role,contact:contacts!deal_contacts_contact_id_fkey(id,name,phone,email)'
         )
         .in('deal_id', dealIds)
         .neq('contact_id', contactId);
@@ -347,7 +440,7 @@ export function ContactDetailView({
       if (participantIds.length) {
         const { data: participants } = await supabase
           .from('contacts')
-          .select('id,name,phone')
+          .select('id,name,phone,email')
           .in('id', participantIds);
         (participants ?? []).forEach((person) => {
           if (!people.has(person.id)) people.set(person.id, person);
@@ -414,11 +507,13 @@ export function ContactDetailView({
   const activeDeals = deals.filter(
     (deal) => deal.status !== 'won' && deal.status !== 'lost'
   );
-  const people = [
+  const people: RelatedPerson[] = [
     ...new Map(
       [
         ...spouseLinks.map(({ spouse }) => ({
           ...spouse,
+          email: spouseCandidates.find((person) => person.id === spouse.id)
+            ?.email,
           role: 'Współmałżonek/Partner',
         })),
         ...relatedPeople,
@@ -859,19 +954,33 @@ export function ContactDetailView({
                 className="bg-muted/50 border-border/50 group rounded-lg border p-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="flex-1 text-sm whitespace-pre-wrap text-slate-700">
-                    {note.note_text}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <time
+                      dateTime={note.created_at}
+                      className="text-[11px] text-slate-600"
+                    >
+                      {formatWarsawDateTime(note.created_at)}
+                    </time>
+                    <p className="line-clamp-3 text-sm whitespace-pre-wrap text-slate-700">
+                      {note.note_text}
+                    </p>
+                    <details className="mt-1 text-sm text-slate-700">
+                      <summary className="cursor-pointer text-xs font-semibold text-emerald-800 hover:underline">
+                        Rozwiń
+                      </summary>
+                      <p className="mt-1 whitespace-pre-wrap">
+                        {note.note_text}
+                      </p>
+                    </details>
+                  </div>
                   <button
                     onClick={() => deleteNote(note.id)}
+                    aria-label="Usuń notatkę"
                     className="shrink-0 cursor-pointer text-slate-700 opacity-0 transition-all group-hover:opacity-100 hover:text-red-700"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-700">
-                  {formatWarsawDateTime(note.created_at)} · Europe/Warsaw
-                </p>
               </div>
             ))}
           </>
@@ -889,7 +998,9 @@ export function ContactDetailView({
           error={overview.documents.error}
         />
       ) : (
-        <ContactDocumentList
+        <ContactDocumentRows
+          db={supabase}
+          accountId={contact.account_id}
           documents={overview.documents.data ?? []}
           deals={deals}
         />
@@ -1197,29 +1308,39 @@ export function ContactDetailView({
                                 deal.status !== 'won' && deal.status !== 'lost'
                             )
                             .slice(0, 3)
-                            .map((deal) => (
-                              <Link
-                                key={deal.id}
-                                href={`/deals/${deal.id}`}
-                                className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
-                              >
-                                <span className="block text-sm font-black">
-                                  {deal.title} ·{' '}
-                                  {formatCurrency(
-                                    deal.value ?? 0,
-                                    deal.currency || defaultCurrency
-                                  )}{' '}
-                                  · {deal.stage?.name || 'Etap nieustalony'}
-                                </span>
-                                <span className="mt-1 block text-xs text-slate-700">
-                                  następny krok:{' '}
-                                  {deal.next_action || 'nie ustalono'} · termin:{' '}
-                                  {deal.next_action_at
-                                    ? formatWarsawDateTime(deal.next_action_at)
-                                    : 'nie ustalono'}
-                                </span>
-                              </Link>
-                            ))}
+                            .map((deal) => {
+                              const date =
+                                deal.next_action_at ||
+                                deal.next_action_date ||
+                                deal.follow_up_at;
+                              const metadata = [
+                                deal.stage?.name?.trim(),
+                                deal.next_action?.trim(),
+                                date ? formatWarsawDateTime(date) : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ');
+                              return (
+                                <Link
+                                  key={deal.id}
+                                  href={`/deals/${deal.id}`}
+                                  className="block min-h-11 rounded-lg border border-slate-300 bg-slate-50 p-3 text-slate-950 hover:bg-slate-100"
+                                >
+                                  <span className="block text-sm font-black">
+                                    {deal.title} ·{' '}
+                                    {formatCurrency(
+                                      deal.value ?? 0,
+                                      deal.currency || defaultCurrency
+                                    )}
+                                  </span>
+                                  {metadata && (
+                                    <span className="mt-1 block text-xs text-slate-700">
+                                      {metadata}
+                                    </span>
+                                  )}
+                                </Link>
+                              );
+                            })}
                         </div>
                       ) : (
                         <p className="mt-2 text-sm text-slate-700">
@@ -1249,14 +1370,23 @@ export function ContactDetailView({
                               href={`/contacts?open=${person.id}`}
                               className="block rounded-lg border border-slate-200 p-3 text-sm font-semibold text-emerald-900"
                             >
-                              {person.name || person.phone}
-                              <span className="block text-xs font-normal text-slate-700">
+                              <span className="block">
+                                {person.name || person.phone}
+                                {' · '}
                                 {spouseLinks.some(
                                   ({ spouse }) => spouse.id === person.id
                                 )
                                   ? 'Współmałżonek/Partner'
                                   : person.role || 'Rola: Brak danych'}
                               </span>
+                              {(person.phone?.trim() ||
+                                person.email?.trim()) && (
+                                <span className="block text-xs font-normal text-slate-600">
+                                  {[person.phone?.trim(), person.email?.trim()]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </span>
+                              )}
                             </Link>
                           ))
                         ) : (

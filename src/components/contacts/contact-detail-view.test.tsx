@@ -5,7 +5,10 @@ import { createRequire } from 'node:module';
 import { compile } from 'tailwindcss';
 import { parse } from 'postcss';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContactDetailView } from './contact-detail-view';
+import {
+  ContactDetailView,
+  loadContactDocumentMetadata,
+} from './contact-detail-view';
 
 const fixture = vi.hoisted(() => ({
   effects: [] as {
@@ -28,6 +31,18 @@ const fixture = vi.hoisted(() => ({
   tags: [] as import('@/types').Tag[],
   assignedTagIds: null as string[] | null,
   notes: [] as import('@/types').ContactNote[],
+  deals: [] as import('@/types').Deal[],
+  people: [] as Pick<
+    import('@/types').Contact,
+    'id' | 'name' | 'phone' | 'email'
+  >[],
+  spouses: [] as import('@/types').ContactSpouseLink[],
+  spouseCandidates: [] as import('@/types').Contact[],
+  documentMetadata: {} as Record<
+    string,
+    { document_type?: string | null; created_at: string }
+  >,
+  metadataError: false,
   tasks: [] as {
     id: string;
     title: string;
@@ -41,7 +56,7 @@ const fixture = vi.hoisted(() => ({
     deal_id: string;
     name: string;
     status: string;
-    kind: 'document';
+    kind: 'document' | 'requirement';
   }[],
   activities: [] as import('@/lib/sales/activity-history').ActivityHistoryRow[],
   dataLoading: false,
@@ -103,6 +118,10 @@ vi.mock('react', async (importOriginal) => {
         if (index === 1)
           initial = fixture.assignedTagIds ?? fixture.tags.map(({ id }) => id);
         if (index === 2) initial = fixture.notes;
+        if (index === 4) initial = fixture.deals;
+        if (index === 5) initial = fixture.people;
+        if (index === 8) initial = fixture.spouses;
+        if (index === 9) initial = fixture.spouseCandidates;
       }
       return react.useState(
         initial === null
@@ -121,6 +140,11 @@ vi.mock('./contact-detail-sections', async (importOriginal) => {
     await importOriginal<typeof import('./contact-detail-sections')>();
   return {
     ...actual,
+    useContactData: () => ({
+      data: fixture.documentMetadata,
+      loading: false,
+      error: fixture.metadataError,
+    }),
     ContactCardFooter: (
       props: React.ComponentProps<typeof actual.ContactCardFooter>
     ) => {
@@ -375,6 +399,12 @@ beforeEach(() => {
   fixture.tags = [];
   fixture.assignedTagIds = null;
   fixture.notes = [];
+  fixture.deals = [];
+  fixture.people = [];
+  fixture.spouses = [];
+  fixture.spouseCandidates = [];
+  fixture.documentMetadata = {};
+  fixture.metadataError = false;
   fixture.tasks = [];
   fixture.documents = [];
   fixture.activities = [];
@@ -1229,4 +1259,300 @@ describe('K3-02A-10: kompozycja karty', () => {
     }
     expect(new Set(classes.map(([, className]) => className)).size).toBe(1);
   });
+});
+
+describe('K3-02A-11: gęstość i metadane kart', () => {
+  const card = (html: string, id: string) =>
+    html.split(`aria-labelledby="${id}"`)[1].split('</section>')[0];
+  const deal = (overrides: Partial<import('@/types').Deal> = {}) =>
+    ({
+      id: 'deal-synthetic',
+      title: 'Sprawa syntetyczna',
+      status: 'open',
+      value: 1500,
+      currency: 'PLN',
+      ...overrides,
+    }) as import('@/types').Deal;
+  const document = (
+    overrides: Partial<(typeof fixture.documents)[number]> = {}
+  ) => ({
+    id: 'doc-synthetic',
+    deal_id: 'deal-synthetic',
+    name: 'Umowa.pdf',
+    status: 'otrzymany',
+    kind: 'document' as const,
+    ...overrides,
+  });
+
+  it.each(['overview', 'notes'])(
+    'notatka ma datę, skrót i pełną treść pod Rozwiń (%s)',
+    (tab) => {
+      const text =
+        'Pierwsza linia\nDruga linia\nTrzecia linia\nCzwarta linia\nPełne zakończenie syntetyczne';
+      fixture.notes = [
+        {
+          id: 'note-synthetic',
+          note_text: text,
+          created_at: '2026-11-02T10:00:00Z',
+        },
+      ] as import('@/types').ContactNote[];
+      fixture.tab = tab;
+      const html = render();
+      const content =
+        tab === 'overview' ? card(html, 'contact-overview-notes') : html;
+      expect(content).toMatch(
+        /<time dateTime="2026-11-02T10:00:00Z" class="text-\[11px\] text-slate-600">2\.11\.2026, 11:00<\/time>/
+      );
+      expect(content).toContain(
+        `<p class="line-clamp-3 text-sm whitespace-pre-wrap text-slate-700">${text}</p>`
+      );
+      const details = content.match(/<details[^>]*>([\s\S]*?)<\/details>/)![1];
+      expect(details).toMatch(/<summary[^>]*>Rozwiń<\/summary>/);
+      expect(details).toContain(text);
+      expect(content).not.toContain('<details open');
+      expect(content).toContain('aria-label="Usuń notatkę"');
+    }
+  );
+
+  it.each([
+    [
+      '+48000000001',
+      'person@example.test',
+      '+48000000001 · person@example.test',
+    ],
+    ['+48000000001', '', '+48000000001'],
+    ['', 'person@example.test', 'person@example.test'],
+    ['', '', null],
+  ])(
+    'osoba pomija brakujące dane telefonu %s i e-maila %s',
+    (phone, email, expected) => {
+      fixture.people = [
+        { id: 'person-synthetic', name: 'Osoba powiązana', phone, email },
+      ];
+      const content = card(render(), 'contact-overview-people');
+      expect(content).toContain('href="/contacts?open=person-synthetic"');
+      const line = content.match(
+        /<span class="block text-xs font-normal text-slate-600">([^<]*)<\/span>/
+      );
+      expect(line?.[1] ?? null).toBe(expected);
+    }
+  );
+
+  it('współmałżonek korzysta z e-maila w już pobranym katalogu kontaktów', () => {
+    fixture.spouses = [
+      {
+        contactId: fixture.contact.id,
+        spouse: {
+          id: 'spouse-synthetic',
+          name: 'Partner syntetyczny',
+          phone: '+48000000002',
+        },
+      },
+    ];
+    fixture.spouseCandidates = [
+      { id: 'spouse-synthetic', email: 'spouse@example.test' },
+    ] as import('@/types').Contact[];
+    const content = card(render(), 'contact-overview-people');
+    expect(content).toContain('Współmałżonek/Partner');
+    expect(content).toContain('+48000000002 · spouse@example.test');
+  });
+
+  it.each(['next_action_at', 'next_action_date', 'follow_up_at'] as const)(
+    'deal ma etap i krok w drugiej linii, z terminem z %s',
+    (field) => {
+      fixture.deals = [
+        deal({
+          stage: { name: 'Analiza' } as import('@/types').PipelineStage,
+          next_action: 'Uzupełnij dokumenty',
+          [field]: '2026-11-03T09:00:00Z',
+        }),
+      ];
+      const content = card(render(), 'mobile-contact-deals');
+      const lines = [
+        ...content.matchAll(/<span class="([^"]+)">([^<]*)<\/span>/g),
+      ];
+      expect(lines).toHaveLength(2);
+      expect(lines[0][2]).toContain('Sprawa syntetyczna · ');
+      expect(lines[0][2]).toContain('1');
+      expect(lines[0][2]).not.toContain('Analiza');
+      expect(lines[1][2]).toBe(
+        'Analiza · Uzupełnij dokumenty · 3.11.2026, 10:00'
+      );
+      expect(content).not.toContain('Brak danych');
+      expect(content).toContain('href="/deals/deal-synthetic"');
+    }
+  );
+
+  it.each([
+    [{ next_action: 'Zadzwoń' }, 'Zadzwoń'],
+    [{ next_action: '  ' }, null],
+    [{}, null],
+  ] as const)('deal pomija puste metadane %j', (overrides, expected) => {
+    fixture.deals = [deal(overrides)];
+    const content = card(render(), 'mobile-contact-deals');
+    const line = content.match(
+      /<span class="mt-1 block text-xs text-slate-700">([^<]*)<\/span>/
+    );
+    expect(line?.[1] ?? null).toBe(expected);
+    expect(content).not.toMatch(/Brak danych|nie ustalono|Etap nieustalony/);
+  });
+
+  it.each(['overview', 'documents'])(
+    'dokument ma nazwę, typ i datę w jednym wierszu (%s)',
+    (tab) => {
+      fixture.tab = tab;
+      fixture.documents = [document()];
+      fixture.documentMetadata = {
+        'document-doc-synthetic': {
+          document_type: 'PDF',
+          created_at: '2026-11-02T10:00:00Z',
+        },
+      };
+      const html = render();
+      const content =
+        tab === 'overview' ? card(html, 'contact-overview-documents') : html;
+      const row = content.match(
+        /<a[^>]*href="\/deals\/deal-synthetic\?tab=files"[^>]*>(.*?)<\/a>/
+      )![1];
+      expect(row).toContain('Umowa.pdf');
+      expect(row).toContain('· PDF');
+      expect(row).toContain('· 2.11.2026, 11:00');
+      expect(row).not.toMatch(/<br|class="[^"]*\bblock\b/);
+      expect(content).toContain(
+        'class="flex min-w-0 items-baseline gap-1 rounded-lg border p-3 text-sm font-semibold"'
+      );
+      expect(content).toContain('Dodaj dokument');
+      expect(content).toContain(
+        'href="/quick-call?contact=contact-synthetic&amp;action=document"'
+      );
+    }
+  );
+
+  it('rozszerzenie jest zastępstwem typu, a brak metadanych nie tworzy daty', () => {
+    fixture.documents = [document()];
+    const content = card(render(), 'contact-overview-documents');
+    expect(content).toContain('· PDF');
+    expect(content).not.toContain('<time');
+    fixture.documents = [document({ name: 'Dokument bez rozszerzenia' })];
+    const noExtension = card(render(), 'contact-overview-documents');
+    expect(noExtension).toContain('Dokument bez rozszerzenia');
+    expect(noExtension).not.toContain('<time');
+    expect(noExtension).not.toContain('· PDF');
+  });
+
+  it('przy błędzie metadanych pozostają dokument i akcja dodawania', () => {
+    fixture.documents = [document()];
+    fixture.metadataError = true;
+    const content = card(render(), 'contact-overview-documents');
+    expect(content).toContain('Nie udało się wczytać metadanych dokumentów.');
+    expect(content).toContain('Umowa.pdf');
+    expect(content).toContain('Dodaj dokument');
+  });
+
+  it('zachowuje 8 zakładek, 5 kart info, 7 stopek, 4 akcje i p-3 kart', () => {
+    fixture.deals = [deal()];
+    fixture.documents = [document()];
+    const html = render();
+    expect(html.match(/data-slot="tabs-trigger"/g)).toHaveLength(8);
+    expect(html.match(/data-contact-info-card="/g)).toHaveLength(5);
+    expect(html.match(/Zobacz wszystkie →/g)).toHaveLength(7);
+    const header = html.split('</header>')[0];
+    for (const action of ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'])
+      expect(header).toContain(action);
+    expect(header).toContain('aria-label="Ścieżka nawigacji"');
+    expect(html).toContain('Więcej ⌄');
+    for (const id of [
+      'mobile-contact-deals',
+      'contact-overview-people',
+      'contact-overview-documents',
+      'contact-overview-notes',
+    ]) {
+      const content = card(html, id);
+      expect(content).toContain('space-y-2');
+      expect(content).toContain('text-sm font-black text-slate-950');
+      expect(html).toContain(
+        `class="rounded-xl border border-slate-300 bg-white p-3" aria-labelledby="${id}"`
+      );
+    }
+  });
+
+  function metadataDb(errorTable?: string) {
+    const queries: {
+      table: string;
+      select: ReturnType<typeof vi.fn>;
+      eq: ReturnType<typeof vi.fn>;
+      in: ReturnType<typeof vi.fn>;
+    }[] = [];
+    const from = vi.fn((table: string) => {
+      const query = {
+        table,
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'same-id',
+              document_type: table === 'deal_documents' ? 'PDF' : undefined,
+              created_at: '2026-11-02T10:00:00Z',
+            },
+          ],
+          error: errorTable === table ? { message: 'synthetic secret' } : null,
+        }),
+      };
+      queries.push(query);
+      return query;
+    });
+    return {
+      db: { from } as unknown as Parameters<
+        typeof loadContactDocumentMetadata
+      >[0],
+      from,
+      queries,
+    };
+  }
+
+  it('odczyt metadanych jest ograniczony kontem i ID, rozdziela dokumenty od wymagań', async () => {
+    const { db, queries } = metadataDb();
+    const data = await loadContactDocumentMetadata(db, 'account-synthetic', [
+      document({ id: 'same-id' }),
+      document({ id: 'same-id', kind: 'requirement' }),
+    ]);
+    expect(Object.keys(data)).toEqual([
+      'document-same-id',
+      'requirement-same-id',
+    ]);
+    expect(queries.map(({ table }) => table)).toEqual([
+      'deal_documents',
+      'deal_document_requirements',
+    ]);
+    expect(queries[0].select).toHaveBeenCalledWith(
+      'id,document_type,created_at'
+    );
+    expect(queries[1].select).toHaveBeenCalledWith('id,created_at');
+    for (const query of queries) {
+      expect(query.eq).toHaveBeenCalledWith('account_id', 'account-synthetic');
+      expect(query.in).toHaveBeenCalledWith('id', ['same-id']);
+    }
+  });
+
+  it('brak dokumentów nie uruchamia odczytów metadanych', async () => {
+    const { db, from } = metadataDb();
+    expect(
+      await loadContactDocumentMetadata(db, 'account-synthetic', [])
+    ).toEqual({});
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it.each(['deal_documents', 'deal_document_requirements'])(
+    'błąd odczytu %s nie ujawnia komunikatu bazy',
+    async (table) => {
+      const { db } = metadataDb(table);
+      await expect(
+        loadContactDocumentMetadata(db, 'account-synthetic', [
+          document(),
+          document({ kind: 'requirement' }),
+        ])
+      ).rejects.toThrow(/^CONTACT_DOCUMENT_METADATA_UNAVAILABLE$/);
+    }
+  );
 });
