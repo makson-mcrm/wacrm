@@ -23,6 +23,7 @@ const fixture = vi.hoisted(() => ({
   moreClick: undefined as undefined | (() => void),
   moreActionsOpen: false,
   moreActionsClick: undefined as undefined | (() => void),
+  showClientDetails: false,
   viewClicks: [] as (() => void)[],
   menuKeyDowns: {} as Record<string, React.KeyboardEventHandler>,
   footerClicks: [] as (() => void)[],
@@ -109,6 +110,13 @@ vi.mock('react', async (importOriginal) => {
           fixture.moreActionsOpen,
           (value: boolean) => {
             fixture.moreActionsOpen = value;
+          },
+        ];
+      if (stateIndex === 6)
+        return [
+          fixture.showClientDetails,
+          (value: boolean) => {
+            fixture.showClientDetails = value;
           },
         ];
       // Seed the existing tag, tag-ID and note states without running database effects.
@@ -326,16 +334,18 @@ vi.mock('@/components/ui/dropdown-menu', async () => {
       render,
       children,
       onClick,
+      'aria-label': label,
     }: {
       render?: React.ReactElement<React.ComponentProps<'a'>>;
       children: ReactNode;
       onClick?: () => void;
+      'aria-label'?: string;
     }) => {
       if (onClick) fixture.viewClicks.push(onClick);
       return render ? (
         cloneElement(render, { role: 'menuitem' }, children)
       ) : (
-        <button role="menuitem" onClick={onClick}>
+        <button role="menuitem" aria-label={label} onClick={onClick}>
           {children}
         </button>
       );
@@ -395,6 +405,7 @@ beforeEach(() => {
   fixture.moreClick = undefined;
   fixture.moreActionsOpen = false;
   fixture.moreActionsClick = undefined;
+  fixture.showClientDetails = false;
   fixture.expanded = true;
   fixture.tags = [];
   fixture.assignedTagIds = null;
@@ -412,7 +423,10 @@ beforeEach(() => {
   fixture.dataError = false;
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe('K3/01-L: karta klienta 02A', () => {
   it('renderuje dokładnie 8 zakładek we właściwej kolejności', () => {
@@ -436,6 +450,7 @@ describe('K3/01-L: karta klienta 02A', () => {
   });
   it('zachowuje sekcje podsumowania, ankietę, dyktowanie, terminy, nowy deal i edycję', () => {
     fixture.moreActionsOpen = true;
+    fixture.showClientDetails = true;
     const html = render();
     for (const text of [
       'Firma',
@@ -675,10 +690,8 @@ describe('K3/01-M: trzy obszary karty klienta', () => {
     expect(results).toContain('notesTab.save');
     expect(results).toContain('id="contact-overview-relations"');
     expect(results).not.toContain('id="contact-overview-documents"');
-    expect(html.indexOf('data-contact-full-details')).toBeGreaterThan(
-      html.indexOf('data-contact-column="results"')
-    );
-    expect(html).toContain('Dane klienta');
+    expect(html).not.toContain('data-contact-full-details');
+    expect(html).not.toContain('id="contact-deeper-details"');
     // Reused sections have only one mounted instance in the active panel.
     expect(html.match(/placeholder="notesTab.placeholder"/g)).toHaveLength(1);
     expect(html.match(/data-contact-info-card="Opiekun"/g)).toHaveLength(1);
@@ -1173,7 +1186,7 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
     const primary = ['ZADZWOŃ', 'WhatsApp', 'E-mail', 'WIĘCEJ'];
     let header = render().split('</header>')[0];
     for (const label of primary) expect(header).toContain(label);
-    for (const label of ['+ NOWY DEAL', 'DYKTUJ', 'DODAJ TERMIN'])
+    for (const label of ['+ Nowy deal', 'DYKTUJ', 'DODAJ TERMIN'])
       expect(header).not.toContain(label);
     expect(header).toContain(
       'aria-haspopup="menu" aria-expanded="false" aria-controls="contact-more-actions"'
@@ -1188,7 +1201,7 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
       /<div role="menu" id="contact-more-actions"[^>]*>(.*?)<\/div>/
     )![1];
     const links = [
-      ...menu.matchAll(/<a href="([^"]+)" role="menuitem">(.*?)<\/a>/g),
+      ...menu.matchAll(/<a href="([^"]+)"[^>]* role="menuitem">(.*?)<\/a>/g),
     ];
     expect(links.map(([, href]) => href)).toEqual([
       '/pipelines?new=deal&amp;contact=contact-synthetic',
@@ -1196,7 +1209,7 @@ describe('K3-02A-8: stopki, Więcej, liczniki i akcje', () => {
       '/calendar?new=event&amp;contact=contact-synthetic',
     ]);
     for (const [index, label] of [
-      '+ NOWY DEAL',
+      '+ Nowy deal',
       'DYKTUJ',
       'DODAJ TERMIN',
     ].entries())
@@ -1230,9 +1243,7 @@ describe('K3-02A-10: kompozycja karty', () => {
 
   it('wszystkie osiem tytułów kart w kolumnach ma tę samą typografię', () => {
     const html = render();
-    const columns = html
-      .split('data-contact-columns="true"')[1]
-      .split('data-contact-full-details')[0];
+    const columns = html.split('data-contact-columns="true"')[1];
     const headings = [
       ...columns.matchAll(/<h3[^>]*class="([^"]+)"[^>]*>(.*?)<\/h3>/g),
     ];
@@ -1258,6 +1269,84 @@ describe('K3-02A-10: kompozycja karty', () => {
       expect(styles(className, 1440)['flex-direction']).toBe('column');
     }
     expect(new Set(classes.map(([, className]) => className)).size).toBe(1);
+  });
+});
+
+describe('K3-02A-12: akcje szczegółów wyłącznie w menu nagłówka', () => {
+  it('podsumowanie kończy się kolumnami bez dolnej strefy CTA', () => {
+    const html = render();
+    expect(html).not.toContain('data-contact-full-details');
+    expect(html).not.toContain('id="contact-deeper-details"');
+    expect(html).not.toContain('PEŁNA KARTA KLIENTA');
+    expect(html).not.toContain('WIĘCEJ DANYCH KLIENTA');
+    expect(html).not.toContain('+ NOWY DEAL');
+    expect(html).not.toContain('newDeal=1');
+    expect(html.match(/data-contact-column="/g)).toHaveLength(3);
+  });
+
+  it('WIĘCEJ udostępnia obie akcje szczegółów i jeden link deala z ID kontaktu', () => {
+    fixture.moreActionsOpen = true;
+    const html = render();
+    const menu = html.match(
+      /<div role="menu" id="contact-more-actions"[^>]*>(.*?)<\/div>/
+    )![1];
+    expect(menu).toContain(
+      'role="menuitem" aria-label="PEŁNA KARTA KLIENTA">Pełna karta klienta</button>'
+    );
+    expect(menu).toContain('role="menuitem">Więcej danych klienta</button>');
+    expect(menu).toContain(
+      '<a href="/pipelines?new=deal&amp;contact=contact-synthetic" aria-label="+ UTWÓRZ NOWY DEAL" role="menuitem">+ Nowy deal</a>'
+    );
+    expect(html.match(/>\+ Nowy deal<\/a>/g)).toHaveLength(1);
+    expect(html).not.toContain('id="contact-deeper-details"');
+  });
+
+  it.each(['Pełna karta klienta', 'Więcej danych klienta'])(
+    '%s otwiera zachowane formularze, rozwija szczegóły i przewija do nich także z innej zakładki',
+    (label) => {
+      vi.useFakeTimers();
+      vi.stubGlobal('window', { setTimeout });
+      fixture.tab = 'notes';
+      fixture.moreActionsOpen = true;
+      render();
+      fixture.viewClicks[label === 'Pełna karta klienta' ? 0 : 1]();
+      expect(fixture.tab).toBe('overview');
+      expect(fixture.showClientDetails).toBe(true);
+      expect(fixture.moreActionsOpen).toBe(false);
+      const html = render();
+      expect(html).toContain('id="contact-deeper-details"');
+      for (const text of ['Dane klienta', 'Edytor tagów', 'Pola dodatkowe'])
+        expect(html).toContain(text);
+      expect(html).not.toContain('data-contact-full-details');
+      const nested = { setAttribute: vi.fn() };
+      const details = {
+        setAttribute: vi.fn(),
+        querySelector: vi.fn(() => nested),
+        scrollIntoView: vi.fn(),
+      };
+      const getElementById = vi.fn(() => details);
+      vi.stubGlobal('document', { getElementById });
+      vi.runAllTimers();
+      expect(getElementById).toHaveBeenCalledWith('contact-deeper-details');
+      expect(details.setAttribute).toHaveBeenCalledWith('open', '');
+      expect(details.querySelector).toHaveBeenCalledWith('details');
+      expect(nested.setAttribute).toHaveBeenCalledWith('open', '');
+      expect(details.scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+      });
+    }
+  );
+
+  it('zmiana kontaktu chowa wcześniej otwarte szczegóły', () => {
+    fixture.showClientDetails = true;
+    render();
+    const reset = fixture.effects.find(
+      ({ deps }) => deps?.[0] === fixture.contact.id && deps?.[1] === true
+    );
+    expect(reset).toBeDefined();
+    reset!.effect();
+    expect(fixture.showClientDetails).toBe(false);
+    expect(render()).not.toContain('id="contact-deeper-details"');
   });
 });
 

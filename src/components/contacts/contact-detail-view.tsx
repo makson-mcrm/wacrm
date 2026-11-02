@@ -216,6 +216,7 @@ export function ContactDetailView({
   const [contextExpanded, setContextExpanded] = useState(true);
   const [moreTabsOpen, setMoreTabsOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const [showClientDetails, setShowClientDetails] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Send template — lets the business initiate (or re-open) a conversation
@@ -273,6 +274,7 @@ export function ContactDetailView({
       setActiveTab('overview');
       setContextExpanded(true);
       setMoreTabsOpen(false);
+      setShowClientDetails(false);
     }
   }, [contactId, open]);
   const [companyRole, setCompanyRole] = useState('');
@@ -572,6 +574,19 @@ export function ContactDetailView({
   const selectTab = (value: string) => {
     setActiveTab(value);
     setMoreTabsOpen(false);
+    setShowClientDetails(false);
+  };
+  const openClientDetails = () => {
+    setActiveTab('overview');
+    setContextExpanded(true);
+    setShowClientDetails(true);
+    setMoreActionsOpen(false);
+    window.setTimeout(() => {
+      const details = document.getElementById('contact-deeper-details');
+      details?.setAttribute('open', '');
+      details?.querySelector('details')?.setAttribute('open', '');
+      details?.scrollIntoView({ behavior: 'smooth' });
+    }, 0);
   };
   const displayCount = (value: keyof typeof counts) =>
     countError[value] ? '—' : countLoading[value] ? '…' : counts[value];
@@ -1150,13 +1165,23 @@ export function ContactDetailView({
                       }}
                     >
                       <DropdownMenuItem
+                        aria-label="PEŁNA KARTA KLIENTA"
+                        onClick={openClientDetails}
+                      >
+                        Pełna karta klienta
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openClientDetails}>
+                        Więcej danych klienta
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         render={
                           <Link
                             href={`/pipelines?new=deal&contact=${contact.id}`}
+                            aria-label="+ UTWÓRZ NOWY DEAL"
                           />
                         }
                       >
-                        + NOWY DEAL
+                        + Nowy deal
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         render={
@@ -1496,342 +1521,321 @@ export function ContactDetailView({
                     </section>
                   </ContactDetailColumn>
                 </div>
-                <div
-                  data-contact-full-details
-                  className="shrink-0 space-y-[var(--section-gap)] px-[var(--content-pad-x)] pb-[var(--content-pad-y)]"
-                >
-                  {' '}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11 w-full border-slate-300 font-black text-slate-950"
-                    onClick={() => {
-                      setActiveTab('overview');
-                      setContextExpanded(true);
-                      window.setTimeout(() => {
-                        const details = document.getElementById(
-                          'contact-deeper-details'
-                        );
-                        details?.setAttribute('open', '');
-                        details
-                          ?.querySelector('details')
-                          ?.setAttribute('open', '');
-                        details?.scrollIntoView({ behavior: 'smooth' });
-                      }, 0);
-                    }}
-                  >
-                    PEŁNA KARTA KLIENTA
-                  </Button>
-                  <details
-                    id="contact-deeper-details"
-                    className="rounded-xl border bg-slate-50 p-3"
-                  >
-                    <summary className="cursor-pointer text-xs font-bold text-slate-800">
-                      WIĘCEJ DANYCH KLIENTA
-                    </summary>
-                    <div className="mt-3 space-y-3">
-                      <details className="rounded-lg border bg-white p-3">
-                        <summary className="cursor-pointer text-xs font-bold">
-                          Dane klienta
-                        </summary>
-                        <div className="mt-3">
-                          <div className="space-y-3">
-                            <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
-                              <div>
-                                <dt className="font-black text-slate-600 uppercase">
-                                  Następny krok
-                                </dt>
-                                <dd className="mt-0.5 font-semibold text-slate-800">
-                                  {contact.next_step || '—'}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="font-black text-slate-600 uppercase">
-                                  Termin
-                                </dt>
-                                <dd className="mt-0.5 font-semibold text-slate-800">
-                                  {contact.follow_up_at
-                                    ? new Date(
-                                        contact.follow_up_at
-                                      ).toLocaleString('pl-PL', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })
-                                    : '—'}
-                                </dd>
-                              </div>
-                            </dl>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setTemplatePickerOpen(true)}
-                              disabled={sendingTemplate}
-                            >
-                              {sendingTemplate ? (
-                                <Loader2 className="size-4 animate-spin" />
-                              ) : (
-                                <LayoutTemplate className="size-4" />
-                              )}
-                              {t('sendTemplateBtn')}
-                            </Button>
-                            <div className="grid gap-2 md:max-w-md md:grid-cols-2">
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  Imię
-                                </Label>
-                                <Input
-                                  value={editFirstName}
-                                  onChange={(e) =>
-                                    setEditFirstName(e.target.value)
-                                  }
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-slate-700">
-                                  Nazwisko
-                                </Label>
-                                <Input
-                                  value={editLastName}
-                                  onChange={(e) =>
-                                    setEditLastName(e.target.value)
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs text-slate-700">
-                                {t('name')}
-                              </Label>
-                              <Input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="bg-muted border-border text-foreground h-8 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs text-slate-700">
-                                {t('phone')}{' '}
-                                <span className="text-red-400">*</span>
-                              </Label>
-                              <Input
-                                value={editPhone}
-                                onChange={(e) => setEditPhone(e.target.value)}
-                                className="bg-muted border-border text-foreground h-8 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs text-slate-700">
-                                {t('email')}
-                              </Label>
-                              <Input
-                                value={editEmail}
-                                onChange={(e) => setEditEmail(e.target.value)}
-                                className="bg-muted border-border text-foreground h-8 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs text-slate-700">
-                                LinkedIn
-                              </Label>
-                              <Input
-                                type="url"
-                                value={editLinkedin}
-                                onChange={(e) =>
-                                  setEditLinkedin(e.target.value)
-                                }
-                                placeholder="https://linkedin.com/in/..."
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs text-slate-700">
-                                Opis Kontaktu
-                              </Label>
-                              <Textarea
-                                value={editDescription}
-                                onChange={(e) =>
-                                  setEditDescription(e.target.value)
-                                }
-                                className="min-h-32 resize-y"
-                                placeholder="Pełny opis osoby i ustaleń"
-                              />
-                            </div>
-                            <details className="rounded-lg border p-3">
-                              <summary className="cursor-pointer text-xs font-semibold">
-                                Dane do wniosku — wrażliwe
-                              </summary>
-                              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                <Input
-                                  value={editPesel}
-                                  onChange={(e) => setEditPesel(e.target.value)}
-                                  placeholder="PESEL"
-                                />
-                                <Input
-                                  value={editIdentityDocument}
-                                  onChange={(e) =>
-                                    setEditIdentityDocument(e.target.value)
-                                  }
-                                  placeholder="Seria i numer dokumentu"
-                                />
-                                <select
-                                  value={editBikStatus}
-                                  onChange={(e) =>
-                                    setEditBikStatus(e.target.value)
-                                  }
-                                  className="bg-muted h-9 rounded-md border px-2 text-sm"
-                                >
-                                  <option value="">BIK — brak danych</option>
-                                  <option>Sprawdzony — OK</option>
-                                  <option>Wymaga analizy</option>
-                                  <option>Negatywny</option>
-                                </select>
-                                <Input
-                                  value={editIncomeType}
-                                  onChange={(e) =>
-                                    setEditIncomeType(e.target.value)
-                                  }
-                                  placeholder="Źródło dochodu"
-                                />
-                                <Input
-                                  type="number"
-                                  value={editMonthlyIncome}
-                                  onChange={(e) =>
-                                    setEditMonthlyIncome(e.target.value)
-                                  }
-                                  placeholder="Dochód miesięczny"
-                                />
-                              </div>
-                            </details>
-                            <Button
-                              onClick={saveDetails}
-                              disabled={savingDetails}
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                              size="sm"
-                            >
-                              {savingDetails ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <Save className="size-3.5" />
-                              )}
-                              {t('saveChangesBtn')}
-                            </Button>
-                          </div>
-                        </div>
-                      </details>
-                      <details className="rounded-lg border bg-white p-3">
-                        <summary className="cursor-pointer text-xs font-bold">
-                          Tagi
-                        </summary>
-                        <div className="mt-3">
-                          <div className="space-y-3">
-                            {accountId && contactId && (
-                              <section className="rounded-xl border p-4">
-                                <h3 className="mb-3 text-sm font-semibold">
-                                  Tagi CRM Kontaktu
-                                </h3>
-                                <EntityTagsEditor
-                                  accountId={accountId}
-                                  entityType="contact"
-                                  entityId={contactId}
-                                />
-                              </section>
-                            )}
-                            <p className="text-xs text-slate-700">
-                              {t('tagsTab.clickTagDesc')}
-                            </p>
-                            {allTags.length === 0 ? (
-                              <p className="text-sm text-slate-700">
-                                {t('tagsTab.noTagsAvailable')}
-                              </p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {allTags.map((tag) => {
-                                  const selected = contactTagIds.includes(
-                                    tag.id
-                                  );
-                                  return (
-                                    <button
-                                      key={tag.id}
-                                      onClick={() => toggleTag(tag.id)}
-                                      disabled={savingTags}
-                                      className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                                        selected
-                                          ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
-                                          : 'opacity-50 hover:opacity-80'
-                                      }`}
-                                      style={{
-                                        backgroundColor: tag.color + '20',
-                                        color: tag.color,
-                                      }}
-                                    >
-                                      {selected && (
-                                        <Check className="mr-1 size-3" />
-                                      )}
-                                      {tag.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </details>
-                      <details className="rounded-lg border bg-white p-3">
-                        <summary className="cursor-pointer text-xs font-bold">
-                          Pola dodatkowe
-                        </summary>
-                        <div className="mt-3">
-                          {loadingCustom ? (
-                            <div className="flex items-center justify-center py-8">
-                              <Loader2 className="size-5 animate-spin text-slate-700" />
-                            </div>
-                          ) : customFields.length === 0 ? (
-                            <p className="py-8 text-center text-sm text-slate-700">
-                              {t('noCustomFields')}
-                            </p>
-                          ) : (
+                {showClientDetails && (
+                  <div className="shrink-0 px-[var(--content-pad-x)] pb-[var(--content-pad-y)]">
+                    <details
+                      id="contact-deeper-details"
+                      className="rounded-xl border bg-slate-50 p-3"
+                    >
+                      <summary className="cursor-pointer text-xs font-bold text-slate-800">
+                        WIĘCEJ DANYCH KLIENTA
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Dane klienta
+                          </summary>
+                          <div className="mt-3">
                             <div className="space-y-3">
-                              {customFields.map((field) => (
-                                <div key={field.id} className="space-y-1.5">
-                                  <Label className="text-xs text-slate-700 capitalize">
-                                    {field.field_name}
+                              <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-emerald-50 p-3 text-xs sm:grid-cols-4 xl:grid-cols-2">
+                                <div>
+                                  <dt className="font-black text-slate-600 uppercase">
+                                    Następny krok
+                                  </dt>
+                                  <dd className="mt-0.5 font-semibold text-slate-800">
+                                    {contact.next_step || '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="font-black text-slate-600 uppercase">
+                                    Termin
+                                  </dt>
+                                  <dd className="mt-0.5 font-semibold text-slate-800">
+                                    {contact.follow_up_at
+                                      ? new Date(
+                                          contact.follow_up_at
+                                        ).toLocaleString('pl-PL', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })
+                                      : '—'}
+                                  </dd>
+                                </div>
+                              </dl>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setTemplatePickerOpen(true)}
+                                disabled={sendingTemplate}
+                              >
+                                {sendingTemplate ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <LayoutTemplate className="size-4" />
+                                )}
+                                {t('sendTemplateBtn')}
+                              </Button>
+                              <div className="grid gap-2 md:max-w-md md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-slate-700">
+                                    Imię
                                   </Label>
                                   <Input
-                                    value={customValues[field.id] ?? ''}
+                                    value={editFirstName}
                                     onChange={(e) =>
-                                      setCustomValues((prev) => ({
-                                        ...prev,
-                                        [field.id]: e.target.value,
-                                      }))
+                                      setEditFirstName(e.target.value)
                                     }
-                                    placeholder={t('enterCustomField', {
-                                      name: field.field_name,
-                                    })}
-                                    className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
                                   />
                                 </div>
-                              ))}
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-slate-700">
+                                    Nazwisko
+                                  </Label>
+                                  <Input
+                                    value={editLastName}
+                                    onChange={(e) =>
+                                      setEditLastName(e.target.value)
+                                    }
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('name')}
+                                </Label>
+                                <Input
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('phone')}{' '}
+                                  <span className="text-red-400">*</span>
+                                </Label>
+                                <Input
+                                  value={editPhone}
+                                  onChange={(e) => setEditPhone(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  {t('email')}
+                                </Label>
+                                <Input
+                                  value={editEmail}
+                                  onChange={(e) => setEditEmail(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  LinkedIn
+                                </Label>
+                                <Input
+                                  type="url"
+                                  value={editLinkedin}
+                                  onChange={(e) =>
+                                    setEditLinkedin(e.target.value)
+                                  }
+                                  placeholder="https://linkedin.com/in/..."
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-slate-700">
+                                  Opis Kontaktu
+                                </Label>
+                                <Textarea
+                                  value={editDescription}
+                                  onChange={(e) =>
+                                    setEditDescription(e.target.value)
+                                  }
+                                  className="min-h-32 resize-y"
+                                  placeholder="Pełny opis osoby i ustaleń"
+                                />
+                              </div>
+                              <details className="rounded-lg border p-3">
+                                <summary className="cursor-pointer text-xs font-semibold">
+                                  Dane do wniosku — wrażliwe
+                                </summary>
+                                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  <Input
+                                    value={editPesel}
+                                    onChange={(e) =>
+                                      setEditPesel(e.target.value)
+                                    }
+                                    placeholder="PESEL"
+                                  />
+                                  <Input
+                                    value={editIdentityDocument}
+                                    onChange={(e) =>
+                                      setEditIdentityDocument(e.target.value)
+                                    }
+                                    placeholder="Seria i numer dokumentu"
+                                  />
+                                  <select
+                                    value={editBikStatus}
+                                    onChange={(e) =>
+                                      setEditBikStatus(e.target.value)
+                                    }
+                                    className="bg-muted h-9 rounded-md border px-2 text-sm"
+                                  >
+                                    <option value="">BIK — brak danych</option>
+                                    <option>Sprawdzony — OK</option>
+                                    <option>Wymaga analizy</option>
+                                    <option>Negatywny</option>
+                                  </select>
+                                  <Input
+                                    value={editIncomeType}
+                                    onChange={(e) =>
+                                      setEditIncomeType(e.target.value)
+                                    }
+                                    placeholder="Źródło dochodu"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={editMonthlyIncome}
+                                    onChange={(e) =>
+                                      setEditMonthlyIncome(e.target.value)
+                                    }
+                                    placeholder="Dochód miesięczny"
+                                  />
+                                </div>
+                              </details>
                               <Button
-                                onClick={saveCustomFields}
-                                disabled={savingCustom}
+                                onClick={saveDetails}
+                                disabled={savingDetails}
                                 className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
                                 size="sm"
                               >
-                                {savingCustom ? (
+                                {savingDetails ? (
                                   <Loader2 className="size-3.5 animate-spin" />
                                 ) : (
                                   <Save className="size-3.5" />
                                 )}
-                                {t('saveCustomFieldsBtn')}
+                                {t('saveChangesBtn')}
                               </Button>
                             </div>
-                          )}
-                        </div>
-                      </details>
-                    </div>
-                  </details>
-                </div>
+                          </div>
+                        </details>
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Tagi
+                          </summary>
+                          <div className="mt-3">
+                            <div className="space-y-3">
+                              {accountId && contactId && (
+                                <section className="rounded-xl border p-4">
+                                  <h3 className="mb-3 text-sm font-semibold">
+                                    Tagi CRM Kontaktu
+                                  </h3>
+                                  <EntityTagsEditor
+                                    accountId={accountId}
+                                    entityType="contact"
+                                    entityId={contactId}
+                                  />
+                                </section>
+                              )}
+                              <p className="text-xs text-slate-700">
+                                {t('tagsTab.clickTagDesc')}
+                              </p>
+                              {allTags.length === 0 ? (
+                                <p className="text-sm text-slate-700">
+                                  {t('tagsTab.noTagsAvailable')}
+                                </p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {allTags.map((tag) => {
+                                    const selected = contactTagIds.includes(
+                                      tag.id
+                                    );
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        onClick={() => toggleTag(tag.id)}
+                                        disabled={savingTags}
+                                        className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                                          selected
+                                            ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
+                                            : 'opacity-50 hover:opacity-80'
+                                        }`}
+                                        style={{
+                                          backgroundColor: tag.color + '20',
+                                          color: tag.color,
+                                        }}
+                                      >
+                                        {selected && (
+                                          <Check className="mr-1 size-3" />
+                                        )}
+                                        {tag.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </details>
+                        <details className="rounded-lg border bg-white p-3">
+                          <summary className="cursor-pointer text-xs font-bold">
+                            Pola dodatkowe
+                          </summary>
+                          <div className="mt-3">
+                            {loadingCustom ? (
+                              <div className="flex items-center justify-center py-8">
+                                <Loader2 className="size-5 animate-spin text-slate-700" />
+                              </div>
+                            ) : customFields.length === 0 ? (
+                              <p className="py-8 text-center text-sm text-slate-700">
+                                {t('noCustomFields')}
+                              </p>
+                            ) : (
+                              <div className="space-y-3">
+                                {customFields.map((field) => (
+                                  <div key={field.id} className="space-y-1.5">
+                                    <Label className="text-xs text-slate-700 capitalize">
+                                      {field.field_name}
+                                    </Label>
+                                    <Input
+                                      value={customValues[field.id] ?? ''}
+                                      onChange={(e) =>
+                                        setCustomValues((prev) => ({
+                                          ...prev,
+                                          [field.id]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder={t('enterCustomField', {
+                                        name: field.field_name,
+                                      })}
+                                      className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-slate-600"
+                                    />
+                                  </div>
+                                ))}
+                                <Button
+                                  onClick={saveCustomFields}
+                                  disabled={savingCustom}
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                                  size="sm"
+                                >
+                                  {savingCustom ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <Save className="size-3.5" />
+                                  )}
+                                  {t('saveCustomFieldsBtn')}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    </details>
+                  </div>
+                )}
               </TabsContent>
 
               {/* Notes Tab */}
@@ -2120,17 +2124,6 @@ export function ContactDetailView({
                 />
               </TabsContent>
             </Tabs>
-            <div className="shrink-0 border-t bg-white p-3">
-              <Button
-                aria-label="+ UTWÓRZ NOWY DEAL"
-                className="w-full bg-emerald-800 text-white"
-                render={
-                  <Link href={`/quick-call?contact=${contact.id}&newDeal=1`} />
-                }
-              >
-                + NOWY DEAL
-              </Button>
-            </div>
           </div>
         )}
       </section>
