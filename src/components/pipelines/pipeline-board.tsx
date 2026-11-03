@@ -1,6 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import {
+  useMemo,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+} from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -18,19 +23,34 @@ import type { Deal, PipelineStage } from '@/types';
 import { DealCard } from './deal-card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
-import { useTranslations } from 'next-intl';
 
-const BRAND_STAGE_COLORS = [
-  '#173A52',
-  '#245247',
-  '#B7D84B',
-  '#173A52',
-  '#245247',
-  '#B7D84B',
-  '#1B2730',
-];
+const STAGE_COLORS: Record<string, string> = {
+  klasyfikacja: '#64748b',
+  'wymagana analiza': '#0ea5e9',
+  propozycja: '#8b5cf6',
+  wycena: '#8b5cf6',
+  'propozycja/wycena': '#8b5cf6',
+  'propozycja cenowa': '#8b5cf6',
+  negocjacje: '#f59e0b',
+  'negocjacje/rewizja': '#f59e0b',
+  'zamknięty zdobyty': '#0f7b3f',
+  'zamknięty utracony': '#b3261e',
+};
+
+function stageColor(name: string): string {
+  const normalized = name
+    .toLocaleLowerCase('pl-PL')
+    .trim()
+    .replace(/,/g, '')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ');
+  return Object.hasOwn(STAGE_COLORS, normalized)
+    ? STAGE_COLORS[normalized]
+    : '#94a3b8';
+}
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -141,36 +161,41 @@ export function PipelineBoard({
             return (
               <section
                 key={stage.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                data-stage-color={stageColor(stage.name)}
+                className="overflow-hidden rounded-xl border border-[#e3e7ec] bg-slate-100 text-slate-900 shadow-sm"
+                style={{ backgroundColor: '#f1f3f6' }}
               >
+                <div
+                  aria-hidden="true"
+                  className="h-[3px] shrink-0"
+                  style={{ backgroundColor: stageColor(stage.name) }}
+                />
                 <button
                   type="button"
                   onClick={() => setOpenStageId(open ? '__none__' : stage.id)}
                   aria-expanded={open}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-left"
+                  className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
                 >
                   <span
-                    className="h-10 w-1 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor:
-                        BRAND_STAGE_COLORS[
-                          stage.position % BRAND_STAGE_COLORS.length
-                        ],
-                    }}
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: stageColor(stage.name) }}
                   />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-black text-slate-900">
+                  <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1 text-xs">
+                    <span
+                      className="min-w-0 truncate font-black text-slate-900"
+                      title={stage.name}
+                    >
                       {stage.name}
                     </span>
-                    <span className="mt-0.5 block text-xs text-slate-600">
-                      {formatCurrency(totalValue, defaultCurrency)}
-                    </span>
-                  </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-700">
-                    {stageDeals.length}
+                    <StageSummary
+                      count={stageDeals.length}
+                      totalValue={totalValue}
+                      currency={defaultCurrency}
+                    />
                   </span>
                   <ChevronDown
-                    className={`size-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
+                    className={`size-4 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {open ? (
@@ -178,7 +203,7 @@ export function PipelineBoard({
                     <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
                       {stageDeals.length ? (
                         stageDeals.map((deal) => (
-                          <DealCard
+                          <PipelineDealCard
                             key={deal.id}
                             deal={deal}
                             stage={stage}
@@ -186,7 +211,7 @@ export function PipelineBoard({
                           />
                         ))
                       ) : (
-                        <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-500">
+                        <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-600">
                           Brak Dealów na tym etapie.
                         </p>
                       )}
@@ -197,7 +222,7 @@ export function PipelineBoard({
                       onClick={() => onAddDeal(stage.id)}
                       className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
                     >
-                      <Plus className="mr-1 size-3" /> Dodaj sprawę
+                      <Plus className="mr-1 size-3" /> Dodaj deal
                     </Button>
                   </div>
                 ) : null}
@@ -235,7 +260,7 @@ export function PipelineBoard({
       >
         {activeDeal ? (
           <div className="opacity-90">
-            <DealCard
+            <PipelineDealCard
               deal={activeDeal}
               stage={
                 sortedStages.find((s) => s.id === activeDeal.stage_id) ?? null
@@ -300,6 +325,42 @@ export function PipelineBoard({
   );
 }
 
+function StageSummary({
+  count,
+  totalValue,
+  currency,
+}: {
+  count: number;
+  totalValue: number;
+  currency: string;
+}) {
+  const noun =
+    count === 1
+      ? 'transakcja'
+      : count % 10 >= 2 &&
+          count % 10 <= 4 &&
+          (count % 100 < 12 || count % 100 > 14)
+        ? 'transakcje'
+        : 'transakcji';
+  // The shared formatter follows the browser locale. Keep the requested Polish
+  // PLN spelling and grouping stable, including four-digit amounts and zero.
+  const amount =
+    currency === 'PLN'
+      ? `${totalValue.toLocaleString('pl-PL', { useGrouping: true, maximumFractionDigits: 0 })} zł`
+      : formatCurrency(totalValue, currency);
+
+  return (
+    <span className="contents text-xs font-normal text-slate-600">
+      <span className="min-w-0 break-words min-[1440px]:shrink-0 min-[1440px]:whitespace-nowrap">
+        · {amount}
+      </span>
+      <span className="shrink-0 whitespace-nowrap">
+        · {count} {noun}
+      </span>
+    </span>
+  );
+}
+
 function StageColumn({
   stage,
   deals,
@@ -325,26 +386,43 @@ function StageColumn({
     // restore the flex-1 share-the-row behavior. The droppable ref is
     // on the inner messages region below — intentionally NOT here, so
     // a drag over the column header doesn't highlight the whole column.
-    <div className="border-border bg-card/60 flex h-[calc(100dvh-245px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border p-1.5">
+    <div
+      data-stage-color={stageColor(stage.name)}
+      className="flex h-[calc(100dvh-245px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e3e7ec] bg-slate-100 p-1.5 text-slate-900"
+      style={{ backgroundColor: '#f1f3f6' }}
+    >
       {/* 3px colored top border — sits above the column's padding */}
       <div
-        className="-mx-1.5 -mt-1.5 h-[3px]"
+        aria-hidden="true"
+        className="-mx-1.5 -mt-1.5 h-[3px] shrink-0"
         style={{
-          backgroundColor:
-            BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length],
+          backgroundColor: stageColor(stage.name),
         }}
       />
-      <div className="bg-card/95 sticky top-0 z-10 flex items-center justify-between pt-1.5 backdrop-blur">
-        <h3 className="text-foreground truncate text-xs font-bold">
-          {stage.name}
+      <div
+        data-stage-header
+        className="sticky top-0 z-10 bg-slate-100 pt-1.5"
+        style={{ backgroundColor: '#f1f3f6' }}
+      >
+        <h3 className="flex min-w-0 flex-wrap items-baseline gap-x-1 text-xs font-bold min-[1440px]:flex-nowrap">
+          <span
+            className="inline-flex min-w-0 items-center gap-1"
+            title={stage.name}
+          >
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: stageColor(stage.name) }}
+            />
+            <span className="truncate">{stage.name}</span>
+          </span>
+          <StageSummary
+            count={deals.length}
+            totalValue={totalValue}
+            currency={currency}
+          />
         </h3>
-        <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-1.5 py-0 text-xs font-medium">
-          {deals.length}
-        </span>
       </div>
-      <p className="text-muted-foreground text-xs">
-        {formatCurrency(totalValue, currency)}
-      </p>
 
       <div
         ref={setNodeRef}
@@ -355,7 +433,7 @@ function StageColumn({
         }`}
       >
         {deals.length === 0 ? (
-          <div className="border-border text-muted-foreground flex flex-1 items-center justify-center rounded-lg border-2 border-dashed py-10 text-xs">
+          <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-[#e3e7ec] py-10 text-xs text-slate-600">
             {t('dropDealHere')}
           </div>
         ) : (
@@ -374,10 +452,10 @@ function StageColumn({
         variant="ghost"
         size="sm"
         onClick={() => onAddDeal(stage.id)}
-        className="border-border text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground mt-1 h-7 w-full justify-start border border-dashed bg-transparent px-2 text-xs"
+        className="mt-1 h-7 w-full justify-start border border-dashed border-[#e3e7ec] bg-transparent px-2 text-xs text-slate-600 hover:border-slate-400 hover:bg-white hover:text-slate-900"
       >
         <Plus className="mr-1 h-3 w-3" />
-        Dodaj sprawę
+        Dodaj deal
       </Button>
     </div>
   );
@@ -403,7 +481,27 @@ function DraggableDealCard({
       {...attributes}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <PipelineDealCard deal={deal} stage={stage} onEdit={onEdit} />
+    </div>
+  );
+}
+
+// Keep this presentation local to the board; the shared DealCard and its actions
+// are also used on other screens, outside this task's scope.
+function PipelineDealCard(props: ComponentProps<typeof DealCard>) {
+  return (
+    <div
+      data-pipeline-deal
+      className="rounded-[10px] bg-white text-slate-900 [&>article]:rounded-[10px] [&>article]:border-[#e3e7ec] [&>article]:bg-white [&>article]:text-[#0f172a] [&>article]:shadow-[0_1px_2px_rgb(15_23_42_/_0.06)] [&>article>a]:text-[#0f172a] [&>article>p]:text-[#475569] [&>article>p:first-of-type]:text-[#0f172a] [&>article>span]:bg-[var(--pipeline-stage-color)]!"
+      style={
+        {
+          '--pipeline-stage-color': props.stage
+            ? stageColor(props.stage.name)
+            : '#94a3b8',
+        } as CSSProperties
+      }
+    >
+      <DealCard {...props} />
     </div>
   );
 }

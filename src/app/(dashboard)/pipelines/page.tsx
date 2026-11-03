@@ -453,7 +453,7 @@ export default function PipelinesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 bg-[#f8f9fb] text-slate-900">
         <div className="flex items-center justify-between">
           <div className="bg-muted h-8 w-48 animate-pulse rounded" />
           <div className="bg-muted h-9 w-28 animate-pulse rounded-lg" />
@@ -471,11 +471,11 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div data-pipeline-workspace className="min-w-0 space-y-4 bg-[#f8f9fb] text-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek</h1>
-          <p className="mt-1 text-sm text-slate-500">Wszystkie aktywne sprawy (Tomasz)</p>
+          <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek sprzedaży</h1>
+          <p className="mt-1 text-sm text-slate-600">Wszystkie aktywne sprawy (Tomasz)</p>
         </div>
         <Button variant={includeArchive ? 'default' : 'outline'} onClick={() => setIncludeArchive((value) => !value)}>
           <Archive className="size-4" /> Archiwum ({archiveCount})
@@ -571,7 +571,7 @@ export default function PipelinesPage() {
               AI+
             </span>
           </span>
-          <span className="mt-0.5 block text-sm font-medium text-slate-500">
+          <span className="mt-0.5 block text-sm font-medium text-slate-600">
             Przeanalizuj lejek
           </span>
         </span>
@@ -691,7 +691,7 @@ export default function PipelinesPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="text-xs font-semibold text-slate-600">{label}</p>
       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
@@ -709,7 +709,7 @@ function FilterSelect({
   options: string[];
 }) {
   return (
-    <label className="min-w-0 text-xs font-black tracking-wide text-slate-500 uppercase">
+    <label className="min-w-0 text-xs font-black tracking-wide text-slate-600 uppercase">
       {label}
       <select
         value={value}
