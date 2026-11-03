@@ -103,13 +103,16 @@ export default function PipelinesPage() {
   const [defaultContactId, setDefaultContactId] = useState<string>('');
   const [defaultQuestionnaireId, setDefaultQuestionnaireId] =
     useState<string>('');
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
 
   const loadPipelines = useCallback(async () => {
     if (!accountId) return null;
     try {
-      return await readPipelines(supabase, accountId);
+      const list = await readPipelines(supabase, accountId);
+      setPipelineError(null);
+      return list;
     } catch (error) {
-      toast.error(`Nie wczytano lejków: ${crmErrorMessage(error)}`);
+      setPipelineError(crmErrorMessage(error));
       return null;
     }
   }, [supabase, accountId]);
@@ -193,13 +196,15 @@ export default function PipelinesPage() {
           SPEC_DEFAULT_STAGES
         );
         if (cancelled) return;
+        setPipelineError(null);
         setPipelines(list);
         setSelectedPipelineId((prev) =>
           prev && list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? '')
         );
       } catch (error) {
+        // Missing account during auth hydration is not a failed fetch.
         if (!cancelled)
-          toast.error(`Nie wczytano lejków: ${crmErrorMessage(error)}`);
+          setPipelineError(accountId ? crmErrorMessage(error) : null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -472,6 +477,11 @@ export default function PipelinesPage() {
 
   return (
     <div data-pipeline-workspace className="min-h-full min-w-0 space-y-4 bg-[#f8f9fb] text-slate-900">
+      {pipelineError ? (
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          Nie wczytano lejków: {pipelineError}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek sprzedaży</h1>

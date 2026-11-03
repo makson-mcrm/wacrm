@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { EffectCallback, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PipelineStage } from '@/types';
@@ -12,6 +12,12 @@ const harness = vi.hoisted(() => ({
   dnd: {} as DndContextProps,
   droppable: vi.fn(),
   draggable: vi.fn(),
+  accountId: 'account-synthetic' as string | null,
+  effects: [] as EffectCallback[],
+  trackEffects: false,
+  loadPipelines: vi.fn(),
+  readPipelines: vi.fn(),
+  toastError: vi.fn(),
   states: [] as unknown[],
   database: vi.fn(() => {
     throw new Error('Database forbidden in synthetic pipeline tests');
@@ -27,21 +33,39 @@ vi.mock('react', async (original) => {
   const react = await original<typeof import('react')>();
   return {
     ...react,
-    useEffect: () => {},
+    useEffect: (effect: EffectCallback) => {
+      if (harness.trackEffects) harness.effects.push(effect);
+    },
     useState: (initial: unknown) => {
       const index = harness.cursor++;
-      return react.useState(
+      const state = react.useState(
         index in harness.states ? harness.states[index] : initial
       );
+      if (!harness.trackEffects) return state;
+      // Capture async effect writes for the next SSR render, without a DOM or DB.
+      return [
+        state[0],
+        (value: unknown) => {
+          harness.states[index] =
+            typeof value === 'function'
+              ? value(harness.states[index] ?? initial)
+              : value;
+        },
+      ];
     },
   };
 });
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ from: harness.database }),
 }));
+vi.mock('@/lib/deals/pipeline-bootstrap', () => ({
+  loadOrSeedPipelines: harness.loadPipelines,
+  readPipelines: harness.readPipelines,
+}));
+vi.mock('sonner', () => ({ toast: { error: harness.toastError } }));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
-    accountId: 'account-synthetic',
+    accountId: harness.accountId,
     defaultCurrency: harness.currency,
   }),
 }));
@@ -136,6 +160,13 @@ function textContent(html: string) {
 
 beforeEach(() => {
   harness.currency = 'PLN';
+  harness.accountId = 'account-synthetic';
+  harness.effects = [];
+  harness.trackEffects = false;
+  harness.loadPipelines.mockReset();
+  harness.loadPipelines.mockResolvedValue([
+    { id: 'pipeline-synthetic', name: 'Lejek syntetyczny' },
+  ]);
   harness.states = [
     [{ id: 'pipeline-synthetic', name: 'Lejek syntetyczny' }],
     'pipeline-synthetic',
@@ -548,4 +579,114 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
       expect(workspace).toContain('bg-[#f8f9fb]');
     }
   );
+});
+
+describe('K3-02B-05: rzeczywisty błąd pobrania i Kontakt na karcie', () => {
+  async function runPipelineLoad() {
+    harness.effects = [];
+    harness.trackEffects = true;
+    renderPage();
+    const cleanup = harness.effects[0]();
+    await vi.waitFor(() => expect(harness.states[4]).toBe(false));
+    harness.trackEffects = false;
+    if (typeof cleanup === 'function') cleanup();
+  }
+
+  it('nie renderuje banera po udanym pobraniu, także po wcześniejszym błędzie', async () => {
+    harness.loadPipelines.mockRejectedValueOnce({ message: 'Błąd syntetyczny' });
+    await runPipelineLoad();
+    expect(renderPage()).toContain('Nie wczytano lejków: Błąd syntetyczny');
+    await runPipelineLoad();
+    const html = renderPage();
+    expect(html).not.toContain('Nie wczytano lejków:');
+    expect(html).not.toContain('role="alert"');
+    expect(desktopHeaders(html)).toHaveLength(stages.length);
+    expect(harness.toastError).not.toHaveBeenCalled();
+  });
+
+  it('renderuje tekst rzeczywistego błędu również przy zachowanych danych tablicy', async () => {
+    harness.loadPipelines.mockRejectedValueOnce({
+      message: 'Odmowa dostępu — syntetyczna',
+    });
+    await runPipelineLoad();
+    const html = renderPage();
+    expect(html).toMatch(
+      /<p role="alert"[^>]*>Nie wczytano lejków: Odmowa dostępu — syntetyczna<\/p>/
+    );
+    expect(desktopHeaders(html)).toEqual([
+      'Kontakt syntetyczny · 35 000 zł · 2 transakcje',
+      'Oferta syntetyczna · 90 000 zł · 1 transakcja',
+      'Pusty etap · 0 zł · 0 transakcji',
+    ]);
+  });
+
+  it('nie zamienia chwilowego braku konta w komunikat błędu pobrania', async () => {
+    harness.accountId = null;
+    harness.loadPipelines.mockRejectedValueOnce(
+      new Error('Brak przypisanego konta.')
+    );
+    await runPipelineLoad();
+    expect(renderPage()).not.toContain('Nie wczytano lejków:');
+    expect(harness.toastError).not.toHaveBeenCalled();
+    harness.accountId = 'account-synthetic';
+    await runPipelineLoad();
+    expect(renderPage()).not.toContain('Nie wczytano lejków:');
+  });
+
+  it.each(['desktop', 'mobile'] as const)(
+    'pokazuje Kontakt między tytułem a kwotą i zachowuje datę oraz akcje: %s',
+    (viewport) => {
+      harness.states[3] = [
+        {
+          ...deals[0],
+          contact_id: 'contact-synthetic',
+          contact: { name: 'Osoba syntetyczna', phone: '+48000000000' },
+        },
+      ];
+      const html = boardViews(renderPage())[viewport];
+      const card = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/)?.[0];
+      expect(card).toBeDefined();
+      expect(card).toMatch(
+        /Deal syntetyczny 0<\/a><p class="truncate text-xs text-slate-600" title="Osoba syntetyczna">Osoba syntetyczna<\/p><p class="mt-2 text-sm font-bold">/
+      );
+      const amount = card!.match(
+        /<p class="mt-2 text-sm font-bold">([^<]+)<\/p>/
+      )?.[1];
+      expect(amount?.replace(/\D/g, '')).toBe('12340');
+      expect(card).toContain('Ostatnia aktywność: 03.11.2026');
+      expect(card).toContain('ZADZWOŃ');
+      expect(card).toContain('WIADOMOŚĆ');
+      expect(card).toContain('href="tel:+48000000000"');
+    }
+  );
+
+  it.each([
+    undefined,
+    null,
+    {},
+    { name: '' },
+    { name: '   ', first_name: ' ', last_name: '' },
+  ])(
+    'nie renderuje pustego wiersza Kontaktu: %j',
+    (contact) => {
+      harness.states[3] = [{ ...deals[0], contact }];
+      for (const html of Object.values(boardViews(renderPage()))) {
+        const card = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/)?.[0];
+        expect(card).toMatch(
+          /Deal syntetyczny 0<\/a><p class="mt-2 text-sm font-bold">/
+        );
+        expect(card).not.toContain('truncate text-xs text-slate-600');
+      }
+    }
+  );
+
+  it('korzysta z imienia i nazwiska relacji, gdy name jest puste', () => {
+    harness.states[3] = [
+      {
+        ...deals[0],
+        contact: { name: ' ', first_name: ' Osoba ', last_name: ' Syntetyczna ' },
+      },
+    ];
+    expect(boardViews(renderPage()).desktop).toContain('>Osoba Syntetyczna</p>');
+  });
 });

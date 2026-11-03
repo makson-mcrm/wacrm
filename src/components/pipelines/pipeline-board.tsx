@@ -493,6 +493,11 @@ function PipelineDealCard({
   isOverlay?: boolean;
 }) {
   const activityDate = deal.updated_at || deal.created_at;
+  const contactName =
+    deal.contact?.name?.trim() ||
+    [deal.contact?.first_name?.trim(), deal.contact?.last_name?.trim()]
+      .filter(Boolean)
+      .join(' ');
   return (
     <article
       data-pipeline-deal
@@ -523,6 +528,11 @@ function PipelineDealCard({
       >
         {deal.title}
       </a>
+      {contactName ? (
+        <p className="truncate text-xs text-slate-600" title={contactName}>
+          {contactName}
+        </p>
+      ) : null}
       <p className="mt-2 text-sm font-bold">
         {formatCurrency(deal.value, deal.currency)}
       </p>
