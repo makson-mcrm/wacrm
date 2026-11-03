@@ -402,15 +402,14 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
     'jasna kolumna i biała karta z ciemnym tekstem: %s',
     (viewport) => {
       const html = boardViews(renderPage())[viewport];
-      expect(html).toMatch(/data-stage-color="[^"]+" class="[^"]*bg-slate-100/);
-      expect(html).toContain('background-color:#f1f3f6');
       expect(html).toMatch(
-        /data-pipeline-deal="true" class="rounded-\[10px\] bg-white text-slate-900/
+        /data-stage-color="[^"]+" class="[^"]*bg-\[#f1f3f6\]/
       );
-      expect(html).toMatch(/<article[^>]*class="[^"]*bg-white/);
-      expect(html).toContain('[&amp;&gt;article]:rounded-[10px]');
-      expect(html).toContain('[&amp;&gt;article&gt;p]:text-[#475569]');
-      expect(html).toContain('[&amp;&gt;article&gt;a]:text-[#0f172a]');
+      expect(html).toMatch(
+        /<article[^>]*data-pipeline-deal="true"[^>]*class="[^"]*bg-white[^"]*text-slate-900/
+      );
+      expect(html).toContain('rounded-[10px]');
+      expect(html).toContain('text-[#475569]');
       if (viewport === 'desktop') expect(html).toContain('data-stage-header');
     }
   );
@@ -438,5 +437,79 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
     expect(renderPage()).toMatch(
       /data-pipeline-workspace="true" class="[^"]*bg-\[#f8f9fb\]/
     );
+  });
+});
+
+describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
+  const forbiddenSurface =
+    /bg-(?:slate-9(?:00|50)|card|background|muted)|dark:|bg-gradient|!important/;
+
+  it.each(['desktop', 'mobile'] as const)(
+    'każda kolumna i rzeczywista karta mają wyłącznie jasne powierzchnie: %s',
+    (viewport) => {
+      const html = boardViews(renderPage())[viewport];
+      const columns =
+        html.match(/<(?:div|section)\b[^>]*data-stage-color[^>]*>/g) ?? [];
+      const cards =
+        html.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
+      expect(columns).toHaveLength(viewport === 'desktop' ? stages.length : 1);
+      expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
+      for (const column of columns) {
+        expect(column).toContain('bg-[#f1f3f6]');
+        expect(column).toContain('border-[#e3e7ec]');
+        expect(column).not.toMatch(forbiddenSurface);
+      }
+      for (const card of cards) {
+        expect(card).toContain('bg-white');
+        expect(card).toContain('text-slate-900');
+        expect(card).toContain('border-[#e3e7ec]');
+        expect(card).toContain('rounded-[10px]');
+        expect(card).toContain('shadow-[0_1px_2px_rgb(15_23_42_/_0.06)]');
+        expect(card).not.toMatch(forbiddenSurface);
+      }
+      expect(html).not.toContain('article]');
+      expect(html).not.toContain('--pipeline-stage-color');
+    }
+  );
+
+  it('nagłówek i pasek karty używają koloru etapu, zachowując sumę i licznik', () => {
+    harness.states[2] = [{ ...stages[0], name: 'Negocjacje' }];
+    const { desktop } = boardViews(renderPage());
+    expect(desktopHeaders(renderPage())).toEqual([
+      'Negocjacje · 35 000 zł · 2 transakcje',
+    ]);
+    const header = desktop.match(
+      /<div[^>]*data-stage-header[^>]*>[\s\S]*?<\/div>/
+    )?.[0];
+    expect(header).toContain('bg-[#f1f3f6]');
+    expect(header).toContain('background-color:#f59e0b');
+    expect(header).not.toMatch(forbiddenSurface);
+    const cards = desktop.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(card).toContain('background-color:#f59e0b');
+      expect(card).not.toContain('!');
+    }
+  });
+
+  it('nakładka przeciągania korzysta z tej samej białej karty i koloru etapu', () => {
+    harness.states = ['deal-0'];
+    harness.cursor = 0;
+    const html = renderToStaticMarkup(
+      <PipelineBoard
+        stages={[{ ...stages[0], name: 'Wymagana analiza' }]}
+        deals={[deals[0]]}
+        onDealMoved={vi.fn()}
+        onAddDeal={vi.fn()}
+        onEditDeal={vi.fn()}
+      />
+    );
+    const cards = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
+    expect(cards).toHaveLength(3); // mobile, desktop and drag overlay
+    for (const card of cards) {
+      expect(card).toMatch(/<article[^>]*bg-white[^>]*text-slate-900/);
+      expect(card).toContain('background-color:#0ea5e9');
+    }
+    expect(cards[2]).toContain('opacity-90');
   });
 });

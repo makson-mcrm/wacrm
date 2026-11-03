@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  useMemo,
-  useState,
-  type ComponentProps,
-  type CSSProperties,
-} from 'react';
+import { useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +15,8 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import type { Deal, PipelineStage } from '@/types';
-import { DealCard } from './deal-card';
+import { CallAction } from '@/components/sales/call-action';
+import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -162,8 +158,7 @@ export function PipelineBoard({
               <section
                 key={stage.id}
                 data-stage-color={stageColor(stage.name)}
-                className="overflow-hidden rounded-xl border border-[#e3e7ec] bg-slate-100 text-slate-900 shadow-sm"
-                style={{ backgroundColor: '#f1f3f6' }}
+                className="overflow-hidden rounded-xl border border-[#e3e7ec] bg-[#f1f3f6] text-slate-900 shadow-sm"
               >
                 <div
                   aria-hidden="true"
@@ -388,8 +383,7 @@ function StageColumn({
     // a drag over the column header doesn't highlight the whole column.
     <div
       data-stage-color={stageColor(stage.name)}
-      className="flex h-[calc(100dvh-245px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e3e7ec] bg-slate-100 p-1.5 text-slate-900"
-      style={{ backgroundColor: '#f1f3f6' }}
+      className="flex h-[calc(100dvh-245px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e3e7ec] bg-[#f1f3f6] p-1.5 text-slate-900"
     >
       {/* 3px colored top border — sits above the column's padding */}
       <div
@@ -401,8 +395,7 @@ function StageColumn({
       />
       <div
         data-stage-header
-        className="sticky top-0 z-10 bg-slate-100 pt-1.5"
-        style={{ backgroundColor: '#f1f3f6' }}
+        className="sticky top-0 z-10 bg-[#f1f3f6] pt-1.5"
       >
         <h3 className="flex min-w-0 flex-wrap items-baseline gap-x-1 text-xs font-bold min-[1440px]:flex-nowrap">
           <span
@@ -486,22 +479,78 @@ function DraggableDealCard({
   );
 }
 
-// Keep this presentation local to the board; the shared DealCard and its actions
-// are also used on other screens, outside this task's scope.
-function PipelineDealCard(props: ComponentProps<typeof DealCard>) {
+// Board presentation owns its surfaces and stage stripe directly. Keep the
+// existing card interactions and shared actions without descendant overrides.
+function PipelineDealCard({
+  deal,
+  stage,
+  onEdit,
+  isOverlay,
+}: {
+  deal: Deal;
+  stage: PipelineStage | null;
+  onEdit: (deal: Deal) => void;
+  isOverlay?: boolean;
+}) {
+  const activityDate = deal.updated_at || deal.created_at;
   return (
-    <div
+    <article
       data-pipeline-deal
-      className="rounded-[10px] bg-white text-slate-900 [&>article]:rounded-[10px] [&>article]:border-[#e3e7ec] [&>article]:bg-white [&>article]:text-[#0f172a] [&>article]:shadow-[0_1px_2px_rgb(15_23_42_/_0.06)] [&>article>a]:text-[#0f172a] [&>article>p]:text-[#475569] [&>article>p:first-of-type]:text-[#0f172a] [&>article>span]:bg-[var(--pipeline-stage-color)]!"
-      style={
-        {
-          '--pipeline-stage-color': props.stage
-            ? stageColor(props.stage.name)
-            : '#94a3b8',
-        } as CSSProperties
-      }
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        if (isOverlay) return;
+        event.stopPropagation();
+        onEdit(deal);
+      }}
+      onKeyDown={(event) => {
+        if (!isOverlay && (event.key === 'Enter' || event.key === ' '))
+          onEdit(deal);
+      }}
+      className={`relative w-full cursor-pointer rounded-[10px] border border-[#e3e7ec] bg-white p-3 text-left text-slate-900 shadow-[0_1px_2px_rgb(15_23_42_/_0.06)] transition ${isOverlay ? 'opacity-90' : 'hover:border-emerald-700 hover:shadow-md'}`}
     >
-      <DealCard {...props} />
-    </div>
+      <span
+        aria-hidden
+        className="absolute top-0 left-0 h-full w-1 rounded-l-[10px]"
+        style={{ backgroundColor: stage ? stageColor(stage.name) : '#94a3b8' }}
+      />
+      <a
+        data-stage={stage?.id}
+        href={`/deals/${deal.id}`}
+        onClick={(event) => event.stopPropagation()}
+        className="line-clamp-2 text-sm font-black hover:underline"
+      >
+        {deal.title}
+      </a>
+      <p className="mt-2 text-sm font-bold">
+        {formatCurrency(deal.value, deal.currency)}
+      </p>
+      <p className="mt-1 text-xs text-[#475569]">
+        Ostatnia aktywność:{' '}
+        {new Date(activityDate).toLocaleDateString('pl-PL', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })}
+      </p>
+      <div
+        className="mt-3 grid grid-cols-2 gap-2 [&_a]:h-9 [&_a]:px-2 [&_a]:text-xs [&_button]:h-9 [&_button]:w-full [&_button]:px-2 [&_button]:text-xs"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {deal.contact?.phone ? (
+          <CallAction
+            phone={deal.contact.phone}
+            contactId={deal.contact_id}
+            dealId={deal.id}
+            className="bg-emerald-800 text-white"
+          />
+        ) : null}
+        <WhatsAppAction
+          phone={deal.contact?.phone}
+          contactId={deal.contact_id}
+          dealId={deal.id}
+        />
+      </div>
+    </article>
   );
 }
