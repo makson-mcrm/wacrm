@@ -126,7 +126,7 @@ export function PipelineBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="space-y-2 lg:hidden">
+      <div className="space-y-2 bg-[#f8f9fb] text-slate-900 lg:hidden">
         <nav
           className="flex gap-2 overflow-x-auto pb-1"
           aria-label="Etapy lejka 1–6"
@@ -226,7 +226,7 @@ export function PipelineBoard({
           })}
       </div>
 
-      <div className="pipeline-scroll hidden min-w-0 gap-2 pb-2 lg:flex">
+      <div className="pipeline-scroll hidden min-w-0 gap-2 bg-[#f8f9fb] pb-2 text-slate-900 lg:flex">
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(
@@ -496,6 +496,7 @@ function PipelineDealCard({
   return (
     <article
       data-pipeline-deal
+      style={{ color: '#0f172a' }}
       role="button"
       tabIndex={0}
       onClick={(event) => {

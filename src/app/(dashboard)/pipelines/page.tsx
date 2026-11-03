@@ -453,7 +453,7 @@ export default function PipelinesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 bg-[#f8f9fb] text-slate-900">
+      <div data-pipeline-workspace className="min-h-full space-y-6 bg-[#f8f9fb] text-slate-900">
         <div className="flex items-center justify-between">
           <div className="bg-muted h-8 w-48 animate-pulse rounded" />
           <div className="bg-muted h-9 w-28 animate-pulse rounded-lg" />
@@ -471,7 +471,7 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div data-pipeline-workspace className="min-w-0 space-y-4 bg-[#f8f9fb] text-slate-900">
+    <div data-pipeline-workspace className="min-h-full min-w-0 space-y-4 bg-[#f8f9fb] text-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek sprzedaży</h1>

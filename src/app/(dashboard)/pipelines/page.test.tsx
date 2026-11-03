@@ -513,3 +513,39 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
     expect(cards[2]).toContain('opacity-90');
   });
 });
+
+describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
+  it.each(['desktop', 'mobile'] as const)(
+    'maluje kartę na article, a jasne tło na kontenerze tablicy: %s',
+    (viewport) => {
+      const html = boardViews(renderPage())[viewport];
+      const board =
+        viewport === 'desktop'
+          ? html.match(/<div class="pipeline-scroll[^"]*"/)?.[0]
+          : html.match(/<div class="space-y-2[^"]*"/)?.[0];
+      expect(board).toContain('bg-[#f8f9fb]');
+      const cards = html.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
+      expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
+      for (const card of cards) {
+        expect(card).toContain('bg-white');
+        expect(card).toContain('text-slate-900');
+        expect(card).toContain('style="color:#0f172a"');
+        expect(card).toContain('border-[#e3e7ec]');
+        expect(card).toContain('rounded-[10px]');
+        expect(card).toContain('shadow-[0_1px_2px_rgb(15_23_42_/_0.06)]');
+      }
+    }
+  );
+
+  it.each([false, true])(
+    'jasny obszar treści wypełnia dostępną wysokość, loading=%s',
+    (loading) => {
+      harness.states[4] = loading;
+      const workspace = renderPage().match(
+        /<div[^>]*data-pipeline-workspace[^>]*>/
+      )?.[0];
+      expect(workspace).toContain('min-h-full');
+      expect(workspace).toContain('bg-[#f8f9fb]');
+    }
+  );
+});
