@@ -1050,13 +1050,13 @@ export function ContactDetailView({
       <section
         aria-label="Karta klienta"
         data-contact-detail-view
-        className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white text-slate-950"
+        className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-app-surface text-slate-950"
       >
         <header
           ref={headerRef}
           tabIndex={-1}
           aria-label="Nagłówek karty klienta"
-          className="border-border/50 min-h-[85px] shrink-0 border-b px-[var(--content-pad-x)] py-3 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
+          className="border-border min-h-[80px] shrink-0 border-b px-[var(--content-pad-x)] py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-inset"
         >
           <Button
             variant="ghost"
@@ -1123,7 +1123,7 @@ export function ContactDetailView({
                     </div>
                   </div>
                 </div>
-                <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-1 xl:grid-rows-1 xl:gap-y-0 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs">
+                <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:grid-cols-4 sm:gap-1 xl:grid-rows-1 xl:gap-y-0 [&_a]:min-h-11 [&_a]:px-1 [&_a]:text-xs [&_button]:min-h-11 [&_button]:px-1 [&_button]:text-xs [&_:is(a,button)]:hover:outline-solid [&_:is(a,button)]:hover:outline-2 [&_:is(a,button)]:hover:outline-ring [&_:is(a,button)]:focus-visible:ring-0 [&_:is(a,button)]:focus-visible:outline-solid [&_:is(a,button)]:focus-visible:outline-2 [&_:is(a,button)]:focus-visible:outline-ring">
                   <CallAction
                     phone={contact.phone}
                     contactId={contact.id}
@@ -1312,7 +1312,7 @@ export function ContactDetailView({
                     onExpandedChange={setContextExpanded}
                   >
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="mobile-contact-deals"
                     >
                       <h3
@@ -1381,7 +1381,7 @@ export function ContactDetailView({
                     </section>
 
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="contact-overview-people"
                     >
                       <h3
@@ -1437,7 +1437,7 @@ export function ContactDetailView({
                       activities={historySnapshot.activities}
                     />
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="contact-overview-tasks"
                     >
                       <h3
@@ -1456,7 +1456,7 @@ export function ContactDetailView({
                       />
                     </section>
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="contact-overview-documents"
                     >
                       <h3
@@ -1477,7 +1477,7 @@ export function ContactDetailView({
                     label="Aktywność i relacje"
                   >
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="mobile-contact-activities"
                     >
                       <h3
@@ -1495,7 +1495,7 @@ export function ContactDetailView({
                       <ContactCardFooter onClick={() => selectTab('history')} />
                     </section>
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="contact-overview-notes"
                     >
                       <h3
@@ -1508,7 +1508,7 @@ export function ContactDetailView({
                       <ContactCardFooter onClick={() => selectTab('notes')} />
                     </section>
                     <section
-                      className="rounded-xl border border-slate-300 bg-white p-3"
+                      className="rounded-xl border border-border bg-card p-3"
                       aria-labelledby="contact-overview-relations"
                     >
                       <h3

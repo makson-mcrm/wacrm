@@ -240,6 +240,49 @@ html[data-theme='amber'] {
   --sidebar-ring: oklch(0.745 0.16 65);
 }
 
+/* 02A uses the existing surface tokens, scoped to its shell and card. */
+[data-slot='app-shell']:has([data-contact-detail-view]),
+[data-contact-detail-view] {
+  --background: #f4f5f7;
+  --foreground: #1b2730;
+  --app-surface: #f8f9fb;
+  --sidebar: #05322b;
+  --sidebar-foreground: #ffffff;
+  --card: #fafafa;
+  --card-foreground: #1b2730;
+  --popover: #fafafa;
+  --popover-foreground: #1b2730;
+  --border: #e6e9ee;
+}
+
+@media (min-width: 64rem) {
+  [data-slot='app-shell']:has([data-contact-detail-view]) > aside {
+    background-color: var(--sidebar);
+  }
+}
+
+[data-contact-detail-view] [data-contact-info-card],
+[data-contact-detail-view] [data-contact-next-action] {
+  background-color: var(--card);
+  border-color: var(--border);
+}
+
+[data-contact-detail-view] [data-contact-info-card] > dt,
+[data-contact-detail-view] [data-contact-columns] h3 {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+[data-contact-detail-view] [data-contact-info-card] > dd {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+[data-contact-detail-view] [data-contact-info-card] > [data-contact-info-subtitle] {
+  font-size: 11px;
+  font-weight: 400;
+}
+
 html[data-theme='rose'] {
   --primary: oklch(0.645 0.22 16);
   --primary-foreground: oklch(0.985 0 0);

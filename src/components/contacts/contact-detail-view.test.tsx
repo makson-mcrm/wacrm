@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { compile } from 'tailwindcss';
 import { parse } from 'postcss';
+import { geometryCssVars } from '@/lib/ui/layout-geometry';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ContactDetailView,
@@ -673,6 +674,163 @@ const columnClasses = (html: string) =>
     (match) => match[1]
   );
 
+describe('K3-02A-14: tokeny, typografia i stany akcji', () => {
+  const stylesheet = parse(
+    readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8')
+  );
+  const declarations = (selector: string) => {
+    const result: Record<string, string> = {};
+    stylesheet.walkRules((rule) => {
+      if (!rule.selector.split(',').map((part) => part.trim()).includes(selector))
+        return;
+      rule.walkDecls((declaration) => {
+        result[declaration.prop] = declaration.value;
+      });
+    });
+    return result;
+  };
+
+  it('jasny pasek, ciemne menu i powierzchnie 02A używają istniejących tokenów', () => {
+    const tokens = declarations(
+      "[data-slot='app-shell']:has([data-contact-detail-view])"
+    );
+    expect(tokens).toMatchObject({
+      '--background': '#f4f5f7',
+      '--foreground': '#1b2730',
+      '--sidebar': '#05322b',
+      '--sidebar-foreground': '#ffffff',
+      '--app-surface': '#f8f9fb',
+      '--card': '#fafafa',
+      '--border': '#e6e9ee',
+    });
+    expect(declarations('[data-contact-detail-view]')).toEqual(tokens);
+    expect(declarations(
+      "[data-slot='app-shell']:has([data-contact-detail-view]) > aside"
+    )).toMatchObject({ 'background-color': 'var(--sidebar)' });
+    expect(declarations('[data-contact-detail-view] [data-contact-info-card]'))
+      .toMatchObject({
+        'background-color': 'var(--card)',
+        'border-color': 'var(--border)',
+      });
+    expect(render()).toContain('overflow-hidden bg-app-surface');
+  });
+
+  it('tytuły kart mają 12.5/600, wartości 13/500, podtytuły 11/400', () => {
+    for (const selector of [
+      '[data-contact-detail-view] [data-contact-info-card] > dt',
+      '[data-contact-detail-view] [data-contact-columns] h3',
+    ])
+      expect(declarations(selector)).toMatchObject({
+        'font-size': '12.5px',
+        'font-weight': '600',
+      });
+    expect(declarations('[data-contact-detail-view] [data-contact-info-card] > dd'))
+      .toMatchObject({ 'font-size': '13px', 'font-weight': '500' });
+    expect(declarations(
+      '[data-contact-detail-view] [data-contact-info-card] > [data-contact-info-subtitle]'
+    )).toMatchObject({ 'font-size': '11px', 'font-weight': '400' });
+    expect(headerMarkup(render())).toMatch(/<h1 class="[^"]*text-lg font-semibold"/);
+  });
+
+  it('cztery akcje dziedziczą hover i focus-visible z obrysem akcentu 2 px', async () => {
+    const header = headerMarkup(render());
+    const actions = header.match(/<div class="([^"]*grid-cols-2[^"]*)"/)![1];
+    for (const state of ['hover', 'focus-visible']) {
+      expect(actions).toContain(`[&amp;_:is(a,button)]:${state}:outline-solid`);
+      expect(actions).toContain(`[&amp;_:is(a,button)]:${state}:outline-2`);
+      expect(actions).toContain(`[&amp;_:is(a,button)]:${state}:outline-ring`);
+    }
+    for (const action of ['Zadzwoń', 'WhatsApp', 'E-mail', 'aria-label="Więcej"'])
+      expect(header).toContain(action);
+    // Check the real utility output, including selector and width, rather than
+    // accepting a class that Tailwind cannot compile.
+    const compiler = await compile(
+      readFileSync(createRequire(import.meta.url).resolve('tailwindcss/theme.css'), 'utf8') +
+        '\n@theme { --color-ring: var(--ring); }\n@tailwind utilities;'
+    );
+    const css = compiler.build(actions.replaceAll('&amp;', '&').split(/\s+/));
+    expect(css).toContain(':is(a, button):hover');
+    expect(css).toContain(':is(a, button):focus-visible');
+    expect(css).toContain('outline-width: 2px');
+    expect(css).toContain('outline-style: solid');
+    expect(css).toContain('outline-color: var(--color-ring)');
+  });
+
+  // Optional local browser evidence. Uses an existing Playwright installation;
+  // no server, credentials, database, dependency installation or model calls.
+  it.skipIf(!process.env.K3_PLAYWRIGHT_MODULE || !process.env.K3_RENDER_DIR)(
+    'render SSR na danych syntetycznych: kolory, typografia, wysokość i brak przepełnień',
+    async () => {
+      const { compile: compileStylesheet } = await import('@tailwindcss/node');
+      const { chromium } = await import(/* @vite-ignore */ process.env.K3_PLAYWRIGHT_MODULE!);
+      const output = process.env.K3_RENDER_DIR!;
+      mkdirSync(output, { recursive: true });
+      const markup = renderToStaticMarkup(
+        <div data-slot="app-shell" className="flex h-screen bg-app-surface" style={geometryCssVars()}>
+          <aside className="w-[var(--app-sidebar-width)] shrink-0">Rama testowa 00S</aside>
+          <div className="min-w-0 flex-1">
+            <header className="h-[var(--app-header-height)] border-b border-border bg-background text-foreground">Syntetyczny render SSR 02A — bez LIVE</header>
+            <main>{/* The card below uses the existing synthetic render fixture. */}
+              <div dangerouslySetInnerHTML={{ __html: render() }} />
+            </main>
+          </div>
+        </div>
+      );
+      const compiler = await compileStylesheet(
+        readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'),
+        { base: new URL('../../app', import.meta.url).pathname, onDependency: () => {} }
+      );
+      const css = compiler.build([...markup.matchAll(/class="([^"]*)"/g)]
+        .flatMap((match) => match[1].replaceAll('&amp;', '&').replaceAll('&gt;', '>').split(/\s+/)));
+      const html = `<!doctype html><html data-mode="light"><meta charset="utf-8"><style>${css}</style><body>${markup}</body></html>`;
+      writeFileSync(`${output}/component-ssr.html`, html);
+      const browser = await chromium.launch({ headless: true });
+      try {
+        const page = await browser.newPage();
+        await page.route('**/*', (route: { abort(): Promise<void> }) => route.abort());
+        const measurements = [];
+        for (const width of [1536, 1440, 1280]) {
+          await page.setViewportSize({ width, height: 1024 });
+          await page.setContent(html);
+          const measured = await page.evaluate(() => {
+            const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+            const columns = [...document.querySelectorAll('[data-contact-column]')]
+              .map((element) => element.getBoundingClientRect().width);
+            return {
+              width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+              headerHeight: document.querySelector('[data-contact-detail-view] header')!.getBoundingClientRect().height,
+              padding: style('[data-contact-detail-view] header').paddingTop,
+              top: style('[data-slot="app-shell"] > div > header').backgroundColor,
+              menu: style('aside').backgroundColor,
+              content: style('[data-contact-detail-view]').backgroundColor,
+              card: style('[data-contact-info-card]').backgroundColor,
+              border: style('[data-contact-info-card]').borderColor,
+              type: ['dt', 'dd:not([data-contact-info-subtitle])', '[data-contact-info-subtitle]'].map((part) => {
+                const value = style(`[data-contact-info-card] > ${part}`);
+                return [value.fontSize, value.fontWeight];
+              }),
+              columns,
+            };
+          });
+          measurements.push(measured);
+          expect(measured.scrollWidth).toBeLessThanOrEqual(width);
+          expect(measured.headerHeight).toBeGreaterThanOrEqual(80);
+          expect(measured.headerHeight).toBeLessThanOrEqual(82);
+          expect(measured.padding).toBe('10px');
+          expect(measured).toMatchObject({ top: 'rgb(244, 245, 247)', menu: 'rgb(5, 50, 43)', content: 'rgb(248, 249, 251)', card: 'rgb(250, 250, 250)', border: 'rgb(230, 233, 238)' });
+          expect(measured.type).toEqual([['12.5px', '600'], ['13px', '500'], ['11px', '400']]);
+          expect(measured.columns[1] / measured.columns[0]).toBeCloseTo(1.25, 2);
+          expect(measured.columns[2] / measured.columns[0]).toBeCloseTo(1, 2);
+          await page.screenshot({ path: `${output}/component-ssr-${width}.png` });
+        }
+        writeFileSync(`${output}/dom.json`, JSON.stringify(measurements, null, 2));
+      } finally {
+        await browser.close();
+      }
+    }, 30000
+  );
+});
+
 describe('K3-02A-13: kompaktowy nagłówek', () => {
   it('breadcrumbs są nad kartą, a nagłówek zachowuje avatar, dane, tagi i cztery akcje', () => {
     fixture.tags = [
@@ -705,19 +863,19 @@ describe('K3-02A-13: kompaktowy nagłówek', () => {
       expect(header).toContain(value);
   });
 
-  it.each([1280, 1536])(
-    '%i px: kontrakt wysokości — py-3, bez marginesu nad danymi i jeden rząd akcji (bez pomiaru DOM)',
+  it.each([1280, 1440, 1536])(
+    '%i px: kontrakt wysokości — py-2.5, bez marginesu nad danymi i jeden rząd akcji (bez pomiaru DOM)',
     async (width) => {
       const html = render();
       const header = headerMarkup(html);
       const styles = await layoutStyles(html);
       const classes = header.match(/^<header[^>]*class="([^"]+)"/)![1];
-      expect(classes.split(' ')).toContain('py-3');
+      expect(classes.split(' ')).toContain('py-2.5');
       expect(classes).not.toMatch(/py-[46]|py-\[var\(--content-pad-y\)\]/);
       expect(styles(classes, width)).toMatchObject({
-        'padding-block': 'calc(var(--spacing) * 3)',
+        'padding-block': 'calc(var(--spacing) * 2.5)',
         'padding-inline': 'var(--content-pad-x)',
-        'min-height': '85px',
+        'min-height': '80px',
       });
       const row = header.match(/<div class="([^"]*xl:flex-row[^"]*)"/)![1];
       expect(styles(row, width)).toMatchObject({
@@ -1722,7 +1880,7 @@ describe('K3-02A-11: gęstość i metadane kart', () => {
       expect(content).toContain('space-y-2');
       expect(content).toContain('text-sm font-black text-slate-950');
       expect(html).toContain(
-        `class="rounded-xl border border-slate-300 bg-white p-3" aria-labelledby="${id}"`
+        `class="rounded-xl border border-border bg-card p-3" aria-labelledby="${id}"`
       );
     }
   });
