@@ -40,7 +40,28 @@ export interface PublicLeadInput {
   callbackPreference: CallbackPreference;
   consent: true;
   startedAt: number | null;
+  source_page?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
+  segment?: string;
+  selected_home_project?: string;
 }
+
+const ATTRIBUTION_FIELDS = [
+  'source_page',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'segment',
+  'selected_home_project',
+] as const;
+const CONTACT_CONSENT_VERSION = 'makson.space/contact-v1';
+const EDUCATION_TAG = 'EDUKACJA — BUDŻET';
 
 export class PublicLeadError extends Error {
   constructor(
@@ -110,6 +131,10 @@ export function parsePublicLead(body: unknown): PublicLeadInput {
     callbackPreference: callbackPreference as CallbackPreference,
     consent: true,
     startedAt,
+    // Optional attribution never changes whether a submission is accepted.
+    ...Object.fromEntries(
+      ATTRIBUTION_FIELDS.map(field => [field, text(raw[field], 500)])
+    ),
   };
 }
 
@@ -229,6 +254,12 @@ export async function savePublicLead(
     ? { id: contactId, created: false }
     : await findOrCreateContact(db, accountId, auditUserId, input);
   contactId = contact.id;
+  const receivedAt = new Date().toISOString();
+  const attribution = ATTRIBUTION_FIELDS.map(field =>
+    input[field] ? `${field}=${input[field]}` : null
+  )
+    .filter(Boolean)
+    .join('\n');
 
   const { error } = await db.from('public_lead_submissions').insert({
     account_id: accountId,
@@ -242,7 +273,7 @@ export async function savePublicLead(
     callback_preference: input.callbackPreference,
     source: 'makson_space_form',
     consent_to_contact: true,
-    consented_at: new Date().toISOString(),
+    consented_at: receivedAt,
     contact_created: contact.created,
     request_fingerprint: metadata.fingerprint,
     user_agent: metadata.userAgent.slice(0, 500) || null,
@@ -252,12 +283,33 @@ export async function savePublicLead(
     throw new PublicLeadError('Nie udało się zapisać zgłoszenia.', 500);
   }
 
+  // Set the first source atomically; preserve any existing source, including ''.
+  const { error: sourceError } = await db
+    .from('contacts')
+    .update({ source: 'makson.space' })
+    .eq('account_id', accountId)
+    .eq('id', contactId)
+    .is('source', null);
+  if (sourceError) console.error('[public-leads] contact source update failed');
+  const { error: consentError } = await db
+    .from('contacts')
+    .update({
+      contact_consent: true,
+      ...(attribution ? { source_details: attribution.slice(0, 500) } : {}),
+    })
+    .eq('account_id', accountId)
+    .eq('id', contactId);
+  if (consentError)
+    console.error('[public-leads] contact consent/attribution update failed');
+
   const noteLines = [
     'Nowe zgłoszenie z formularza makson.space.',
     `Rodzaj potrzeby: ${inquiryTypeLabel(input.inquiryType)}`,
     `Preferowany kontakt: ${callbackPreferenceLabel(input.callbackPreference)}`,
     input.company ? `Firma: ${input.company}` : null,
     input.email ? `E-mail: ${input.email}` : null,
+    `Zgoda na kontakt: tak; wersja: ${CONTACT_CONSENT_VERSION}; kanał: formularz WWW; czas: ${receivedAt}`,
+    attribution || null,
     `Treść: ${input.message}`,
   ].filter((line): line is string => Boolean(line));
   const { error: noteError } = await db.from('contact_notes').insert({
@@ -268,6 +320,59 @@ export async function savePublicLead(
   });
   if (noteError)
     console.error('[public-leads] contact note failed:', noteError);
+
+  const { error: activityError } = await db.from('sales_activities').insert({
+    account_id: accountId,
+    user_id: auditUserId,
+    contact_id: contactId,
+    activity_type: 'zadanie',
+    activity_status: 'PLANOWANE',
+    completed: false,
+    title: `Zgłoszenie: ${inquiryTypeLabel(input.inquiryType)}`,
+    description: noteLines.join('\n'),
+    source: 'makson.space',
+    occurred_at: receivedAt,
+    next_action: `Skontaktować się w sprawie zgłoszenia; preferowany kontakt: ${callbackPreferenceLabel(input.callbackPreference)}.`,
+  });
+  if (activityError) console.error('[public-leads] contact activity insert failed');
+
+  if (input.segment === EDUCATION_TAG) {
+    const { data: existingTag, error: lookupError } = await db
+      .from('tags')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('name', EDUCATION_TAG)
+      .limit(1)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('[public-leads] education tag lookup failed');
+      return;
+    }
+    let tagId = existingTag?.id as string | undefined;
+    if (!tagId) {
+      // tags has no unique(account_id, name). A stable UUID makes concurrent
+      // submissions from this path converge on the same primary key.
+      const hash = createHash('sha256')
+        .update(`${accountId}\n${EDUCATION_TAG}`)
+        .digest('hex');
+      tagId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+      const { error: tagError } = await db.from('tags').insert({
+        id: tagId,
+        account_id: accountId,
+        user_id: auditUserId,
+        name: EDUCATION_TAG,
+      });
+      if (tagError && tagError.code !== '23505') {
+        console.error('[public-leads] education tag insert failed');
+        return;
+      }
+    }
+    const { error: linkError } = await db.from('contact_tags').upsert(
+      { contact_id: contactId, tag_id: tagId },
+      { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
+    );
+    if (linkError) console.error('[public-leads] education tag assignment failed');
+  }
 }
 
 export function callbackPreferenceLabel(value: CallbackPreference): string {
