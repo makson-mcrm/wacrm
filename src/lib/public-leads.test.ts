@@ -155,7 +155,7 @@ describe('public financial lead intake', () => {
 type Row = Record<string, unknown>;
 
 /** In-memory query double: applies tenant/NULL filters and the join's unique key. */
-function leadDatabase(source: string | null = null) {
+function leadDatabase(source: string | null = null, activityErrors: (Row | null)[] = []) {
   const rows: Record<string, Row[]> = {
     accounts: [{ id: 'account-1' }],
     whatsapp_config: [{ account_id: 'account-1', user_id: 'user-1' }],
@@ -175,6 +175,10 @@ function leadDatabase(source: string | null = null) {
     const filters: [string, unknown][] = [];
     const execute = (single = false) => {
       calls.push({ table, operation, payload, filters: [...filters], options });
+      if (table === 'sales_activities' && operation === 'insert') {
+        const error = activityErrors.shift();
+        if (error) return { data: null, error };
+      }
       const matches = rows[table].filter(row =>
         filters.every(([key, value]) => row[key] === value));
       if (operation === 'update') matches.forEach(row => Object.assign(row, payload));
@@ -221,6 +225,106 @@ const attributionPayload = {
   selected_home_project: 'Projekt syntetyczny A',
 };
 const requestMetadata = { fingerprint: 'synthetic-fingerprint', userAgent: 'unit-test' };
+
+describe('public lead activity insert recovery', () => {
+  const fullError = {
+    message: 'Full insert rejected', code: 'PGRST204',
+    details: 'Full insert details', hint: 'Full insert hint',
+  };
+  const fallbackError = {
+    message: 'Minimal insert rejected', code: '23514',
+    details: 'Minimal insert details', hint: 'Minimal insert hint',
+  };
+
+  it('tries the full payload first and stops after success without a diagnostic note', async () => {
+    const { db, rows, calls } = leadDatabase();
+    await savePublicLead(db, parsePublicLead(attributionPayload), requestMetadata);
+
+    const inserts = calls.filter(call => call.table === 'sales_activities' && call.operation === 'insert');
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].payload).toMatchObject({
+      activity_status: 'PLANOWANE', source: 'makson.space',
+      description: expect.stringContaining('Nowe zgłoszenie'),
+      next_action: expect.stringContaining('9:00–12:00'),
+    });
+    expect(rows.sales_activities).toHaveLength(1);
+    expect(rows.contact_notes).toHaveLength(1);
+    expect(rows.contact_notes[0].note_text).not.toContain('Błąd zapisu aktywności:');
+  });
+
+  it('retries exactly once with only the minimal payload and no diagnostic note when recovery succeeds', async () => {
+    const { db, rows, calls } = leadDatabase(null, [fullError, null]);
+    await savePublicLead(db, parsePublicLead(attributionPayload), requestMetadata);
+
+    const inserts = calls.filter(call => call.table === 'sales_activities' && call.operation === 'insert');
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0].payload).toMatchObject({
+      activity_status: 'PLANOWANE', source: 'makson.space',
+      description: expect.any(String), next_action: expect.any(String),
+    });
+    const minimalPayload = {
+      account_id: 'account-1', user_id: 'user-1', contact_id: 'contact-1',
+      activity_type: 'zadanie', completed: false,
+      title: 'Zgłoszenie: audyt finansowy / sprawdzenie możliwości',
+      occurred_at: rows.public_lead_submissions[0].consented_at,
+    };
+    expect(inserts[0].payload).toMatchObject(minimalPayload);
+    expect(inserts[1].payload).toEqual(minimalPayload);
+    expect(rows.sales_activities).toEqual([expect.objectContaining(minimalPayload)]);
+    expect(rows.contact_notes).toHaveLength(1);
+    expect(rows.contact_notes[0].note_text).not.toContain('Błąd zapisu aktywności:');
+  });
+
+  it('records both errors in a second note only after both inserts fail and continues saving the lead', async () => {
+    const { db, rows, calls } = leadDatabase(null, [fullError, fallbackError]);
+    await expect(savePublicLead(db, parsePublicLead({
+      ...attributionPayload, segment: 'EDUKACJA — BUDŻET',
+    }), requestMetadata)).resolves.toBeUndefined();
+
+    expect(calls.filter(call => call.table === 'sales_activities' && call.operation === 'insert')).toHaveLength(2);
+    expect(rows.sales_activities).toHaveLength(0);
+    expect(rows.public_lead_submissions).toHaveLength(1);
+    expect(rows.contacts[0]).toMatchObject({ source: 'makson.space', contact_consent: true });
+    expect(rows.contact_notes).toHaveLength(2);
+    expect(rows.contact_notes[0].note_text).toContain('Zgoda na kontakt: tak');
+    expect(rows.contact_notes[1]).toMatchObject({
+      account_id: 'account-1', user_id: 'user-1', contact_id: 'contact-1',
+      note_text: expect.stringMatching(/^Błąd zapisu aktywności: pełny:/),
+    });
+    const note = rows.contact_notes[1].note_text as string;
+    for (const error of [fullError, fallbackError]) {
+      for (const [field, value] of Object.entries(error)) {
+        expect(note).toContain(`${field}=${value}`);
+      }
+    }
+    expect(note).toContain('minimalny:');
+    expect(note.length).toBeLessThanOrEqual(500);
+    expect(rows.contact_tags).toHaveLength(1);
+    const diagnosticIndex = calls.findIndex(call => call.table === 'contact_notes' &&
+      String(call.payload.note_text).startsWith('Błąd zapisu aktywności:'));
+    const lastActivityIndex = calls.findLastIndex(call => call.table === 'sales_activities');
+    expect(diagnosticIndex).toBeGreaterThan(lastActivityIndex);
+  });
+
+  it('bounds the diagnostic note to 500 characters while keeping all fields, including nullable ones', async () => {
+    const longError = {
+      message: 'M'.repeat(1000), code: 'C'.repeat(1000),
+      details: 'D'.repeat(1000), hint: 'H'.repeat(1000),
+    };
+    const { db, rows } = leadDatabase(null, [
+      longError, { message: 'Minimal failure', code: '23514', details: null, hint: null },
+    ]);
+    await savePublicLead(db, parsePublicLead(attributionPayload), requestMetadata);
+
+    expect(rows.contact_notes).toHaveLength(2);
+    const note = rows.contact_notes[1].note_text as string;
+    expect(note.length).toBeLessThanOrEqual(500);
+    for (const [field, value] of Object.entries(longError)) {
+      expect(note).toContain(`${field}=${value.slice(0, 40)}`);
+    }
+    expect(note).toContain('minimalny: message=Minimal failure; code=23514; details=; hint=');
+  });
+});
 
 describe('public lead CRM attribution', () => {
   afterEach(() => vi.useRealTimers());

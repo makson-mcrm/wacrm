@@ -321,20 +321,49 @@ export async function savePublicLead(
   if (noteError)
     console.error('[public-leads] contact note failed:', noteError);
 
-  const { error: activityError } = await db.from('sales_activities').insert({
+  const minimalActivity = {
     account_id: accountId,
     user_id: auditUserId,
     contact_id: contactId,
     activity_type: 'zadanie',
-    activity_status: 'PLANOWANE',
     completed: false,
     title: `Zgłoszenie: ${inquiryTypeLabel(input.inquiryType)}`,
+    occurred_at: receivedAt,
+  };
+  const { error: activityError } = await db.from('sales_activities').insert({
+    ...minimalActivity,
+    activity_status: 'PLANOWANE',
     description: noteLines.join('\n'),
     source: 'makson.space',
-    occurred_at: receivedAt,
     next_action: `Skontaktować się w sprawie zgłoszenia; preferowany kontakt: ${callbackPreferenceLabel(input.callbackPreference)}.`,
   });
-  if (activityError) console.error('[public-leads] contact activity insert failed');
+  if (activityError) {
+    const { error: fallbackError } = await db
+      .from('sales_activities')
+      .insert(minimalActivity);
+    if (fallbackError) {
+      // Bound each field so both attempts retain all four diagnostic fields.
+      const diagnostics = ([
+        ['pełny', activityError],
+        ['minimalny', fallbackError],
+      ] as const)
+        .map(([variant, insertError]) => {
+          const fields = (['message', 'code', 'details', 'hint'] as const)
+            .map(field => `${field}=${(insertError[field] ?? '').slice(0, 40)}`)
+            .join('; ');
+          return `${variant}: ${fields}`;
+        })
+        .join(' | ');
+      const { error: diagnosticNoteError } = await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: contactId,
+        user_id: auditUserId,
+        note_text: `Błąd zapisu aktywności: ${diagnostics}`.slice(0, 500),
+      });
+      if (diagnosticNoteError)
+        console.error('[public-leads] activity diagnostic note failed:', diagnosticNoteError);
+    }
+  }
 
   if (input.segment === EDUCATION_TAG) {
     const { data: existingTag, error: lookupError } = await db
