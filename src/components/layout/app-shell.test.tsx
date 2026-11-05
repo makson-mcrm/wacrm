@@ -4,13 +4,17 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { compile } from 'tailwindcss';
 import { parse } from 'postcss';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './app-shell';
+import { PipelineBoard } from '@/components/pipelines/pipeline-board';
+import type { PipelineStage } from '@/types';
 import { geometryCssVars } from '@/lib/ui/layout-geometry';
 
+const route = vi.hoisted(() => ({ pathname: '/contacts' }));
+beforeEach(() => { route.pathname = '/contacts'; });
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
-  usePathname: () => '/contacts',
+  usePathname: () => route.pathname,
 }));
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
 vi.mock('next/link', () => ({
@@ -22,6 +26,7 @@ vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
     user: { id: 'synthetic-user' },
     loading: false,
+    defaultCurrency: 'PLN',
     profileLoading: false,
     profile: { full_name: 'Osoba syntetyczna' },
   }),
@@ -59,6 +64,85 @@ const render = () =>
   );
 
 describe('02A-5: geometria shellu, nagłówka i menu', () => {
+  it.each(['/deals', '/contacts', '/dashboard', '/calendar', '/finances', '/settings'])(
+    'zachowuje dotychczasową ramę poza Lejkiem: %s',
+    (pathname) => {
+      route.pathname = pathname;
+      const html = render();
+      expect(html).toContain('--app-sidebar-width:160px');
+      expect(html).toContain('lg:bg-[#20383d]');
+      expect(html).toContain('md:bg-transparent');
+      expect(html).toContain('lg:px-5');
+      expect(html).not.toContain('bg-[#093e52]');
+      expect(html).not.toContain('bg-[#f9fbfc]');
+    }
+  );
+
+  it('KM3.2.08: rzeczywista rama i tablica używają wymiarów i kolorów Bigin', async () => {
+    route.pathname = '/pipelines';
+    const stages = Array.from({ length: 6 }, (_, position) => ({
+      id: `synthetic-${position}`, name: `Etap ${position}`, position,
+      pipeline_id: 'synthetic-pipeline',
+    })) as PipelineStage[];
+    const html = renderToStaticMarkup(
+      <AppShell>
+        <PipelineBoard stages={stages} deals={[]} onDealMoved={vi.fn()} onAddDeal={vi.fn()} onEditDeal={vi.fn()} />
+      </AppShell>
+    );
+    const root = html.match(/<div data-slot="app-shell"[^>]+>/)![0];
+    const sidebar = html.match(/<aside class="([^"]+)"/)![1];
+    const main = html.match(/<main[^>]+class="([^"]+)"/)![1];
+    const board = html.match(/<div class="(pipeline-scroll[^"]+)"/)![1];
+    const columns = [...html.matchAll(/data-pipeline-column="[^"]+"[^>]+class="([^"]+)"/g)].map((match) => match[1]);
+    expect(root).toContain('--app-sidebar-width:285px');
+    expect(root).toContain('--content-pad-x:10px');
+    expect(root).toContain('bg-[#f9fbfc]');
+    expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
+    expect(sidebar).toContain('lg:shrink-0');
+    expect(sidebar).toContain('lg:bg-[#093e52]');
+    expect(main).toContain('lg:px-[var(--content-pad-x)]');
+    expect(main).toContain('bg-[#f9fbfc]');
+    expect(board).toContain('bg-[#f9fbfc]');
+    expect(board).toContain('overflow-x-auto');
+    expect(columns).toHaveLength(6);
+    for (const column of columns) {
+      expect(column).toContain('w-[220px]');
+      expect(column).toContain('flex-none');
+    }
+    expect(board).toContain('gap-[10px]');
+
+    // Compile the classes rendered by the real components, so a missing or
+    // ineffective responsive utility cannot pass on its class name alone.
+    const require = createRequire(import.meta.url);
+    const compiler = await compile(
+      readFileSync(require.resolve('tailwindcss/theme.css'), 'utf8') + '\n@tailwind utilities;'
+    );
+    const classes = [sidebar, main, board, ...columns].flatMap((value) => value.split(/\s+/));
+    const css = parse(compiler.build(classes));
+    const declarations: { selector: string; property: string; value: string; media?: string }[] = [];
+    css.walkRules((rule) => {
+      const parent = rule.parent;
+      rule.walkDecls((decl) => {
+        declarations.push({
+          selector: rule.selector.replace(/\\(.)/g, '$1'),
+          property: decl.prop,
+          value: decl.value,
+          media: parent?.type === 'atrule' && parent.name === 'media' ? parent.params : undefined,
+        });
+      });
+    });
+    for (const [selector, property, value, media] of [
+      ['.lg:w-[var(--app-sidebar-width)]', 'width', 'var(--app-sidebar-width)', '(width >= 64rem)'],
+      ['.lg:shrink-0', 'flex-shrink', '0', '(width >= 64rem)'],
+      ['.lg:bg-[#093e52]', 'background-color', '#093e52', '(width >= 64rem)'],
+      ['.lg:px-[var(--content-pad-x)]', 'padding-inline', 'var(--content-pad-x)', '(width >= 64rem)'],
+      ['.bg-[#f9fbfc]', 'background-color', '#f9fbfc', undefined],
+      ['.w-[220px]', 'width', '220px', undefined],
+      ['.flex-none', 'flex', 'none', undefined],
+      ['.gap-[10px]', 'gap', '10px', undefined],
+    ]) expect(declarations).toContainEqual({ selector, property, value, media });
+  });
+
   it('ustawia wszystkie zmienne raz na głównym kontenerze i zachowuje przesunięcie viewportu', () => {
     const html = render();
     const root = html.match(/<div data-slot="app-shell"[^>]+>/)![0];

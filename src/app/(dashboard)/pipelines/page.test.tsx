@@ -15,6 +15,7 @@ const harness = vi.hoisted(() => ({
   accountId: 'account-synthetic' as string | null,
   effects: [] as EffectCallback[],
   trackEffects: false,
+  extensions: undefined as boolean | undefined,
   loadPipelines: vi.fn(),
   readPipelines: vi.fn(),
   toastError: vi.fn(),
@@ -26,6 +27,18 @@ const harness = vi.hoisted(() => ({
     throw new Error('Network forbidden in synthetic pipeline tests');
   }),
 }));
+
+vi.mock('@/lib/ui/surface-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/ui/surface-flags')>();
+  return {
+    ...original,
+    surfaceFlags: {
+      get pipelineExtensions() {
+        return harness.extensions ?? original.surfaceFlags.pipelineExtensions;
+      },
+    },
+  };
+});
 
 // Seed the loaded page without executing database effects. Other hooks retain
 // React's normal server-render behaviour, including the real PipelineBoard.
@@ -159,6 +172,7 @@ function textContent(html: string) {
 }
 
 beforeEach(() => {
+  harness.extensions = undefined;
   harness.currency = 'PLN';
   harness.accountId = 'account-synthetic';
   harness.effects = [];
@@ -185,12 +199,14 @@ afterEach(() => {
 
 describe('K3-N4: minimalna struktura lejka 04A', () => {
   it('renderuje tytuł Lejek sprzedaży', () => {
+    harness.extensions = true;
     expect(renderPage()).toMatch(/<h1[^>]*>Lejek sprzedaży<\/h1>/);
   });
 
   it.each(['desktop', 'mobile'] as const)(
     'renderuje przycisk Dodaj deal: %s',
     (viewport) => {
+      harness.extensions = true;
       const html = boardViews(renderPage())[viewport];
       const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? [];
       const addButtons = buttons.filter(
@@ -217,7 +233,7 @@ describe('K3-N4: minimalna struktura lejka 04A', () => {
             )?.[0];
       expect(header).toBeDefined();
       expect(textContent(header!)).toBe(
-        'Kontakt syntetyczny · 35 000 zł · 2 transakcje'
+        'Transakcja Kontakt syntetyczny · 35 000 zł · 2 transakcje'
       );
       expect(header).toContain('flex');
       expect(header).not.toMatch(/<(?:p|br)\b/);
@@ -232,13 +248,14 @@ describe('K3-N4: minimalna struktura lejka 04A', () => {
       ...desktop.matchAll(/<div[^>]*data-stage-header[^>]*>([\s\S]*?)<\/div>/g),
     ].map((match) => textContent(match[0]));
     expect(headers).toEqual([
-      'Kontakt syntetyczny · 35 000 zł · 2 transakcje',
-      'Oferta syntetyczna · 90 000 zł · 1 transakcja',
-      'Pusty etap · 0 zł · 0 transakcji',
+      'Transakcja Kontakt syntetyczny · 35 000 zł · 2 transakcje',
+      'Transakcja Oferta syntetyczna · 90 000 zł · 1 transakcja',
+      'Transakcja Pusty etap · 0 zł · 0 transakcji',
     ]);
   });
 
   it('zachowuje filtry, pięć statystyk i archiwum', () => {
+    harness.extensions = true;
     const html = renderPage();
     for (const label of ['Produkt', 'Tag', 'Bank', 'Priorytet']) {
       expect(html).toMatch(new RegExp(`<label[^>]*>${label}<select`));
@@ -440,12 +457,13 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
         /<article[^>]*data-pipeline-deal="true"[^>]*class="[^"]*bg-white[^"]*text-slate-900/
       );
       expect(html).toContain('rounded-[10px]');
-      expect(html).toContain('text-[#475569]');
+      expect(html).toContain('text-xs text-slate-600');
       if (viewport === 'desktop') expect(html).toContain('data-stage-header');
     }
   );
 
   it('zachowuje linki i zielony przycisk telefonu w rzeczywistej karcie', () => {
+    harness.extensions = true;
     harness.states[3] = [
       {
         ...deals[0],
@@ -466,7 +484,7 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
 
   it('tło przestrzeni roboczej jest jasne', () => {
     expect(renderPage()).toMatch(
-      /data-pipeline-workspace="true" class="[^"]*bg-\[#f8f9fb\]/
+      /data-pipeline-workspace="true" class="[^"]*bg-\[#f9fbfc\]/
     );
   });
 });
@@ -523,13 +541,26 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
     }
   });
 
-  it('nakładka przeciągania korzysta z tej samej białej karty i koloru etapu', () => {
+  it.each([false, true])('nakładka przeciągania używa tej samej karty i przełącznika: %s', (enabled) => {
+    harness.extensions = enabled;
     harness.states = ['deal-0'];
     harness.cursor = 0;
     const html = renderToStaticMarkup(
       <PipelineBoard
         stages={[{ ...stages[0], name: 'Wymagana analiza' }]}
-        deals={[deals[0]]}
+        deals={[{
+          ...deals[0],
+          contact_id: 'contact-synthetic',
+          contact: {
+            id: 'contact-synthetic',
+            user_id: 'user-synthetic',
+            account_id: 'account-synthetic',
+            name: 'Osoba syntetyczna',
+            phone: '+48000000000',
+            created_at: '2026-11-01T12:00:00Z',
+            updated_at: '2026-11-03T12:00:00Z',
+          },
+        }]}
         onDealMoved={vi.fn()}
         onAddDeal={vi.fn()}
         onEditDeal={vi.fn()}
@@ -540,6 +571,9 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
     for (const card of cards) {
       expect(card).toMatch(/<article[^>]*bg-white[^>]*text-slate-900/);
       expect(card).toContain('background-color:#0ea5e9');
+      expect(card.includes('Ostatnia aktywność:')).toBe(enabled);
+      expect(card.includes('ZADZWOŃ')).toBe(enabled);
+      expect(card.includes('WIADOMOŚĆ')).toBe(enabled);
     }
     expect(cards[2]).toContain('opacity-90');
   });
@@ -554,7 +588,7 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
         viewport === 'desktop'
           ? html.match(/<div class="pipeline-scroll[^"]*"/)?.[0]
           : html.match(/<div class="space-y-2[^"]*"/)?.[0];
-      expect(board).toContain('bg-[#f8f9fb]');
+      expect(board).toContain('bg-[#f9fbfc]');
       const cards = html.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
       expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
       for (const card of cards) {
@@ -576,7 +610,7 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
         /<div[^>]*data-pipeline-workspace[^>]*>/
       )?.[0];
       expect(workspace).toContain('min-h-full');
-      expect(workspace).toContain('bg-[#f8f9fb]');
+      expect(workspace).toContain('bg-[#f9fbfc]');
     }
   );
 });
@@ -636,6 +670,7 @@ describe('K3-02B-05: rzeczywisty błąd pobrania i Kontakt na karcie', () => {
   it.each(['desktop', 'mobile'] as const)(
     'pokazuje Kontakt między tytułem a kwotą i zachowuje datę oraz akcje: %s',
     (viewport) => {
+      harness.extensions = true;
       harness.states[3] = [
         {
           ...deals[0],
@@ -688,5 +723,185 @@ describe('K3-02B-05: rzeczywisty błąd pobrania i Kontakt na karcie', () => {
       },
     ];
     expect(boardViews(renderPage()).desktop).toContain('>Osoba Syntetyczna</p>');
+  });
+});
+
+describe('KM3.2.08-BIGIN-SURFACE-02: jeden przełącznik całej powierzchni', () => {
+  it.each([undefined, false, true])(
+    'pokazuje wyłącznie rdzeń Bigin, a po włączeniu przywraca dodatki: %s',
+    (extensions) => {
+      harness.extensions = extensions;
+      const enabled = extensions === true;
+      harness.states[2] = Array.from({ length: 7 }, (_, position) => ({
+        ...stages[0],
+        id: `stage-${position}`,
+        position,
+        name: position === 6 ? '7. ARCHIWUM' : `Etap ${position + 1}`,
+      }));
+      harness.states[3] = [{
+        ...deals[0],
+        contact_id: 'contact-synthetic',
+        contact: { name: 'Osoba syntetyczna', phone: '+48000000000' },
+        updated_at: '2026-11-04T12:00:00Z',
+        expected_close_date: '2026-11-20',
+      }];
+      harness.states[11] = true; // również rozwinięte dodatki filtrów
+      const originalDeals = harness.states[3];
+      const html = renderPage();
+      const { desktop, mobile } = boardViews(html);
+      expect(desktop.match(/data-pipeline-column=/g)).toHaveLength(6);
+      expect(desktop.match(/w-\[220px\] flex-none/g)).toHaveLength(6);
+      expect(desktop).toContain('gap-[10px] overflow-x-auto');
+      expect(desktop.match(/>Transakcja<\/span>/g)).toHaveLength(6);
+      expect(desktop.match(/Ten etap jest pusty/g)).toHaveLength(5);
+      expect(desktop).not.toContain('7. ARCHIWUM');
+      for (const view of [desktop, mobile]) {
+        const cards = view.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
+        expect(cards).toHaveLength(1);
+        const card = cards[0]!;
+        expect(card).toContain('bg-white');
+        expect(card).toContain('href="/deals/deal-0"');
+        expect(card).toContain('Deal syntetyczny 0');
+        expect(card).toContain('Osoba syntetyczna');
+        const amount = card.match(/<p class="mt-2 text-sm font-bold">([^<]+)<\/p>/)?.[1];
+        expect(amount?.replace(/\D/g, '')).toBe('12340');
+        expect(card).toContain('dateTime="2026-11-20"');
+        expect(card).toContain('20.11.2026');
+        for (const label of ['Ostatnia aktywność: 04.11.2026', 'ZADZWOŃ', 'WIADOMOŚĆ', 'href="tel:+48000000000"'])
+          expect(card.includes(label)).toBe(enabled);
+        expect(view.includes('Dodaj deal')).toBe(enabled);
+      }
+      for (const label of ['Produkt', 'Tag', 'Bank', 'Priorytet']) {
+        expect(new RegExp(`<label[^>]*>${label}<select`).test(html)).toBe(enabled);
+      }
+      for (const label of [
+        'Lejek sprzedaży', 'Wszystkie aktywne sprawy (Tomasz)', 'Archiwum (',
+        'Tylko przeterminowane', 'Bez next action', 'Więcej filtrów', 'Wyczyść filtry',
+        'Statystyki lejka', 'Aktywne sprawy', 'Przychód TERAZ', 'Przychód PÓŹNIEJ',
+        'Z blockerem', 'Z next action', 'Asystent AI', 'AI+', 'Przeanalizuj lejek',
+        'href="/assistant?feature=pipeline"',
+      ]) expect(html.includes(label)).toBe(enabled);
+      for (const label of ['Szukaj transakcji', 'Wszystkie transakcje', 'Właściciel zmiany', 'Więcej', 'Sortuj według'])
+        expect(html).toContain(label);
+      expect(html).toContain('bg-[#f9fbfc]');
+      expect(harness.states[3]).toBe(originalDeals);
+    }
+  );
+
+  it('źródłowy przełącznik pozostaje domyślnie false i ma jawną listę dodatków', async () => {
+    const actual = await vi.importActual<typeof import('@/lib/ui/surface-flags')>('@/lib/ui/surface-flags');
+    expect(actual.surfaceFlags.pipelineExtensions).toBe(false);
+    expect(actual.pipelineSurfaceExtensions.join(' ')).toContain('Asystenta AI');
+    expect(actual.pipelineSurfaceExtensions.join(' ')).toContain('ZADZWOŃ i WIADOMOŚĆ');
+  });
+});
+
+describe('KM3.2.08-BIGIN-CORE: tablica i narzędzia bez utraty funkcji mCRM', () => {
+  // New toolbar state follows the existing page state, preserving the older fixtures.
+  const toolbarState = { search: 24, view: 25, owner: 26, sort: 27 };
+  function desktopCards() {
+    return boardViews(renderPage()).desktop.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
+  }
+
+  it('po włączeniu dodatków renderuje sześć kolumn oraz filtry, KPI i AI w dotychczasowej kolejności', () => {
+    harness.extensions = true;
+    harness.states[2] = Array.from({ length: 7 }, (_, index) => ({
+      ...stages[0],
+      id: `stage-${index}`,
+      position: index,
+      name: index === 6 ? '7. ARCHIWUM' : `Etap ${index + 1}`,
+    }));
+    harness.states[3] = deals.map((deal) => ({
+      ...deal,
+      contact_id: 'contact-synthetic',
+      contact: { name: 'Osoba syntetyczna', phone: '+48000000000' },
+    }));
+    const html = renderPage();
+    const desktop = boardViews(html).desktop;
+    expect(desktop.match(/data-pipeline-column=/g)).toHaveLength(6);
+    expect(desktop.match(/data-pipeline-deal=/g)).toHaveLength(3);
+    expect(desktop).not.toContain('7. ARCHIWUM');
+    for (const card of desktop.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? []) {
+      expect(card).toMatch(/Deal syntetyczny \d/);
+      expect(card).toContain('Osoba syntetyczna');
+      expect(card).toContain('mt-2 text-sm font-bold');
+      expect(card).toContain('<time');
+      expect(card).toContain('03.11.2026');
+      expect(card).toContain('Ostatnia aktywność:');
+      expect(card).toContain('ZADZWOŃ');
+      expect(card).toContain('WIADOMOŚĆ');
+    }
+    for (const label of ['Produkt', 'Tag', 'Bank', 'Priorytet'])
+      expect(html).toMatch(new RegExp(`<label[^>]*>${label}<select`));
+    expect(html).toContain('href="/assistant?feature=pipeline"');
+    const filters = html.indexOf('>Produkt<select');
+    const stats = html.indexOf('aria-label="Statystyki lejka"');
+    const assistant = html.indexOf('href="/assistant?feature=pipeline"');
+    const toolbar = html.indexOf('aria-label="Narzędzia tablicy transakcji"');
+    const board = html.indexOf('<div class="pipeline-scroll hidden');
+    expect(filters).toBeGreaterThan(0);
+    expect(stats).toBeGreaterThan(filters);
+    expect(assistant).toBeGreaterThan(stats);
+    expect(toolbar).toBeGreaterThan(assistant);
+    expect(board).toBeGreaterThan(toolbar);
+    for (const text of ['Szukaj transakcji', '⌘K', 'Wszystkie transakcje', 'Właściciel zmiany', 'Więcej', 'Sortuj według'])
+      expect(html).toContain(text);
+    expect(html).toContain('aria-keyshortcuts="Meta+K Control+K"');
+  });
+
+  it('wyszukuje po nazwie sprawy i kontakcie bez zmiany źródłowych danych', () => {
+    harness.states[3] = deals.map((deal, index) => ({
+      ...deal,
+      contact: { name: index === 1 ? 'Osoba Alfa' : 'Osoba Beta' },
+    }));
+    harness.states[toolbarState.search] = '  OSOBA alfa  ';
+    expect(desktopCards()).toHaveLength(1);
+    expect(desktopCards()[0]).toContain('href="/deals/deal-1"');
+    harness.states[toolbarState.search] = 'deal syntetyczny 2';
+    expect(desktopCards()).toHaveLength(1);
+    expect(desktopCards()[0]).toContain('href="/deals/deal-2"');
+    harness.states[toolbarState.search] = 'brak dopasowania';
+    expect(desktopCards()).toHaveLength(0);
+    expect(boardViews(renderPage()).desktop).toContain('Ten etap jest pusty');
+    expect(harness.states[3]).toHaveLength(3);
+  });
+
+  it('łączy widok statusu i filtr właściciela z istniejącym filtrem produktu', () => {
+    harness.states[3] = [
+      { ...deals[0], assigned_to: 'owner-a', assignee: { full_name: 'Opiekun syntetyczny' } },
+      { ...deals[1], status: 'won', assigned_to: 'owner-a' },
+      { ...deals[2], status: 'lost', product_type: 'Inny produkt' },
+    ];
+    expect(renderPage()).toContain('Opiekun syntetyczny');
+    harness.states[toolbarState.view] = 'closed';
+    expect(desktopCards()).toHaveLength(2);
+    harness.states[toolbarState.owner] = 'owner-a';
+    expect(desktopCards()).toHaveLength(1);
+    expect(desktopCards()[0]).toContain('href="/deals/deal-1"');
+    harness.states[5] = 'Inny produkt';
+    expect(desktopCards()).toHaveLength(0);
+    harness.states[toolbarState.owner] = 'unassigned';
+    expect(desktopCards()).toHaveLength(1);
+    expect(desktopCards()[0]).toContain('href="/deals/deal-2"');
+    harness.states[5] = 'all';
+    harness.states[toolbarState.owner] = 'all';
+    harness.states[toolbarState.view] = 'open';
+    expect(desktopCards()).toHaveLength(1);
+    expect(desktopCards()[0]).toContain('href="/deals/deal-0"');
+  });
+
+  it.each([
+    ['created-desc', ['deal-1', 'deal-0']],
+    ['created-asc', ['deal-0', 'deal-1']],
+    ['title', ['deal-1', 'deal-0']],
+    ['value-desc', ['deal-1', 'deal-0']],
+  ])('sortuje karty w etapie: %s', (sort, order) => {
+    harness.states[3] = [
+      { ...deals[0], title: 'Zeta', created_at: '2026-11-01T12:00:00Z' },
+      { ...deals[1], title: 'Alfa', created_at: '2026-11-02T12:00:00Z' },
+    ];
+    harness.states[toolbarState.sort] = sort;
+    expect(desktopCards().map((card) => card.match(/href="\/deals\/([^"]+)"/)?.[1])).toEqual(order);
+    expect((harness.states[3] as typeof deals).map((deal) => deal.id)).toEqual(['deal-0', 'deal-1']);
   });
 });

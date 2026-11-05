@@ -217,7 +217,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:bg-[#20383d] lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]'
+          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]',
+          pathname === '/pipelines'
+            ? 'lg:shrink-0 lg:bg-[#093e52]'
+            : 'lg:bg-[#20383d]'
         )}
         aria-label="Primary"
       >

@@ -1,6 +1,9 @@
 import type { CSSProperties } from 'react';
 
 export const APP_SIDEBAR_WIDTH = 160;
+// Bigin demo, 1536×1024, 05.11.2026. Apply only to the pipeline frame.
+export const PIPELINE_SIDEBAR_WIDTH = 285;
+export const PIPELINE_CONTENT_PADDING_X = 10;
 export const APP_HEADER_HEIGHT = 56;
 export const CONTENT_PADDING_X = 24;
 export const CONTENT_PADDING_Y = 24;
@@ -21,11 +24,13 @@ export type GeometryCssVars = CSSProperties & {
 };
 
 /** Inherited once from AppShell by the shell and its screens. */
-export function geometryCssVars(): GeometryCssVars {
+export function geometryCssVars(
+  surface: 'default' | 'pipelines' = 'default'
+): GeometryCssVars {
   return {
-    '--app-sidebar-width': `${APP_SIDEBAR_WIDTH}px`,
+    '--app-sidebar-width': `${surface === 'pipelines' ? PIPELINE_SIDEBAR_WIDTH : APP_SIDEBAR_WIDTH}px`,
     '--app-header-height': `${APP_HEADER_HEIGHT}px`,
-    '--content-pad-x': `${CONTENT_PADDING_X}px`,
+    '--content-pad-x': `${surface === 'pipelines' ? PIPELINE_CONTENT_PADDING_X : CONTENT_PADDING_X}px`,
     '--content-pad-y': `${CONTENT_PADDING_Y}px`,
     '--section-gap': `${SECTION_GAP}px`,
     '--card-gap': `${CARD_GAP}px`,

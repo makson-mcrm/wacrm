@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   APP_SIDEBAR_WIDTH,
+  PIPELINE_SIDEBAR_WIDTH,
+  PIPELINE_CONTENT_PADDING_X,
   APP_HEADER_HEIGHT,
   CONTENT_PADDING_X,
   CONTENT_PADDING_Y,
@@ -13,6 +15,18 @@ import {
 } from './layout-geometry';
 
 describe('02A-5: geometria 00S', () => {
+  it('rama Bigin obowiązuje tylko dla Lejka i wyznacza początek tablicy x=295', () => {
+    expect(PIPELINE_SIDEBAR_WIDTH).toBe(285);
+    expect(PIPELINE_CONTENT_PADDING_X).toBe(10);
+    expect(PIPELINE_SIDEBAR_WIDTH + PIPELINE_CONTENT_PADDING_X).toBe(295);
+    expect(geometryCssVars('pipelines')).toEqual({
+      ...geometryCssVars(),
+      '--app-sidebar-width': '285px',
+      '--content-pad-x': '10px',
+    });
+    expect(geometryCssVars()['--app-sidebar-width']).toBe('160px');
+  });
+
   it('eksportuje uzgodnione wymiary i proporcje', () => {
     expect({
       APP_SIDEBAR_WIDTH,

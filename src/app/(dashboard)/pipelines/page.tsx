@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
@@ -32,6 +32,9 @@ import {
   Settings,
   Sparkles,
   Archive,
+  Search,
+  ArrowUpDown,
+  MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
@@ -41,6 +44,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { crmErrorMessage, updateDeal } from '@/lib/deals/persistence';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 import {
   loadOrSeedPipelines,
   readPipelines,
@@ -104,6 +108,11 @@ export default function PipelinesPage() {
   const [defaultQuestionnaireId, setDefaultQuestionnaireId] =
     useState<string>('');
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [dealView, setDealView] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('created-desc');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadPipelines = useCallback(async () => {
     if (!accountId) return null;
@@ -409,7 +418,17 @@ export default function PipelinesPage() {
     [operationalDeals]
   );
   const visibleDeals = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('pl-PL');
     const rows = operationalDeals.filter((deal) => {
+      if (query && ![
+        deal.title,
+        deal.contact?.name,
+        deal.contact?.first_name,
+        deal.contact?.last_name,
+      ].filter(Boolean).join(' ').toLocaleLowerCase('pl-PL').includes(query)) return false;
+      if (dealView === 'open' && deal.status !== 'open') return false;
+      if (dealView === 'closed' && deal.status !== 'won' && deal.status !== 'lost') return false;
+      if (ownerFilter === 'unassigned' ? !!deal.assigned_to : ownerFilter !== 'all' && deal.assigned_to !== ownerFilter) return false;
       if (productFilter !== 'all' && deal.product_type !== productFilter)
         return false;
       if (tagFilter !== 'all' && !deal.tagNames.includes(tagFilter))
@@ -422,8 +441,17 @@ export default function PipelinesPage() {
       if (withoutNextAction && deal.next_action?.trim()) return false;
       return true;
     });
-    return rows;
+    return rows.sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title, 'pl');
+      if (sortBy === 'value-desc') return Number(b.value || 0) - Number(a.value || 0);
+      const difference = +new Date(a.created_at) - +new Date(b.created_at);
+      return sortBy === 'created-asc' ? difference : -difference;
+    });
   }, [
+    search,
+    dealView,
+    ownerFilter,
+    sortBy,
     bankFilter,
     operationalDeals,
     onlyOverdue,
@@ -455,19 +483,43 @@ export default function PipelinesPage() {
   const withNextAction = activeDeals.filter((deal) =>
     deal.next_action?.trim()
   ).length;
+  const owners = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const deal of operationalDeals) {
+      if (!deal.assigned_to) continue;
+      const name = deal.assignee?.full_name?.trim() || deal.assignee?.email?.trim();
+      if (name || !names.has(deal.assigned_to))
+        names.set(deal.assigned_to, name || 'Właściciel bez nazwy');
+    }
+    return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pl'));
+  }, [operationalDeals]);
+
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        // Leave dialog keyboard handling alone while editing a Deal or pipeline.
+        if (dealFormOpen || newPipelineOpen || settingsOpen || !searchRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        searchRef.current.focus();
+      }
+    }
+    window.addEventListener('keydown', focusSearch, true);
+    return () => window.removeEventListener('keydown', focusSearch, true);
+  }, [dealFormOpen, newPipelineOpen, settingsOpen]);
 
   if (loading) {
     return (
-      <div data-pipeline-workspace className="min-h-full space-y-6 bg-[#f8f9fb] text-slate-900">
+      <div data-pipeline-workspace className="min-h-full space-y-6 bg-[#f9fbfc] text-slate-900">
         <div className="flex items-center justify-between">
           <div className="bg-muted h-8 w-48 animate-pulse rounded" />
           <div className="bg-muted h-9 w-28 animate-pulse rounded-lg" />
         </div>
-        <div className="flex gap-3">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="flex gap-[10px] overflow-x-auto">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="bg-muted/50 h-96 w-72 animate-pulse rounded-xl"
+              className="h-96 w-[220px] shrink-0 animate-pulse rounded-lg bg-[#f1f3f6]"
             />
           ))}
         </div>
@@ -476,120 +528,176 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div data-pipeline-workspace className="min-h-full min-w-0 space-y-4 bg-[#f8f9fb] text-slate-900">
+    <div data-pipeline-workspace className="min-h-full min-w-0 space-y-4 bg-[#f9fbfc] text-slate-900">
       {pipelineError ? (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           Nie wczytano lejków: {pipelineError}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek sprzedaży</h1>
-          <p className="mt-1 text-sm text-slate-600">Wszystkie aktywne sprawy (Tomasz)</p>
-        </div>
-        <Button variant={includeArchive ? 'default' : 'outline'} onClick={() => setIncludeArchive((value) => !value)}>
-          <Archive className="size-4" /> Archiwum ({archiveCount})
-        </Button>
-      </div>
+      {surfaceFlags.pipelineExtensions ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950">Lejek sprzedaży</h1>
+              <p className="mt-1 text-sm text-slate-600">Wszystkie aktywne sprawy (Tomasz)</p>
+            </div>
+            <Button variant={includeArchive ? 'default' : 'outline'} onClick={() => setIncludeArchive((value) => !value)}>
+              <Archive className="size-4" /> Archiwum ({archiveCount})
+            </Button>
+          </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-4 lg:grid-cols-7">
-        <FilterSelect
-          label="Produkt"
-          value={productFilter}
-          onChange={setProductFilter}
-          options={filterOptions.products}
-        />
-        <FilterSelect
-          label="Tag"
-          value={tagFilter}
-          onChange={setTagFilter}
-          options={filterOptions.tags}
-        />
-        <FilterSelect
-          label="Bank"
-          value={bankFilter}
-          onChange={setBankFilter}
-          options={filterOptions.banks}
-        />
-        <FilterSelect
-          label="Priorytet"
-          value={priorityFilter}
-          onChange={setPriorityFilter}
-          options={['pilne', 'blocker']}
-        />
-        <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
-          <input type="checkbox" checked={onlyOverdue} onChange={(event) => setOnlyOverdue(event.target.checked)} /> Tylko przeterminowane
-        </label>
-        <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
-          <input type="checkbox" checked={withoutNextAction} onChange={(event) => setWithoutNextAction(event.target.checked)} /> Bez next action
-        </label>
-        <button
-          type="button"
-          onClick={() => setShowMoreFilters((value) => !value)}
-          className="mt-4 h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 hover:bg-slate-100"
-        >
-          Więcej filtrów
-        </button>
-        {showMoreFilters ? (
-          <div className="col-span-full flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 font-semibold">
-                <GitBranch className="size-4" /> {selectedPipeline?.name ?? t('selectPipeline')} <ChevronDown className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {pipelines.map((pipeline) => <DropdownMenuItem key={pipeline.id} onClick={() => setSelectedPipelineId(pipeline.id)}>{pipeline.name}</DropdownMenuItem>)}
-                {selectedPipeline ? <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings className="size-4" /> Zarządzaj lejkami</DropdownMenuItem></> : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-4 lg:grid-cols-7">
+            <FilterSelect
+              label="Produkt"
+              value={productFilter}
+              onChange={setProductFilter}
+              options={filterOptions.products}
+            />
+            <FilterSelect
+              label="Tag"
+              value={tagFilter}
+              onChange={setTagFilter}
+              options={filterOptions.tags}
+            />
+            <FilterSelect
+              label="Bank"
+              value={bankFilter}
+              onChange={setBankFilter}
+              options={filterOptions.banks}
+            />
+            <FilterSelect
+              label="Priorytet"
+              value={priorityFilter}
+              onChange={setPriorityFilter}
+              options={['pilne', 'blocker']}
+            />
+            <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
+              <input type="checkbox" checked={onlyOverdue} onChange={(event) => setOnlyOverdue(event.target.checked)} /> Tylko przeterminowane
+            </label>
+            <label className="mt-4 flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700">
+              <input type="checkbox" checked={withoutNextAction} onChange={(event) => setWithoutNextAction(event.target.checked)} /> Bez next action
+            </label>
             <button
               type="button"
-              onClick={() => {
-                setProductFilter('all');
-                setTagFilter('all');
-                setBankFilter('all');
-                setPriorityFilter('all');
-                setOnlyOverdue(false);
-                setWithoutNextAction(false);
-              }}
-              className="font-bold text-emerald-800 hover:underline"
+              onClick={() => setShowMoreFilters((value) => !value)}
+              className="mt-4 h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-600 hover:bg-slate-100"
             >
-              Wyczyść filtry
+              Więcej filtrów
             </button>
+            {showMoreFilters ? (
+              <div className="col-span-full flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 font-semibold">
+                    <GitBranch className="size-4" /> {selectedPipeline?.name ?? t('selectPipeline')} <ChevronDown className="size-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {pipelines.map((pipeline) => <DropdownMenuItem key={pipeline.id} onClick={() => setSelectedPipelineId(pipeline.id)}>{pipeline.name}</DropdownMenuItem>)}
+                    {selectedPipeline ? <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => setSettingsOpen(true)}><Settings className="size-4" /> Zarządzaj lejkami</DropdownMenuItem></> : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductFilter('all');
+                    setTagFilter('all');
+                    setBankFilter('all');
+                    setPriorityFilter('all');
+                    setOnlyOverdue(false);
+                    setWithoutNextAction(false);
+                  }}
+                  className="font-bold text-emerald-800 hover:underline"
+                >
+                  Wyczyść filtry
+                </button>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      <section className="grid grid-cols-2 gap-2 md:grid-cols-5" aria-label="Statystyki lejka">
-        <Stat label="Aktywne sprawy" value={String(activeDeals.length)} />
-        <Stat label="Przychód TERAZ" value={`${revenueNow.toLocaleString('pl-PL')} PLN`} />
-        <Stat label="Przychód PÓŹNIEJ" value={`${revenueLater.toLocaleString('pl-PL')} PLN`} />
-        <Stat label="Z blockerem" value={String(withBlocker)} />
-        <Stat label="Z next action" value={String(withNextAction)} />
-      </section>
+          <section className="grid grid-cols-2 gap-2 md:grid-cols-5" aria-label="Statystyki lejka">
+            <Stat label="Aktywne sprawy" value={String(activeDeals.length)} />
+            <Stat label="Przychód TERAZ" value={`${revenueNow.toLocaleString('pl-PL')} PLN`} />
+            <Stat label="Przychód PÓŹNIEJ" value={`${revenueLater.toLocaleString('pl-PL')} PLN`} />
+            <Stat label="Z blockerem" value={String(withBlocker)} />
+            <Stat label="Z next action" value={String(withNextAction)} />
+          </section>
 
-      <Link
-        href="/assistant?feature=pipeline"
-        className="group flex w-full max-w-sm items-center gap-3 rounded-xl border border-lime-300 bg-white p-3 shadow-sm transition-all hover:border-emerald-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-      >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lime-100 text-emerald-700">
-          <Sparkles className="size-5" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="font-black text-slate-950">Asystent AI</span>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black tracking-wide text-emerald-800">
-              AI+
+          <Link
+            href="/assistant?feature=pipeline"
+            className="group flex w-full max-w-sm items-center gap-3 rounded-xl border border-lime-300 bg-white p-3 shadow-sm transition-all hover:border-emerald-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lime-100 text-emerald-700">
+              <Sparkles className="size-5" aria-hidden="true" />
             </span>
-          </span>
-          <span className="mt-0.5 block text-sm font-medium text-slate-600">
-            Przeanalizuj lejek
-          </span>
-        </span>
-        <ChevronRight
-          className="size-5 shrink-0 text-emerald-700 transition-transform group-hover:translate-x-0.5"
-          aria-hidden="true"
-        />
-      </Link>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="font-black text-slate-950">Asystent AI</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black tracking-wide text-emerald-800">
+                  AI+
+                </span>
+              </span>
+              <span className="mt-0.5 block text-sm font-medium text-slate-600">
+                Przeanalizuj lejek
+              </span>
+            </span>
+            <ChevronRight
+              className="size-5 shrink-0 text-emerald-700 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </Link>
+        </>
+      ) : null}
+
+      <section aria-label="Narzędzia tablicy transakcji" className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e3e7ec] bg-white px-3 py-2 text-sm text-slate-900">
+        <label className="relative min-w-48 flex-1">
+          <span className="sr-only">Szukaj transakcji</span>
+          <Search aria-hidden="true" className="absolute top-2.5 left-3 size-4 text-slate-500" />
+          <input
+            ref={searchRef}
+            type="search"
+            aria-keyshortcuts="Meta+K Control+K"
+            placeholder="Wyszukaj transakcje"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-9 w-full rounded-full border border-slate-300 bg-white pr-12 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+          />
+          <kbd aria-hidden="true" className="pointer-events-none absolute top-2 right-3 text-xs text-slate-500">⌘K</kbd>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="sr-only">Widok transakcji</span>
+          <select value={dealView} onChange={(event) => setDealView(event.target.value)} className="h-9 max-w-full rounded-full border border-slate-300 bg-white px-3 text-xs">
+            <option value="all">Wszystkie transakcje</option>
+            <option value="open">Otwarte transakcje</option>
+            <option value="closed">Zamknięte transakcje</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs">
+          Właściciel zmiany
+          <select aria-label="Właściciel zmiany" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)} className="h-9 max-w-40 rounded-full border border-slate-300 bg-white px-3 text-xs">
+            <option value="all">Wszyscy</option>
+            <option value="unassigned">Nieprzypisane</option>
+            {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs">
+          <ArrowUpDown aria-hidden="true" className="size-4" /> Sortuj według
+          <select aria-label="Sortuj według" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-9 rounded-full border border-slate-300 bg-white px-3 text-xs">
+            <option value="created-desc">Czas utworzenia: najnowsze</option>
+            <option value="created-asc">Czas utworzenia: najstarsze</option>
+            <option value="title">Nazwa transakcji</option>
+            <option value="value-desc">Kwota: malejąco</option>
+          </select>
+        </label>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs">
+            <MoreHorizontal aria-hidden="true" className="size-4" /> Więcej
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => { setSearch(''); setDealView('all'); setOwnerFilter('all'); setSortBy('created-desc'); }}>Resetuj widok</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { void refreshStages(); void refreshDeals(); }}>Odśwież tablicę</DropdownMenuItem>
+            {selectedPipeline ? <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Zarządzaj lejkami</DropdownMenuItem> : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </section>
 
       {/* Board */}
       {pipelines.length === 0 ? (

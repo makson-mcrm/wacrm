@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 import { DailyStartCard } from '@/components/layout/daily-start-card';
@@ -10,6 +10,7 @@ import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { Sidebar } from '@/components/layout/sidebar';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { geometryCssVars } from '@/lib/ui/layout-geometry';
+import { cn } from '@/lib/utils';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const isPipeline = usePathname() === '/pipelines';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -104,9 +106,12 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div
       data-slot="app-shell"
-      className="bg-app-surface relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden"
+      className={cn(
+        'relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden',
+        isPipeline ? 'bg-[#f9fbfc]' : 'bg-app-surface'
+      )}
       style={{
-        ...geometryCssVars(),
+        ...geometryCssVars(isPipeline ? 'pipelines' : 'default'),
         transform: 'translateY(var(--app-viewport-offset-top, 0px))',
       }}
     >
@@ -117,7 +122,12 @@ export function AppShell({ children }: AppShellProps) {
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           id="main-content"
-          className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#f5f8fb] px-3 pt-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-slate-950 md:bg-transparent md:p-6 md:pb-6 lg:px-5 lg:pt-3"
+          className={cn(
+            'min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-slate-950 md:p-6 md:pb-6 lg:pt-3',
+            isPipeline
+              ? 'bg-[#f9fbfc] lg:px-[var(--content-pad-x)]'
+              : 'bg-[#f5f8fb] md:bg-transparent lg:px-5'
+          )}
         >
           <AccountAccessAlert />
           {children}
