@@ -1,0 +1,13 @@
+{
+  "updated_at": "2026-11-05T18:25:00+01:00",
+  "zadanie_d1": "KM3.2.08 — LEJEK 02B (BIGIN-FIRST) — NA TEST, CZEKA NA ODBIÓR TOMASZA",
+  "czynnosc": "Kod paczki wypchniety do GitHuba kanalem GitHub MCP (bez loginu git). TEST przebudowany z galezi k3/bigin-02b-20261105.",
+  "etap": "commit dac0f45f, build 01a1acb1 completed 18:16 — TEST serwuje rdzen BIGIN (shell, sidebar 285/#093E52, tablica F9FBFC, dodatki za surfaceFlags domyslnie wylaczone)",
+  "ostatnia_zmiana": "push_files -> refs/heads/k3/bigin-02b-20261105 = dac0f45f; hosting_deploy TEST -> build completed, commit dac0f45f",
+  "testy": "2031/2033 vitest PASS, 1 skipped; 1 test czerwony NIEWINNY tej paczki: financial-questionnaires.test.ts:1819 (500 vs 201) — identyczny blad na commicie bazowym 0f7317df, sprawdzone w osobnym worktree",
+  "bledy": "Brak bledow paczki. Produkcja nietknieta: feat/whatsapp-coexistence / 0f7317df / build 01a1aba4. Uwaga: /review/status.html i stan.json lezaly poza repo i zniknely po przebudowie — teraz dodawane do repo, zeby przetrwaly kolejne buildy.",
+  "live_wersja": "TEST: dac0f45f / build 01a1acb1 (paczka BIGIN). PRODUKCJA: 0f7317df / build 01a1aba4 (bez zmian)",
+  "koszt": "0 USD API (Codex nie byl uruchamiany w tym przebiegu); Codex 5h 34% uzyte, tydzien 6% (odczyt 18:09)",
+  "nastepny_krok": "Tomasz: odbior ekranu LEJEK na https://test.makson.space/pipelines (po zalogowaniu). Po PASS 02B — KM3.2.04 DEAL.",
+  "bezczynnosc": true
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mCRM — stan pracy i odbiór LEJEK 02B</title>
+<style>
+  :root{--bg:#0f172a;--card:#111c33;--line:#24334f;--fg:#e6edf7;--mut:#93a4c0;--acc:#3b82f6;--ok:#22c55e}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  header{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:700}
+  .pill{padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(147,164,192,.15);color:var(--mut)}
+  .pill.ok{background:rgba(34,197,94,.15);color:var(--ok)}
+  .right{margin-left:auto;font-size:12px;color:var(--mut)}
+  main{padding:14px 18px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td{padding:6px 8px;border-bottom:1px solid rgba(36,51,79,.7);vertical-align:top}
+  td.k{color:var(--mut);white-space:nowrap;width:190px}
+  h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:22px 0 8px}
+  iframe{width:100%;height:76vh;border:1px solid var(--line);border-radius:12px;background:#fff}
+  a{color:#7dd3fc}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .btn{padding:7px 12px;border-radius:8px;background:var(--acc);color:#fff;text-decoration:none;font-size:13px;font-weight:600}
+  .btn.alt{background:#24334f}
+  .small{color:var(--mut);font-size:11px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>mCRM AI — stan pracy i odbiór</h1>
+  <span id="mode" class="pill">—</span>
+  <span class="right">aktualizacja: <span id="stamp">—</span> · odświeżanie co 60 s</span>
+</header>
+<main>
+  <div class="bar" style="margin-bottom:10px">
+    <a class="btn" style="background:#b45309" href="lejek.html" target="_blank" rel="noopener">LEJEK 02B — BIGIN ↔ mCRM SURFACE-02 (LOKALNIE DO ODBIORU)</a>
+  </div>
+  <table id="rows"></table>
+
+  <h2>LEJEK 02B — odbiór (jeden ekran)</h2>
+  <div class="bar">
+    <a class="btn" href="lejek.html" target="_blank" rel="noopener">Otwórz porównanie: BIGIN — WZORZEC ↔ mCRM — LOKALNY RENDER</a>
+    <a class="btn" href="https://test.makson.space/pipelines" target="_blank" rel="noopener">Lejek z paczką BIGIN — TEST (po zalogowaniu)</a>
+    <a class="btn alt" href="https://mediumseagreen-pelican-353577.hostingersite.com/pipelines" target="_blank" rel="noopener">Produkcja (bez zmian, po zalogowaniu)</a>
+  </div>
+  <p class="small">Obrazy: <b>BIGIN — WZORZEC</b> (zalogowane demo, 05.11.2026) oraz <b>mCRM — LOKALNY RENDER</b> (05.11.2026, dane syntetyczne, worktree — <b>nie jest to wersja LIVE</b>). Stare renderunki nie są tu pokazywane.</p>
+
+  <h2>Znany błąd aplikacji (do wyjaśnienia w kolejnej paczce)</h2>
+  <p class="small">Wejście na <code>/</code> bez zalogowania pokazuje kartę „Nie udało się wczytać uprawnień / Nie udało się wczytać roli użytkownika” zamiast przekierowania na <code>/login</code>. Występuje na TEST i na produkcji; trasa <code>/login</code> działa (200), a zalogowana sesja działa poprawnie (6 kolumn, Lejek↔Deal sprawdzone).</p>
+
+  <h2>DEAL — osobny ekran, poza paczką 02B</h2>
+  <div class="bar">
+    <a class="btn alt" href="https://mediumseagreen-pelican-353577.hostingersite.com/deals" target="_blank" rel="noopener">Otwórz DEAL na LIVE (osobny link)</a>
+  </div>
+  <p class="small">Karta DEAL nie jest częścią odbioru LEJKA 02B i nie jest tu osadzana — wyłącznie osobny link.</p>
+  <p class="small">Dane stanu: <a href="stan.json">stan.json</a> — aktualizowane przez Hermesa po każdej paczce; strona odświeża je sama co 60 s. Gdy nic się nie wykonuje, widnieje BEZCZYNNOŚĆ.</p>
+</main>
+<script>
+var ROWS=[["Zadanie D1","zadanie_d1"],["Czynność","czynnosc"],["Etap","etap"],
+          ["Ostatnia zmiana","ostatnia_zmiana"],["Testy","testy"],["Błędy","bledy"],
+          ["Wersja LIVE","live_wersja"],["Koszt","koszt"],["Następny krok","nastepny_krok"]];
+function esc(s){return String(s==null?"—":s).replace(/[<>&]/g,function(c){return{"<":"&lt;",">":"&gt;","&":"&amp;"}[c]});}
+function load(){
+  fetch('stan.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+    var out='';
+    ROWS.forEach(function(p){ if(j[p[1]]===undefined) return;
+      out+='<tr><td class="k">'+p[0]+'</td><td>'+esc(j[p[1]])+'</td></tr>'; });
+    document.getElementById('rows').innerHTML=out;
+    var m=document.getElementById('mode');
+    m.textContent = j.bezczynnosc ? 'BEZCZYNNOŚĆ' : 'W TOKU';
+    m.className = 'pill ' + (j.bezczynnosc ? '' : 'ok');
+    document.getElementById('stamp').textContent = esc(j.updated_at);
+  }).catch(function(){
+    document.getElementById('rows').innerHTML='<tr><td class="k">Stan</td><td>brak danych stan.json</td></tr>';
+  });
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>
