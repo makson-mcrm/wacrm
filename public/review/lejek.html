@@ -1,4 +1,4 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>ODBIÓR 02B — mCRM LIVE 01a1a5f5</title>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>KM3.2.08 — LEJEK 02B — NIEODEBRANE — BIGIN FIRST</title>
 <style>
 body{margin:0;font:13px/1.45 system-ui,sans-serif;background:#0f1216;color:#e8eaed}
 header{position:sticky;top:0;z-index:9;padding:9px 10px;background:#171c22;border-bottom:1px solid #2a3138}
@@ -13,10 +13,10 @@ b.ok{color:#43d17a}
 img{display:block;margin:0 auto} img.fit{width:100%;height:auto;max-width:1536px} img.native{width:1536px;max-width:none}
 </style></head><body>
 <header>
-<div class="row"><button id="b1" class="on" onclick="pick(1)">1. mCRM LIVE — build 01a1a5f5 (dane zanonimizowane)</button><button id="b2" class="" onclick="pick(2)">2. WZORZEC BIGIN (demo, dane fikcyjne)</button><button id="b3" class="" onclick="pick(3)">3. MASTER 00S (geometria)</button><button id="bz" onclick="zoom()">Powiększenie: dopasuj</button>
+<div class="row"><button id="b2" class="on" onclick="pick(2)">1. WZORZEC BIGIN — LEJEK (demo)</button><button id="b1" class="" onclick="pick(1)">2. NASZ mCRM LIVE — LEJEK 02B (nieodebrany)</button><button id="bz" onclick="zoom()">Powiększenie: dopasuj</button>
 <a class="live" href="https://mediumseagreen-pelican-353577.hostingersite.com/pipelines" target="_blank" rel="noopener">OTWÓRZ TEN SAM EKRAN NA ŻYWO</a></div>
-<div class="meta">Odbiór 02B · 05.11.2026 · <b>LIVE: build 01a1a5f5 · commit 1ac507a5</b> · testy: public-leads 13/13 PASS — wykonane na roboczym drzewie, nie dowód testów czystej produkcji (05.11.2026)<br>
-<div class="chk">Zatwierdzasz: <b>układ kolumn</b> · <b>kolory etapów</b> · <b>białe karty</b> · <b>nazwa Kontaktu na karcie</b> · <b>sumy i liczniki w nagłówkach</b> · <b>nawigację i przyciski ZADZWOŃ/WIADOMOŚĆ</b> · <b>brak banera błędu</b>.
+<div class="meta"><b>KM3.2.08 — LEJEK 02B — NIEODEBRANE / POPRAW</b> · Przegląd układu BIGIN-FIRST · materiał porównawczy mCRM ze zrzutu historycznego 05.11.2026 (nie jest podglądem działającej sesji) · <b>znacznik analizowanej wersji: build 01a1a5f5 · commit 1ac507a5</b> · testy: public-leads 13/13 PASS — wykonane na roboczym drzewie, nie dowód testów czystej produkcji (05.11.2026)<br>
+<div class="chk"><b>CEL KOREKTY:</b> najpierw odtworzyć wygląd, kolory, pola i ergonomię LEJKA BIGIN; dopiero osobno rozpatrzyć różnice i nasze dodatkowe funkcje, a ich miejsce uzgodnić z Tomaszem. Ten ekran NIE JEST ZATWIERDZONY. Archiwalny MASTER 00S nie jest wzorcem bazowym KM3.
 Dane osobowe na zrzucie LIVE zastąpiono słowem „Syntetyk” — układ i kolory bez zmian.</div></div>
 </header>
 <div class="wrap"><img id="i" class="fit" src="" alt=""></div>
@@ -25,5 +25,5 @@ var S=["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABgAAAAQACAIAAACoEwUVAAABFm
 function pick(n){cur=n-1;for(var k=1;k<=S.length;k++){var b=document.getElementById('b'+k);if(b)b.className=(k===n)?'on':'';}
 var im=document.getElementById('i');im.src=S[cur];im.className=big?'native':'fit';}
 function zoom(){big=!big;var im=document.getElementById('i');im.className=big?'native':'fit';document.getElementById('bz').textContent='Powiększenie: '+(big?'100%':'dopasuj');}
-pick(1);
+pick(2);
 </script></body></html>
