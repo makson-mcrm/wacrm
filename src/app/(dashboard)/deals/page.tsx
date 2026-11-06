@@ -16,6 +16,7 @@ import {
 import { formatWarsawDateTime } from '@/lib/date-time';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { createClient } from '@/lib/supabase/client';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 
 type DealListRow = {
   id: string;
@@ -103,12 +104,14 @@ export default function DealsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <header>
-        <h1 className="text-2xl font-black text-slate-950">Sprawy</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Pojedyncze sprawy klientów.
-        </p>
-      </header>
+      {surfaceFlags.dealsListExtensions && (
+        <header>
+          <h1 className="text-2xl font-black text-slate-950">Sprawy</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Pojedyncze sprawy klientów.
+          </p>
+        </header>
+      )}
 
       <label className="relative block max-w-md">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" />

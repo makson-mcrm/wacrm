@@ -53,6 +53,8 @@ import {
   SlidersHorizontal,
   Filter,
   X,
+  List,
+  Rows3,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -68,6 +70,7 @@ import { parseCrmPhone } from '@/lib/contacts/phone';
 import { contactSearchFilter, contactSearchTerm } from '@/lib/contacts/search';
 import { findExistingContact } from '@/lib/contacts/dedupe';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 
 const PAGE_SIZE = 20;
 
@@ -646,7 +649,7 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      <MobileContactsView
+      {surfaceFlags.contactsExtensions && <MobileContactsView
         contacts={contacts}
         loading={loading}
         search={search}
@@ -666,7 +669,7 @@ export default function ContactsPage() {
         selectedTagIds={selectedTagIds}
         onToggleTag={toggleTagFilter}
         onClearTags={clearTagFilters}
-      />
+      />}
       <DesktopContactsView
         contacts={contacts}
         loading={loading}
@@ -708,7 +711,7 @@ export default function ContactsPage() {
         onToggleTag={toggleTagFilter}
         onClearTags={clearTagFilters}
       />
-      <div className="hidden">
+      {surfaceFlags.contactsExtensions && <div className="hidden">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1165,7 +1168,7 @@ export default function ContactsPage() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Contact Form Dialog */}
       <ContactForm
@@ -1184,14 +1187,14 @@ export default function ContactsPage() {
       />
 
       {/* Import Modal */}
-      <ImportModal
+      {surfaceFlags.contactsExtensions && <ImportModal
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={fetchContacts}
-      />
+      />}
 
       {/* Custom Fields Manager (admin+) */}
-      {canEditSettings && (
+      {surfaceFlags.contactsExtensions && canEditSettings && (
         <CustomFieldsManager
           open={customFieldsOpen}
           onOpenChange={setCustomFieldsOpen}
@@ -1232,7 +1235,7 @@ export default function ContactsPage() {
       </Dialog>
 
       {/* Bulk Delete Confirmation */}
-      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+      {surfaceFlags.contactsExtensions && <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
@@ -1260,7 +1263,7 @@ export default function ContactsPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }
@@ -1667,6 +1670,9 @@ function DesktopContactsView({
   onToggleTag: (tagId: string) => void;
   onClearTags: () => void;
 }) {
+  const [compact, setCompact] = useState(false);
+  const { user, profile } = useAuth();
+  const extensions = surfaceFlags.contactsExtensions;
   const filtered = contacts.filter((contact) =>
     contactMatchesSegment(contact, segment)
   );
@@ -1679,33 +1685,68 @@ function DesktopContactsView({
   ];
 
   return (
-    <section className="hidden lg:block" aria-label="Klienci — pełna lista">
+    <section
+      className={extensions ? 'hidden lg:block' : 'block'}
+      aria-label="Kontakty — pełna lista"
+    >
       <div className="mb-4 flex items-center justify-between">
-        <div>
+        {extensions ? <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
             Klienci
           </h1>
           <p className="mt-1 text-sm text-slate-700">
             Osoby, firmy i powiązania.
           </p>
-        </div>
+        </div> : (
+          <select
+            aria-label="Widok kontaktów"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+          >
+            <option value="all">Wszystkie kontakty</option>
+          </select>
+        )}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onExport}>
+          {extensions ? <Button variant="outline" onClick={onExport}>
             <Download className="size-4" /> Eksportuj
-          </Button>
+          </Button> : (
+            <div
+              className="flex items-center gap-1"
+              role="group"
+              aria-label="Przełącznik widoku kontaktów"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Widok listy"
+                aria-pressed={!compact}
+                onClick={() => setCompact(false)}
+              >
+                <List className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Widok kompaktowy"
+                aria-pressed={compact}
+                onClick={() => setCompact(true)}
+              >
+                <Rows3 className="size-4" />
+              </Button>
+            </div>
+          )}
           <GatedButton
             canAct={canEdit}
             gateReason="add contacts"
             onClick={onAdd}
             className="bg-emerald-800 text-white hover:bg-emerald-900"
           >
-            <Plus className="size-4" /> Dodaj klienta
+            <Plus className="size-4" /> {extensions ? 'Dodaj klienta' : 'Kontakt'}
           </GatedButton>
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        {extensions && <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
             {segments.map(([value, label]) => (
               <button
@@ -1740,7 +1781,7 @@ function DesktopContactsView({
               onClearTags={onClearTags}
             />
           </div>
-        </div>
+        </div>}
 
         <div className="overflow-hidden rounded-xl border border-slate-200">
           <Table>
@@ -1756,19 +1797,26 @@ function DesktopContactsView({
                     aria-label="Zaznacz wszystkie widoczne kontakty"
                   />
                 </TableHead>
-                <TableHead>Firma / Osoba</TableHead>
+                <TableHead>{extensions ? 'Firma / Osoba' : 'Nazwa kontaktu'}</TableHead>
+                {extensions ? <>
                 <TableHead>Powiązania</TableHead>
                 <TableHead>Aktywna sprawa / etap</TableHead>
                 <TableHead>Ostatnia aktywność</TableHead>
                 <TableHead>Tagi</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
+                </> : <>
+                  <TableHead>Firma</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Telefon</TableHead>
+                  <TableHead>Właściciel</TableHead>
+                </>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={extensions ? 7 : 6}
                     className="h-48 text-center text-slate-700"
                   >
                     <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
@@ -1780,7 +1828,7 @@ function DesktopContactsView({
                   return (
                     <TableRow
                       key={contact.id}
-                      className="h-16 cursor-pointer border-slate-200 hover:bg-emerald-50/40"
+                      className={`${compact && !extensions ? 'h-10' : 'h-16'} cursor-pointer border-slate-200 hover:bg-emerald-50/40`}
                       tabIndex={0}
                       aria-label={`Otwórz kartę klienta ${contact.name || contact.phone}`}
                       onClick={(event) => {
@@ -1811,13 +1859,14 @@ function DesktopContactsView({
                           <span className="block font-bold text-slate-900">
                             {contact.name || 'Kontakt bez nazwy'}
                           </span>
-                          <span className="block text-xs text-slate-700">
+                          {extensions && <span className="block text-xs text-slate-700">
                             {contact.companies
                               ?.map((company) => company.name)
                               .join(', ') || '—'}
-                          </span>
+                          </span>}
                         </button>
                       </TableCell>
+                      {extensions ? <>
                       <TableCell>
                         <div className="flex max-w-64 flex-wrap gap-1.5">
                           <Link
@@ -1914,13 +1963,30 @@ function DesktopContactsView({
                           </Button>
                         </div>
                       </TableCell>
+                      </> : <>
+                        <TableCell>
+                          {contact.companies?.length ? contact.companies.map((company, index) => (
+                            <span key={company.id}>
+                              {index > 0 && ', '}
+                              <Link href={`/companies?open=${company.id}`} className="hover:underline">{company.name}</Link>
+                            </span>
+                          )) : contact.company || '—'}
+                        </TableCell>
+                        <TableCell>{contact.email || '—'}</TableCell>
+                        <TableCell>{contact.phone || '—'}</TableCell>
+                        <TableCell>
+                          {contact.user_id && contact.user_id === user?.id
+                            ? profile?.full_name || profile?.email || '—'
+                            : '—'}
+                        </TableCell>
+                      </>}
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={extensions ? 7 : 6}
                     className="h-48 text-center text-slate-700"
                   >
                     Brak klientów w tym widoku.
@@ -1930,7 +1996,7 @@ function DesktopContactsView({
             </TableBody>
           </Table>
         </div>
-        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
+        {extensions && <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
           <div>
             <p className="text-sm font-black text-slate-900">
               Nowy kontakt / nieznany numer
@@ -1984,11 +2050,11 @@ function DesktopContactsView({
           <div className="flex items-end text-xs text-slate-700">
             Kontakt jest odnajdywany lub tworzony przed połączeniem.
           </div>
-        </div>
+        </div>}
         <div className="mt-3 flex items-center justify-between text-xs text-slate-700">
-          <span>
+          {extensions ? <span>
             Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}
-          </span>
+          </span> : <span>{totalCount} kontaktów</span>}
           <div className="flex items-center gap-1">
             <Button
               size="sm"

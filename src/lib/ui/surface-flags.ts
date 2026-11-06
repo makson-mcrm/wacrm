@@ -1,13 +1,22 @@
 /**
- * KM3.2.08: powierzchnia Lejka 02B pokazuje domyślnie wyłącznie rdzeń Bigin.
- * Po decyzji Tomasza ustaw pipelineExtensions na true, aby przywrócić
- * wszystkie poniższe dodatki w ich dotychczasowych miejscach.
+ * KM3.2.08 / KM3.2.09-A: powierzchnia Lejka 02B i list pokazuje rdzeń Bigin.
+ * Po decyzji Tomasza ustaw odpowiednią flagę na true, aby przywrócić
+ * dodatki danego ekranu w ich dotychczasowych miejscach.
  * To przełącznik prezentacji; nie zmienia danych, zapytań ani uprawnień.
  */
-export const surfaceFlags: Readonly<{ pipelineExtensions: boolean }> = {
+export const surfaceFlags: Readonly<{
+  pipelineExtensions: boolean;
+  contactsExtensions: boolean;
+  companiesExtensions: boolean;
+  dealsListExtensions: boolean;
+}> = {
   pipelineExtensions: false,
+  contactsExtensions: false,
+  companiesExtensions: false,
+  dealsListExtensions: false,
 };
 
+// Historyczna nazwa: lista obejmuje również dodatki ekranów list KM3.2.09-A.
 export const pipelineSurfaceExtensions = [
   'Nagłówek Lejek sprzedaży i opis Wszystkie aktywne sprawy (Tomasz)',
   'Archiwum nad tablicą',
@@ -19,4 +28,9 @@ export const pipelineSurfaceExtensions = [
   'Ostatnia aktywność na karcie',
   'ZADZWOŃ i WIADOMOŚĆ na karcie',
   'Dodaj deal pod etapami na desktop i mobile',
+  'Kontakty: segmenty, tagi, pola własne, eksport/import i akcje masowe',
+  'Kontakty: autorskie nagłówki, KPI, powiązania, aktywność i szybkie akcje',
+  'Firmy: NIP, osoba kontaktowa, aktywne Deale i następne działanie na liście',
+  'Firmy: historia aktywności, powiązania małżonka i edytor tagów',
+  'Lista transakcji: autorski nagłówek i opis; filtry i AI obecnie nie występują',
 ] as const;

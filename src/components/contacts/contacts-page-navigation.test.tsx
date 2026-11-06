@@ -38,6 +38,18 @@ vi.mock('@/lib/supabase/client', () => ({
     },
   }),
 }));
+
+// KM3.2.09-A: powierzchnia list domyślnie chowa autorskie dodatki (BIGIN-FIRST).
+// Ten plik sprawdza zachowanie dodatków, więc renderuje wariant z rozszerzeniami włączonymi.
+vi.mock('@/lib/ui/surface-flags', () => ({
+  surfaceFlags: {
+    pipelineExtensions: true,
+    contactsExtensions: true,
+    companiesExtensions: true,
+    dealsListExtensions: true,
+  },
+  pipelineSurfaceExtensions: [],
+}));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({ accountId: 'account-synthetic' }),
 }));

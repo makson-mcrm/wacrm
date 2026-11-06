@@ -8,6 +8,7 @@ import { useCan } from '@/hooks/use-can';
 import type { Company, Contact, ContactSpouseLink, Deal } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -36,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Plus, Search, Users } from 'lucide-react';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 
 interface LinkedContactRow {
   contact_id: string;
@@ -67,7 +69,7 @@ interface CompanyDealListRow {
 
 export default function CompaniesPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { accountId } = useAuth();
+  const { accountId, user, profile } = useAuth();
   const canEdit = useCan('send-messages');
   const [companies, setCompanies] = useState<CompanyListRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,8 @@ export default function CompaniesPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Company | null>(null);
   const [pendingContactId, setPendingContactId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const extensions = surfaceFlags.companiesExtensions;
 
   const loadCompanies = useCallback(async () => {
     setLoading(true);
@@ -200,12 +204,16 @@ export default function CompaniesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-semibold">Firmy</h1>
-          <p className="text-muted-foreground text-sm">
+          {extensions && <p className="text-muted-foreground text-sm">
             Kartoteka firm powiązana z Kontaktami i Dealami.
-          </p>
+          </p>}
         </div>
-        <Button onClick={() => openNew()} disabled={!canEdit}>
-          <Plus className="size-4" /> Dodaj firmę
+        <Button
+          onClick={() => openNew()}
+          disabled={!canEdit}
+          className="bg-emerald-800 text-white hover:bg-emerald-900"
+        >
+          <Plus className="size-4" /> {extensions ? 'Dodaj firmę' : 'Firma'}
         </Button>
       </div>
 
@@ -219,11 +227,11 @@ export default function CompaniesPage() {
         />
       </div>
 
-      {loading ? (
+      {extensions && loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="text-primary size-6 animate-spin" />
         </div>
-      ) : visible.length === 0 ? (
+      ) : extensions && visible.length === 0 ? (
         <div className="text-muted-foreground rounded-lg border py-12 text-center text-sm">
           Brak firm. Dodaj pierwszą firmę albo zmień wyszukiwanie.
         </div>
@@ -232,10 +240,24 @@ export default function CompaniesPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Nazwa Firmy</TableHead>
-                <TableHead>NIP</TableHead>
+                {!extensions && <TableHead className="w-10">
+                  <Checkbox
+                    checked={visible.length > 0 && visible.every((company) => selectedIds.has(company.id))}
+                    indeterminate={visible.some((company) => selectedIds.has(company.id)) && !visible.every((company) => selectedIds.has(company.id))}
+                    onCheckedChange={() => setSelectedIds((previous) => {
+                      const next = new Set(previous);
+                      const allSelected = visible.every((company) => previous.has(company.id));
+                      visible.forEach((company) => allSelected ? next.delete(company.id) : next.add(company.id));
+                      return next;
+                    })}
+                    aria-label="Zaznacz wszystkie widoczne firmy"
+                  />
+                </TableHead>}
+                <TableHead>Nazwa firmy</TableHead>
+                {extensions && <TableHead>NIP</TableHead>}
                 <TableHead>Telefon</TableHead>
-                <TableHead className="hidden md:table-cell">E-mail</TableHead>
+                <TableHead className={extensions ? 'hidden md:table-cell' : ''}>E-mail</TableHead>
+                {extensions ? <>
                 <TableHead className="hidden lg:table-cell">
                   Główna osoba kontaktowa
                 </TableHead>
@@ -245,11 +267,27 @@ export default function CompaniesPage() {
                 <TableHead className="hidden lg:table-cell">
                   Następne działanie / termin
                 </TableHead>
+                </> : <TableHead>Właściciel</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((company) => (
+              {!extensions && (loading || visible.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-32 text-center text-slate-500">
+                    {loading ? <Loader2 className="mx-auto size-5 animate-spin" aria-label="Ładowanie firm" /> : 'Brak firm.'}
+                  </TableCell>
+                </TableRow>
+              )}
+              {(!extensions && loading ? [] : visible).map((company) => (
                 <TableRow key={company.id} className="hover:bg-muted/50 h-14">
+                  {!extensions && <TableCell>
+                    <Checkbox checked={selectedIds.has(company.id)} onCheckedChange={() => setSelectedIds((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(company.id)) next.delete(company.id);
+                      else next.add(company.id);
+                      return next;
+                    })} aria-label={`Zaznacz firmę ${company.name}`} />
+                  </TableCell>}
                   <TableCell className="min-w-44 py-2">
                     <Link
                       href={`/companies?open=${company.id}`}
@@ -259,10 +297,10 @@ export default function CompaniesPage() {
                     >
                       {company.name}
                     </Link>
-                    <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
+                    {extensions && <p className="text-muted-foreground max-w-48 truncate text-xs md:hidden">
                       {company.email || 'Brak e-maila'}
-                    </p>
-                    {company.primaryContact && (
+                    </p>}
+                    {extensions && company.primaryContact && (
                       <Link
                         href={`/contacts?open=${company.primaryContact.id}`}
                         target="_blank"
@@ -273,15 +311,16 @@ export default function CompaniesPage() {
                       </Link>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                  {extensions && <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                     {company.nip || 'Do uzupełnienia'}
-                  </TableCell>
+                  </TableCell>}
                   <TableCell className="text-muted-foreground font-mono text-xs whitespace-nowrap">
                     {company.phone || '-'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden max-w-48 truncate text-sm md:table-cell">
+                  <TableCell className={extensions ? 'text-muted-foreground hidden max-w-48 truncate text-sm md:table-cell' : 'text-sm'}>
                     {company.email || '-'}
                   </TableCell>
+                  {extensions ? <>
                   <TableCell className="hidden min-w-44 py-2 lg:table-cell">
                     {company.primaryContact ? (
                       <Link
@@ -309,6 +348,11 @@ export default function CompaniesPage() {
                         : '—'}
                     </p>
                   </TableCell>
+                  </> : <TableCell>
+                    {company.user_id && company.user_id === user?.id
+                      ? profile?.full_name || profile?.email || '—'
+                      : '—'}
+                  </TableCell>}
                 </TableRow>
               ))}
             </TableBody>
@@ -693,7 +737,7 @@ function CompanySheet({
           )}
         </SheetHeader>
         <Tabs defaultValue="data" className="mt-4">
-          {company && (
+          {surfaceFlags.companiesExtensions && company && (
             <TabsList className="h-auto">
               <TabsTrigger value="data">Dane</TabsTrigger>
               <TabsTrigger value="history">Historia</TabsTrigger>
@@ -842,7 +886,7 @@ function CompanySheet({
                 firmę
               </Button>
 
-              {company && accountId && (
+              {surfaceFlags.companiesExtensions && company && accountId && (
                 <section className="border-border space-y-3 border-t pt-5">
                   <h3 className="font-medium">Tagi firmy</h3>
                   <EntityTagsEditor
@@ -855,7 +899,7 @@ function CompanySheet({
 
               {company && (
                 <>
-                  <SpouseLinks links={spouseLinks} />
+                  {surfaceFlags.companiesExtensions && <SpouseLinks links={spouseLinks} />}
                   <section className="border-border space-y-3 border-t pt-5">
                     <div className="flex items-center justify-between">
                       <h3 className="flex items-center gap-2 font-medium">
@@ -1013,7 +1057,7 @@ function CompanySheet({
               )}
             </div>
           </TabsContent>
-          {company && (
+          {surfaceFlags.companiesExtensions && company && (
             <TabsContent value="history">
               <ActivityHistory companyId={company.id} className="mt-4" />
             </TabsContent>
