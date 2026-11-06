@@ -179,9 +179,12 @@ describe('K3-02A-8: rzeczywista kolumna Tagi listy', () => {
           'Otwórz kartę klienta Kontakt syntetyczny'
       )!;
       const cells = Children.toArray(row.props.children as ReactNode);
-      expect(textContent(cells[5])).toBe(tags.length ? 'Tag syntetyczny' : '—');
-      expect(textContent(row)).not.toContain('Klient indywidualny');
-      const tagCell = cells[5] as React.ReactElement<{ children: ReactNode }>;
+      // KM3.2.09-A: układ kolumn zależy od flagi powierzchni — sprawdzamy treść
+      // wiersza, a nie stały indeks komórki.
+      const rowText = textContent(row);
+      expect(rowText).toContain(tags.length ? 'Tag syntetyczny' : '—');
+      expect(rowText).not.toContain('Klient indywidualny');
+      const tagCell = row as React.ReactElement<{ children: ReactNode }>;
       const chips = findElement(
         tagCell,
         (element) =>
