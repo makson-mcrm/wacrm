@@ -55,6 +55,8 @@ import {
   X,
   List,
   Rows3,
+  LayoutGrid,
+  ChevronDown,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -71,6 +73,11 @@ import { contactSearchFilter, contactSearchTerm } from '@/lib/contacts/search';
 import { findExistingContact } from '@/lib/contacts/dedupe';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+import {
+  geometryCssVars,
+  listTableClassName,
+  listToolbarClassName,
+} from '@/lib/ui/layout-geometry';
 
 const PAGE_SIZE = 20;
 
@@ -687,6 +694,7 @@ export default function ContactsPage() {
         }}
         onAdd={openAddForm}
         canEdit={canEdit}
+        onManageFields={canEditSettings ? () => setCustomFieldsOpen(true) : undefined}
         onOpen={openDetail}
         page={page}
         onPageChange={setPage}
@@ -1194,7 +1202,7 @@ export default function ContactsPage() {
       />}
 
       {/* Custom Fields Manager (admin+) */}
-      {surfaceFlags.contactsExtensions && canEditSettings && (
+      {(surfaceFlags.contactsExtensions || customFieldsOpen) && canEditSettings && (
         <CustomFieldsManager
           open={customFieldsOpen}
           onOpenChange={setCustomFieldsOpen}
@@ -1641,6 +1649,7 @@ function DesktopContactsView({
   selectedTagIds,
   onToggleTag,
   onClearTags,
+  onManageFields,
 }: {
   contacts: ContactWithTags[];
   loading: boolean;
@@ -1669,8 +1678,10 @@ function DesktopContactsView({
   selectedTagIds: string[];
   onToggleTag: (tagId: string) => void;
   onClearTags: () => void;
+  onManageFields?: () => void;
 }) {
   const [compact, setCompact] = useState(false);
+  const [tileView, setTileView] = useState(false);
   const { user, profile } = useAuth();
   const extensions = surfaceFlags.contactsExtensions;
   const filtered = contacts.filter((contact) =>
@@ -1688,8 +1699,9 @@ function DesktopContactsView({
     <section
       className={extensions ? 'hidden lg:block' : 'block'}
       aria-label="Kontakty — pełna lista"
+      style={extensions ? undefined : geometryCssVars('lists')}
     >
-      <div className="mb-4 flex items-center justify-between">
+      <div data-slot="list-toolbar" className={extensions ? 'mb-4 flex items-center justify-between' : listToolbarClassName}>
         {extensions ? <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
             Klienci
@@ -1698,12 +1710,22 @@ function DesktopContactsView({
             Osoby, firmy i powiązania.
           </p>
         </div> : (
-          <select
+          <div className="flex items-center gap-5">
+            <Popover>
+              <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Filtruj kontakty" className="rounded-full" />}>
+                <Filter className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent>
+                <Input aria-label="Szukaj kontaktu" placeholder="Szukaj kontaktu…" value={search} onChange={(event) => onSearchChange(event.target.value)} />
+              </PopoverContent>
+            </Popover>
+            <select
             aria-label="Widok kontaktów"
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+            className="h-8 rounded-full border border-[var(--list-border)] bg-white px-4 text-sm font-semibold text-[var(--list-text)]"
           >
             <option value="all">Wszystkie kontakty</option>
           </select>
+          </div>
         )}
         <div className="flex gap-2">
           {extensions ? <Button variant="outline" onClick={onExport}>
@@ -1718,34 +1740,63 @@ function DesktopContactsView({
                 variant="ghost"
                 size="icon"
                 aria-label="Widok listy"
-                aria-pressed={!compact}
-                onClick={() => setCompact(false)}
+                aria-pressed={!tileView}
+                onClick={() => setTileView(false)}
               >
                 <List className="size-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Widok kompaktowy"
-                aria-pressed={compact}
-                onClick={() => setCompact(true)}
+                aria-label="Widok kafelków"
+                aria-pressed={tileView}
+                onClick={() => setTileView(true)}
               >
-                <Rows3 className="size-4" />
+                <LayoutGrid className="size-4" />
               </Button>
             </div>
           )}
+          {extensions && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Widok kompaktowy"
+              aria-pressed={compact}
+              onClick={() => setCompact(!compact)}
+            >
+              <Rows3 className="size-4" />
+            </Button>
+          )}
+          <div className="flex items-center">
           <GatedButton
             canAct={canEdit}
             gateReason="add contacts"
             onClick={onAdd}
-            className="bg-emerald-800 text-white hover:bg-emerald-900"
+            className={extensions ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'rounded-l-full rounded-r-none bg-emerald-600 text-white hover:bg-emerald-700'}
           >
             <Plus className="size-4" /> {extensions ? 'Dodaj klienta' : 'Kontakt'}
           </GatedButton>
+          {!extensions && <DropdownMenu>
+            <DropdownMenuTrigger disabled={!canEdit} aria-label="Menu dodawania kontaktu" className="flex size-8 items-center justify-center rounded-r-full bg-emerald-600 text-white">
+              <ChevronDown className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onAdd}>Utwórz kontakt</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>}
+          </div>
+          {!extensions && <DropdownMenu>
+            <DropdownMenuTrigger aria-label="Więcej opcji kontaktów" className="flex size-8 items-center justify-center rounded-full">
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onSearchChange('')}>Wyczyść wyszukiwanie</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={extensions ? 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm' : 'bg-white'}>
         {extensions && <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
             {segments.map(([value, label]) => (
@@ -1783,10 +1834,28 @@ function DesktopContactsView({
           </div>
         </div>}
 
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <Table>
+        <div className={extensions ? 'overflow-hidden rounded-xl border border-slate-200' : 'overflow-hidden'}>
+          {!extensions && tileView ? <div
+            role="group"
+            aria-label="Kontakty — kafelki"
+            className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3"
+          >
+            {loading ? <p>Ładowanie klientów…</p> : filtered.length === 0 ? <p>Brak klientów w tym widoku.</p> : filtered.map((contact) => (
+              <button
+                key={contact.id}
+                type="button"
+                onClick={() => onOpen(contact.id)}
+                className="overflow-hidden rounded-lg border border-[var(--list-border)] bg-[var(--list-row-background)] p-4 text-left text-sm text-[var(--list-text)]"
+              >
+                <span className="block truncate font-semibold">{contact.name || 'Kontakt bez nazwy'}</span>
+                <span className="block truncate">{contact.companies?.map((company) => company.name).join(', ') || contact.company || '—'}</span>
+                <span className="block truncate">{contact.email || '—'}</span>
+                <span className="block truncate">{contact.phone || '—'}</span>
+              </button>
+            ))}
+          </div> : <Table className={extensions ? undefined : listTableClassName}>
             <TableHeader>
-              <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+              <TableRow className={extensions ? 'border-slate-200 bg-slate-50 hover:bg-slate-50' : ''}>
                 <TableHead className="w-10">
                   <Checkbox
                     checked={
@@ -1806,9 +1875,19 @@ function DesktopContactsView({
                 <TableHead className="text-right">Akcje</TableHead>
                 </> : <>
                   <TableHead>Firma</TableHead>
-                  <TableHead>E-mail</TableHead>
+                  <TableHead>Adres Email</TableHead>
                   <TableHead>Telefon</TableHead>
-                  <TableHead>Właściciel</TableHead>
+                  <TableHead>Kontakt właściciel</TableHead>
+                  <TableHead>
+                    <button
+                      type="button"
+                      onClick={onManageFields}
+                      disabled={!onManageFields}
+                      className="inline-flex items-center gap-1 text-blue-600 disabled:opacity-50"
+                    >
+                      <Plus className="size-4" />Utwórz pole
+                    </button>
+                  </TableHead>
                 </>}
               </TableRow>
             </TableHeader>
@@ -1816,10 +1895,10 @@ function DesktopContactsView({
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={extensions ? 7 : 6}
+                    colSpan={7}
                     className="h-48 text-center text-slate-700"
                   >
-                    <Loader2 className="mx-auto mb-2 size-5 animate-spin" />{' '}
+                    <Loader2 className={extensions ? 'mx-auto mb-2 size-5 animate-spin' : 'mr-2 inline-block size-4 animate-spin align-middle'} />{' '}
                     Ładowanie klientów…
                   </TableCell>
                 </TableRow>
@@ -1828,7 +1907,7 @@ function DesktopContactsView({
                   return (
                     <TableRow
                       key={contact.id}
-                      className={`${compact && !extensions ? 'h-10' : 'h-16'} cursor-pointer border-slate-200 hover:bg-emerald-50/40`}
+                      className={extensions ? `${compact ? 'h-10' : 'h-16'} cursor-pointer border-slate-200 hover:bg-emerald-50/40` : 'cursor-pointer'}
                       tabIndex={0}
                       aria-label={`Otwórz kartę klienta ${contact.name || contact.phone}`}
                       onClick={(event) => {
@@ -1856,7 +1935,7 @@ function DesktopContactsView({
                           onClick={() => onOpen(contact.id)}
                           className="block text-left"
                         >
-                          <span className="block font-bold text-slate-900">
+                          <span className={extensions ? 'block font-bold text-slate-900' : 'block truncate font-semibold text-[var(--list-text)]'}>
                             {contact.name || 'Kontakt bez nazwy'}
                           </span>
                           {extensions && <span className="block text-xs text-slate-700">
@@ -1979,6 +2058,7 @@ function DesktopContactsView({
                             ? profile?.full_name || profile?.email || '—'
                             : '—'}
                         </TableCell>
+                        <TableCell />
                       </>}
                     </TableRow>
                   );
@@ -1986,7 +2066,7 @@ function DesktopContactsView({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={extensions ? 7 : 6}
+                    colSpan={7}
                     className="h-48 text-center text-slate-700"
                   >
                     Brak klientów w tym widoku.
@@ -1994,7 +2074,7 @@ function DesktopContactsView({
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </Table>}
         </div>
         {extensions && <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
           <div>

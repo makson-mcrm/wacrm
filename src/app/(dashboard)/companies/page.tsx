@@ -38,6 +38,13 @@ import { Loader2, Plus, Search, Users } from 'lucide-react';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+import {
+  geometryCssVars,
+  listTableClassName,
+  listToolbarClassName,
+} from '@/lib/ui/layout-geometry';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Filter } from 'lucide-react';
 
 interface LinkedContactRow {
   contact_id: string;
@@ -200,24 +207,30 @@ export default function CompaniesPage() {
   }, [companies]);
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <div className={extensions ? 'space-y-5 p-4 md:p-6' : 'bg-white'} style={extensions ? undefined : geometryCssVars('lists')}>
+      <div data-slot="list-toolbar" className={extensions ? 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between' : listToolbarClassName}>
+        {extensions ? <div>
           <h1 className="text-foreground text-2xl font-semibold">Firmy</h1>
           {extensions && <p className="text-muted-foreground text-sm">
             Kartoteka firm powiązana z Kontaktami i Dealami.
           </p>}
-        </div>
+        </div> : <div className="flex items-center gap-5">
+          <Popover>
+            <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Filtruj firmy" className="rounded-full" />}><Filter className="size-4" /></PopoverTrigger>
+            <PopoverContent><Input aria-label="Szukaj firmy" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Szukaj po nazwie, NIP, telefonie lub e-mailu" /></PopoverContent>
+          </Popover>
+          <select aria-label="Widok firm" className="h-8 rounded-full border border-[var(--list-border)] bg-white px-4 text-sm font-semibold text-[var(--list-text)]"><option>Wszystkie firmy</option></select>
+        </div>}
         <Button
           onClick={() => openNew()}
           disabled={!canEdit}
-          className="bg-emerald-800 text-white hover:bg-emerald-900"
+          className={extensions ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'rounded-full bg-emerald-600 text-white hover:bg-emerald-700'}
         >
           <Plus className="size-4" /> {extensions ? 'Dodaj firmę' : 'Firma'}
         </Button>
       </div>
 
-      <div className="relative max-w-lg">
+      {extensions && <div className="relative max-w-lg">
         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
           value={search}
@@ -225,7 +238,7 @@ export default function CompaniesPage() {
           placeholder="Szukaj po nazwie, NIP, telefonie lub e-mailu"
           className="pl-9"
         />
-      </div>
+      </div>}
 
       {extensions && loading ? (
         <div className="flex justify-center py-16">
@@ -236,8 +249,8 @@ export default function CompaniesPage() {
           Brak firm. Dodaj pierwszą firmę albo zmień wyszukiwanie.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
+        <div className={extensions ? 'overflow-x-auto rounded-lg border' : 'overflow-x-auto'}>
+          <Table className={extensions ? undefined : listTableClassName}>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {!extensions && <TableHead className="w-10">
@@ -279,7 +292,7 @@ export default function CompaniesPage() {
                 </TableRow>
               )}
               {(!extensions && loading ? [] : visible).map((company) => (
-                <TableRow key={company.id} className="hover:bg-muted/50 h-14">
+                <TableRow key={company.id} className={extensions ? 'hover:bg-muted/50 h-14' : ''}>
                   {!extensions && <TableCell>
                     <Checkbox checked={selectedIds.has(company.id)} onCheckedChange={() => setSelectedIds((previous) => {
                       const next = new Set(previous);
@@ -293,7 +306,7 @@ export default function CompaniesPage() {
                       href={`/companies?open=${company.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-foreground hover:text-primary block min-h-6 max-w-56 truncate text-sm font-semibold hover:underline"
+                      className={extensions ? 'text-foreground hover:text-primary block min-h-6 max-w-56 truncate text-sm font-semibold hover:underline' : 'block truncate font-semibold text-[var(--list-text)] hover:underline'}
                     >
                       {company.name}
                     </Link>
@@ -314,7 +327,7 @@ export default function CompaniesPage() {
                   {extensions && <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                     {company.nip || 'Do uzupełnienia'}
                   </TableCell>}
-                  <TableCell className="text-muted-foreground font-mono text-xs whitespace-nowrap">
+                  <TableCell className={extensions ? 'text-muted-foreground font-mono text-xs whitespace-nowrap' : ''}>
                     {company.phone || '-'}
                   </TableCell>
                   <TableCell className={extensions ? 'text-muted-foreground hidden max-w-48 truncate text-sm md:table-cell' : 'text-sm'}>

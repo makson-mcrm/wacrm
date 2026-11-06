@@ -20,7 +20,9 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const isPipeline = usePathname() === '/pipelines';
+  const pathname = usePathname();
+  const isPipeline = pathname === '/pipelines';
+  const isBiginList = ['/contacts', '/companies', '/deals'].includes(pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -106,15 +108,74 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div
       data-slot="app-shell"
+      data-bigin-list-shell={isBiginList || undefined}
       className={cn(
         'relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden',
-        isPipeline ? 'bg-[#f9fbfc]' : 'bg-app-surface'
+        isBiginList ? 'bg-white pt-[var(--list-banner-height)]' : isPipeline ? 'bg-[#f9fbfc]' : 'bg-app-surface'
       )}
       style={{
-        ...geometryCssVars(isPipeline ? 'pipelines' : 'default'),
+        ...geometryCssVars(isBiginList ? 'lists' : isPipeline ? 'pipelines' : 'default'),
         transform: 'translateY(var(--app-viewport-offset-top, 0px))',
       }}
     >
+      {isBiginList && <>
+        {/* Preserve the measured banner offset without copying Bigin marketing. */}
+        <div data-slot="list-banner" aria-hidden="true" className="absolute inset-x-0 top-0 h-[var(--list-banner-height)] bg-white" />
+        <style>{`
+          [data-bigin-list-shell] > div > header {
+            background: var(--list-header-background);
+            color: white;
+            --foreground: white;
+            --muted-foreground: white;
+            border: 0;
+          }
+          @media (min-width: 64rem) {
+            [data-bigin-list-shell] > aside {
+              width: var(--app-sidebar-width);
+              flex-shrink: 0;
+              background: var(--list-header-background);
+              border: 0;
+            }
+            [data-bigin-list-shell] > aside > div:first-child {
+              padding: 0;
+              justify-content: center;
+              border: 0;
+            }
+            [data-bigin-list-shell] > aside > div:first-child a > span { display: none; }
+            [data-bigin-list-shell] > aside nav { padding: 0; }
+            [data-bigin-list-shell] > aside nav ul { gap: 0; }
+            [data-bigin-list-shell] > aside nav a {
+              flex-direction: column;
+              justify-content: center;
+              gap: 4px;
+              min-height: 64px;
+              padding: 8px 4px;
+              border-radius: 0;
+              font-size: 11px;
+            }
+            [data-bigin-list-shell] > aside nav a > span {
+              flex: none;
+              max-width: 57px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            [data-bigin-list-shell] > aside nav details summary {
+              overflow: hidden;
+              padding: 8px 4px;
+              font-size: 9px;
+            }
+            [data-bigin-list-shell] > aside > div:last-child { padding: 4px; }
+            [data-bigin-list-shell] > aside > div:last-child > div { padding: 4px; justify-content: center; }
+            [data-bigin-list-shell] > aside > div:last-child > div > div { display: none; }
+            [data-bigin-list-shell] #main-content {
+              padding: 0;
+              background: var(--list-content-background);
+              color: var(--list-text);
+            }
+          }
+        `}</style>
+      </>}
       <PresenceHeartbeat />
       <DailyStartCard />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />

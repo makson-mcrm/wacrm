@@ -17,6 +17,11 @@ import { formatWarsawDateTime } from '@/lib/date-time';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { createClient } from '@/lib/supabase/client';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+import {
+  geometryCssVars,
+  listTableClassName,
+  listToolbarClassName,
+} from '@/lib/ui/layout-geometry';
 
 type DealListRow = {
   id: string;
@@ -57,6 +62,7 @@ export default function DealsPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const extensions = surfaceFlags.dealsListExtensions;
 
   const loadDeals = useCallback(async () => {
     setLoading(true);
@@ -103,7 +109,7 @@ export default function DealsPage() {
   }, [deals, search]);
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className={extensions ? 'space-y-6 p-4 md:p-6' : 'bg-white'} style={extensions ? undefined : geometryCssVars('lists')}>
       {surfaceFlags.dealsListExtensions && (
         <header>
           <h1 className="text-2xl font-black text-slate-950">Sprawy</h1>
@@ -113,7 +119,8 @@ export default function DealsPage() {
         </header>
       )}
 
-      <label className="relative block max-w-md">
+      <div data-slot="list-toolbar" className={extensions ? undefined : listToolbarClassName}>
+      <label className="relative block w-full max-w-md">
         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" />
         <Input
           value={search}
@@ -123,11 +130,12 @@ export default function DealsPage() {
           className="border-slate-200 bg-white pl-9"
         />
       </label>
+      </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <Table>
+      <div className={extensions ? 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm' : 'overflow-hidden'}>
+        <Table className={extensions ? undefined : listTableClassName}>
           <TableHeader>
-            <TableRow className="border-slate-200 bg-slate-50 hover:bg-slate-50">
+            <TableRow className={extensions ? 'border-slate-200 bg-slate-50 hover:bg-slate-50' : ''}>
               <TableHead>Sprawa</TableHead>
               <TableHead>Klient</TableHead>
               <TableHead>Etap</TableHead>
@@ -144,7 +152,7 @@ export default function DealsPage() {
                   colSpan={7}
                   className="h-48 text-center text-slate-500"
                 >
-                  <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
+                  <Loader2 className={extensions ? 'mx-auto mb-2 size-5 animate-spin' : 'mr-2 inline-block size-4 animate-spin align-middle'} />
                   Ładowanie spraw…
                 </TableCell>
               </TableRow>
@@ -172,7 +180,7 @@ export default function DealsPage() {
                   key={deal.id}
                   tabIndex={0}
                   aria-label={`Otwórz sprawę ${deal.title}`}
-                  className="h-16 cursor-pointer border-slate-200 hover:bg-emerald-50/40"
+                  className={extensions ? 'h-16 cursor-pointer border-slate-200 hover:bg-emerald-50/40' : 'cursor-pointer'}
                   onClick={(event) => {
                     if (!isInteractiveTarget(event.target)) {
                       router.push(`/deals/${deal.id}`);
@@ -191,7 +199,7 @@ export default function DealsPage() {
                   <TableCell className="max-w-72 whitespace-normal">
                     <Link
                       href={`/deals/${deal.id}`}
-                      className="font-bold text-emerald-900 hover:underline"
+                      className={extensions ? 'font-bold text-emerald-900 hover:underline' : 'font-semibold text-[var(--list-text)] hover:underline'}
                     >
                       {deal.title}
                     </Link>
