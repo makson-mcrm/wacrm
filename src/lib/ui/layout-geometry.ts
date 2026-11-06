@@ -4,8 +4,12 @@ export const APP_SIDEBAR_WIDTH = 160;
 // Bigin demo, 1536×1024, 05.11.2026. Apply only to the pipeline frame.
 export const PIPELINE_SIDEBAR_WIDTH = 285;
 export const PIPELINE_CONTENT_PADDING_X = 10;
+export const PIPELINE_COLUMN_WIDTH = 220;
+export const PIPELINE_COLUMN_GAP = 10;
+export const PIPELINE_CARD_HEIGHT = 60;
+export const PIPELINE_CONTENT_BACKGROUND = '#F9FBFC';
 export const APP_HEADER_HEIGHT = 56;
-// Bigin contacts, 1536×1024. Scoped to the three list routes in KM3.2.09-A2.
+// Bigin contacts, 1536×1024. Shared header tokens also apply to the pipeline.
 export const LIST_SIDEBAR_WIDTH = 65;
 export const LIST_BANNER_HEIGHT = 33;
 export const LIST_HEADER_HEIGHT = 49;

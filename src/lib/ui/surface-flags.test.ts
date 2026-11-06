@@ -10,7 +10,8 @@ import {
   geometryCssVars, LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT,
   LIST_TOOLBAR_HEIGHT, LIST_TABLE_TOP, LIST_ROW_HEIGHT, LIST_HEADER_BACKGROUND,
   LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR,
-  LIST_FONT_SIZE, LIST_TABLE_HEADER_FONT_SIZE,
+  LIST_FONT_SIZE, LIST_TABLE_HEADER_FONT_SIZE, PIPELINE_SIDEBAR_WIDTH,
+  PIPELINE_CARD_HEIGHT, PIPELINE_COLUMN_WIDTH, PIPELINE_COLUMN_GAP, PIPELINE_CONTENT_BACKGROUND,
 } from './layout-geometry';
 
 const harness = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ vi.mock('./surface-flags', async (importOriginal) => {
       ...original.surfaceFlags,
       get contactsExtensions() { return harness.extensions ?? original.surfaceFlags.contactsExtensions; },
       get companiesExtensions() { return harness.extensions ?? original.surfaceFlags.companiesExtensions; },
+      get pipelineExtensions() { return harness.extensions ?? original.surfaceFlags.pipelineExtensions; },
       get dealsListExtensions() { return harness.extensions ?? original.surfaceFlags.dealsListExtensions; },
     },
   };
@@ -50,7 +52,8 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 vi.mock('@/hooks/use-can', () => ({ useCan: () => true }));
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
-vi.mock('next/navigation', () => ({
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...await importOriginal<typeof import('next/navigation')>(),
   usePathname: () => harness.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
@@ -110,6 +113,7 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     for (const text of ['Wszystkie kontakty', 'Przełącznik widoku kontaktów', 'Kontakt syntetyczny', 'kontakt@example.invalid', 'Właściciel syntetyczny']) expect(html).toContain(text);
     for (const text of ['TAG_EXTENSION', 'CUSTOM_FIELDS_EXTENSION', 'Eksportuj', 'Nowy kontakt / nieznany numer', 'Współmałżonek', 'Kluczowi', 'deleteSelected']) expect(html).not.toContain(text);
     expect(html).toContain('href="/companies?open=company-synthetic"');
+    expect(html).toContain('>Firma syntetyczna</a>');
     expect(html).not.toContain('hidden lg:block');
   });
 
@@ -124,11 +128,13 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     for (const text of ['TAG_EXTENSION', 'CUSTOM_FIELDS_EXTENSION', 'Eksportuj', 'Nowy kontakt / nieznany numer', 'Kluczowi']) expect(html).toContain(text);
   });
 
-  it('pokazuje tylko pięć kolumn firm, bez NIP i powiązań na liście', () => {
+  it('pokazuje sześć kolumn firm z powiązaną osobą obok nazwy firmy', () => {
     const html = render(CompaniesPage, [[0, [company]], [1, false]]);
-    expect(headings(html)).toEqual(['', 'Nazwa firmy', 'Telefon', 'E-mail', 'Właściciel']);
+    expect(headings(html)).toEqual(['', 'Nazwa firmy', 'Osoba', 'Telefon', 'E-mail', 'Właściciel']);
     for (const text of ['Firma syntetyczna', 'firma@example.invalid', 'Właściciel syntetyczny', 'Zaznacz firmę']) expect(html).toContain(text);
-    for (const text of ['NIP_EXTENSION', 'PRIMARY_CONTACT_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale', 'Kartoteka firm powiązana']) expect(html).not.toContain(text);
+    expect(html).toContain('>PRIMARY_CONTACT_EXTENSION</a>');
+    expect(html).toContain('href="/contacts?open=contact-synthetic"');
+    for (const text of ['NIP_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale', 'Kartoteka firm powiązana']) expect(html).not.toContain(text);
   });
 
   it('przywraca dotychczasowe kolumny firm po włączeniu flagi', () => {
@@ -137,10 +143,10 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     for (const text of ['NIP_EXTENSION', 'PRIMARY_CONTACT_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale']) expect(html).toContain(text);
   });
 
-  it('zachowuje pięć kolumn firm również podczas ładowania i przy pustej liście', () => {
+  it('zachowuje sześć kolumn firm również podczas ładowania i przy pustej liście', () => {
     for (const html of [render(CompaniesPage, []), render(CompaniesPage, [[1, false]])]) {
-      expect(headings(html)).toEqual(['', 'Nazwa firmy', 'Telefon', 'E-mail', 'Właściciel']);
-      expect(html).toContain('colSpan="5"');
+      expect(headings(html)).toEqual(['', 'Nazwa firmy', 'Osoba', 'Telefon', 'E-mail', 'Właściciel']);
+      expect(html).toContain('colSpan="6"');
     }
   });
 
@@ -149,13 +155,22 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(render(CompaniesPage, [[0, [{ ...company, user_id: 'other-synthetic' }]], [1, false]])).not.toContain('Właściciel syntetyczny');
   });
 
-  it('zachowuje wyszukiwarkę i tabelę transakcji, a nagłówek ukrywa pod flagą', () => {
+  it('przekierowuje /deals do /pipelines przed odczytem bazy', () => {
+    expect(() => render(DealsPage, [])).toThrow('NEXT_REDIRECT');
+    try {
+      render(DealsPage, []);
+    } catch (error) {
+      expect(error).toHaveProperty('digest', 'NEXT_REDIRECT;replace;/pipelines;307;');
+    }
+    expect(harness.cursor).toBe(0);
+  });
+
+  it('zachowuje całą listę transakcji pod flagą rozszerzeń', () => {
+    harness.extensions = true;
     const html = render(DealsPage, [[2, false]]);
     expect(html).toContain('Szukaj po sprawie lub kliencie');
     expect(headings(html)).toEqual(['Sprawa', 'Klient', 'Etap', 'Wartość', 'Następny krok', 'Termin', 'Ostatnia aktywność']);
-    expect(html).not.toContain('Pojedyncze sprawy klientów.');
-    harness.extensions = true;
-    expect(render(DealsPage, [[2, false]])).toContain('Pojedyncze sprawy klientów.');
+    expect(html).toContain('Pojedyncze sprawy klientów.');
   });
 
   it('KM3.2.09-A2 — eksportuje zmierzone tokeny i początek tabeli y=138', () => {
@@ -173,7 +188,7 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     });
   });
 
-  it.each([ContactsPage, CompaniesPage, DealsPage])('stosuje tokeny do prawdziwej tabeli i paska narzędzi %s', (Page) => {
+  it.each([ContactsPage, CompaniesPage])('stosuje tokeny do prawdziwej tabeli i paska narzędzi %s', (Page) => {
     const html = render(Page, []);
     expect(html).toContain('data-slot="list-toolbar"');
     expect(html).toContain('h-[var(--list-toolbar-height)]');
@@ -181,7 +196,7 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('--list-row-background:#FCFDFD');
   });
 
-  it.each(['/contacts', '/companies', '/deals'])('ogranicza ramę Bigin do listy %s', (pathname) => {
+  it.each(['/contacts', '/companies'])('ogranicza ramę Bigin do listy %s', (pathname) => {
     harness.pathname = pathname;
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     expect(html).toContain('data-bigin-list-shell="true"');
@@ -190,13 +205,42 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('data-slot="list-banner"');
   });
 
-  it.each(['/pipelines', '/inbox', '/tasks', '/calendar', '/settings', '/broadcasts', '/assistant'])('zachowuje dotychczasową ramę %s', (pathname) => {
+  it.each(['/deals', '/deals/synthetic', '/contacts/synthetic', '/inbox', '/tasks', '/calendar', '/settings', '/broadcasts', '/assistant'])('zachowuje dotychczasową ramę %s', (pathname) => {
     harness.pathname = pathname;
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     expect(html).not.toContain('data-bigin-list-shell');
     expect(html).not.toContain('data-slot="list-banner"');
-    expect(html).toContain(`--app-sidebar-width:${pathname === '/pipelines' ? 285 : 160}px`);
+    expect(html).toContain('--app-sidebar-width:160px');
     expect(html).toContain('--app-header-height:56px');
+  });
+
+  it('KM3.2.10 — stosuje tokeny Lejka 285/49/60/220/10 w ramie ekranu', () => {
+    expect([PIPELINE_SIDEBAR_WIDTH, LIST_SIDEBAR_WIDTH, LIST_HEADER_HEIGHT, LIST_TABLE_TOP,
+      LIST_ROW_HEIGHT, PIPELINE_CARD_HEIGHT, PIPELINE_COLUMN_WIDTH, PIPELINE_COLUMN_GAP])
+      .toEqual([285, 65, 49, 138, 32, 60, 220, 10]);
+    expect(PIPELINE_CONTENT_BACKGROUND).toBe('#F9FBFC');
+    harness.pathname = '/pipelines';
+    const html = renderToStaticMarkup(createElement(AppShell, null, null));
+    for (const token of ['--app-sidebar-width:285px', '--app-header-height:49px',
+      '--list-header-background:#093E52', '--pipeline-column-width:220px',
+      '--pipeline-column-gap:10px', '--pipeline-card-height:60px',
+      '--pipeline-content-background:#F9FBFC']) expect(html).toContain(token);
+    expect(html).toContain('data-bigin-pipeline-shell="true"');
+    expect(html).toContain('data-bigin-pipeline-cards="true"');
+    expect(html).not.toContain('data-slot="list-banner"');
+  });
+
+  it('nie ogranicza wysokości rozszerzonych kart Lejka', () => {
+    harness.pathname = '/pipelines';
+    harness.extensions = true;
+    const html = renderToStaticMarkup(createElement(AppShell, null, null));
+    expect(html).not.toContain('data-bigin-pipeline-cards="true"');
+  });
+
+  it('pokazuje brak powiązanej osoby bez fikcyjnej nazwy', () => {
+    const html = render(CompaniesPage, [[0, [{ ...company, primaryContact: null }]], [1, false]]);
+    expect(headings(html)).toContain('Osoba');
+    expect(html).not.toContain('/contacts?open=');
   });
 
   it('renderuje kafelki po wybraniu widoku i zachowuje czystą powierzchnię', () => {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import { Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -56,6 +56,11 @@ function isInteractiveTarget(target: EventTarget | null) {
 }
 
 export default function DealsPage() {
+  if (!surfaceFlags.dealsListExtensions) redirect('/pipelines');
+  return <DealsList />;
+}
+
+function DealsList() {
   const router = useRouter();
   const db = useMemo(() => createClient(), []);
   const [deals, setDeals] = useState<DealListRow[]>([]);

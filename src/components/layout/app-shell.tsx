@@ -9,7 +9,16 @@ import { Header } from '@/components/layout/header';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { Sidebar } from '@/components/layout/sidebar';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
-import { geometryCssVars } from '@/lib/ui/layout-geometry';
+import {
+  geometryCssVars,
+  LIST_HEADER_HEIGHT,
+  LIST_HEADER_BACKGROUND,
+  PIPELINE_COLUMN_WIDTH,
+  PIPELINE_COLUMN_GAP,
+  PIPELINE_CARD_HEIGHT,
+  PIPELINE_CONTENT_BACKGROUND,
+} from '@/lib/ui/layout-geometry';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 import { cn } from '@/lib/utils';
 
 interface AppShellProps {
@@ -22,7 +31,7 @@ export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isPipeline = pathname === '/pipelines';
-  const isBiginList = ['/contacts', '/companies', '/deals'].includes(pathname);
+  const isBiginList = ['/contacts', '/companies'].includes(pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -109,15 +118,54 @@ export function AppShell({ children }: AppShellProps) {
     <div
       data-slot="app-shell"
       data-bigin-list-shell={isBiginList || undefined}
+      data-bigin-pipeline-shell={isPipeline || undefined}
+      data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}
       className={cn(
         'relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden',
         isBiginList ? 'bg-white pt-[var(--list-banner-height)]' : isPipeline ? 'bg-[#f9fbfc]' : 'bg-app-surface'
       )}
       style={{
         ...geometryCssVars(isBiginList ? 'lists' : isPipeline ? 'pipelines' : 'default'),
+        ...(isPipeline ? {
+          '--app-header-height': `${LIST_HEADER_HEIGHT}px`,
+          '--list-header-background': LIST_HEADER_BACKGROUND,
+          '--pipeline-column-width': `${PIPELINE_COLUMN_WIDTH}px`,
+          '--pipeline-column-gap': `${PIPELINE_COLUMN_GAP}px`,
+          '--pipeline-card-height': `${PIPELINE_CARD_HEIGHT}px`,
+          '--pipeline-content-background': PIPELINE_CONTENT_BACKGROUND,
+        } : {}),
         transform: 'translateY(var(--app-viewport-offset-top, 0px))',
       }}
     >
+      {isPipeline && <style>{`
+        [data-bigin-pipeline-shell] > div > header {
+          background: var(--list-header-background);
+          color: white;
+          --foreground: white;
+          --muted-foreground: white;
+          border: 0;
+        }
+        [data-bigin-pipeline-shell],
+        [data-bigin-pipeline-shell] #main-content,
+        [data-bigin-pipeline-shell] .pipeline-scroll {
+          background: var(--pipeline-content-background);
+        }
+        [data-bigin-pipeline-shell] .pipeline-scroll { gap: var(--pipeline-column-gap); }
+        [data-bigin-pipeline-shell] [data-pipeline-column] { width: var(--pipeline-column-width); }
+        [data-bigin-pipeline-cards] [data-pipeline-deal] {
+          height: var(--pipeline-card-height);
+          min-height: var(--pipeline-card-height);
+          padding: 0 var(--pipeline-column-gap);
+        }
+        [data-bigin-pipeline-cards] [data-pipeline-deal] > a {
+          display: block;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+        [data-bigin-pipeline-cards] [data-pipeline-deal] > p.font-bold { display: inline; margin: 0; }
+        [data-bigin-pipeline-cards] [data-pipeline-deal] > time { display: inline; margin: 0 0 0 var(--pipeline-column-gap); }
+      `}</style>}
       {isBiginList && <>
         {/* Preserve the measured banner offset without copying Bigin marketing. */}
         <div data-slot="list-banner" aria-hidden="true" className="absolute inset-x-0 top-0 h-[var(--list-banner-height)] bg-white" />

@@ -267,6 +267,7 @@ export default function CompaniesPage() {
                   />
                 </TableHead>}
                 <TableHead>Nazwa firmy</TableHead>
+                {!extensions && <TableHead>Osoba</TableHead>}
                 {extensions && <TableHead>NIP</TableHead>}
                 <TableHead>Telefon</TableHead>
                 <TableHead className={extensions ? 'hidden md:table-cell' : ''}>E-mail</TableHead>
@@ -286,7 +287,7 @@ export default function CompaniesPage() {
             <TableBody>
               {!extensions && (loading || visible.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={6} className="h-32 text-center text-slate-500">
                     {loading ? <Loader2 className="mx-auto size-5 animate-spin" aria-label="Ładowanie firm" /> : 'Brak firm.'}
                   </TableCell>
                 </TableRow>
@@ -324,6 +325,13 @@ export default function CompaniesPage() {
                       </Link>
                     )}
                   </TableCell>
+                  {!extensions && <TableCell>
+                    {company.primaryContact ? (
+                      <Link href={`/contacts?open=${company.primaryContact.id}`} className="block truncate hover:underline">
+                        {company.primaryContact.name}
+                      </Link>
+                    ) : '—'}
+                  </TableCell>}
                   {extensions && <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                     {company.nip || 'Do uzupełnienia'}
                   </TableCell>}
