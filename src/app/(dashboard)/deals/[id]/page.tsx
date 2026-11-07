@@ -42,6 +42,8 @@ import { buildClientJourneyChecks } from '@/lib/mcrm/client-journey';
 import { formatWarsawDateTime, toWarsawDateTimeInput } from '@/lib/date-time';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
+import { geometryCssVars, CARD_FIELD_ROW_HEIGHT } from '@/lib/ui/layout-geometry';
 import {
   crmErrorMessage,
   dealDateTimeIso,
@@ -503,6 +505,20 @@ export default function DealPage() {
     ['stage-history', 'Historia etapów'],
     ['assistant', 'Asystent AI'],
   ] as const;
+
+  if (!surfaceFlags.cardExtensions) return <>
+    <BiginDealCard
+      deal={deal}
+      notes={notes}
+      history={stageHistory}
+      activities={recentActivities}
+      note={note}
+      onNoteChange={setNote}
+      onAddNote={() => void addNote()}
+      onEdit={() => setEdit(true)}
+    />
+    <DealForm open={edit} onOpenChange={setEdit} deal={deal} pipelineId={deal.pipeline_id} stages={stages} onSaved={() => { setEdit(false); void load(); }} />
+  </>;
 
   if (isP2DealView(activeTab))
     return (
@@ -2050,6 +2066,75 @@ export default function DealPage() {
     </div>
   );
 }
+function BiginDealCard({ deal, notes, history, activities, note, onNoteChange, onAddNote, onEdit }: {
+  deal: Deal;
+  notes: Note[];
+  history: StageHistory[];
+  activities: RecentActivity[];
+  note: string;
+  onNoteChange: (value: string) => void;
+  onAddNote: () => void;
+  onEdit: () => void;
+}) {
+  const [tab, setTab] = useState('timeline');
+  const fields: [string, React.ReactNode][] = [
+    ['Nazwa transakcji', deal.title],
+    ['Kontakt', deal.contact ? <Link href={`/contacts?open=${deal.contact.id}`}>{deal.contact.name || deal.contact.phone}</Link> : '—'],
+    ['Firma', deal.company ? <Link href={`/companies?open=${deal.company.id}`}>{deal.company.name}</Link> : '—'],
+    ['Etap', deal.stage?.name || '—'],
+    ['Wartość', `${money(deal.value)} ${deal.currency || 'PLN'}`],
+    ['Planowane zamknięcie', deal.expected_close_date ? dt(deal.expected_close_date) : '—'],
+    ['Telefon', deal.contact?.phone || '—'],
+    ['Adres Email', deal.contact?.email || '—'],
+    ['Następne działanie', deal.next_action || '—'],
+    ['Termin działania', deal.next_action_at ? dt(deal.next_action_at) : '—'],
+  ];
+  const timeline = [
+    ...history.map((entry) => ({ id: `stage-${entry.id}`, date: entry.changed_at, title: `${entry.from_stage?.name || 'Początek'} → ${entry.to_stage?.name || '—'}`, detail: entry.author_name })),
+    ...activities.map((entry) => ({ id: `activity-${entry.id}`, date: entry.occurred_at, title: entry.title, detail: entry.description })),
+  ].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  return <section data-bigin-deal-card style={geometryCssVars('cards')} className="min-h-full bg-white text-sm text-slate-900">
+    <header data-slot="card-record-header" className="flex h-[var(--card-record-header-height)] items-center gap-4 border-b px-5">
+      <Link href="/pipelines" aria-label="Wróć do Lejka"><ArrowLeft className="size-5" /></Link>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate font-semibold">{deal.title}</h1>
+        <p className="truncate text-xs text-slate-600">{deal.contact?.name || deal.company?.name || '—'}</p>
+      </div>
+      <Button variant="ghost" size="icon" aria-label="Edytuj transakcję" onClick={onEdit}><Pencil className="size-4" /></Button>
+    </header>
+    <div data-slot="card-content" className="grid min-h-full grid-cols-1 lg:grid-cols-[var(--card-left-panel-width)_minmax(0,1fr)]">
+      <aside data-slot="card-fields" className="min-w-0 border-r px-5">
+        <h2 className="flex items-center font-semibold" style={{ height: CARD_FIELD_ROW_HEIGHT }}>Informacje Podstawowe</h2>
+        <dl>{fields.map(([label, value]) => <div data-slot="card-field-row" key={label} className="grid h-[var(--card-field-row-height)] grid-cols-2 items-center gap-3 border-b border-slate-100">
+          <dt className="truncate text-slate-500">{label}</dt><dd className="truncate">{value}</dd>
+        </div>)}</dl>
+        <h2 className="mt-5 font-semibold">Opis</h2>
+        <p className="mt-2 whitespace-pre-wrap">{deal.description || '—'}</p>
+      </aside>
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="min-w-0 gap-0">
+        <TabsList variant="line" aria-label="Sekcje transakcji" className="h-[var(--card-field-row-height)]! w-full justify-start overflow-x-auto border-b p-0">
+          {([['timeline', 'Oś czasu'], ['comments', 'Komentarze'], ['activities', 'Aktywności'], ['messages', 'Wiadomości']] as const).map(([value, label]) => <TabsTrigger key={value} value={value} className="h-full flex-none rounded-none px-5 font-normal data-active:border-transparent data-active:bg-white">{label}</TabsTrigger>)}
+        </TabsList>
+        <TabsContent value="timeline" className="m-0 p-5">
+          <h2 className="mb-5 font-semibold">Historia</h2>
+          {timeline.length ? timeline.map((entry) => <article key={entry.id} className="border-b py-3">
+            <p>{entry.title}</p><p className="text-xs text-slate-500">{dt(entry.date)}{entry.detail ? ` · ${entry.detail}` : ''}</p>
+          </article>) : <p className="py-20 text-center text-slate-500">Ten rekord nie ma żadnej historii.</p>}
+        </TabsContent>
+        <TabsContent value="comments" className="m-0 space-y-4 p-5">
+          <Textarea aria-label="Komentarz" value={note} onChange={(event) => onNoteChange(event.target.value)} placeholder="Wpisz komentarz" />
+          <Button onClick={onAddNote} disabled={!note.trim()}>Zapisz komentarz</Button>
+          {notes.map((entry) => <article key={entry.id} className="border-b py-3"><p className="whitespace-pre-wrap">{entry.note_text}</p><p className="text-xs text-slate-500">{dt(entry.created_at)} · {entry.author_name || 'Użytkownik'}</p></article>)}
+        </TabsContent>
+        <TabsContent value="activities" className="m-0 p-5"><ActivityHistory dealId={deal.id} /></TabsContent>
+        <TabsContent value="messages" className="m-0 p-5">
+          {deal.contact?.email ? <a className="inline-flex items-center gap-2 text-emerald-700 hover:underline" href={`mailto:${deal.contact.email}`}><Mail className="size-4" />Wyślij wiadomość e-mail</a> : <p className="text-slate-500">Kontakt nie ma adresu e-mail.</p>}
+        </TabsContent>
+      </Tabs>
+    </div>
+  </section>;
+}
+
 function isP2DealView(tab: string) {
   return tab !== '__legacy';
 }

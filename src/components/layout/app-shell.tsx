@@ -31,7 +31,9 @@ export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isPipeline = pathname === '/pipelines';
-  const isBiginList = ['/contacts', '/companies'].includes(pathname);
+  const isBiginList =
+    ['/contacts', '/companies', '/calendar'].includes(pathname) ||
+    (/^\/deals\/[^/]+$/.test(pathname) && !surfaceFlags.dealsListExtensions);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 

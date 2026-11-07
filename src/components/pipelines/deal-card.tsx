@@ -56,7 +56,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
         className="absolute top-0 left-0 h-full w-1 rounded-l-[10px]"
         style={{ backgroundColor: accentColor ?? (stage == null ? '#173A52' : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length]) }}
       />
-      <a data-stage={stage?.id} href={`/deals/${deal.id}`} onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-semibold text-slate-950 hover:underline">
+      <a data-stage={stage?.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener" onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-semibold text-slate-950 hover:underline">
         {deal.title}
       </a>
       {contactName ? (

@@ -23,6 +23,17 @@ export const LIST_BORDER_COLOR = '#E8ECEF';
 export const LIST_TEXT_COLOR = '#212129';
 export const LIST_FONT_SIZE = 14;
 export const LIST_TABLE_HEADER_FONT_SIZE = 12;
+// KM3.2.11 — card and work-week measurements, Bigin 1536×1024.
+export const CARD_SIDEBAR_WIDTH = 65;
+export const CARD_HEADER_HEIGHT = 49;
+export const CARD_LEFT_PANEL_WIDTH = 488;
+export const CARD_CONTENT_TOP = 148;
+export const CARD_FIELD_ROW_HEIGHT = 44;
+export const CARD_RECORD_HEADER_HEIGHT = CARD_CONTENT_TOP - LIST_BANNER_HEIGHT - CARD_HEADER_HEIGHT;
+export const WEEK_GRID_HOUR_HEIGHT = 56;
+export const WEEK_GRID_START_HOUR = 8;
+export const WEEK_GRID_END_HOUR = 18;
+export const WEEK_GRID_TIME_COLUMN_WIDTH = 40;
 
 export const listTableClassName = [
   'table-fixed',
@@ -58,7 +69,7 @@ export type GeometryCssVars = CSSProperties & {
 
 /** Inherited once from AppShell by the shell and its screens. */
 export function geometryCssVars(
-  surface: 'default' | 'pipelines' | 'lists' = 'default'
+  surface: 'default' | 'pipelines' | 'lists' | 'cards' | 'calendar' = 'default'
 ): GeometryCssVars {
   return {
     '--app-sidebar-width': `${surface === 'pipelines' ? PIPELINE_SIDEBAR_WIDTH : APP_SIDEBAR_WIDTH}px`,
@@ -84,6 +95,22 @@ export function geometryCssVars(
       '--list-text': LIST_TEXT_COLOR,
       '--list-font-size': `${LIST_FONT_SIZE}px`,
       '--list-header-font-size': `${LIST_TABLE_HEADER_FONT_SIZE}px`,
+    } : {}),
+    ...(surface === 'cards' || surface === 'calendar' ? {
+      '--app-sidebar-width': `${CARD_SIDEBAR_WIDTH}px`,
+      '--app-header-height': `${CARD_HEADER_HEIGHT}px`,
+      '--content-pad-x': '0px',
+      '--content-pad-y': '0px',
+      '--list-banner-height': `${LIST_BANNER_HEIGHT}px`,
+      '--list-header-background': LIST_HEADER_BACKGROUND,
+      '--list-content-background': LIST_CONTENT_BACKGROUND,
+      '--list-text': LIST_TEXT_COLOR,
+      '--card-left-panel-width': `${CARD_LEFT_PANEL_WIDTH}px`,
+      '--card-content-top': `${CARD_CONTENT_TOP}px`,
+      '--card-record-header-height': `${CARD_RECORD_HEADER_HEIGHT}px`,
+      '--card-field-row-height': `${CARD_FIELD_ROW_HEIGHT}px`,
+      '--week-grid-hour-height': `${WEEK_GRID_HOUR_HEIGHT}px`,
+      '--week-grid-time-column-width': `${WEEK_GRID_TIME_COLUMN_WIDTH}px`,
     } : {}),
   };
 }

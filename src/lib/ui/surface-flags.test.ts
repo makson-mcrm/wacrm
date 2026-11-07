@@ -1,10 +1,15 @@
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pipelineSurfaceExtensions, surfaceFlags } from './surface-flags';
 import ContactsPage from '@/app/(dashboard)/contacts/page';
 import CompaniesPage from '@/app/(dashboard)/companies/page';
 import DealsPage from '@/app/(dashboard)/deals/page';
+import DealPage from '@/app/(dashboard)/deals/[id]/page';
+import CalendarPage from '@/app/(dashboard)/calendar/page';
+import { createRecordLinkHandlers } from '@/app/(dashboard)/deals/kanban-card';
+import { DealCard } from '@/components/pipelines/deal-card';
+import type { Deal } from '@/types';
 import { AppShell } from '@/components/layout/app-shell';
 import {
   geometryCssVars, LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT,
@@ -12,6 +17,9 @@ import {
   LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR,
   LIST_FONT_SIZE, LIST_TABLE_HEADER_FONT_SIZE, PIPELINE_SIDEBAR_WIDTH,
   PIPELINE_CARD_HEIGHT, PIPELINE_COLUMN_WIDTH, PIPELINE_COLUMN_GAP, PIPELINE_CONTENT_BACKGROUND,
+  CARD_SIDEBAR_WIDTH, CARD_HEADER_HEIGHT, CARD_LEFT_PANEL_WIDTH, CARD_CONTENT_TOP,
+  CARD_FIELD_ROW_HEIGHT, CARD_RECORD_HEADER_HEIGHT, WEEK_GRID_HOUR_HEIGHT,
+  WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH,
 } from './layout-geometry';
 
 const harness = vi.hoisted(() => ({
@@ -41,6 +49,7 @@ vi.mock('./surface-flags', async (importOriginal) => {
       get companiesExtensions() { return harness.extensions ?? original.surfaceFlags.companiesExtensions; },
       get pipelineExtensions() { return harness.extensions ?? original.surfaceFlags.pipelineExtensions; },
       get dealsListExtensions() { return harness.extensions ?? original.surfaceFlags.dealsListExtensions; },
+      get cardExtensions() { return harness.extensions ?? original.surfaceFlags.cardExtensions; },
     },
   };
 });
@@ -55,6 +64,7 @@ vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
 vi.mock('next/navigation', async (importOriginal) => ({
   ...await importOriginal<typeof import('next/navigation')>(),
   usePathname: () => harness.pathname,
+  useParams: () => ({ id: 'deal-synthetic' }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 vi.mock('@/hooks/use-total-unread', () => ({ useTotalUnread: () => 0 }));
@@ -64,6 +74,10 @@ vi.mock('@/hooks/use-theme', () => ({ useTheme: () => ({ mode: 'light', toggleMo
 vi.mock('@/components/contacts/contact-form', () => ({ ContactForm: () => null }));
 vi.mock('@/components/contacts/import-modal', () => ({ ImportModal: () => null }));
 vi.mock('@/components/contacts/custom-fields-manager', () => ({ CustomFieldsManager: () => createElement('div', null, 'CUSTOM_FIELDS_EXTENSION') }));
+vi.mock('@/components/pipelines/deal-form', () => ({ DealForm: () => null }));
+vi.mock('@/components/sales/activity-history', () => ({ ActivityHistory: () => createElement('div', null, 'ACTIVITY_HISTORY') }));
+vi.mock('@/components/assistant/deal-assistant-actions', () => ({ DealAssistantActions: () => createElement('div', null, 'AI_EXTENSION') }));
+vi.mock('@/components/banking-knowledge/deal-banking-knowledge', () => ({ DealBankingKnowledge: () => createElement('div', null, 'BANKING_EXTENSION') }));
 
 const contact = {
   id: 'contact-synthetic', user_id: 'owner-synthetic', name: 'Kontakt syntetyczny',
@@ -205,7 +219,7 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('data-slot="list-banner"');
   });
 
-  it.each(['/deals', '/deals/synthetic', '/contacts/synthetic', '/inbox', '/tasks', '/calendar', '/settings', '/broadcasts', '/assistant'])('zachowuje dotychczasową ramę %s', (pathname) => {
+  it.each(['/deals', '/contacts/synthetic', '/inbox', '/tasks', '/settings', '/broadcasts', '/assistant'])('zachowuje dotychczasową ramę %s', (pathname) => {
     harness.pathname = pathname;
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     expect(html).not.toContain('data-bigin-list-shell');
@@ -249,5 +263,112 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('Kontakt syntetyczny');
     expect(html).not.toContain('<table');
     expect(html).not.toContain('TAG_EXTENSION');
+  });
+});
+
+const deal = {
+  id: 'deal-synthetic', title: 'Transakcja syntetyczna', pipeline_id: 'pipeline-synthetic',
+  stage_id: 'stage-synthetic', stage: { id: 'stage-synthetic', name: 'Rozmowa', position: 0 },
+  contact_id: contact.id, contact, value: 1200, currency: 'PLN',
+  created_at: '2026-11-02T09:00:00+01:00', status: 'open',
+} as unknown as Deal;
+const calendarItems = [
+  { id: 'meeting-synthetic', source: 'calendar', sourceId: 'meeting', title: 'Spotkanie syntetyczne', type: 'spotkanie', startsAt: '2026-11-02T09:00:00+01:00' },
+  { id: 'task-synthetic', source: 'activity', sourceId: 'task', title: 'Zadanie syntetyczne', type: 'zadanie', startsAt: '2026-11-03T10:00:00+01:00' },
+  { id: 'weekend-synthetic', source: 'calendar', sourceId: 'weekend', title: 'Weekend syntetyczny', type: 'spotkanie', startsAt: '2026-11-07T09:00:00+01:00' },
+];
+
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
+  it('eksportuje zmierzone tokeny karty oraz tygodnia', () => {
+    expect([CARD_SIDEBAR_WIDTH, CARD_HEADER_HEIGHT, CARD_LEFT_PANEL_WIDTH, CARD_CONTENT_TOP, CARD_FIELD_ROW_HEIGHT,
+      WEEK_GRID_HOUR_HEIGHT, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH]).toEqual([65, 49, 488, 148, 44, 56, 8, 18, 40]);
+    expect(LIST_BANNER_HEIGHT + CARD_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT).toBe(CARD_CONTENT_TOP);
+    expect(surfaceFlags.cardExtensions).toBe(false);
+  });
+
+  it.each(['/deals/deal-synthetic', '/calendar'])('stosuje ramę 65/49 i białą powierzchnię na %s', (pathname) => {
+    harness.pathname = pathname;
+    const html = render(AppShell as ComponentType, []);
+    for (const value of ['--app-sidebar-width:65px', '--app-header-height:49px', '--list-header-background:#093E52', '--list-content-background:#FFFFFF']) expect(html).toContain(value);
+  });
+
+  it('pokazuje lewą kolumnę 488, wiersze 44 i dokładnie cztery zakładki', () => {
+    const html = render(DealPage, [[0, deal]]);
+    expect(html).toContain('--card-left-panel-width:488px');
+    expect(html).toContain('--card-content-top:148px');
+    expect(html).toContain('grid-cols-[var(--card-left-panel-width)_minmax(0,1fr)]');
+    expect(html.match(/data-slot="card-field-row"/g)).toHaveLength(10);
+    expect(html).toContain('h-[var(--card-field-row-height)]');
+    expect([...html.matchAll(/data-slot="tabs-trigger"[^>]*>([\s\S]*?)<\/button>/g)].map((match) => match[1].replace(/<[^>]+>/g, ''))).toEqual(['Oś czasu', 'Komentarze', 'Aktywności', 'Wiadomości']);
+    for (const label of ['Asystent AI', 'BANKING_EXTENSION', 'AI_EXTENSION', 'WhatsApp', 'Proces bankowy']) expect(html).not.toContain(label);
+  });
+
+  it('przywraca autorski widok karty po włączeniu rozszerzeń', () => {
+    harness.extensions = true;
+    const html = render(DealPage, [[0, deal]]);
+    expect(html).not.toContain('data-bigin-deal-card');
+    expect(html).toContain('Asystent AI');
+    expect(html).toContain('Banki');
+  });
+
+  it.each([['comments', 'Komentarz'], ['activities', 'ACTIVITY_HISTORY'], ['messages', 'mailto:kontakt@example.invalid']] as const)('zakładka %s pokazuje powiązaną treść', (tab, content) => {
+    const html = render(DealPage, [[0, deal], [28, tab]]);
+    expect(html).toContain(content);
+  });
+
+  it('pokazuje pn–pt, 11 wierszy 8–18 po 56 px i trzy filtry', () => {
+    const html = render(CalendarPage, [[0, calendarItems], [5, new Date(2026, 10, 2, 12)]]);
+    expect(html.match(/data-slot="week-hour-row"/g)).toHaveLength(11);
+    for (const value of ['pn', 'wt', 'śr', 'czw', 'pt', '08:00', '18:00', 'Wszystkie', 'Spotkania', 'Zadania', 'Poprzedni zakres', 'Następny zakres', 'Spotkanie syntetyczne', 'Zadanie syntetyczne']) expect(html).toContain(value);
+    for (const value of ['Weekend syntetyczny', 'Najbliższe wydarzenie']) expect(html).not.toContain(value);
+    expect(html).toContain('--week-grid-hour-height:56px');
+    expect(html).toContain('h-[var(--week-grid-hour-height)]');
+    expect(html).toContain('grid-template-columns:var(--week-grid-time-column-width) repeat(5, minmax(0, 1fr))');
+    expect((1536 - CARD_SIDEBAR_WIDTH - WEEK_GRID_TIME_COLUMN_WIDTH) / 5).toBe(286.2);
+    expect(html).toContain('6 lis 2026');
+  });
+
+  it.each([['meetings', 'Spotkanie syntetyczne', 'Zadanie syntetyczne'], ['tasks', 'Zadanie syntetyczne', 'Spotkanie syntetyczne']] as const)('filtr %s wybiera właściwe rekordy', (filter, present, absent) => {
+    const html = render(CalendarPage, [[0, calendarItems], [5, new Date(2026, 10, 2, 12)], [17, filter]]);
+    expect(html).toContain(present);
+    expect(html).not.toContain(absent);
+  });
+
+  it.each(['/deals/deal-synthetic', '/contacts?open=contact-synthetic'])('dwuklik i Cmd/Ctrl+klik otwierają %s raz i zachowują bieżący widok', (href) => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+    const single = vi.fn();
+    const handlers = createRecordLinkHandlers(href, single);
+    const event = (detail = 1, metaKey = false, ctrlKey = false) => ({ detail, metaKey, ctrlKey, preventDefault: vi.fn(), stopPropagation: vi.fn() });
+    const first = event();
+    handlers.onClick(first);
+    handlers.onClick(event(2));
+    handlers.onDoubleClick(event(2));
+    vi.runAllTimers();
+    expect(single).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledExactlyOnceWith(href, '_blank', 'noopener');
+    expect(first.preventDefault).toHaveBeenCalled();
+    expect(first.stopPropagation).toHaveBeenCalled();
+    for (const modified of [event(1, true), event(1, false, true)]) handlers.onClick(modified);
+    vi.runAllTimers();
+    expect(open).toHaveBeenCalledTimes(3);
+    expect(single).not.toHaveBeenCalled();
+    handlers.onClick(event());
+    vi.runAllTimers();
+    expect(single).toHaveBeenCalledTimes(1);
+    handlers.onClick(event());
+    handlers.cancel();
+    vi.runAllTimers();
+    expect(single).toHaveBeenCalledTimes(1);
+  });
+
+  it('tytuły deala i kontaktu mają linki do pełnych kart z noopener', () => {
+    const card = renderToStaticMarkup(createElement(DealCard, { deal, stage: null, onEdit: vi.fn() }));
+    expect(card).toMatch(/href="\/deals\/deal-synthetic"[^>]*target="_blank"[^>]*rel="noopener"/);
+    const html = render(ContactsPage, [[0, [contact]], [2, false]]);
+    expect(html).toMatch(/href="\/contacts\?open=contact-synthetic"[^>]*target="_blank"[^>]*rel="noopener"/);
   });
 });

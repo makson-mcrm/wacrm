@@ -1847,7 +1847,14 @@ function DesktopContactsView({
                 onClick={() => onOpen(contact.id)}
                 className="overflow-hidden rounded-lg border border-[var(--list-border)] bg-[var(--list-row-background)] p-4 text-left text-sm text-[var(--list-text)]"
               >
-                <span className="block truncate font-semibold">{contact.name || 'Kontakt bez nazwy'}</span>
+                <a
+                  href={`/contacts?open=${contact.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="block truncate font-semibold hover:underline"
+                >
+                  {contact.name || 'Kontakt bez nazwy'}
+                </a>
                 <span className="block truncate">{contact.companies?.map((company) => company.name).join(', ') || contact.company || '—'}</span>
                 <span className="block truncate">{contact.email || '—'}</span>
                 <span className="block truncate">{contact.phone || '—'}</span>
@@ -1930,9 +1937,10 @@ function DesktopContactsView({
                         />
                       </TableCell>
                       <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => onOpen(contact.id)}
+                        <a
+                          href={`/contacts?open=${contact.id}`}
+                          target="_blank"
+                          rel="noopener"
                           className="block text-left"
                         >
                           <span className={extensions ? 'block font-bold text-slate-900' : 'block truncate font-semibold text-[var(--list-text)]'}>
@@ -1943,7 +1951,7 @@ function DesktopContactsView({
                               ?.map((company) => company.name)
                               .join(', ') || '—'}
                           </span>}
-                        </button>
+                        </a>
                       </TableCell>
                       {extensions ? <>
                       <TableCell>

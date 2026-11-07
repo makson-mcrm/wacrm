@@ -23,6 +23,8 @@ import {
   warsawDateTimeInputToIso,
 } from '@/lib/date-time';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
+import { geometryCssVars, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR } from '@/lib/ui/layout-geometry';
 type View = 'day' | 'week' | 'month';
 type Source = 'calendar' | 'activity' | 'deal' | 'queue';
 type Item = {
@@ -62,6 +64,7 @@ export default function CalendarPage() {
     [contactId, setContactId] = useState(''),
     [companyId, setCompanyId] = useState(''),
     [dealId, setDealId] = useState('');
+  const [itemFilter, setItemFilter] = useState<'all' | 'meetings' | 'tasks'>('all');
   const load = useCallback(async () => {
     if (!accountId) return;
     const [events, activities, dealRows, queue, contactRows, companyRows] =
@@ -218,7 +221,9 @@ export default function CalendarPage() {
     days = useMemo(() => daysBetween(range.start, range.end), [range]);
   const visible = items.filter((x) => {
     const d = new Date(x.startsAt);
-    return d >= range.start && d < range.end;
+    const meeting = x.type === 'spotkanie' || x.type === 'meeting';
+    return d >= range.start && d < range.end &&
+      (itemFilter === 'all' || (itemFilter === 'meetings' ? meeting : !meeting));
   });
   const names = {
     contacts: new Map(contacts.map((x) => [x.id, x.name || x.phone])),
@@ -374,8 +379,8 @@ export default function CalendarPage() {
     setCursor(d);
   };
   return (
-    <div className="mx-auto w-full max-w-[1800px] space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div data-bigin-calendar style={geometryCssVars('calendar')} className="w-full space-y-0 bg-white">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
             KALENDARZ
@@ -389,10 +394,10 @@ export default function CalendarPage() {
           Dodaj
         </Button>
       </header>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-white p-2">
         <div className="flex">
-          <Button size="sm" variant="ghost" onClick={() => shift(-1)}>
-            <ChevronLeft />
+          <Button size="sm" variant="ghost" aria-label="Poprzedni zakres" onClick={() => shift(-1)}>
+            <ChevronLeft aria-hidden="true" />
           </Button>
           <Button
             size="sm"
@@ -401,11 +406,14 @@ export default function CalendarPage() {
           >
             Dziś
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => shift(1)}>
-            <ChevronRight />
+          <Button size="sm" variant="ghost" aria-label="Następny zakres" onClick={() => shift(1)}>
+            <ChevronRight aria-hidden="true" />
           </Button>
         </div>
-        <p className="font-semibold capitalize">{rangeLabel(cursor, view)}</p>
+        <p aria-live="polite" className="font-semibold capitalize">{rangeLabel(cursor, view, showWeekends)}</p>
+        <div role="group" aria-label="Filtry kalendarza" className="flex">
+          {([['all', 'Wszystkie'], ['meetings', 'Spotkania'], ['tasks', 'Zadania']] as const).map(([value, label]) => <Button key={value} size="sm" variant={itemFilter === value ? 'default' : 'ghost'} aria-pressed={itemFilter === value} onClick={() => setItemFilter(value)}>{label}</Button>)}
+        </div>
         <div className="flex">
           {(['day', 'week', 'month'] as View[]).map((v) => (
             <Button
@@ -430,7 +438,7 @@ export default function CalendarPage() {
         </div>
       </div>
       {view === 'week' ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className={surfaceFlags.cardExtensions ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]' : ''}>
           <WeekGrid
             days={days}
             showWeekends={showWeekends}
@@ -443,7 +451,7 @@ export default function CalendarPage() {
             }}
             onOpen={reset}
           />
-          <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+          {surfaceFlags.cardExtensions && <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
             <p className="text-xs font-black tracking-wide text-slate-500 uppercase">
               Najbliższe wydarzenie
             </p>
@@ -492,7 +500,7 @@ export default function CalendarPage() {
                 Brak wydarzeń w tym zakresie.
               </p>
             )}
-          </aside>
+          </aside>}
         </div>
       ) : (
         <div
@@ -666,7 +674,7 @@ export default function CalendarPage() {
   );
 }
 
-const WEEK_HOURS = Array.from({ length: 11 }, (_, index) => index + 8);
+const WEEK_HOURS = Array.from({ length: WEEK_GRID_END_HOUR - WEEK_GRID_START_HOUR + 1 }, (_, index) => index + WEEK_GRID_START_HOUR);
 
 function WeekGrid({
   days,
@@ -688,9 +696,9 @@ function WeekGrid({
   onOpen: (item: Item) => void;
 }) {
   const workDays = days.slice(0, showWeekends ? 7 : 5);
-  const columns = `64px repeat(${workDays.length}, minmax(0, 1fr))`;
+  const columns = `var(--week-grid-time-column-width) repeat(${workDays.length}, minmax(0, 1fr))`;
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div data-slot="week-grid" className="overflow-hidden bg-white">
       <div className="overflow-x-auto">
         <div className={showWeekends ? 'min-w-[960px]' : 'min-w-[720px]'}>
           <div
@@ -722,7 +730,8 @@ function WeekGrid({
             {WEEK_HOURS.map((hour) => (
               <div
                 key={hour}
-                className="grid min-h-[54px] border-b border-slate-100 last:border-b-0"
+                data-slot="week-hour-row"
+                className="grid h-[var(--week-grid-hour-height)] border-b border-slate-100 last:border-b-0"
                 style={{ gridTemplateColumns: columns }}
               >
                 <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
@@ -746,7 +755,7 @@ function WeekGrid({
                   return (
                     <div
                       key={`${dateKey(day)}-${hour}`}
-                      className="group min-w-0 border-l border-slate-200 p-1"
+                      className="group min-w-0 overflow-y-auto border-l border-slate-200 p-1"
                       onDoubleClick={() => onAdd(day, hour)}
                     >
                       <div className="space-y-1">
@@ -755,6 +764,7 @@ function WeekGrid({
                             key={item.id}
                             type="button"
                             onClick={() => onOpen(item)}
+                            onDoubleClick={(event) => event.stopPropagation()}
                             className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-left hover:border-emerald-400 hover:bg-emerald-100"
                           >
                             <span className="block truncate text-xs font-bold text-slate-900">
@@ -921,7 +931,7 @@ function daysBetween(start: Date, end: Date) {
     rows.push(new Date(d));
   return rows;
 }
-function rangeLabel(d: Date, v: View) {
+function rangeLabel(d: Date, v: View, showWeekends: boolean) {
   if (v === 'day')
     return d.toLocaleDateString('pl-PL', {
       weekday: 'long',
@@ -932,7 +942,7 @@ function rangeLabel(d: Date, v: View) {
     return d.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
   const s = startOfWeek(d),
     e = new Date(s);
-  e.setDate(e.getDate() + 6);
+  e.setDate(e.getDate() + (showWeekends ? 6 : 4));
   return `${s.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })} – ${e.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }
 function defaultInput() {
