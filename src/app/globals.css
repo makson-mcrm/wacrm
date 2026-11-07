@@ -313,6 +313,11 @@ html[data-theme='rose'] {
   }
 }
 
+.inbox-doodle-bg {
+  background-image: url("/inbox-doodle.svg");
+  background-repeat: repeat;
+}
+
 @media (max-width: 767px) {
   #main-content {
     scroll-padding-top: 0.75rem;
