@@ -16,6 +16,8 @@ import { DealCard } from '@/components/pipelines/deal-card';
 import type { Company, Deal } from '@/types';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_PAGE_BG_PIPELINE, BRAND_PAGE_BG,
+  BRAND_ROW_BG, BRAND_BORDER, BRAND_HOVER, BRAND_LINK, BRAND_INFO_BANNER,
   geometryCssVars, LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT,
   LIST_TOOLBAR_HEIGHT, LIST_TABLE_TOP, LIST_ROW_HEIGHT, LIST_HEADER_BACKGROUND,
   LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR,
@@ -218,14 +220,14 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect([LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT, LIST_TOOLBAR_HEIGHT, LIST_ROW_HEIGHT]).toEqual([65, 33, 49, 56, 32]);
     expect(LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + LIST_TOOLBAR_HEIGHT).toBe(LIST_TABLE_TOP);
     expect(LIST_TABLE_TOP).toBe(138);
-    expect([LIST_HEADER_BACKGROUND, LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR]).toEqual(['#093E52', '#FFFFFF', '#FCFDFD', '#E8ECEF', '#212129']);
+    expect([LIST_HEADER_BACKGROUND, LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR]).toEqual(['#093E52', '#FFFFFF', '#FCFDFD', '#E0E9EE', '#212129']);
     expect([LIST_FONT_SIZE, LIST_TABLE_HEADER_FONT_SIZE]).toEqual([14, 12]);
     expect(geometryCssVars('lists')).toMatchObject({
       '--app-sidebar-width': '65px', '--app-header-height': '49px',
       '--content-pad-x': '0px', '--content-pad-y': '0px',
       '--list-toolbar-height': '56px', '--list-row-height': '32px',
       '--list-header-background': '#093E52', '--list-content-background': '#FFFFFF',
-      '--list-row-background': '#FCFDFD', '--list-border': '#E8ECEF', '--list-text': '#212129',
+      '--list-row-background': '#FCFDFD', '--list-border': '#E0E9EE', '--list-text': '#212129',
     });
   });
 
@@ -556,6 +558,7 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     ])
       expect(html).toContain(value);
     expect(html).toContain('data-slot="today-list-row"');
+    for (const value of ['--today-row-bg:#FCFDFD', '--today-hover:#F0F7FB', '--today-link:#7EB5F4', 'border-color:#E0E9EE', 'hover:bg-[var(--today-hover)]', 'text-[var(--today-link)]']) expect(html).toContain(value);
     for (const value of [
       'Asystent',
       'Ivy Lee',
@@ -590,7 +593,11 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     ]);
     for (const value of [
       '--list-row-height:32px',
-      '--list-border:#E8ECEF',
+      '--list-border:#E0E9EE',
+      '--list-hover:#F0F7FB',
+      '--list-link:#7EB5F4',
+      'hover:bg-[var(--task-hover)]',
+      'text-[var(--task-link)]',
       'h-[var(--list-row-height)]',
       'Telefon syntetyczny',
       'Właściciel syntetyczny',
@@ -637,6 +644,10 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
       'data-bigin-inbox',
       '--inbox-list-width:360px',
       '--inbox-header-height:49px',
+      '--inbox-border:#E0E9EE',
+      '--inbox-row:#FCFDFD',
+      '--inbox-hover:#F0F7FB',
+      '--inbox-link:#7EB5F4',
       'lg:w-[var(--inbox-list-width)]',
       'data-slot="inbox-conversations"',
       'data-slot="inbox-thread"',
@@ -659,5 +670,34 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     const inbox = render(InboxPage, []);
     expect(inbox).toContain('Kanały Inbox:');
     expect(inbox).not.toContain('data-bigin-inbox');
+  });
+});
+
+
+describe('KM3.2.14 — paleta Bigin', () => {
+  it.each([
+    [BRAND_SIDEBAR_BG, '#093E52'],
+    [BRAND_SIDEBAR_BG_ALT, '#0B4A63'],
+    [BRAND_PAGE_BG_PIPELINE, '#F9FBFC'],
+    [BRAND_PAGE_BG, '#FFFFFF'],
+    [BRAND_ROW_BG, '#FCFDFD'],
+    [BRAND_BORDER, '#E0E9EE'],
+    [BRAND_HOVER, '#F0F7FB'],
+    [BRAND_LINK, '#7EB5F4'],
+    [BRAND_INFO_BANNER, '#DFF9F3'],
+  ])('token %s = %s', (actual, expected) => expect(actual).toBe(expected));
+
+  it.each(['/dashboard', '/tasks', '/inbox', '/contacts', '/pipelines'])('powłoka %s dziedziczy paletę', (pathname) => {
+    harness.pathname = pathname;
+    const html = render(AppShell as ComponentType, []);
+    for (const value of ['--brand-sidebar:#093E52', '--brand-sidebar-alt:#0B4A63', '--border:#E0E9EE', '--brand-hover:#F0F7FB', '--brand-link:#7EB5F4', '--brand-info:#DFF9F3']) expect(html).toContain(value);
+    expect(html).toContain(`--brand-page:${pathname === '/pipelines' ? '#F9FBFC' : '#FFFFFF'}`);
+    expect(html).not.toContain('#20383d');
+    const aside = html.match(/<aside[\s\S]*?<\/aside>/)?.[0] ?? '';
+    expect(aside).toContain('background:#093E52');
+    expect(aside).toContain('--sidebar-alt:#0B4A63');
+    expect(aside).toContain('bg-[var(--sidebar-alt)] text-white');
+    expect(aside).toContain('hover:bg-[var(--sidebar-alt)]');
+    expect(html).not.toContain('text-slate-950');
   });
 });

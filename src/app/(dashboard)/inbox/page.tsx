@@ -16,7 +16,7 @@ import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { Mail, MessageCircle, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { surfaceFlags } from "@/lib/ui/surface-flags";
-import { LIST_HEADER_HEIGHT, LIST_BORDER_COLOR, LIST_CONTENT_BACKGROUND } from "@/lib/ui/layout-geometry";
+import { BRAND_ROW_BG, BRAND_HOVER, BRAND_LINK, LIST_HEADER_HEIGHT, LIST_BORDER_COLOR, LIST_CONTENT_BACKGROUND } from "@/lib/ui/layout-geometry";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -567,6 +567,16 @@ function InboxPageInner() {
               '--inbox-list-width': '360px',
               '--inbox-header-height': `${LIST_HEADER_HEIGHT}px`,
               '--inbox-border': LIST_BORDER_COLOR,
+              '--inbox-row': BRAND_ROW_BG,
+              '--inbox-hover': BRAND_HOVER,
+              '--inbox-link': BRAND_LINK,
+              '--background': LIST_CONTENT_BACKGROUND,
+              '--card': LIST_CONTENT_BACKGROUND,
+              '--muted': BRAND_HOVER,
+              '--accent': BRAND_HOVER,
+              '--border': LIST_BORDER_COLOR,
+              '--input': LIST_BORDER_COLOR,
+              '--primary': BRAND_LINK,
               background: LIST_CONTENT_BACKGROUND,
             } as React.CSSProperties)
           : undefined
@@ -586,6 +596,10 @@ function InboxPageInner() {
           </header>
           <style>{`
           [data-bigin-inbox] [data-slot="inbox-conversations"] > div { width: 100%; background: ${LIST_CONTENT_BACKGROUND}; border-color: var(--inbox-border); }
+          [data-bigin-inbox] [data-slot="inbox-conversations"] button.w-full { background: var(--inbox-row); border-color: var(--inbox-border); }
+          [data-bigin-inbox] [data-slot="inbox-conversations"] button.w-full:hover,
+          [data-bigin-inbox] [data-slot="inbox-conversations"] button.w-full.border-l-2 { background: var(--inbox-hover); }
+          [data-bigin-inbox] a { color: var(--inbox-link); }
           [data-bigin-inbox] [data-slot="inbox-thread"] > div > div:first-child { min-height: var(--inbox-header-height); padding-top: 0; padding-bottom: 0; border-color: var(--inbox-border); }
         `}</style>
         </>

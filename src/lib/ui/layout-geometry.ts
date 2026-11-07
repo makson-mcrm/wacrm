@@ -1,5 +1,16 @@
 import type { CSSProperties } from 'react';
 
+// KM3.2.14 — measured Bigin palette; geometry remains unchanged.
+export const BRAND_SIDEBAR_BG = '#093E52';
+export const BRAND_SIDEBAR_BG_ALT = '#0B4A63';
+export const BRAND_PAGE_BG_PIPELINE = '#F9FBFC';
+export const BRAND_PAGE_BG = '#FFFFFF';
+export const BRAND_ROW_BG = '#FCFDFD';
+export const BRAND_BORDER = '#E0E9EE';
+export const BRAND_HOVER = '#F0F7FB';
+export const BRAND_LINK = '#7EB5F4';
+export const BRAND_INFO_BANNER = '#DFF9F3';
+
 export const APP_SIDEBAR_WIDTH = 160;
 // Bigin demo, 1536×1024, 05.11.2026. Apply only to the pipeline frame.
 export const PIPELINE_SIDEBAR_WIDTH = 285;
@@ -7,7 +18,7 @@ export const PIPELINE_CONTENT_PADDING_X = 10;
 export const PIPELINE_COLUMN_WIDTH = 220;
 export const PIPELINE_COLUMN_GAP = 10;
 export const PIPELINE_CARD_HEIGHT = 60;
-export const PIPELINE_CONTENT_BACKGROUND = '#F9FBFC';
+export const PIPELINE_CONTENT_BACKGROUND = BRAND_PAGE_BG_PIPELINE;
 export const APP_HEADER_HEIGHT = 56;
 // Bigin contacts, 1536×1024. Shared header tokens also apply to the pipeline.
 export const LIST_SIDEBAR_WIDTH = 65;
@@ -16,10 +27,10 @@ export const LIST_HEADER_HEIGHT = 49;
 export const LIST_TOOLBAR_HEIGHT = 56;
 export const LIST_TABLE_TOP = 138;
 export const LIST_ROW_HEIGHT = 32;
-export const LIST_HEADER_BACKGROUND = '#093E52';
-export const LIST_CONTENT_BACKGROUND = '#FFFFFF';
-export const LIST_ROW_BACKGROUND = '#FCFDFD';
-export const LIST_BORDER_COLOR = '#E8ECEF';
+export const LIST_HEADER_BACKGROUND = BRAND_SIDEBAR_BG;
+export const LIST_CONTENT_BACKGROUND = BRAND_PAGE_BG;
+export const LIST_ROW_BACKGROUND = BRAND_ROW_BG;
+export const LIST_BORDER_COLOR = BRAND_BORDER;
 export const LIST_TEXT_COLOR = '#212129';
 export const LIST_FONT_SIZE = 14;
 export const LIST_TABLE_HEADER_FONT_SIZE = 12;
@@ -44,6 +55,7 @@ export const listTableClassName = [
   '[&_td]:h-[var(--list-row-height)] [&_td]:truncate [&_td]:px-4 [&_td]:py-0',
   '[&_td]:text-[length:var(--list-font-size)] [&_td]:text-[var(--list-text)] [&_td]:leading-5',
   '[&_tbody_tr]:bg-[var(--list-row-background)] [&_thead_tr]:bg-[var(--list-row-background)]',
+  '[&_tbody_tr:hover]:bg-[var(--list-hover)] [&_a]:text-[var(--list-link)]',
 ].join(' ');
 export const listToolbarClassName = [
   'flex h-[var(--list-toolbar-height)] items-center justify-between gap-3',
@@ -92,6 +104,8 @@ export function geometryCssVars(
       '--list-content-background': LIST_CONTENT_BACKGROUND,
       '--list-row-background': LIST_ROW_BACKGROUND,
       '--list-border': LIST_BORDER_COLOR,
+      '--list-hover': BRAND_HOVER,
+      '--list-link': BRAND_LINK,
       '--list-text': LIST_TEXT_COLOR,
       '--list-font-size': `${LIST_FONT_SIZE}px`,
       '--list-header-font-size': `${LIST_TABLE_HEADER_FONT_SIZE}px`,

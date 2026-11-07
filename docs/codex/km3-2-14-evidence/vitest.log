@@ -1,0 +1,14 @@
+npm notice run wacrm@0.8.0 npx
+npm notice run 'vitest' run src/lib/ui src/app/(dashboard)
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.12 /Users/mcrm-ai/wacrm-a
+
+
+ Test Files  3 passed (3)
+      Tests  158 passed (158)
+   Start at  19:36:20
+   Duration  8.41s (transform 2.56s, setup 0ms, import 8.49s, tests 4.22s, environment 1ms)
+

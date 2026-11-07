@@ -1,13 +1,13 @@
 {
-  "updated_at": "2026-11-07T18:50:11+01:00",
-  "zadanie_d1": "KM3.2.13 — Dzisiaj / Zadania / Inbox — DZIAŁA CZĘŚCIOWO, NIEODEBRANE",
-  "czynnosc": "Lokalne warianty Bigin w pięciu wskazanych źródłach; trzy nowe flagi false. Raport: docs/codex/CODEX-KM3-2-13.md. Bez commita i publikacji.",
-  "etap": "Do domknięcia: podłączenie trzech tras do wspólnej powłoki 65/49 oraz schowanie AI wewnątrz komponentów Inbox — pliki poza wskazanym zakresem, pytania o rozszerzenie zakresu pozostają otwarte.",
-  "ostatnia_zmiana": "Dzisiaj: lista 44 px, bez KPI/Asystenta; Zadania: tabela 32 px z pięcioma kolumnami; Inbox: dwie szpalty, lewa 360 px. Dotychczasowe widoki zachowane pod flagami.",
-  "testy": "Lokalnie: vitest 144/144 (3 pliki), typecheck RC=0; ESLint 0 błędów i 2 zastane ostrzeżenia. Brak pomiaru DOM i odbioru wizualnego.",
-  "bledy": "Niedomknięta geometria AppShell (trasy nadal używają 160/56). Lokalny build zatrzymany na ENOTFOUND fonts.googleapis.com / Inter. Build TEST nieuruchomiony: zakaz publikacji.",
-  "live_wersja": "Paczka KM3.2.13 nie jest wdrożona. Ostatni zapis historyczny 05.11: TEST dac0f45f/build 01a1acb1, produkcja 0f7317df/build 01a1aba4; aktualny stan zdalny nie był weryfikowany.",
-  "koszt": "Nowe wywołania Nous: 0 / 0 USD; jeden przebieg abonamentowego Codexa. Pasywny odczyt końcowy: 5h 9% użyte / 91% pozostało, tydzień 12% użyte / 88% pozostało; bez dodatkowych kredytów.",
-  "nastepny_krok": "Domknąć powłokę i komponenty Inbox po rozstrzygnięciu zakresu; następnie testy geometrii i osobno autoryzowane wdrożenie na TEST. Ten pulpit jest zmieniony wyłącznie lokalnie.",
+  "updated_at": "2026-11-07T19:38:06+01:00",
+  "zadanie_d1": "KM3.2.14 — paleta Bigin — GOTOWE W KODZIE, NIEODEBRANE",
+  "czynnosc": "Zmieniono siedem wskazanych źródeł: dziewięć tokenów, panel i pasek, tła, obramowania, wiersze, hover i linki. Raport docs/codex/CODEX-KM3-2-14.md. Bez commita, pusha i publikacji.",
+  "etap": "Testy kodu zakończone. Brak odbioru wizualnego; PASS nadaje wyłącznie Tomasz.",
+  "ostatnia_zmiana": "Panel/pasek #093E52, aktywne menu #0B4A63, Lejek #F9FBFC, listy #FFFFFF, wiersze #FCFDFD, border #E0E9EE, hover #F0F7FB, link #7EB5F4, istniejący pasek informacyjny #DFF9F3. Geometria i flagi zachowane.",
+  "testy": "158/158, 3 pliki; typecheck RC=0; ESLint 0 błędów, 2 zastane ostrzeżenia. Lokalne rendery HTML czterech pełnych ekranów z AppShell i syntetycznymi danymi. Brak zrzutów i pomiaru DOM.",
+  "bledy": "Build lokalny RC=1: ENOTFOUND fonts.googleapis.com / Inter. Chromium headless kończy się -6; CUA: browser access host unavailable. Zdalny build TEST nieuruchomiony: zakaz publikacji. Checkpoint ~/.hermes poza obszarem zapisu; notatka w raporcie.",
+  "live_wersja": "KM3.2.14 nie jest wdrożone. HEAD lokalny a476a70 bez zmiany; BASE_SHA 0f7317df jest przodkiem. Nie weryfikowano zdalnego TEST/produkcji.",
+  "koszt": "Nowe wywołania Nous 0 / 0 USD. Jeden przebieg abonamentowego Codexa, bez podzadań i API. Pasywnie: 5h użyte 13→19%, tydzień 12→13%; resety 07.11 23:43 / 13.11 10:24, brak dodatkowych kredytów.",
+  "nastepny_krok": "Hermes: zachować diff i checkpoint z raportu, wykonać build i zrzuty po usunięciu blokad środowiska. Publikacja TEST wymaga odrębnego upoważnienia. Ten pulpit jest lokalny.",
   "bezczynnosc": true
 }

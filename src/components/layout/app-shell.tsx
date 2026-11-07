@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
@@ -11,8 +11,11 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import {
   geometryCssVars,
+  BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_PAGE_BG, BRAND_PAGE_BG_PIPELINE,
+  BRAND_BORDER, BRAND_HOVER, BRAND_LINK, BRAND_INFO_BANNER,
   LIST_HEADER_HEIGHT,
   LIST_HEADER_BACKGROUND,
+  LIST_TEXT_COLOR,
   PIPELINE_COLUMN_WIDTH,
   PIPELINE_COLUMN_GAP,
   PIPELINE_CARD_HEIGHT,
@@ -124,9 +127,30 @@ export function AppShell({ children }: AppShellProps) {
       data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}
       className={cn(
         'relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden',
-        isBiginList ? 'bg-white pt-[var(--list-banner-height)]' : isPipeline ? 'bg-[#f9fbfc]' : 'bg-app-surface'
+        isBiginList && 'pt-[var(--list-banner-height)]'
       )}
       style={{
+        background: isPipeline ? BRAND_PAGE_BG_PIPELINE : BRAND_PAGE_BG,
+        '--brand-page': isPipeline ? BRAND_PAGE_BG_PIPELINE : BRAND_PAGE_BG,
+        '--brand-sidebar': BRAND_SIDEBAR_BG,
+        '--brand-sidebar-alt': BRAND_SIDEBAR_BG_ALT,
+        '--brand-hover': BRAND_HOVER,
+        '--brand-link': BRAND_LINK,
+        '--brand-info': BRAND_INFO_BANNER,
+        '--foreground': LIST_TEXT_COLOR,
+        '--card-foreground': LIST_TEXT_COLOR,
+        '--popover-foreground': LIST_TEXT_COLOR,
+        '--accent-foreground': LIST_TEXT_COLOR,
+        '--muted-foreground': LIST_TEXT_COLOR,
+        '--primary-foreground': BRAND_PAGE_BG,
+        '--background': BRAND_PAGE_BG,
+        '--card': BRAND_PAGE_BG,
+        '--popover': BRAND_PAGE_BG,
+        '--border': BRAND_BORDER,
+        '--input': BRAND_BORDER,
+        '--muted': BRAND_HOVER,
+        '--accent': BRAND_HOVER,
+        '--primary': BRAND_SIDEBAR_BG,
         ...geometryCssVars(isBiginList ? 'lists' : isPipeline ? 'pipelines' : 'default'),
         ...(isPipeline ? {
           '--app-header-height': `${LIST_HEADER_HEIGHT}px`,
@@ -137,8 +161,25 @@ export function AppShell({ children }: AppShellProps) {
           '--pipeline-content-background': PIPELINE_CONTENT_BACKGROUND,
         } : {}),
         transform: 'translateY(var(--app-viewport-offset-top, 0px))',
-      }}
+      } as CSSProperties}
     >
+      <style>{`
+        [data-slot="app-shell"] > div > header {
+          background: var(--brand-sidebar);
+          color: white;
+          --foreground: white;
+          --muted-foreground: white;
+          --muted: var(--brand-sidebar-alt);
+          --primary: var(--brand-link);
+          border-color: var(--border);
+        }
+        [data-slot="app-shell"] > div > header a[aria-label="mCRM AI — DZISIAJ"] > span:first-child {
+          background: var(--brand-sidebar-alt);
+        }
+        [data-slot="app-shell"] > div > header a[aria-label="Powiadomienia"]:hover {
+          background: var(--brand-sidebar-alt);
+        }
+      `}</style>
       {isPipeline && <style>{`
         [data-bigin-pipeline-shell] > div > header {
           background: var(--list-header-background);
@@ -170,7 +211,7 @@ export function AppShell({ children }: AppShellProps) {
       `}</style>}
       {isBiginList && <>
         {/* Preserve the measured banner offset without copying Bigin marketing. */}
-        <div data-slot="list-banner" aria-hidden="true" className="absolute inset-x-0 top-0 h-[var(--list-banner-height)] bg-white" />
+        <div data-slot="list-banner" aria-hidden="true" className="absolute inset-x-0 top-0 h-[var(--list-banner-height)] bg-[var(--brand-info)]" />
         <style>{`
           [data-bigin-list-shell] > div > header {
             background: var(--list-header-background);
@@ -234,10 +275,10 @@ export function AppShell({ children }: AppShellProps) {
         <main
           id="main-content"
           className={cn(
-            'min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-slate-950 md:p-6 md:pb-6 lg:pt-3',
+            'min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 pt-2.5 pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-foreground md:p-6 md:pb-6 lg:pt-3',
             isPipeline
-              ? 'bg-[#f9fbfc] lg:px-[var(--content-pad-x)]'
-              : 'bg-[#f5f8fb] md:bg-transparent lg:px-5'
+              ? 'bg-[var(--brand-page)] lg:px-[var(--content-pad-x)]'
+              : 'bg-[var(--brand-page)] lg:px-5'
           )}
         >
           <AccountAccessAlert />

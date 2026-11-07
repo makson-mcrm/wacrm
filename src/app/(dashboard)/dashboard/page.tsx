@@ -59,7 +59,7 @@ import { warsawDateKey, warsawDayRange } from '@/lib/date-time';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
 import {
   CARD_CONTENT_TOP, CARD_FIELD_ROW_HEIGHT, CARD_RECORD_HEADER_HEIGHT,
-  LIST_BORDER_COLOR, LIST_CONTENT_BACKGROUND,
+  LIST_BORDER_COLOR, LIST_CONTENT_BACKGROUND, BRAND_ROW_BG, BRAND_HOVER, BRAND_LINK,
 } from '@/lib/ui/layout-geometry';
 
 type Priority = {
@@ -671,6 +671,9 @@ export default function DashboardPage() {
         style={
           {
             background: LIST_CONTENT_BACKGROUND,
+            '--today-row-bg': BRAND_ROW_BG,
+            '--today-hover': BRAND_HOVER,
+            '--today-link': BRAND_LINK,
             '--today-content-top': `${CARD_CONTENT_TOP}px`,
             '--today-row-height': `${CARD_FIELD_ROW_HEIGHT}px`,
           } as React.CSSProperties
@@ -714,13 +717,13 @@ export default function DashboardPage() {
                 <li
                   key={item.id}
                   data-slot="today-list-row"
-                  className="flex h-[var(--today-row-height)] items-center gap-3 border-b px-5 text-sm"
+                  className="flex h-[var(--today-row-height)] items-center gap-3 border-b bg-[var(--today-row-bg)] px-5 text-sm hover:bg-[var(--today-hover)]"
                   style={{ borderColor: LIST_BORDER_COLOR }}
                 >
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="min-w-0 flex-1 truncate hover:underline"
+                      className="min-w-0 flex-1 truncate text-[var(--today-link)] hover:underline"
                     >
                       {item.action || item.title}
                     </Link>

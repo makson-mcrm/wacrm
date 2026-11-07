@@ -1,0 +1,17 @@
+{
+  "task": "KM3.2.14",
+  "created_at": "2026-11-07T19:38:06+01:00",
+  "head": "a476a70f5b982f970b1182af10ee3d1509d8ebef",
+  "data": "synthetic",
+  "screenshots": false,
+  "render": "renderToStaticMarkup rzeczywistych stron i AppShell, efekty sieciowe wyłączone; mock auth, routera i bazy; CSS Tailwind z globals.css; font Arial w lokalnym wrapperze",
+  "sha256": {
+    "src/lib/ui/layout-geometry.ts": "276e2f719c207ac1ddd43178c75b3c3fb914fff0c97eb7f94f3b2ef2b799249d",
+    "src/components/layout/app-shell.tsx": "bd608770b2d73a9669e7484f70a8041da7ef78cc33e1886707e2beb63fa1ed8d",
+    "src/components/layout/sidebar.tsx": "556a3eaf1111366ffad753b3b5ed8b4fa7b7631099558a6d45d9fdc21f56a7c1",
+    "src/app/(dashboard)/dashboard/page.tsx": "173e12839cd52eb42988d9a049ad202fb740e2c64bb163be3011b7c8dccc16c5",
+    "src/app/(dashboard)/tasks/page.tsx": "5eef7059d5f099cd948470de81eff9759eee7480f40074f55f9b9e461cef5c6b",
+    "src/app/(dashboard)/inbox/page.tsx": "4185a0691569937315d73d9ae5e132a1ee46418cfcbf7b412653c4b247836b2d",
+    "src/lib/ui/surface-flags.test.ts": "c8c55ebf22ea6807e3ad9faaff6641b9210e1a0b3ba08b77704b3098bc2a9ffc"
+  }
+}

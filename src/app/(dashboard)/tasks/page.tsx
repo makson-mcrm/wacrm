@@ -1,5 +1,6 @@
 'use client';
 
+import { BRAND_HOVER, BRAND_LINK } from '@/lib/ui/layout-geometry';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Check, Clock3, ExternalLink } from 'lucide-react';
@@ -324,7 +325,7 @@ export default function TasksPage() {
     return (
       <section
         data-bigin-tasks
-        style={geometryCssVars('lists')}
+        style={{ ...geometryCssVars('lists'), '--task-hover': BRAND_HOVER, '--task-link': BRAND_LINK } as React.CSSProperties}
         className="min-h-full bg-[var(--list-content-background)]"
       >
         <header className={listToolbarClassName}>
@@ -368,7 +369,7 @@ export default function TasksPage() {
                   <tr
                     key={task.key}
                     data-slot="task-list-row"
-                    className="border-b"
+                    className="border-b hover:bg-[var(--task-hover)]"
                   >
                     <td>
                       <input
@@ -382,7 +383,7 @@ export default function TasksPage() {
                     <td>
                       <Link
                         href={href}
-                        className="block truncate hover:underline"
+                        className="block truncate text-[var(--task-link)] hover:underline"
                       >
                         {task.title}
                       </Link>
@@ -453,7 +454,7 @@ export default function TasksPage() {
                     <td>
                       <Link
                         href={href}
-                        className="block truncate hover:underline"
+                        className="block truncate text-[var(--task-link)] hover:underline"
                       >
                         {task.where}
                       </Link>

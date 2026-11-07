@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_BORDER, BRAND_LINK } from '@/lib/ui/layout-geometry';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -54,7 +55,7 @@ const ROLE_CHIP: Record<
     icon: Shield,
     labelKey: 'roleAdmin',
     // Primary-tinted: significant but not as scarce as owner.
-    className: 'border-primary/40 bg-primary/10 text-primary',
+    className: 'border-primary/40 bg-[var(--sidebar-alt)] text-white',
   },
   agent: {
     icon: UserCog,
@@ -217,18 +218,25 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:transition-none lg:[--border:#ffffff20] lg:[--foreground:#f1f5f9] lg:[--muted-foreground:#cbd5e1] lg:[--muted:#315057] lg:[--primary:#d1fae5]',
-          pathname === '/pipelines'
-            ? 'lg:shrink-0 lg:bg-[#093e52]'
-            : 'lg:bg-[#20383d]'
+          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:transition-none',
+          pathname === '/pipelines' && 'lg:shrink-0'
         )}
+        style={{
+          background: BRAND_SIDEBAR_BG,
+          '--sidebar-alt': BRAND_SIDEBAR_BG_ALT,
+          '--border': BRAND_BORDER,
+          '--foreground': '#FFFFFF',
+          '--muted-foreground': '#FFFFFF',
+          '--muted': BRAND_SIDEBAR_BG_ALT,
+          '--primary': BRAND_LINK,
+        } as React.CSSProperties}
         aria-label="Primary"
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="border-border flex h-[var(--app-header-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123d2b] text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sidebar-alt)] text-white">
               <Sparkles className="h-4 w-4" />
             </div>
             <span className="text-foreground text-sm font-black">mCRM AI</span>
@@ -237,7 +245,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             type="button"
             onClick={onClose}
             aria-label={t('closeMenu')}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-lg lg:hidden"
+            className="text-white hover:bg-[var(--sidebar-alt)] hover:text-white flex size-11 items-center justify-center rounded-lg lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -271,8 +279,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? 'bg-[var(--sidebar-alt)] text-white'
+                        : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -344,8 +352,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       className={cn(
                         'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0',
                         isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          ? 'bg-[var(--sidebar-alt)] text-white'
+                          : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
                       )}
                     >
                       <item.icon className="size-4" />
@@ -376,8 +384,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? 'bg-[var(--sidebar-alt)] text-white'
+                        : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -434,7 +442,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   alt={profile.full_name ?? t('defaultAvatar')}
                 />
               ) : null}
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+              <AvatarFallback className="bg-[var(--sidebar-alt)] text-white text-sm font-medium">
                 {profile?.full_name?.charAt(0)?.toUpperCase() ??
                   profile?.email?.charAt(0)?.toUpperCase() ??
                   'U'}

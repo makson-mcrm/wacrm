@@ -1,0 +1,9 @@
+npm notice run wacrm@0.8.0 npx
+npm notice run 'eslint' src/lib/ui/layout-geometry.ts src/lib/ui/surface-flags.test.ts src/components/layout/app-shell.tsx src/components/layout/sidebar.tsx src/app/(dashboard)/dashboard/page.tsx src/app/(dashboard)/tasks/page.tsx src/app/(dashboard)/inbox/page.tsx
+
+/Users/mcrm-ai/wacrm-a/src/app/(dashboard)/dashboard/page.tsx
+    11:3   warning  'ClipboardList' is defined but never used      @typescript-eslint/no-unused-vars
+  1700:10  warning  'DesktopWorkspaces' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+

@@ -1,0 +1,2 @@
+Chromium headless: proces zakończył się kodem -6 przed udostępnieniem CDP. Log stderr był pusty. Jedna próba.
+CUA: browsers=[], "The browser access host is unavailable". Brak zrzutów i pomiaru DOM; nie stwierdzono przyczyny awarii Chromium.
