@@ -22,7 +22,7 @@ Data: 2026-11-07. Wynik: poprawka wykonana; typecheck i kompilacja CSS zielone. 
 | Kontrola | Wynik i dowód |
 | --- | --- |
 | `npm run typecheck` | Kod wyjścia 0, TypeScript bez błędów. Log: `/tmp/km3-2-15-typecheck.log`. |
-| Wyszukanie zabronionego prefiksu arbitralnego tła w całym `src/` | 0 wystąpień. |
+| Wyszukanie dawnego zapisu klasy tła z url do pliku SVG w całym `src/` | 0 wystąpień. |
 | Testy Inboxa | Brak plików testowych i specyfikacji w `src/components/inbox`; warunkowego polecenia Vitest nie uruchamiano. |
 | PostCSS + istniejący `@tailwindcss/postcss` | Kod wyjścia 0. Wygenerowana klasa zachowuje poprawny URL i powtarzanie tła. Log: `/tmp/km3-2-15-css.log`. |
 | Parsowanie i minifikacja wygenerowanego CSS przez istniejący `lightningcss` | Kod wyjścia 0. Log: `/tmp/km3-2-15-css-minify.log`. |
