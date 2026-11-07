@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pipelineSurfaceExtensions, surfaceFlags } from './surface-flags';
 import ContactsPage from '@/app/(dashboard)/contacts/page';
 import CompaniesPage from '@/app/(dashboard)/companies/page';
+import { CompanyCard } from '@/components/companies/company-card';
 import DealsPage from '@/app/(dashboard)/deals/page';
 import DealPage from '@/app/(dashboard)/deals/[id]/page';
 import CalendarPage from '@/app/(dashboard)/calendar/page';
 import { createRecordLinkHandlers } from '@/app/(dashboard)/deals/kanban-card';
 import { DealCard } from '@/components/pipelines/deal-card';
-import type { Deal } from '@/types';
+import type { Company, Deal } from '@/types';
 import { AppShell } from '@/components/layout/app-shell';
 import {
   geometryCssVars, LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT,
@@ -27,14 +28,22 @@ const harness = vi.hoisted(() => ({
   states: new Map<number, unknown>(),
   extensions: undefined as boolean | undefined,
   pathname: '/contacts',
+  captureEffects: false,
+  effects: [] as (() => unknown)[],
+  updates: new Map<number, unknown>(),
 }));
 
 vi.mock('react', async (importOriginal) => {
   const original = await importOriginal<typeof import('react')>();
   return {
     ...original,
+    useEffect: (effect: () => unknown, deps: readonly unknown[]) => {
+      if (harness.captureEffects) harness.effects.push(effect);
+      else original.useEffect(effect as () => void, deps);
+    },
     useState: (initial: unknown) => {
       const index = harness.cursor++;
+      if (harness.captureEffects) return [harness.states.has(index) ? harness.states.get(index) : typeof initial === 'function' ? initial() : initial, (value: unknown) => harness.updates.set(index, value)];
       return original.useState(harness.states.has(index) ? harness.states.get(index) : initial);
     },
   };
@@ -75,7 +84,7 @@ vi.mock('@/components/contacts/contact-form', () => ({ ContactForm: () => null }
 vi.mock('@/components/contacts/import-modal', () => ({ ImportModal: () => null }));
 vi.mock('@/components/contacts/custom-fields-manager', () => ({ CustomFieldsManager: () => createElement('div', null, 'CUSTOM_FIELDS_EXTENSION') }));
 vi.mock('@/components/pipelines/deal-form', () => ({ DealForm: () => null }));
-vi.mock('@/components/sales/activity-history', () => ({ ActivityHistory: () => createElement('div', null, 'ACTIVITY_HISTORY') }));
+vi.mock('@/components/sales/activity-history', () => ({ ActivityHistory: ({ companyId }: { companyId?: string }) => createElement('div', { 'data-company-id': companyId }, 'ACTIVITY_HISTORY') }));
 vi.mock('@/components/assistant/deal-assistant-actions', () => ({ DealAssistantActions: () => createElement('div', null, 'AI_EXTENSION') }));
 vi.mock('@/components/banking-knowledge/deal-banking-knowledge', () => ({ DealBankingKnowledge: () => createElement('div', null, 'BANKING_EXTENSION') }));
 
@@ -86,8 +95,10 @@ const contact = {
   tags: [{ id: 'tag-synthetic', name: 'TAG_EXTENSION', color: '#006644' }],
 };
 const company = {
-  id: 'company-synthetic', user_id: 'owner-synthetic', name: 'Firma syntetyczna',
+  id: 'company-synthetic', account_id: 'account-synthetic', user_id: 'owner-synthetic', name: 'Firma syntetyczna',
   phone: '+48000000000', email: 'firma@example.invalid', nip: 'NIP_EXTENSION',
+  notes: 'Komentarz syntetyczny firmy', description: 'Opis syntetyczny firmy',
+  created_at: '2026-11-02T09:00:00+01:00', updated_at: '2026-11-03T09:00:00+01:00',
   primaryContact: { id: 'contact-synthetic', name: 'PRIMARY_CONTACT_EXTENSION' },
   activeDealCount: 2, nextAction: 'NEXT_ACTION_EXTENSION',
 };
@@ -101,12 +112,19 @@ function headings(html: string) {
   return [...html.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)]
     .map((match) => match[1].replace(/<[^>]*>/g, ''));
 }
+function cardTabs(html: string) {
+  return [...html.matchAll(/data-slot="tabs-trigger"[^>]*>([\s\S]*?)<\/button>/g)]
+    .map((match) => match[1].replace(/<[^>]+>/g, ''));
+}
 
 beforeEach(() => {
   harness.cursor = 0;
   harness.states.clear();
   harness.extensions = undefined;
   harness.pathname = '/contacts';
+  harness.captureEffects = false;
+  harness.effects = [];
+  harness.updates.clear();
 });
 
 describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
@@ -301,7 +319,7 @@ describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
     expect(html).toContain('grid-cols-[var(--card-left-panel-width)_minmax(0,1fr)]');
     expect(html.match(/data-slot="card-field-row"/g)).toHaveLength(10);
     expect(html).toContain('h-[var(--card-field-row-height)]');
-    expect([...html.matchAll(/data-slot="tabs-trigger"[^>]*>([\s\S]*?)<\/button>/g)].map((match) => match[1].replace(/<[^>]+>/g, ''))).toEqual(['Oś czasu', 'Komentarze', 'Aktywności', 'Wiadomości']);
+    expect(cardTabs(html)).toEqual(['Oś czasu', 'Komentarze', 'Aktywności', 'Wiadomości']);
     for (const label of ['Asystent AI', 'BANKING_EXTENSION', 'AI_EXTENSION', 'WhatsApp', 'Proces bankowy']) expect(html).not.toContain(label);
   });
 
@@ -370,5 +388,97 @@ describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
     expect(card).toMatch(/href="\/deals\/deal-synthetic"[^>]*target="_blank"[^>]*rel="noopener"/);
     const html = render(ContactsPage, [[0, [contact]], [2, false]]);
     expect(html).toMatch(/href="\/contacts\?open=contact-synthetic"[^>]*target="_blank"[^>]*rel="noopener"/);
+  });
+});
+
+describe('KM3.2.12 — pełna karta firmy i cztery zakładki deala', () => {
+  const labels = ['Oś czasu', 'Komentarze', 'Aktywności', 'Wiadomości'];
+
+  it('odczytuje ?open=id, zachowuje deep link i reaguje na powrót do listy', () => {
+    harness.captureEffects = true;
+    const location = { search: '?open=company-synthetic' };
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    const replaceState = vi.fn();
+    vi.stubGlobal('window', { location, setTimeout: (fn: () => void) => { fn(); return 1; }, clearTimeout: vi.fn(), addEventListener, removeEventListener, history: { replaceState } });
+    render(CompaniesPage, [[0, [company]], [1, false]]);
+    // First effect loads the list; the second handles its location without a database call.
+    const cleanup = harness.effects[1]() as () => void;
+    expect(harness.updates.get(4)).toEqual(company);
+    expect(harness.updates.get(3)).toBe(false);
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(addEventListener).toHaveBeenCalledWith('popstate', expect.any(Function));
+    location.search = '';
+    addEventListener.mock.calls[0][1]({ type: 'popstate' });
+    expect(harness.updates.get(4)).toBeNull();
+    expect(harness.updates.get(3)).toBe(false);
+    cleanup();
+    expect(removeEventListener).toHaveBeenCalledWith('popstate', addEventListener.mock.calls[0][1]);
+  });
+
+  it('doładowanie listy nie zamyka otwartego formularza nowej firmy', () => {
+    harness.captureEffects = true;
+    vi.stubGlobal('window', { location: { search: '' }, setTimeout: (fn: () => void) => { fn(); return 1; }, clearTimeout: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    render(CompaniesPage, [[0, [company]], [1, false], [3, true]]);
+    harness.effects[1]();
+    expect(harness.updates.has(3)).toBe(false);
+    expect(harness.updates.has(4)).toBe(false);
+  });
+
+  it('otwarta firma zastępuje listę pełną kartą z tokenami 488/148/44', () => {
+    const html = render(CompaniesPage, [[0, [company]], [1, false], [4, company]]);
+    expect(html).toContain('data-bigin-company-card');
+    for (const token of [`--card-left-panel-width:${CARD_LEFT_PANEL_WIDTH}px`, `--card-content-top:${CARD_CONTENT_TOP}px`, `--card-field-row-height:${CARD_FIELD_ROW_HEIGHT}px`]) expect(html).toContain(token);
+    expect(html).toContain('lg:grid-cols-[var(--card-left-panel-width)_minmax(0,1fr)]');
+    expect(html.match(/data-slot="card-field-row"/g)).toHaveLength(7);
+    expect(cardTabs(html)).toEqual(labels);
+    expect(html).toContain('href="/contacts?open=contact-synthetic"');
+    expect(html).toContain('Właściciel syntetyczny');
+    for (const absent of ['<table', 'role="dialog"', 'NIP_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Asystent AI', 'Tagi firmy']) expect(html).not.toContain(absent);
+  });
+
+  it('odświeżona firma pokazuje aktualne dane, a nie kopię z chwili otwarcia', () => {
+    const html = render(CompaniesPage, [[0, [{ ...company, name: 'Firma po edycji' }]], [1, false], [4, company]]);
+    expect(html).toContain('Firma po edycji');
+    expect(html).not.toContain('Firma syntetyczna');
+  });
+
+  it('rama firmy zachowuje panel 65 px i pasek 49 px', () => {
+    harness.pathname = '/companies';
+    const html = render(AppShell as ComponentType, []);
+    expect(html).toContain(`--app-sidebar-width:${CARD_SIDEBAR_WIDTH}px`);
+    expect(html).toContain(`--app-header-height:${CARD_HEADER_HEIGHT}px`);
+    expect(html).toContain(`--list-banner-height:${LIST_BANNER_HEIGHT}px`);
+    expect(LIST_BANNER_HEIGHT + CARD_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT).toBe(CARD_CONTENT_TOP);
+  });
+
+  it.each([
+    ['timeline', 'Utworzono firmę'],
+    ['comments', company.notes],
+    ['activities', 'data-company-id="company-synthetic"'],
+    ['messages', 'Wyślij wiadomość e-mail'],
+  ])('zakładka firmy %s ma treść i cały pasek czterech zakładek', (tab, content) => {
+    const props = { company, primaryContact: company.primaryContact, ownerName: 'Właściciel syntetyczny', canEdit: true, onBack: vi.fn(), onEdit: vi.fn() };
+    const html = render(() => createElement(CompanyCard, props), [[0, tab]]);
+    expect(cardTabs(html)).toEqual(labels);
+    expect(html).toContain(content);
+    expect(html).toContain('href="mailto:firma@example.invalid"');
+  });
+
+  it('brak danych firmy nie tworzy fikcyjnych komentarzy, historii ani skrzynki', () => {
+    const empty: Company = { ...company, email: '', phone: '', created_at: '', updated_at: '', notes: '' };
+    const props = { company: empty, ownerName: '', canEdit: false, onBack: vi.fn(), onEdit: vi.fn() };
+    const component = () => createElement(CompanyCard, props);
+    expect(render(component, [])).toContain('Ten rekord nie ma żadnej historii.');
+    const comments = render(component, [[0, 'comments']]);
+    expect(comments).toContain('Brak komentarzy.');
+    expect(comments).toMatch(/disabled=""[^>]*>Dodaj komentarz/);
+    const messages = render(component, [[0, 'messages']]);
+    expect(messages).toContain('Firma nie ma adresu e-mail.');
+    expect(messages).not.toContain('mailto:');
+  });
+
+  it.each(['timeline', 'comments', 'activities', 'messages'])('deal zachowuje dokładnie cztery zakładki przy aktywnej %s', (tab) => {
+    expect(cardTabs(render(DealPage, [[0, deal], [28, tab]]))).toEqual(labels);
   });
 });

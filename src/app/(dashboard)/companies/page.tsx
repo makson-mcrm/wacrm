@@ -36,6 +36,7 @@ import { formatCrmDate } from '@/lib/crm/format';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Plus, Search, Users } from 'lucide-react';
 import { SpouseLinks } from '@/components/relationships/spouse-links';
+import { CompanyCard } from '@/components/companies/company-card';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
 import {
@@ -181,16 +182,18 @@ export default function CompaniesPage() {
     setSelected(null);
     setPendingContactId(contactId);
     setSheetOpen(true);
+    window.history.replaceState({}, '', '/companies');
   }
 
   function openCompany(company: Company) {
     setSelected(company);
-    setSheetOpen(true);
+    setSheetOpen(extensions);
+    if (!extensions) window.history.pushState({}, '', `/companies?open=${company.id}`);
   }
 
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    const timer = window.setTimeout(() => {
+    function syncLocation(event?: PopStateEvent) {
+      const query = new URLSearchParams(window.location.search);
       if (query.get('new') === 'company') {
         openNew(query.get('contact') ?? '');
         window.history.replaceState({}, '', '/companies');
@@ -199,12 +202,58 @@ export default function CompaniesPage() {
       const openId = query.get('open');
       if (openId && companies.length) {
         const company = companies.find((row) => row.id === openId);
-        if (company) openCompany(company);
-        window.history.replaceState({}, '', '/companies');
+        if (company) {
+          setSelected(company);
+          setSheetOpen(extensions);
+        }
+      } else if (!openId && event?.type === 'popstate') {
+        setSelected(null);
+        setSheetOpen(false);
       }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [companies]);
+    }
+    const timer = window.setTimeout(() => syncLocation(), 0);
+    window.addEventListener('popstate', syncLocation);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('popstate', syncLocation);
+    };
+  }, [companies, extensions]);
+
+  const selectedCompany = companies.find((row) => row.id === selected?.id) ?? selected;
+  const companySheet = <CompanySheet
+    open={sheetOpen}
+    onOpenChange={setSheetOpen}
+    company={selectedCompany}
+    accountId={accountId}
+    canEdit={canEdit}
+    initialContactId={pendingContactId}
+    onSaved={loadCompanies}
+    onExisting={(existing) => {
+      openCompany(existing);
+      setPendingContactId('');
+    }}
+  />;
+
+  if (selectedCompany && !extensions) {
+    const company = selectedCompany;
+    const primaryContact = companies.find((row) => row.id === company.id)?.primaryContact;
+    return <>
+      <CompanyCard
+        key={company.id}
+        company={company}
+        primaryContact={primaryContact}
+        ownerName={company.user_id === user?.id ? profile?.full_name || profile?.email || '—' : '—'}
+        canEdit={canEdit}
+        onEdit={() => setSheetOpen(true)}
+        onBack={() => {
+          setSelected(null);
+          setSheetOpen(false);
+          window.history.pushState({}, '', '/companies');
+        }}
+      />
+      {companySheet}
+    </>;
+  }
 
   return (
     <div className={extensions ? 'space-y-5 p-4 md:p-6' : 'bg-white'} style={extensions ? undefined : geometryCssVars('lists')}>
@@ -381,19 +430,7 @@ export default function CompaniesPage() {
         </div>
       )}
 
-      <CompanySheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        company={selected}
-        accountId={accountId}
-        canEdit={canEdit}
-        initialContactId={pendingContactId}
-        onSaved={loadCompanies}
-        onExisting={(existing) => {
-          setSelected(existing);
-          setPendingContactId('');
-        }}
-      />
+      {companySheet}
     </div>
   );
 }
