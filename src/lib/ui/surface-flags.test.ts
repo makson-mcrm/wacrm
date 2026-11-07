@@ -8,6 +8,9 @@ import { CompanyCard } from '@/components/companies/company-card';
 import DealsPage from '@/app/(dashboard)/deals/page';
 import DealPage from '@/app/(dashboard)/deals/[id]/page';
 import CalendarPage from '@/app/(dashboard)/calendar/page';
+import DashboardPage from '@/app/(dashboard)/dashboard/page';
+import TasksPage from '@/app/(dashboard)/tasks/page';
+import InboxPage from '@/app/(dashboard)/inbox/page';
 import { createRecordLinkHandlers } from '@/app/(dashboard)/deals/kanban-card';
 import { DealCard } from '@/components/pipelines/deal-card';
 import type { Company, Deal } from '@/types';
@@ -59,6 +62,9 @@ vi.mock('./surface-flags', async (importOriginal) => {
       get pipelineExtensions() { return harness.extensions ?? original.surfaceFlags.pipelineExtensions; },
       get dealsListExtensions() { return harness.extensions ?? original.surfaceFlags.dealsListExtensions; },
       get cardExtensions() { return harness.extensions ?? original.surfaceFlags.cardExtensions; },
+      get dashboardExtensions() { return harness.extensions ?? original.surfaceFlags.dashboardExtensions; },
+      get tasksExtensions() { return harness.extensions ?? original.surfaceFlags.tasksExtensions; },
+      get inboxExtensions() { return harness.extensions ?? original.surfaceFlags.inboxExtensions; },
     },
   };
 });
@@ -75,7 +81,10 @@ vi.mock('next/navigation', async (importOriginal) => ({
   usePathname: () => harness.pathname,
   useParams: () => ({ id: 'deal-synthetic' }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
+vi.mock('@/hooks/use-realtime', () => ({ useRealtime: () => ({ connected: true }) }));
+vi.mock('@/hooks/use-presence', () => ({ usePresence: () => ({ getPresence: () => 'offline', getRow: () => null, now: Date.now() }) }));
 vi.mock('@/hooks/use-total-unread', () => ({ useTotalUnread: () => 0 }));
 vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () => 0 }));
 vi.mock('@/hooks/use-unhandled-submissions', () => ({ useUnhandledSubmissions: () => 0 }));
@@ -480,5 +489,175 @@ describe('KM3.2.12 — pełna karta firmy i cztery zakładki deala', () => {
 
   it.each(['timeline', 'comments', 'activities', 'messages'])('deal zachowuje dokładnie cztery zakładki przy aktywnej %s', (tab) => {
     expect(cardTabs(render(DealPage, [[0, deal], [28, tab]]))).toEqual(labels);
+  });
+});
+
+describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
+  const task = {
+    key: 'activity-synthetic',
+    source: 'activity',
+    id: 'activity-synthetic',
+    title: 'Telefon syntetyczny',
+    where: 'Kontakt syntetyczny',
+    dueAt: '2026-11-07T09:00:00+01:00',
+    contactId: 'contact-synthetic',
+    companyId: null,
+    dealId: null,
+    ownerName: 'Właściciel syntetyczny',
+  };
+
+  it.each([
+    'dashboardExtensions',
+    'tasksExtensions',
+    'inboxExtensions',
+  ] as const)('%s jest domyślnie false', (flag) => {
+    expect(surfaceFlags[flag]).toBe(false);
+  });
+
+  it('zachowuje kontrakt 65/49/148/32 i wiersz Dzisiaj 44', () => {
+    expect([
+      LIST_SIDEBAR_WIDTH,
+      LIST_HEADER_HEIGHT,
+      CARD_CONTENT_TOP,
+      LIST_ROW_HEIGHT,
+      CARD_FIELD_ROW_HEIGHT,
+    ]).toEqual([65, 49, 148, 32, 44]);
+    expect(
+      LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT
+    ).toBe(148);
+    expect(LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + LIST_TOOLBAR_HEIGHT).toBe(
+      LIST_TABLE_TOP
+    );
+  });
+
+  it('Dzisiaj pokazuje listę 44 px od y=148, bez KPI i Asystenta', () => {
+    const html = render(DashboardPage, [
+      [0, new Date('2026-11-07T12:00:00+01:00').getTime()],
+      [
+        1,
+        [
+          {
+            ...deal,
+            next_action: 'Działanie syntetyczne',
+            next_action_at: '2026-11-07T09:00:00+01:00',
+          },
+        ],
+      ],
+      [10, false],
+    ]);
+    for (const value of [
+      'data-bigin-dashboard',
+      '--today-content-top:148px',
+      '--today-row-height:44px',
+      'height:66px',
+      'h-[var(--today-row-height)]',
+      'Działanie syntetyczne',
+      'background:#FFFFFF',
+    ])
+      expect(html).toContain(value);
+    expect(html).toContain('data-slot="today-list-row"');
+    for (const value of [
+      'Asystent',
+      'Ivy Lee',
+      'Do celu 10',
+      'Przychód TERAZ',
+      'KM1.2',
+    ])
+      expect(html).not.toContain(value);
+  });
+
+  it('Dzisiaj obsługuje pusty plan, wczytywanie i błąd', () => {
+    expect(render(DashboardPage, [[10, false]])).toContain(
+      'Brak działań na dziś.'
+    );
+    expect(render(DashboardPage, [])).toContain('Wczytywanie planu dnia');
+    const html = render(DashboardPage, [
+      [10, false],
+      [11, 'SYNTHETIC_ERROR'],
+    ]);
+    expect(html).toContain('Spróbuj ponownie');
+    expect(html).not.toContain('SYNTHETIC_ERROR');
+  });
+
+  it('Zadania pokazują pięć kolumn, rekord, właściciela i wiersz 32 px', () => {
+    const html = render(TasksPage, [[0, [task]]]);
+    expect(headings(html)).toEqual([
+      'Wykonanie',
+      'Temat',
+      'Termin',
+      'Powiązanie',
+      'Właściciel',
+    ]);
+    for (const value of [
+      '--list-row-height:32px',
+      '--list-border:#E8ECEF',
+      'h-[var(--list-row-height)]',
+      'Telefon syntetyczny',
+      'Właściciel syntetyczny',
+      'href="/contacts?open=contact-synthetic"',
+      'Oznacz jako zrobione: Telefon syntetyczny',
+      'Zmień termin: Telefon syntetyczny',
+    ])
+      expect(html).toContain(value);
+    for (const value of [
+      'DZISIAJ',
+      'ZALEGŁE',
+      'NADCHODZĄCE',
+      'KALENDARZ',
+      'JUTRO',
+    ])
+      expect(html).not.toContain(value);
+    expect(render(TasksPage, [])).toContain('colSpan="5"');
+  });
+
+  it('Zadania zachowują filtrowanie i edycję terminu w tabeli', () => {
+    expect(
+      render(TasksPage, [
+        [0, [task]],
+        [1, 'undated'],
+      ])
+    ).not.toContain('data-slot="task-list-row"');
+    const html = render(TasksPage, [
+      [0, [task]],
+      [3, task.key],
+      [4, '2026-11-09'],
+    ]);
+    for (const value of [
+      'type="date"',
+      'value="2026-11-09"',
+      'Zapisz',
+      'Anuluj zmianę terminu',
+    ])
+      expect(html).toContain(value);
+  });
+
+  it('Inbox pokazuje dwie szpalty i listę 360 px, bez panelu kontaktu i autorskich banerów', () => {
+    const html = render(InboxPage, [[4, false]]);
+    for (const value of [
+      'data-bigin-inbox',
+      '--inbox-list-width:360px',
+      '--inbox-header-height:49px',
+      'lg:w-[var(--inbox-list-width)]',
+      'data-slot="inbox-conversations"',
+      'data-slot="inbox-thread"',
+    ])
+      expect(html).toContain(value);
+    for (const value of [
+      'Kanały Inbox:',
+      'Gmail biuro',
+      'whatsappNotConnected',
+      'Poczta mFinanse',
+    ])
+      expect(html).not.toContain(value);
+    expect(html).not.toContain('class="hidden lg:block"');
+  });
+
+  it('flagi przywracają dotychczasowe dodatki trzech ekranów', () => {
+    harness.extensions = true;
+    expect(render(DashboardPage, [])).toContain('KM1.2');
+    expect(render(TasksPage, [[0, [task]]])).toContain('KALENDARZ');
+    const inbox = render(InboxPage, []);
+    expect(inbox).toContain('Kanały Inbox:');
+    expect(inbox).not.toContain('data-bigin-inbox');
   });
 });

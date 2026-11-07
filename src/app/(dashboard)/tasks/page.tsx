@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { warsawDateTimeInputToIso } from '@/lib/date-time';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
+import { geometryCssVars, listTableClassName, listToolbarClassName } from '@/lib/ui/layout-geometry';
 
 type Filter = 'today' | 'overdue' | 'upcoming' | 'undated' | 'all';
 type Task = {
@@ -21,6 +23,7 @@ type Task = {
   contactId: string | null;
   companyId: string | null;
   dealId: string | null;
+  ownerName: string;
 };
 
 const filters: Array<[Filter, string]> = [
@@ -52,26 +55,31 @@ export default function TasksPage() {
 
   const load = useCallback(async () => {
     if (!accountId) return;
-    const [dealRows, contactRows, activityRows] = await Promise.all([
+    const [dealRows, contactRows, activityRows, profileRows] = await Promise.all([
       db
         .from('deals')
         .select(
-          'id,title,next_action,next_action_at,follow_up_at,contact_id,company_id'
+          'id,title,next_action,next_action_at,follow_up_at,contact_id,company_id,user_id,assigned_to'
         )
         .eq('account_id', accountId)
         .eq('status', 'open'),
       db
         .from('contacts')
-        .select('id,name,phone,next_step,follow_up_at')
+        .select('id,name,phone,next_step,follow_up_at,user_id')
         .eq('account_id', accountId),
       db
         .from('sales_activities')
         .select(
-          'id,title,next_action,next_action_date,scheduled_at,next_contact_at,contact_id,company_id,deal_id'
+          'id,title,next_action,next_action_date,scheduled_at,next_contact_at,contact_id,company_id,deal_id,user_id'
         )
         .eq('account_id', accountId)
         .eq('completed', false),
+      db.from('profiles').select('id,user_id,full_name').eq('account_id', accountId),
     ]);
+    const ownerName = (userId: string, profileId?: string | null) => {
+      const owner = (profileRows.data ?? []).find((profile) => profileId ? profile.id === profileId : profile.user_id === userId);
+      return owner?.full_name || '—';
+    };
     const rows: Task[] = [];
     const dealIds = new Set<string>();
     const contactsCoveredByDeal = new Set<string>();
@@ -105,6 +113,7 @@ export default function TasksPage() {
         contactId: deal.contact_id,
         companyId: deal.company_id,
         dealId: deal.id,
+        ownerName: ownerName(deal.user_id, deal.assigned_to),
       });
     }
     for (const contact of contactRows.data ?? []) {
@@ -124,6 +133,7 @@ export default function TasksPage() {
         contactId: contact.id,
         companyId: null,
         dealId: null,
+        ownerName: ownerName(contact.user_id),
       });
     }
     for (const activity of activityRows.data ?? []) {
@@ -151,6 +161,7 @@ export default function TasksPage() {
         contactId: activity.contact_id,
         companyId: activity.company_id,
         dealId: activity.deal_id,
+        ownerName: ownerName(activity.user_id),
       });
     }
     setTasks(
@@ -309,6 +320,159 @@ export default function TasksPage() {
     await load();
   }
 
+  if (!surfaceFlags.tasksExtensions) {
+    return (
+      <section
+        data-bigin-tasks
+        style={geometryCssVars('lists')}
+        className="min-h-full bg-[var(--list-content-background)]"
+      >
+        <header className={listToolbarClassName}>
+          <h1 className="text-sm font-semibold">Zadania</h1>
+          <select
+            aria-label="Filtry zadań"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value as Filter)}
+            className="h-8 border border-[var(--list-border)] bg-white px-2 text-sm"
+          >
+            {filters.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </header>
+        <div className="overflow-x-auto">
+          <table className={`w-full border-collapse ${listTableClassName}`}>
+            <thead>
+              <tr>
+                <th scope="col" className="w-12">
+                  <span className="sr-only">Wykonanie</span>
+                </th>
+                <th scope="col">Temat</th>
+                <th scope="col">Termin</th>
+                <th scope="col">Powiązanie</th>
+                <th scope="col">Właściciel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((task) => {
+                const href = task.dealId
+                  ? `/deals/${task.dealId}`
+                  : task.contactId
+                    ? `/contacts?open=${task.contactId}`
+                    : task.companyId
+                      ? `/companies?open=${task.companyId}`
+                      : '/quick-call';
+                return (
+                  <tr
+                    key={task.key}
+                    data-slot="task-list-row"
+                    className="border-b"
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={busy === task.key}
+                        onChange={() => void complete(task)}
+                        aria-label={`Oznacz jako zrobione: ${task.title}`}
+                      />
+                    </td>
+                    <td>
+                      <Link
+                        href={href}
+                        className="block truncate hover:underline"
+                      >
+                        {task.title}
+                      </Link>
+                    </td>
+                    <td>
+                      {editing === task.key ? (
+                        <form
+                          className="flex gap-1"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            if (customDay)
+                              void setDate(
+                                task,
+                                warsawDateTimeInputToIso(`${customDay}T09:00`)
+                              );
+                          }}
+                        >
+                          <input
+                            aria-label={`Termin: ${task.title}`}
+                            type="date"
+                            value={customDay}
+                            onChange={(event) =>
+                              setCustomDay(event.target.value)
+                            }
+                            className="h-7 w-full min-w-0 text-xs"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!customDay || busy === task.key}
+                            className="text-xs"
+                          >
+                            Zapisz
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditing('')}
+                            aria-label="Anuluj zmianę terminu"
+                          >
+                            ×
+                          </button>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          className="max-w-full truncate hover:underline"
+                          aria-label={`Zmień termin: ${task.title}`}
+                          onClick={() => {
+                            setEditing(task.key);
+                            setCustomDay(
+                              task.dueAt ? localDay(new Date(task.dueAt)) : ''
+                            );
+                          }}
+                        >
+                          <time dateTime={task.dueAt || undefined}>
+                            {task.dueAt
+                              ? new Date(task.dueAt).toLocaleString('pl-PL', {
+                                  timeZone: 'Europe/Warsaw',
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Bez terminu'}
+                          </time>
+                        </button>
+                      )}
+                    </td>
+                    <td>
+                      <Link
+                        href={href}
+                        className="block truncate hover:underline"
+                      >
+                        {task.where}
+                      </Link>
+                    </td>
+                    <td>{task.ownerName || '—'}</td>
+                  </tr>
+                );
+              })}
+              {!visible.length && (
+                <tr>
+                  <td colSpan={5}>Brak zadań w tej grupie.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+  }
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">

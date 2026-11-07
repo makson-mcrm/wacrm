@@ -10,6 +10,9 @@ export const surfaceFlags: Readonly<{
   companiesExtensions: boolean;
   dealsListExtensions: boolean;
   cardExtensions: boolean;
+  dashboardExtensions: boolean;
+  tasksExtensions: boolean;
+  inboxExtensions: boolean;
   bankQualification: boolean;
 }> = {
   pipelineExtensions: false,
@@ -17,6 +20,9 @@ export const surfaceFlags: Readonly<{
   companiesExtensions: false,
   dealsListExtensions: false,
   cardExtensions: false,
+  dashboardExtensions: false,
+  tasksExtensions: false,
+  inboxExtensions: false,
   bankQualification: true,
 };
 

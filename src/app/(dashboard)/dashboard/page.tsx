@@ -56,6 +56,11 @@ import {
 } from '@/lib/today/existing-data';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { warsawDateKey, warsawDayRange } from '@/lib/date-time';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
+import {
+  CARD_CONTENT_TOP, CARD_FIELD_ROW_HEIGHT, CARD_RECORD_HEADER_HEIGHT,
+  LIST_BORDER_COLOR, LIST_CONTENT_BACKGROUND,
+} from '@/lib/ui/layout-geometry';
 
 type Priority = {
   position: number;
@@ -650,6 +655,98 @@ export default function DashboardPage() {
       }))
     );
     toast.success('Agent zaproponował priorytety. Sprawdź kolejność i zapisz.');
+  }
+  if (!surfaceFlags.dashboardExtensions) {
+    const items = [
+      ...todayPlan.now,
+      ...todayPlan.nextBlock,
+      ...todayPlan.laterToday,
+    ].filter(
+      (item, index, rows) =>
+        rows.findIndex((row) => row.id === item.id) === index
+    );
+    return (
+      <section
+        data-bigin-dashboard
+        style={
+          {
+            background: LIST_CONTENT_BACKGROUND,
+            '--today-content-top': `${CARD_CONTENT_TOP}px`,
+            '--today-row-height': `${CARD_FIELD_ROW_HEIGHT}px`,
+          } as React.CSSProperties
+        }
+      >
+        <header
+          className="flex items-center justify-between border-b px-5"
+          style={{
+            height: CARD_RECORD_HEADER_HEIGHT,
+            borderColor: LIST_BORDER_COLOR,
+          }}
+        >
+          <h1 className="text-sm font-semibold">Dzisiaj</h1>
+          <time dateTime={date} className="text-sm">
+            {new Date(now).toLocaleDateString('pl-PL', {
+              timeZone: 'Europe/Warsaw',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </time>
+        </header>
+        <div aria-label="Plan dnia" aria-busy={todayLoading}>
+          {todayLoading ? (
+            <p role="status" className="px-5 py-3 text-sm">
+              Wczytywanie planu dnia…
+            </p>
+          ) : todayError ? (
+            <div
+              role="alert"
+              className="flex items-center gap-3 px-5 py-3 text-sm"
+            >
+              Nie udało się wczytać planu dnia.
+              <Button variant="outline" onClick={() => void load()}>
+                Spróbuj ponownie
+              </Button>
+            </div>
+          ) : items.length ? (
+            <ul>
+              {items.map((item) => (
+                <li
+                  key={item.id}
+                  data-slot="today-list-row"
+                  className="flex h-[var(--today-row-height)] items-center gap-3 border-b px-5 text-sm"
+                  style={{ borderColor: LIST_BORDER_COLOR }}
+                >
+                  {item.href ? (
+                    <Link
+                      href={item.href}
+                      className="min-w-0 flex-1 truncate hover:underline"
+                    >
+                      {item.action || item.title}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.action || item.title}
+                    </span>
+                  )}
+                  <time dateTime={item.dueAt || undefined} className="shrink-0">
+                    {item.dueAt
+                      ? new Date(item.dueAt).toLocaleTimeString('pl-PL', {
+                          timeZone: 'Europe/Warsaw',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Bez terminu'}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-5 py-3 text-sm">Brak działań na dziś.</p>
+          )}
+        </div>
+      </section>
+    );
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
