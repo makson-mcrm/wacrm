@@ -1,13 +1,13 @@
 {
-  "updated_at": "2026-11-07T19:38:06+01:00",
-  "zadanie_d1": "KM3.2.14 — paleta Bigin — GOTOWE W KODZIE, NIEODEBRANE",
-  "czynnosc": "Zmieniono siedem wskazanych źródeł: dziewięć tokenów, panel i pasek, tła, obramowania, wiersze, hover i linki. Raport docs/codex/CODEX-KM3-2-14.md. Bez commita, pusha i publikacji.",
-  "etap": "Testy kodu zakończone. Brak odbioru wizualnego; PASS nadaje wyłącznie Tomasz.",
-  "ostatnia_zmiana": "Panel/pasek #093E52, aktywne menu #0B4A63, Lejek #F9FBFC, listy #FFFFFF, wiersze #FCFDFD, border #E0E9EE, hover #F0F7FB, link #7EB5F4, istniejący pasek informacyjny #DFF9F3. Geometria i flagi zachowane.",
-  "testy": "158/158, 3 pliki; typecheck RC=0; ESLint 0 błędów, 2 zastane ostrzeżenia. Lokalne rendery HTML czterech pełnych ekranów z AppShell i syntetycznymi danymi. Brak zrzutów i pomiaru DOM.",
-  "bledy": "Build lokalny RC=1: ENOTFOUND fonts.googleapis.com / Inter. Chromium headless kończy się -6; CUA: browser access host unavailable. Zdalny build TEST nieuruchomiony: zakaz publikacji. Checkpoint ~/.hermes poza obszarem zapisu; notatka w raporcie.",
-  "live_wersja": "KM3.2.14 nie jest wdrożone. HEAD lokalny a476a70 bez zmiany; BASE_SHA 0f7317df jest przodkiem. Nie weryfikowano zdalnego TEST/produkcji.",
-  "koszt": "Nowe wywołania Nous 0 / 0 USD. Jeden przebieg abonamentowego Codexa, bez podzadań i API. Pasywnie: 5h użyte 13→19%, tydzień 12→13%; resety 07.11 23:43 / 13.11 10:24, brak dodatkowych kredytów.",
-  "nastepny_krok": "Hermes: zachować diff i checkpoint z raportu, wykonać build i zrzuty po usunięciu blokad środowiska. Publikacja TEST wymaga odrębnego upoważnienia. Ten pulpit jest lokalny.",
-  "bezczynnosc": true
+  "updated_at": "2026-11-07T22:32:00+01:00",
+  "zadanie_d1": "KM3.2.14-16 na TEST (build 01a1b7e1) — DO ODBIORU WIZUALNEGO przez Tomasza",
+  "czynnosc": "Hermes: niezależna weryfikacja drzewa 085c80d (typecheck PASS, pełny zestaw 2119/2130), archiwum źródeł 2 731 193 B → TUS → build TEST 01a1b7e1 completed 22:23. Zero Codexa w tym przebiegu, 0 USD.",
+  "etap": "Ekran na TEST jest nowszy od poprzedniego (01a1b77d z 19:34). Czeka na odbiór wizualny Tomasza; PASS nadaje wyłącznie Tomasz.",
+  "ostatnia_zmiana": "Na TEST: paleta Bigin (#093E52/#F9FBFC/#FCFDFD/#E0E9EE/#F0F7FB/#7EB5F4), poprawka tła Inbox (klasa CSS zamiast bg-[url()]), usunięte artefakty renderu blokujące Tailwind.",
+  "testy": "typecheck RC=0 (22:15). Pełny vitest: 2119 PASS / 10 FAIL / 1 skipped (2130). Porażki: app-shell.test.tsx 8 (stare asercje ramy 160 px i starych kolorów klasy bg-[#f9fbfc]), deal-form 1, financial-questionnaires 1 — do decyzji o aktualizacji testów.",
+  "bledy": "8 porażek app-shell to nie regresja renderu, a nieaktualne oczekiwania testów wobec zatwierdzonej geometrii Bigin (65/285) i palety w stylach inline; wymaga osobnego zlecenia na aktualizację testów.",
+  "live_wersja": "TEST https://test.makson.space — build 01a1b7e1, źródła 085c80d, opublikowany 22:23. Produkcja bez zmian: 0f7317df / build 01a1aba4.",
+  "koszt": "0 USD w tym przebiegu (0 wywołań Nous, 0 przebiegów Codexa). Limit Codexa pasywnie: 5h 25% użyte, tydzień 14% użyte (odczyt 20:23).",
+  "nastepny_krok": "Tomasz: obejrzeć https://test.makson.space (po zalogowaniu) i ocenić paletę oraz ramę. Potem jedno zlecenie na aktualizację 10 nieaktualnych asercji testów.",
+  "bezczynnosc": false
 }
