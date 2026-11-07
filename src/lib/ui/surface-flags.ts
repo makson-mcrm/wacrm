@@ -10,12 +10,14 @@ export const surfaceFlags: Readonly<{
   companiesExtensions: boolean;
   dealsListExtensions: boolean;
   cardExtensions: boolean;
+  bankQualification: boolean;
 }> = {
   pipelineExtensions: false,
   contactsExtensions: false,
   companiesExtensions: false,
   dealsListExtensions: false,
   cardExtensions: false,
+  bankQualification: true,
 };
 
 // Historyczna nazwa: lista obejmuje również dodatki ekranów list KM3.2.09-A.

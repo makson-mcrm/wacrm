@@ -35,6 +35,7 @@ import { DealForm } from '@/components/pipelines/deal-form';
 import { DealProcessControl } from '@/components/pipelines/deal-process-control';
 import { DealAssistantActions } from '@/components/assistant/deal-assistant-actions';
 import { DealBankingKnowledge } from '@/components/banking-knowledge/deal-banking-knowledge';
+import { BankQualification } from '@/components/deals/bank-qualification';
 import { EntityTagsEditor } from '@/components/tags/entity-tags-editor';
 import { toast } from 'sonner';
 import type { ContactSpouseLink, Deal, PipelineStage } from '@/types';
@@ -2111,6 +2112,7 @@ function BiginDealCard({ deal, notes, history, activities, note, onNoteChange, o
         <h2 className="mt-5 font-semibold">Opis</h2>
         <p className="mt-2 whitespace-pre-wrap">{deal.description || '—'}</p>
       </aside>
+      <div className="min-w-0">
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="min-w-0 gap-0">
         <TabsList variant="line" aria-label="Sekcje transakcji" className="h-[var(--card-field-row-height)]! w-full justify-start overflow-x-auto border-b p-0">
           {([['timeline', 'Oś czasu'], ['comments', 'Komentarze'], ['activities', 'Aktywności'], ['messages', 'Wiadomości']] as const).map(([value, label]) => <TabsTrigger key={value} value={value} className="h-full flex-none rounded-none px-5 font-normal data-active:border-transparent data-active:bg-white">{label}</TabsTrigger>)}
@@ -2131,6 +2133,8 @@ function BiginDealCard({ deal, notes, history, activities, note, onNoteChange, o
           {deal.contact?.email ? <a className="inline-flex items-center gap-2 text-emerald-700 hover:underline" href={`mailto:${deal.contact.email}`}><Mail className="size-4" />Wyślij wiadomość e-mail</a> : <p className="text-slate-500">Kontakt nie ma adresu e-mail.</p>}
         </TabsContent>
       </Tabs>
+      {surfaceFlags.bankQualification && <BankQualification key={deal.id} deal={deal} />}
+      </div>
     </div>
   </section>;
 }
