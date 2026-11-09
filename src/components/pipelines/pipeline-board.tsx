@@ -17,10 +17,11 @@ import {
 import type { Deal, PipelineStage } from '@/types';
 import { DealCard } from './deal-card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+import { BRAND_SIDEBAR_ACTIVE, MOBILE_STAGE_TAB_HEIGHT } from '@/lib/ui/layout-geometry';
 
 const STAGE_COLORS: Record<string, string> = {
   klasyfikacja: '#64748b',
@@ -133,20 +134,26 @@ export function PipelineBoard({
           </span>
         </div>
       ) : null}
-      <div className="space-y-2 bg-[#f9fbfc] text-slate-900 lg:hidden">
+      <div className="min-w-0 space-y-2 bg-[#f9fbfc] text-slate-900 md:hidden">
         <nav
-          className="flex gap-2 overflow-x-auto pb-1"
-          aria-label="Etapy lejka 1–6"
+          className="flex gap-2 overflow-x-auto"
+          aria-label="Etapy lejka"
         >
-          {sortedStages.map((stage, index) => (
+          {sortedStages.map((stage) => (
             <button
               key={stage.id}
               type="button"
               onClick={() => setOpenStageId(stage.id)}
-              className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border px-3 text-xs font-black ${mobileStage?.id === stage.id ? 'border-emerald-800 bg-emerald-800 text-white' : 'border-slate-200 bg-white text-slate-700'}`}
+              className="flex shrink-0 items-center justify-center gap-2 border-b-2 px-3 text-xs font-semibold whitespace-nowrap"
+              style={{
+                height: MOBILE_STAGE_TAB_HEIGHT,
+                borderBottomColor: mobileStage?.id === stage.id ? BRAND_SIDEBAR_ACTIVE : 'transparent',
+                color: mobileStage?.id === stage.id ? BRAND_SIDEBAR_ACTIVE : '#475569',
+              }}
               aria-current={mobileStage?.id === stage.id ? 'step' : undefined}
             >
-              {index + 1}
+              {stage.name}
+              <span>{dealsByStage.get(stage.id)?.length ?? 0}</span>
             </button>
           ))}
         </nav>
@@ -158,9 +165,6 @@ export function PipelineBoard({
               (sum, deal) => sum + Number(deal.value || 0),
               0
             );
-            const open = openStageId
-              ? openStageId === stage.id
-              : stage.id === sortedStages[0]?.id;
             return (
               <section
                 key={stage.id}
@@ -172,10 +176,7 @@ export function PipelineBoard({
                   className="h-[3px] shrink-0"
                   style={{ backgroundColor: stageColor(stage.name) }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setOpenStageId(open ? '__none__' : stage.id)}
-                  aria-expanded={open}
+                <div
                   className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
                 >
                   <span
@@ -197,46 +198,41 @@ export function PipelineBoard({
                       currency={defaultCurrency}
                     />
                   </span>
-                  <ChevronDown
-                    className={`size-4 text-slate-600 transition-transform ${open ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {open ? (
-                  <div className="border-t border-slate-100 p-2">
-                    <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                      {stageDeals.length ? (
-                        stageDeals.map((deal) => (
-                          <PipelineDealCard
-                            key={deal.id}
-                            deal={deal}
-                            stage={stage}
-                            onEdit={onEditDeal}
-                          />
-                        ))
-                      ) : (
-                        <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-600">
-                          Ten etap jest pusty
-                        </p>
-                      )}
-                    </div>
-                    {surfaceFlags.pipelineExtensions ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onAddDeal(stage.id)}
-                        className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
-                      >
-                        <Plus className="mr-1 size-3" /> Dodaj deal
-                      </Button>
-                    ) : null}
+                </div>
+                <div className="border-t border-slate-100 p-2">
+                  <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+                    {stageDeals.length ? (
+                      stageDeals.map((deal) => (
+                        <PipelineDealCard
+                          key={deal.id}
+                          deal={deal}
+                          stage={stage}
+                          onEdit={onEditDeal}
+                        />
+                      ))
+                    ) : (
+                      <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-600">
+                        Ten etap jest pusty
+                      </p>
+                    )}
                   </div>
-                ) : null}
+                  {surfaceFlags.pipelineExtensions ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onAddDeal(stage.id)}
+                      className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
+                    >
+                      <Plus className="mr-1 size-3" /> Dodaj deal
+                    </Button>
+                  ) : null}
+                </div>
               </section>
             );
           })}
       </div>
 
-      <div className="pipeline-scroll hidden min-w-0 gap-[10px] overflow-x-auto bg-[#f9fbfc] pb-2 text-slate-900 lg:flex" aria-label="Tablica transakcji">
+      <div className="pipeline-scroll hidden min-w-0 gap-[10px] overflow-x-auto bg-[#f9fbfc] pb-2 text-slate-900 md:flex" aria-label="Tablica transakcji">
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(

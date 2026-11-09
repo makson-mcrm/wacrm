@@ -14,6 +14,8 @@ export const BRAND_LINK = '#7EB5F4';
 export const BRAND_INFO_BANNER = '#DFF9F3';
 
 export const APP_SIDEBAR_WIDTH = 160;
+export const MOBILE_BREAKPOINT = 768;
+export const MOBILE_STAGE_TAB_HEIGHT = 44;
 // Bigin demo, 1536×1024, 05.11.2026. Apply only to the pipeline frame.
 export const PIPELINE_SIDEBAR_WIDTH = 285;
 export const PIPELINE_CONTENT_PADDING_X = 10;

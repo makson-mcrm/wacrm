@@ -7,7 +7,7 @@ import { WhatsAppAction } from '@/components/sales/whatsapp-action';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
 
 interface DealCardProps {
-  deal: Deal;
+  deal: Deal & { company_name?: string | null };
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
   isOverlay?: boolean;
@@ -27,6 +27,7 @@ function formatDate(dateStr: string) {
 export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCardProps) {
   const activityDate = deal.updated_at || deal.created_at;
   const cardDate = deal.expected_close_date || deal.created_at;
+  const companyName = deal.company_name?.trim() || deal.company?.name?.trim();
   const contactName =
     deal.contact?.name?.trim() ||
     [deal.contact?.first_name?.trim(), deal.contact?.last_name?.trim()]
@@ -57,11 +58,11 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
         style={{ backgroundColor: accentColor ?? (stage == null ? '#173A52' : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length]) }}
       />
       <a data-stage={stage?.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener" onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-semibold text-slate-950 hover:underline">
-        {deal.title}
+        {companyName || deal.title}
       </a>
       {contactName ? (
         <p className="truncate text-xs text-slate-600" title={contactName}>
-          {contactName}
+          {contactName}{companyName ? ' · kontakt' : ''}
         </p>
       ) : null}
       <p className="mt-2 text-sm font-bold">{formatCurrency(deal.value, deal.currency)}</p>
