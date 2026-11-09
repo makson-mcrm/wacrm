@@ -74,23 +74,22 @@ describe('Paczka P2 — odbiór ekranów 02, 03 i 04', () => {
     expect(page).toContain('<ChevronRight');
   });
 
-  it('ma niezależny scroll kolumn i poziomy mobilny selektor etapów z kartami wybranego etapu', () => {
+  it('ma niezależny scroll kolumn i jedną poziomą tablicę także na telefonie', () => {
     const board = source('src/components/pipelines/pipeline-board.tsx');
-    const mobile = board.slice(board.indexOf('<div className="min-w-0 space-y-2'), board.indexOf('<div className="pipeline-scroll'));
     expect(board).toContain('pipeline-stage-scroll');
-    expect(mobile).toContain('md:hidden');
-    expect(mobile).toContain('className="flex gap-2 overflow-x-auto"');
-    expect(mobile).toContain('aria-label="Etapy lejka"');
-    expect(mobile).toContain('onClick={() => setOpenStageId(stage.id)}');
-    expect(mobile).toContain("aria-current={mobileStage?.id === stage.id ? 'step' : undefined}");
-    expect(mobile).toContain('.filter((stage) => stage.id === mobileStage?.id)');
-    expect(mobile).toContain('stageDeals.map((deal) => (');
-    expect(mobile).toContain('max-h-[55vh]');
-    expect(mobile).not.toContain('aria-expanded');
-    expect(mobile).not.toContain('<details');
-    expect(mobile).not.toContain('grid-cols-');
-    expect(board).toContain('pipeline-scroll hidden');
-    expect(board).toContain('md:flex');
+    expect(board).toContain('gap-2 overflow-y-auto');
+    expect(board.match(/className="pipeline-scroll/g)).toHaveLength(1);
+    expect(board).toContain('pipeline-scroll flex min-w-0 gap-[0px] overflow-x-auto');
+    expect(board).toContain('aria-label="Tablica transakcji" tabIndex={0}');
+    expect(board).toContain('{sortedStages.map((stage) => {');
+    expect(board).toContain('w-[230px] flex-none');
+    expect(board).toContain('px-[5px]');
+    expect(board).toContain('deals.map((deal) => (');
+    expect(board).not.toContain('pipeline-scroll hidden');
+    expect(board).not.toContain('md:hidden');
+    expect(board).not.toContain('mobileStage');
+    expect(board).not.toContain('<details');
+    expect(board).not.toContain('grid-cols-');
   });
 
   it('pokazuje wymagane informacje i aktywne powiązania karty', () => {

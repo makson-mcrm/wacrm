@@ -276,6 +276,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    title={item.label || t(item.labelKey as string)}
+                    aria-label={item.label || t(item.labelKey as string)}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
@@ -331,8 +333,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
           </ul>
 
           <details className="mt-4 rounded-lg border">
-            <summary className="text-[var(--bigin-panel-text)] flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold">
-              <ChevronDown className="size-3.5" /> NARZĘDZIA DODATKOWE
+            <summary title="NARZĘDZIA DODATKOWE" aria-label="NARZĘDZIA DODATKOWE" className="text-[var(--bigin-panel-text)] flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold">
+              <ChevronDown className="size-3.5" /><span>NARZĘDZIA DODATKOWE</span>
             </summary>
             <ul className="flex flex-col gap-1 border-t p-2">
               {secondaryNavItems.map((item) => {
@@ -350,6 +352,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      title={item.label || t(item.labelKey as string)}
+                      aria-label={item.label || t(item.labelKey as string)}
                       className={cn(
                         'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0',
                         isActive
@@ -382,6 +386,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    title={t(item.labelKey as string)}
+                    aria-label={t(item.labelKey as string)}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
@@ -390,7 +396,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    {t(item.labelKey as string)}
+                    <span>{t(item.labelKey as string)}</span>
                   </Link>
                 </li>
               );

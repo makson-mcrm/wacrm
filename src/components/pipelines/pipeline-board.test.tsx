@@ -1,4 +1,4 @@
-import { isValidElement, type ReactElement, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -9,7 +9,7 @@ import type { Deal, PipelineStage } from '@/types';
 import { PipelineBoard } from './pipeline-board';
 import { DealCard } from './deal-card';
 import PipelinesPage from '@/app/(dashboard)/pipelines/page';
-import { MOBILE_BREAKPOINT, MOBILE_STAGE_TAB_HEIGHT } from '@/lib/ui/layout-geometry';
+import { MOBILE_BREAKPOINT, PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH } from '@/lib/ui/layout-geometry';
 
 // Exercise the board's click handlers in the existing Node test environment.
 // Nested components and static renders keep the real React hooks.
@@ -135,14 +135,14 @@ describe('K3: Lejek po odświeżeniu danych', () => {
 
 describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
   function desktop(html: string) {
-    return html.slice(html.indexOf('<div class="pipeline-scroll hidden'));
+    return html.slice(html.indexOf('<div class="pipeline-scroll flex'));
   }
 
-  it('pokazuje sześć stałych kolumn 220 px i odstęp 10 px z przewijaniem', () => {
+  it('pokazuje sześć stałych kolumn 230 px i karty 220 px z przewijaniem', () => {
     const html = desktop(render([]));
     expect(html.match(/data-pipeline-column=/g)).toHaveLength(6);
-    expect(html.match(/w-\[220px\] flex-none/g)).toHaveLength(6);
-    expect(html).toContain('gap-[10px] overflow-x-auto');
+    expect(html.match(/w-\[230px\] flex-none/g)).toHaveLength(6);
+    expect(html).toContain('gap-[0px] overflow-x-auto');
     expect(html.match(/>Transakcja<\/span>/g)).toHaveLength(6);
     expect(html.match(/Ten etap jest pusty/g)).toHaveLength(6);
     for (const name of names) expect(html).toContain(name);
@@ -214,7 +214,7 @@ describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
     }
     expect(desktop(html).match(/data-pipeline-column=/g)).toHaveLength(6);
     const cards = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
-    expect(cards).toHaveLength(2); // rzeczywiste karty desktop i mobile
+    expect(cards).toHaveLength(1); // wspólna karta desktop i mobile
     for (const card of cards) {
       expect(card).toContain('Sprawa syntetyczna');
       expect(card).toContain('Kontakt syntetyczny');
@@ -267,16 +267,6 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     created_at: '2026-11-09T08:00:00Z',
   })) as Deal[];
 
-  function mobile(html: string) {
-    return html.slice(0, html.indexOf('<div class="pipeline-scroll hidden'));
-  }
-
-  type Element = ReactElement<Record<string, unknown>>;
-  function nodes(tree: ReactNode): Element[] {
-    if (Array.isArray(tree)) return tree.flatMap(nodes);
-    if (!isValidElement<Record<string, unknown>>(tree)) return [];
-    return [tree, ...nodes(tree.props.children as ReactNode)];
-  }
   function board(currentStages = stages) {
     state.cursor = 0;
     state.active = true;
@@ -285,50 +275,71 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     } finally { state.active = false; }
   }
 
-  it.each([390, 767, 768, 1024])('przy szerokości %i px pokazuje właściwy widok', (viewport) => {
+  it.each([390, 767, 768, 1024, 1366, 1536])('przy szerokości %i px zachowuje wszystkie etapy w przewijanej tablicy', (viewport) => {
     expect(MOBILE_BREAKPOINT).toBe(768);
     const html = render(deals);
-    const mobileClasses = html.match(/<div class="([^"]*md:hidden[^"]*)"/)![1];
-    const desktopClasses = html.match(/<div class="(pipeline-scroll hidden[^"]*)"/)![1];
-    expect(display(mobileClasses, viewport) === 'none').toBe(viewport >= MOBILE_BREAKPOINT);
-    expect(display(desktopClasses, viewport)).toBe(viewport < MOBILE_BREAKPOINT ? 'none' : 'flex');
-    const content = mobile(html);
-    expect(content).toContain('aria-label="Etapy lejka"');
-    expect(content).toContain('overflow-x-auto');
-    expect(content).not.toContain('data-pipeline-column=');
-    expect(content.match(/data-pipeline-deal/g)).toHaveLength(1);
-    expect(content).toContain('/deals/deal-mobile-0');
-    expect(content).not.toContain('/deals/deal-mobile-1');
-    expect(content).not.toContain('/deals/deal-mobile-2');
-    const nav = content.match(/<nav\b[\s\S]*?<\/nav>/)![0];
-    expect(nav).toContain(`${names[0]}<span>1</span>`);
-    expect(nav).toContain(`${names[1]}<span>2</span>`);
-    expect(nav).toContain(`${names[2]}<span>0</span>`);
-    expect(MOBILE_STAGE_TAB_HEIGHT).toBe(44);
-    expect(nav).toContain('height:44px;border-bottom-color:#0B4A63');
-    expect(nav.match(/aria-current="step"/g)).toHaveLength(1);
-  });
-
-  it('wybór innego etapu pokazuje wyłącznie jego karty i zmienia podkreślenie', () => {
-    const tree = board();
-    const tab = nodes(tree).find((node) => node.type === 'button' &&
-      Array.isArray(node.props.children) && node.props.children[0] === names[1])!;
-    (tab.props.onClick as () => void)();
-    const html = mobile(renderToStaticMarkup(board()));
-    expect(html.match(/data-pipeline-deal/g)).toHaveLength(2);
+    const classes = html.match(/<div class="(pipeline-scroll flex[^"]*)"/)![1];
+    expect(display(classes, viewport)).toBe('flex');
+    expect(classes).toContain('overflow-x-auto');
+    expect(html.match(/data-pipeline-column=/g)).toHaveLength(6);
+    expect(html.match(/w-\[230px\] flex-none/g)).toHaveLength(6);
+    expect(html.match(/data-pipeline-deal/g)).toHaveLength(3);
+    expect(html).toContain('/deals/deal-mobile-0');
     expect(html).toContain('/deals/deal-mobile-1');
     expect(html).toContain('/deals/deal-mobile-2');
-    expect(html).not.toContain('/deals/deal-mobile-0');
-    expect(html).toContain(`aria-current="step">${names[1]}`);
+    expect(html).not.toContain('aria-label="Etapy lejka"');
+    expect([PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH]).toEqual([230, 220, 115, 43, 63]);
+  });
 
-    const empty = nodes(board()).find((node) => node.type === 'button' &&
-      Array.isArray(node.props.children) && node.props.children[0] === names[2])!;
-    (empty.props.onClick as () => void)();
-    const emptyHtml = mobile(renderToStaticMarkup(board()));
-    expect(emptyHtml).toContain('Ten etap jest pusty');
-    expect(emptyHtml).not.toContain('data-pipeline-deal');
-    expect(mobile(renderToStaticMarkup(board([stages[0]])))).toContain('/deals/deal-mobile-0');
-    expect(mobile(renderToStaticMarkup(board([])))).not.toContain('data-pipeline-deal');
+  it('przy zmianie danych usuwa wyłącznie nieistniejące etapy, bez mobilnego filtrowania', () => {
+    const html = renderToStaticMarkup(board([stages[0]]));
+    expect(html.match(/data-pipeline-column=/g)).toHaveLength(1);
+    expect(html).toContain('/deals/deal-mobile-0');
+    expect(html).not.toContain('/deals/deal-mobile-1');
+    const empty = renderToStaticMarkup(board([]));
+    expect(empty).not.toContain('data-pipeline-column=');
+    expect(empty).not.toContain('data-pipeline-deal');
+  });
+
+  it('CSS ramy utrzymuje przewijanie, zmienne telefonu i przyciski 32/29 bez zawijania', () => {
+    const stylesheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const rules = (selector: string, mobile = false) => {
+      const values: Record<string, string> = {};
+      stylesheet.walkRules((rule) => {
+        if (!rule.selectors.includes(selector)) return;
+        const media = rule.parent?.type === 'atrule' && rule.parent.name === 'media'
+          ? rule.parent.params : '';
+        if (mobile ? media !== '(max-width: 767px)' : !!media) return;
+        rule.walkDecls((decl) => { values[decl.prop] = decl.value; });
+      });
+      return values;
+    };
+    expect(rules("[data-slot='app-shell']", true)).toMatchObject({
+      '--app-topbar-height': 'var(--app-mobile-topbar-height)',
+      '--app-sidebar-width': 'var(--app-mobile-sidebar-width)',
+    });
+    expect(rules('[data-bigin-pipeline-shell]', true)).toMatchObject({
+      '--pipeline-toolbar-height': 'var(--pipeline-mobile-toolbar-height)',
+      '--pipeline-toolbar-button-height': 'var(--pipeline-mobile-toolbar-button-height)',
+    });
+    expect(rules('[data-bigin-pipeline-shell] #main-content')).toMatchObject({
+      'margin-top': 'var(--app-topbar-height)', padding: '0', overflow: 'hidden',
+    });
+    expect(rules('[data-bigin-pipeline-shell] .pipeline-scroll')).toMatchObject({
+      gap: 'var(--pipeline-column-gap)', flex: '1', 'min-height': '0',
+      'padding-left': 'var(--content-pad-x)', 'overscroll-behavior-x': 'contain',
+    });
+    expect(rules('[data-bigin-pipeline-shell] [data-pipeline-column]')).toMatchObject({
+      width: 'var(--pipeline-column-width)', 'padding-inline': 'var(--pipeline-column-padding)',
+    });
+    const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
+    const toolbar = source.slice(source.indexOf('<section data-pipeline-toolbar'), source.indexOf('{/* Board */}'));
+    expect(toolbar).toContain('flex-nowrap');
+    expect(toolbar.indexOf('Filtry transakcji')).toBeLessThan(toolbar.indexOf('Więcej'));
+    expect(toolbar.indexOf('Więcej')).toBeLessThan(toolbar.indexOf('Dodaj transakcję'));
+    const bottom = readFileSync('src/components/layout/mobile-bottom-nav.tsx', 'utf8');
+    expect(bottom).toContain('md:hidden');
+    expect(bottom).toContain('<GlobalAdd mobile />');
   });
 
   it.each(['Firma syntetyczna', undefined, '   '])('tytuł karty dla firmy %s zachowuje powiązanie kontaktu', (companyName) => {

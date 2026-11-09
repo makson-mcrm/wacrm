@@ -34,16 +34,18 @@ describe('checklista odbiorowa UX 9 ekranów — 18.09.2026', () => {
     }
   });
 
-  it('Lejek rozdziela sześć etapów i archiwum oraz ma poziomy mobilny selektor etapów', () => {
+  it('Lejek rozdziela sześć etapów i archiwum oraz ma wspólną poziomą tablicę na telefonie', () => {
     const page = source('src/app/(dashboard)/pipelines/page.tsx');
     const board = source('src/components/pipelines/pipeline-board.tsx');
     expect(page).toContain('active.slice(0, 6)');
     expect(page).toContain('return includeArchive ? archive');
-    expect(board).toContain('aria-label="Etapy lejka"');
-    expect(board).toContain('className="flex gap-2 overflow-x-auto"');
-    expect(board).toContain('onClick={() => setOpenStageId(stage.id)}');
-    expect(board).toContain("aria-current={mobileStage?.id === stage.id ? 'step' : undefined}");
-    expect(board).toContain('.filter((stage) => stage.id === mobileStage?.id)');
+    expect(board.match(/className="pipeline-scroll/g)).toHaveLength(1);
+    expect(board).toContain('aria-label="Tablica transakcji" tabIndex={0}');
+    expect(board).toContain('pipeline-scroll flex min-w-0 gap-[0px] overflow-x-auto');
+    expect(board).toContain('{sortedStages.map((stage) => {');
+    expect(board).toContain('w-[230px] flex-none');
+    expect(board).not.toContain('mobileStage');
+    expect(board).not.toContain('pipeline-scroll hidden');
     expect(board).toContain('pipeline-stage-scroll');
   });
 

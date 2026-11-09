@@ -1,5 +1,6 @@
 "use client";
 
+import { DashboardShell } from '@/app/(dashboard)/dashboard-shell';
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -361,92 +362,94 @@ export default function CrmAuditPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f6f2] text-[#173025]">
-      <header className="border-b border-[#cbd3f8] bg-white/90 backdrop-blur print:hidden">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1f6b4f]">mCRM 4.0 · ankieta zwrotna</p>
-            <h1 className="mt-1 text-2xl font-bold text-[#1b46f2] md:text-3xl">Audyt całej ścieżki klienta</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={saveNow} className="inline-flex items-center gap-2 rounded-full bg-[#1f6b4f] px-4 py-2 text-sm font-semibold text-white"><Save size={16} /> Zapisz teraz</button>
-            <button onClick={exportJson} className="inline-flex items-center gap-2 rounded-full border border-[#1b46f2] px-4 py-2 text-sm font-semibold text-[#1b46f2]"><Download size={16} /> Kopia danych</button>
-            <button onClick={exportHtml} className="inline-flex items-center gap-2 rounded-full border border-[#1b46f2] px-4 py-2 text-sm font-semibold text-[#1b46f2]"><Printer size={16} /> Raport do PDF</button>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl px-5 py-8">
-        <section className="rounded-[28px] bg-[#1b46f2] p-6 text-white shadow-sm md:p-8">
-          <div className="grid gap-6 md:grid-cols-[1fr_280px] md:items-end">
+    <DashboardShell>
+      <div className="min-h-full bg-[#f7f6f2] text-[#173025]">
+        <section aria-label="Narzędzia audytu" className="border-b border-[#cbd3f8] bg-white/90 backdrop-blur print:hidden">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-bold md:text-4xl">Jedna prawdziwa sprawa. Jeden pełny raport.</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-50 md:text-base">Nie wpisuj tutaj PESEL-u, numerów dokumentów, rachunków ani pełnych danych finansowych. Dane klienta zapisuj w CRM. Tutaj oceniasz działanie systemu i wklejasz odnośniki do właściwych rekordów.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1f6b4f]">mCRM 4.0 · ankieta zwrotna</p>
+              <h1 className="mt-1 text-2xl font-bold text-[#1b46f2] md:text-3xl">Audyt całej ścieżki klienta</h1>
             </div>
-            <div>
-              <div className="flex items-center justify-between text-sm font-semibold"><span>Postęp</span><span>{completed}/{total} · {percent}%</span></div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/25"><div className="h-full rounded-full bg-[#d5f47c] transition-all" style={{ width: `${percent}%` }} /></div>
-              <p className="mt-2 text-xs text-blue-100">{savedLabel}</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={saveNow} className="inline-flex items-center gap-2 rounded-full bg-[#1f6b4f] px-4 py-2 text-sm font-semibold text-white"><Save size={16} /> Zapisz teraz</button>
+              <button onClick={exportJson} className="inline-flex items-center gap-2 rounded-full border border-[#1b46f2] px-4 py-2 text-sm font-semibold text-[#1b46f2]"><Download size={16} /> Kopia danych</button>
+              <button onClick={exportHtml} className="inline-flex items-center gap-2 rounded-full border border-[#1b46f2] px-4 py-2 text-sm font-semibold text-[#1b46f2]"><Printer size={16} /> Raport do PDF</button>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 rounded-[24px] border border-[#cbd3f8] bg-white p-5 md:grid-cols-2 md:p-6">
-          <label className="grid gap-2 text-sm font-semibold">Nazwa robocza sprawy <input value={state.caseLabel} onChange={(event) => setState({ ...state, caseLabel: event.target.value })} placeholder="Np. przedsiębiorca + hipoteka z żoną" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
-          <label className="grid gap-2 text-sm font-semibold">Urządzenie <select value={state.device} onChange={(event) => setState({ ...state, device: event.target.value as AuditState["device"] })} className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]"><option value="oba">Komputer i telefon</option><option value="komputer">Komputer</option><option value="telefon">Telefon</option></select></label>
-          <label className="grid gap-2 text-sm font-semibold">Odnośnik do rekordu w Bigin <input type="url" value={state.biginLink} onChange={(event) => setState({ ...state, biginLink: event.target.value })} placeholder="https://…" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
-          <label className="grid gap-2 text-sm font-semibold">Odnośnik do rekordu w CRM <input type="url" value={state.crmLink} onChange={(event) => setState({ ...state, crmLink: event.target.value })} placeholder="https://…" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
-          <label className="grid gap-2 text-sm font-semibold md:col-span-2">Opis przypadku bez danych wrażliwych <textarea value={state.caseNotes} onChange={(event) => setState({ ...state, caseNotes: event.target.value })} placeholder="Np. przedsiębiorca na ryczałcie, wcześniejszy kredyt firmowy, obecnie hipoteka z żoną, kilka banków…" rows={3} className="resize-y rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
-        </section>
+        <div className="mx-auto max-w-6xl px-5 py-8">
+          <section className="rounded-[28px] bg-[#1b46f2] p-6 text-white shadow-sm md:p-8">
+            <div className="grid gap-6 md:grid-cols-[1fr_280px] md:items-end">
+              <div>
+                <h2 className="text-2xl font-bold md:text-4xl">Jedna prawdziwa sprawa. Jeden pełny raport.</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-blue-50 md:text-base">Nie wpisuj tutaj PESEL-u, numerów dokumentów, rachunków ani pełnych danych finansowych. Dane klienta zapisuj w CRM. Tutaj oceniasz działanie systemu i wklejasz odnośniki do właściwych rekordów.</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-sm font-semibold"><span>Postęp</span><span>{completed}/{total} · {percent}%</span></div>
+                <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/25"><div className="h-full rounded-full bg-[#d5f47c] transition-all" style={{ width: `${percent}%` }} /></div>
+                <p className="mt-2 text-xs text-blue-100">{savedLabel}</p>
+              </div>
+            </div>
+          </section>
 
-        <nav className="mt-6 flex gap-2 overflow-x-auto pb-2 print:hidden" aria-label="Etapy audytu">
-          {SECTIONS.map((section) => {
-            const sectionDone = section.items.filter((item) => state.answers[item.id]?.result).length;
-            return <button key={section.id} onClick={() => document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="shrink-0 rounded-full border border-[#cbd3f8] bg-white px-3 py-2 text-xs font-semibold text-[#1b46f2]">{section.title.split(". ")[0]}. {sectionDone}/{section.items.length}</button>;
-          })}
-        </nav>
+          <section className="mt-6 grid gap-4 rounded-[24px] border border-[#cbd3f8] bg-white p-5 md:grid-cols-2 md:p-6">
+            <label className="grid gap-2 text-sm font-semibold">Nazwa robocza sprawy <input value={state.caseLabel} onChange={(event) => setState({ ...state, caseLabel: event.target.value })} placeholder="Np. przedsiębiorca + hipoteka z żoną" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
+            <label className="grid gap-2 text-sm font-semibold">Urządzenie <select value={state.device} onChange={(event) => setState({ ...state, device: event.target.value as AuditState["device"] })} className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]"><option value="oba">Komputer i telefon</option><option value="komputer">Komputer</option><option value="telefon">Telefon</option></select></label>
+            <label className="grid gap-2 text-sm font-semibold">Odnośnik do rekordu w Bigin <input type="url" value={state.biginLink} onChange={(event) => setState({ ...state, biginLink: event.target.value })} placeholder="https://…" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
+            <label className="grid gap-2 text-sm font-semibold">Odnośnik do rekordu w CRM <input type="url" value={state.crmLink} onChange={(event) => setState({ ...state, crmLink: event.target.value })} placeholder="https://…" className="rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
+            <label className="grid gap-2 text-sm font-semibold md:col-span-2">Opis przypadku bez danych wrażliwych <textarea value={state.caseNotes} onChange={(event) => setState({ ...state, caseNotes: event.target.value })} placeholder="Np. przedsiębiorca na ryczałcie, wcześniejszy kredyt firmowy, obecnie hipoteka z żoną, kilka banków…" rows={3} className="resize-y rounded-xl border border-[#cbd3f8] px-3 py-3 font-normal outline-none focus:border-[#1b46f2]" /></label>
+          </section>
 
-        <div className="mt-4 space-y-5">
-          {SECTIONS.map((section) => {
-            const isOpen = openSections[section.id] ?? false;
-            const sectionDone = section.items.filter((item) => state.answers[item.id]?.result).length;
-            return (
-              <section id={section.id} key={section.id} className="scroll-mt-5 overflow-hidden rounded-[24px] border border-[#cbd3f8] bg-white shadow-sm">
-                <button type="button" onClick={() => setOpenSections((current) => ({ ...current, [section.id]: !isOpen }))} className="flex w-full items-center justify-between gap-4 p-5 text-left md:p-6">
-                  <div><h2 className="text-xl font-bold text-[#1b46f2] md:text-2xl">{section.title}</h2><p className="mt-1 text-sm text-slate-600">{section.description}</p></div>
-                  <div className="flex shrink-0 items-center gap-3"><span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-bold text-[#1f6b4f]">{sectionDone}/{section.items.length}</span>{isOpen ? <ChevronUp /> : <ChevronDown />}</div>
-                </button>
-                {isOpen && <div className="border-t border-[#e4e7f7] p-4 md:p-6">{section.items.map((item, index) => {
-                  const answer = state.answers[item.id] ?? EMPTY_ANSWER;
-                  return (
-                    <article key={item.id} className="mb-5 rounded-2xl border border-[#dfe3f5] bg-[#fbfbf8] p-4 last:mb-0 md:p-5">
-                      <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#d5dbf8] text-xs font-bold text-[#1b46f2]">{index + 1}</span><div><h3 className="font-bold text-[#173025]">{item.title}</h3><p className="mt-1 text-sm leading-6 text-slate-600">{item.expectation}</p></div></div>
-                      <fieldset className="mt-4"><legend className="text-xs font-bold uppercase tracking-wide text-slate-500">Wynik</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{RESULT_OPTIONS.map((option) => <label key={option.value} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold transition ${answer.result === option.value ? option.tone : "border-slate-200 bg-white text-slate-600 hover:border-[#1b46f2]"}`}><input type="radio" name={`result-${item.id}`} value={option.value} checked={answer.result === option.value} onChange={() => patchAnswer(item.id, { result: option.value })} className="mr-2 accent-[#1b46f2]" />{option.label}</label>)}</div></fieldset>
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <label className="grid gap-1 text-xs font-bold text-slate-600">Co faktycznie widzę? <textarea rows={3} value={answer.observed} onChange={(event) => patchAnswer(item.id, { observed: event.target.value })} className="resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
-                        <label className="grid gap-1 text-xs font-bold text-slate-600">Jak powinno działać? <textarea rows={3} value={answer.expected} onChange={(event) => patchAnswer(item.id, { expected: event.target.value })} className="resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
-                        <label className="grid gap-1 text-xs font-bold text-slate-600"><span className="flex items-center gap-1"><Link2 size={13} /> Link do rekordu lub błędu</span><input type="url" value={answer.link} onChange={(event) => patchAnswer(item.id, { link: event.target.value })} placeholder="https://…" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
-                        <label className="grid gap-1 text-xs font-bold text-slate-600">Dodatkowy komentarz <input value={answer.comment} onChange={(event) => patchAnswer(item.id, { comment: event.target.value })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
-                      </div>
-                      <fieldset className="mt-4"><legend className="text-xs font-bold uppercase tracking-wide text-slate-500">Ważność</legend><div className="mt-2 flex flex-wrap gap-2">{PRIORITY_OPTIONS.map((option) => <label key={option.value} className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-semibold ${answer.priority === option.value ? "border-[#1f6b4f] bg-[#eef3ef] text-[#1f6b4f]" : "border-slate-200 bg-white text-slate-600"}`}><input type="radio" name={`priority-${item.id}`} checked={answer.priority === option.value} onChange={() => patchAnswer(item.id, { priority: option.value })} className="mr-2 accent-[#1f6b4f]" />{option.label}</label>)}</div></fieldset>
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-dashed border-[#1b46f2] px-3 py-2 text-xs font-bold text-[#1b46f2]"><FileImage size={15} /> Dodaj zrzut (maks. 3)<input type="file" accept="image/*" multiple className="sr-only" onChange={(event) => addFiles(item.id, event)} /></label>
-                        {answer.attachments.map((attachment) => <div key={attachment.id} className="group relative"><img src={attachment.dataUrl} alt={attachment.name} className="h-16 w-24 rounded-lg border border-slate-200 object-cover" /><button type="button" aria-label={`Usuń ${attachment.name}`} onClick={() => patchAnswer(item.id, { attachments: answer.attachments.filter((entry) => entry.id !== attachment.id) })} className="absolute -right-2 -top-2 rounded-full bg-red-600 p-1 text-white"><Trash2 size={12} /></button></div>)}
-                      </div>
-                    </article>
-                  );
-                })}</div>}
-              </section>
-            );
-          })}
+          <nav className="mt-6 flex gap-2 overflow-x-auto pb-2 print:hidden" aria-label="Etapy audytu">
+            {SECTIONS.map((section) => {
+              const sectionDone = section.items.filter((item) => state.answers[item.id]?.result).length;
+              return <button key={section.id} onClick={() => document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="shrink-0 rounded-full border border-[#cbd3f8] bg-white px-3 py-2 text-xs font-semibold text-[#1b46f2]">{section.title.split(". ")[0]}. {sectionDone}/{section.items.length}</button>;
+            })}
+          </nav>
+
+          <div className="mt-4 space-y-5">
+            {SECTIONS.map((section) => {
+              const isOpen = openSections[section.id] ?? false;
+              const sectionDone = section.items.filter((item) => state.answers[item.id]?.result).length;
+              return (
+                <section id={section.id} key={section.id} className="scroll-mt-5 overflow-hidden rounded-[24px] border border-[#cbd3f8] bg-white shadow-sm">
+                  <button type="button" onClick={() => setOpenSections((current) => ({ ...current, [section.id]: !isOpen }))} className="flex w-full items-center justify-between gap-4 p-5 text-left md:p-6">
+                    <div><h2 className="text-xl font-bold text-[#1b46f2] md:text-2xl">{section.title}</h2><p className="mt-1 text-sm text-slate-600">{section.description}</p></div>
+                    <div className="flex shrink-0 items-center gap-3"><span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-bold text-[#1f6b4f]">{sectionDone}/{section.items.length}</span>{isOpen ? <ChevronUp /> : <ChevronDown />}</div>
+                  </button>
+                  {isOpen && <div className="border-t border-[#e4e7f7] p-4 md:p-6">{section.items.map((item, index) => {
+                    const answer = state.answers[item.id] ?? EMPTY_ANSWER;
+                    return (
+                      <article key={item.id} className="mb-5 rounded-2xl border border-[#dfe3f5] bg-[#fbfbf8] p-4 last:mb-0 md:p-5">
+                        <div className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#d5dbf8] text-xs font-bold text-[#1b46f2]">{index + 1}</span><div><h3 className="font-bold text-[#173025]">{item.title}</h3><p className="mt-1 text-sm leading-6 text-slate-600">{item.expectation}</p></div></div>
+                        <fieldset className="mt-4"><legend className="text-xs font-bold uppercase tracking-wide text-slate-500">Wynik</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{RESULT_OPTIONS.map((option) => <label key={option.value} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold transition ${answer.result === option.value ? option.tone : "border-slate-200 bg-white text-slate-600 hover:border-[#1b46f2]"}`}><input type="radio" name={`result-${item.id}`} value={option.value} checked={answer.result === option.value} onChange={() => patchAnswer(item.id, { result: option.value })} className="mr-2 accent-[#1b46f2]" />{option.label}</label>)}</div></fieldset>
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          <label className="grid gap-1 text-xs font-bold text-slate-600">Co faktycznie widzę? <textarea rows={3} value={answer.observed} onChange={(event) => patchAnswer(item.id, { observed: event.target.value })} className="resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
+                          <label className="grid gap-1 text-xs font-bold text-slate-600">Jak powinno działać? <textarea rows={3} value={answer.expected} onChange={(event) => patchAnswer(item.id, { expected: event.target.value })} className="resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
+                          <label className="grid gap-1 text-xs font-bold text-slate-600"><span className="flex items-center gap-1"><Link2 size={13} /> Link do rekordu lub błędu</span><input type="url" value={answer.link} onChange={(event) => patchAnswer(item.id, { link: event.target.value })} placeholder="https://…" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
+                          <label className="grid gap-1 text-xs font-bold text-slate-600">Dodatkowy komentarz <input value={answer.comment} onChange={(event) => patchAnswer(item.id, { comment: event.target.value })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-[#173025] outline-none focus:border-[#1b46f2]" /></label>
+                        </div>
+                        <fieldset className="mt-4"><legend className="text-xs font-bold uppercase tracking-wide text-slate-500">Ważność</legend><div className="mt-2 flex flex-wrap gap-2">{PRIORITY_OPTIONS.map((option) => <label key={option.value} className={`cursor-pointer rounded-full border px-3 py-2 text-xs font-semibold ${answer.priority === option.value ? "border-[#1f6b4f] bg-[#eef3ef] text-[#1f6b4f]" : "border-slate-200 bg-white text-slate-600"}`}><input type="radio" name={`priority-${item.id}`} checked={answer.priority === option.value} onChange={() => patchAnswer(item.id, { priority: option.value })} className="mr-2 accent-[#1f6b4f]" />{option.label}</label>)}</div></fieldset>
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-dashed border-[#1b46f2] px-3 py-2 text-xs font-bold text-[#1b46f2]"><FileImage size={15} /> Dodaj zrzut (maks. 3)<input type="file" accept="image/*" multiple className="sr-only" onChange={(event) => addFiles(item.id, event)} /></label>
+                          {answer.attachments.map((attachment) => <div key={attachment.id} className="group relative"><img src={attachment.dataUrl} alt={attachment.name} className="h-16 w-24 rounded-lg border border-slate-200 object-cover" /><button type="button" aria-label={`Usuń ${attachment.name}`} onClick={() => patchAnswer(item.id, { attachments: answer.attachments.filter((entry) => entry.id !== attachment.id) })} className="absolute -right-2 -top-2 rounded-full bg-red-600 p-1 text-white"><Trash2 size={12} /></button></div>)}
+                        </div>
+                      </article>
+                    );
+                  })}</div>}
+                </section>
+              );
+            })}
+          </div>
+
+          <section className="mt-6 rounded-[24px] bg-[#eef3ef] p-6 md:p-8">
+            <div className="flex items-start gap-3"><ShieldCheck className="mt-1 shrink-0 text-[#1f6b4f]" /><div><h2 className="text-xl font-bold text-[#1f6b4f]">Zakończenie audytu</h2><p className="mt-2 text-sm leading-6 text-slate-700">Najpierw zapisz kopię danych. Następnie pobierz raport do PDF. Plik HTML zawiera oceny, komentarze i załączone zrzuty; możesz go otworzyć w nowym oknie i wybrać Drukuj → Zapisz jako PDF.</p><div className="mt-4 flex flex-wrap gap-2"><button onClick={exportJson} className="inline-flex items-center gap-2 rounded-full bg-[#1f6b4f] px-4 py-2 text-sm font-semibold text-white"><Download size={16} /> Pobierz kopię danych</button><button onClick={exportHtml} className="inline-flex items-center gap-2 rounded-full border border-[#1f6b4f] px-4 py-2 text-sm font-semibold text-[#1f6b4f]"><Printer size={16} /> Pobierz raport do PDF</button></div></div></div>
+          </section>
+
+          <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-5 text-xs text-slate-500 print:hidden"><span>Wszystko zapisuje się lokalnie w tej przeglądarce.</span><button onClick={resetAudit} className="inline-flex items-center gap-1 text-red-700"><AlertTriangle size={14} /> Wyczyść audyt</button></div>
         </div>
-
-        <section className="mt-6 rounded-[24px] bg-[#eef3ef] p-6 md:p-8">
-          <div className="flex items-start gap-3"><ShieldCheck className="mt-1 shrink-0 text-[#1f6b4f]" /><div><h2 className="text-xl font-bold text-[#1f6b4f]">Zakończenie audytu</h2><p className="mt-2 text-sm leading-6 text-slate-700">Najpierw zapisz kopię danych. Następnie pobierz raport do PDF. Plik HTML zawiera oceny, komentarze i załączone zrzuty; możesz go otworzyć w nowym oknie i wybrać Drukuj → Zapisz jako PDF.</p><div className="mt-4 flex flex-wrap gap-2"><button onClick={exportJson} className="inline-flex items-center gap-2 rounded-full bg-[#1f6b4f] px-4 py-2 text-sm font-semibold text-white"><Download size={16} /> Pobierz kopię danych</button><button onClick={exportHtml} className="inline-flex items-center gap-2 rounded-full border border-[#1f6b4f] px-4 py-2 text-sm font-semibold text-[#1f6b4f]"><Printer size={16} /> Pobierz raport do PDF</button></div></div></div>
-        </section>
-
-        <div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-5 text-xs text-slate-500 print:hidden"><span>Wszystko zapisuje się lokalnie w tej przeglądarce.</span><button onClick={resetAudit} className="inline-flex items-center gap-1 text-red-700"><AlertTriangle size={14} /> Wyczyść audyt</button></div>
       </div>
-    </main>
+    </DashboardShell>
   );
 }

@@ -57,7 +57,7 @@ beforeAll(async () => {
 });
 function expectGlobalShell(html: string) {
   expect(SHELL_CSS_VARS).toMatchObject({
-    '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '64px',
+    '--app-sidebar-width': '64px', '--app-sidebar-width-collapsed': '64px',
     '--app-topbar-height': '48px', '--app-header-height': 'var(--app-topbar-height)',
     '--list-banner-height': '0px',
   });
@@ -307,17 +307,17 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expectGlobalShell(html);
   });
 
-  it('KM3.2.10 — dziedziczy ramę i zachowuje tokeny kart Lejka 60/220/10', () => {
+  it('KM3.2.10 — dziedziczy ramę i zachowuje tokeny kart Lejka 60/230/0', () => {
     expect([PIPELINE_SIDEBAR_WIDTH, LIST_SIDEBAR_WIDTH, LIST_HEADER_HEIGHT, LIST_TABLE_TOP,
       LIST_ROW_HEIGHT, PIPELINE_CARD_HEIGHT, PIPELINE_COLUMN_WIDTH, PIPELINE_COLUMN_GAP])
-      .toEqual([285, 64, 48, 137, 32, 60, 220, 10]);
+      .toEqual([64, 64, 48, 137, 32, 60, 230, 0]);
     expect(PIPELINE_CONTENT_BACKGROUND).toBe('#F9FBFC');
     harness.pathname = '/pipelines';
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     expectGlobalShell(html);
     for (const token of [
-      '--list-header-background:var(--bigin-panel)', '--pipeline-column-width:220px',
-      '--pipeline-column-gap:10px', '--pipeline-card-height:60px',
+      '--list-header-background:var(--bigin-panel)', '--pipeline-column-width:230px',
+      '--pipeline-column-gap:0px', '--pipeline-card-height:60px',
       '--pipeline-content-background:var(--bigin-bg)']) expect(html).toContain(token);
     expect(html).toContain('data-bigin-pipeline-shell="true"');
     expect(html).toContain('data-bigin-pipeline-cards="true"');
@@ -924,12 +924,12 @@ describe('KM3.2.24 — jedna globalna paleta, bez lokalnych nadpisań ekranów',
 
 
 describe('KM3.2.26 — jedno globalne źródło wymiarów i palety', () => {
-  it('RootLayout zapisuje wymiary 285/64/48 bezpośrednio w stylu html', async () => {
+  it('RootLayout zapisuje wymiary 64/64/48 bezpośrednio w stylu html', async () => {
     const html = renderToStaticMarkup(await RootLayout({ children: null }));
     const rootStyle = html.match(/<html\b[^>]*\bstyle="([^"]*)"/)?.[1];
     expect(rootStyle).toBeDefined();
     for (const declaration of [
-      '--app-sidebar-width:285px',
+      '--app-sidebar-width:64px',
       '--app-sidebar-width-collapsed:64px',
       '--app-topbar-height:48px',
     ]) {

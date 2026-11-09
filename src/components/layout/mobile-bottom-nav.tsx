@@ -20,7 +20,7 @@ export function MobileBottomNav() {
     <nav
       aria-label="Główna nawigacja mobilna"
       data-slot="mobile-bottom-nav"
-      className="absolute inset-x-0 bottom-0 z-30 border-t border-emerald-950/10 bg-white/95 pb-[env(safe-area-inset-bottom)] text-slate-700 shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur md:hidden"
+      className="absolute inset-x-0 bottom-0 z-30 border-t border-[var(--bigin-border)] bg-[var(--bigin-panel)] pb-[env(safe-area-inset-bottom)] text-[var(--bigin-panel-text)] shadow-[0_-8px_30px_rgba(18,61,43,0.08)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid h-14 w-full max-w-lg grid-cols-5 overflow-visible">
         {items.map((item) => {
@@ -39,13 +39,13 @@ export function MobileBottomNav() {
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex h-full min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 overflow-hidden px-0.5 text-[10px] font-black tracking-[-0.03em]',
-                    active ? 'text-emerald-950' : 'text-slate-700'
+                    active ? 'text-[var(--bigin-panel-text)]' : 'text-[var(--bigin-panel-muted)]'
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-6 min-w-7 items-center justify-center rounded-full px-1.5',
-                      active && 'bg-emerald-50'
+                      active && 'bg-[var(--bigin-accent)]'
                     )}
                   >
                     <item.icon className="size-4.5" />

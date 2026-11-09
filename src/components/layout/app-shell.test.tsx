@@ -72,12 +72,12 @@ const render = async () => renderToStaticMarkup(await RootLayout({
 }));
 
 describe('02A-5: geometria shellu, nagłówka i menu', () => {
-  it.each(['/pipelines', '/contacts', '/companies', '/dashboard', '/calendar', '/quick-call', '/deals', '/finances', '/settings', '/future-synthetic-route'])(
+  it.each(['/pipelines', '/contacts', '/companies', '/dashboard', '/calendar', '/quick-call', '/deals', '/finances', '/settings', '/agents', '/audyt-crm', '/future-synthetic-route'])(
     'stosuje globalną ramę Bigin także na nowej trasie: %s',
     async (pathname) => {
       route.pathname = pathname;
       const html = await render();
-      expect(html).toContain('--app-sidebar-width:285px');
+      expect(html).toContain('--app-sidebar-width:64px');
       expect(html).toContain('--bigin-panel:#093E53');
       expect(html).toContain('bg-[var(--bigin-bg)]');
       expect(html).toContain('lg:px-[var(--content-pad-x)]');
@@ -85,6 +85,25 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
       expect(html).not.toContain('bg-[#f9fbfc]');
       expect(html).toContain('--bigin-accent:#0B4A63');
       expect(html).toContain('--app-topbar-height:48px');
+      expect(html).toContain('--app-mobile-topbar-height:43px');
+      expect(html).toContain('--app-mobile-sidebar-width:63px');
+      expect(html).toContain('data-bigin-compact-shell="true"');
+      expect(html.match(/<aside\b/g)).toHaveLength(1);
+      expect(html.match(/<header\b/g)).toHaveLength(1);
+      if (pathname === '/agents') {
+        const layout = readFileSync(new URL('../../app/(dashboard)/layout.tsx', import.meta.url), 'utf8');
+        const page = readFileSync(new URL('../../app/(dashboard)/agents/page.tsx', import.meta.url), 'utf8');
+        expect(layout).toContain('<DashboardShell>{children}</DashboardShell>');
+        expect(page).not.toMatch(/<(?:AppShell|DashboardShell|Sidebar|Header)\b/);
+      }
+      if (pathname === '/audyt-crm') {
+        const page = readFileSync(new URL('../../app/audyt-crm/page.tsx', import.meta.url), 'utf8');
+        expect(page).toContain("import { DashboardShell } from '@/app/(dashboard)/dashboard-shell'");
+        expect(page).toContain('<DashboardShell>');
+        expect(page).toContain('</DashboardShell>');
+        expect(page).not.toMatch(/<(?:AppShell|Sidebar|Header|header|main)\b/);
+        expect(page).toContain('aria-label="Narzędzia audytu"');
+      }
       expect(html).not.toContain('data-slot="list-banner"');
       expect(html).not.toContain('pt-[var(--list-banner-height)]');
       for (const [name, value] of Object.entries(SHELL_CSS_VARS)) {
@@ -131,14 +150,14 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     });
     expect(main).toContain('lg:px-[var(--content-pad-x)]');
     expect(main).toContain('bg-[var(--bigin-bg)]');
-    expect(board).toContain('bg-[#f9fbfc]');
+    expect(board).toContain('bg-[var(--bigin-bg)]');
     expect(board).toContain('overflow-x-auto');
     expect(columns).toHaveLength(6);
     for (const column of columns) {
-      expect(column).toContain('w-[220px]');
+      expect(column).toContain('w-[230px]');
       expect(column).toContain('flex-none');
     }
-    expect(board).toContain('gap-[10px]');
+    expect(board).toContain('gap-[0px]');
 
     // Compile the classes rendered by the real components, so a missing or
     // ineffective responsive utility cannot pass on its class name alone.
@@ -165,10 +184,10 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
       ['.shrink-0', 'flex-shrink', '0', undefined],
       ['.bg-[var(--bigin-bg)]', 'background-color', 'var(--bigin-bg)', undefined],
       ['.lg:px-[var(--content-pad-x)]', 'padding-inline', 'var(--content-pad-x)', '(width >= 64rem)'],
-      ['.bg-[#f9fbfc]', 'background-color', '#f9fbfc', undefined],
-      ['.w-[220px]', 'width', '220px', undefined],
+      ['.px-[5px]', 'padding-inline', '5px', undefined],
+      ['.w-[230px]', 'width', '230px', undefined],
       ['.flex-none', 'flex', 'none', undefined],
-      ['.gap-[10px]', 'gap', '10px', undefined],
+      ['.gap-[0px]', 'gap', '0px', undefined],
     ]) expect(declarations).toContainEqual({ selector, property, value, media });
   });
 
@@ -290,7 +309,7 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
     const root = html.match(/<html[^>]+>/)![0];
     expect(body).toContain('class="bigin-shell');
     for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(root).toContain(`${name}:${value}`);
-    expect(root).toContain('--app-sidebar-width:285px');
+    expect(root).toContain('--app-sidebar-width:64px');
     expect(root).toContain('--app-topbar-height:48px');
     expect(root).toContain('--columns-three:minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)');
     expect(root).toContain('--bigin-font-size:14px');
@@ -312,9 +331,9 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
 
 describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
   it('definiuje wymiary w jednym miejscu; każdy wariant treści dziedziczy je bez nadpisań', () => {
-    expect([SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST]).toEqual([285, 64, 48, 48]);
+    expect([SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST]).toEqual([64, 64, 48, 48]);
     expect(SHELL_CSS_VARS).toMatchObject({
-      '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '64px',
+      '--app-sidebar-width': '64px', '--app-sidebar-width-collapsed': '64px',
       '--app-topbar-height': '48px', '--list-banner-height': '0px',
       '--app-header-height': 'var(--app-topbar-height)',
     });

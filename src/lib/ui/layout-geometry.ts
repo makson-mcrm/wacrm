@@ -40,7 +40,7 @@ export const BRAND_LINK = BIGIN_TOKENS.link;
 export const BRAND_INFO_BANNER = BIGIN_TOKENS.info;
 
 // KM3.2.25 — the shell dimensions are inherited only from <html>.
-export const SIDEBAR_WIDTH = 285;
+export const SIDEBAR_WIDTH = 64;
 export const SIDEBAR_WIDTH_COLLAPSED = 64;
 export const TOPBAR_HEIGHT = 48;
 export const TOPBAR_HEIGHT_LIST = 48;
@@ -48,6 +48,8 @@ export const SHELL_CSS_VARS = {
   '--app-sidebar-width': `${SIDEBAR_WIDTH}px`,
   '--app-sidebar-width-collapsed': `${SIDEBAR_WIDTH_COLLAPSED}px`,
   '--app-topbar-height': `${TOPBAR_HEIGHT}px`,
+  '--app-mobile-topbar-height': '43px',
+  '--app-mobile-sidebar-width': '63px',
   '--app-header-height': 'var(--app-topbar-height)',
   '--list-banner-height': '0px',
 } as const satisfies CSSProperties & Record<`--${string}`, string>;
@@ -55,12 +57,23 @@ export const SHELL_CSS_VARS = {
 export const APP_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const MOBILE_BREAKPOINT = 768;
 export const MOBILE_STAGE_TAB_HEIGHT = 44;
-// Bigin demo DOM, 1536×1024, 09.11.2026: content x=285, board x=295.
+// Bigin demo DOM, 09.11.2026: rail + team pipelines panel + board inset.
 export const PIPELINE_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const PIPELINE_CONTENT_PADDING_X = 10;
-export const BOARD_START_X = PIPELINE_SIDEBAR_WIDTH + PIPELINE_CONTENT_PADDING_X;
-export const PIPELINE_COLUMN_WIDTH = 220;
-export const PIPELINE_COLUMN_GAP = 10;
+export const PIPELINE_TEAM_PANEL_WIDTH = 221;
+export const PIPELINE_MOBILE_TEAM_PANEL_WIDTH = 199;
+export const MOBILE_TOPBAR_HEIGHT = 43;
+export const MOBILE_SIDEBAR_WIDTH = 63;
+export const BOARD_START_X = PIPELINE_SIDEBAR_WIDTH + PIPELINE_TEAM_PANEL_WIDTH + PIPELINE_CONTENT_PADDING_X;
+export const BOARD_START_Y = 115;
+export const PIPELINE_TOOLBAR_HEIGHT = BOARD_START_Y - TOPBAR_HEIGHT;
+export const PIPELINE_MOBILE_TOOLBAR_HEIGHT = BOARD_START_Y - MOBILE_TOPBAR_HEIGHT;
+export const PIPELINE_TOOLBAR_BUTTON_HEIGHT = 32;
+export const PIPELINE_MOBILE_TOOLBAR_BUTTON_HEIGHT = 29;
+export const PIPELINE_CARD_WIDTH = 220;
+export const PIPELINE_COLUMN_PADDING = 5;
+export const PIPELINE_COLUMN_WIDTH = 230;
+export const PIPELINE_COLUMN_GAP = 0;
 export const PIPELINE_CARD_HEIGHT = 60;
 export const PIPELINE_CONTENT_BACKGROUND = BRAND_PAGE_BG_PIPELINE;
 export const APP_HEADER_HEIGHT = TOPBAR_HEIGHT;
@@ -181,6 +194,14 @@ export function biginGeometryCssVars(
       '--pipeline-column-width': `${PIPELINE_COLUMN_WIDTH}px`,
       '--pipeline-column-gap': `${PIPELINE_COLUMN_GAP}px`,
       '--pipeline-card-height': `${PIPELINE_CARD_HEIGHT}px`,
+      '--pipeline-card-width': `${PIPELINE_CARD_WIDTH}px`,
+      '--pipeline-column-padding': `${PIPELINE_COLUMN_PADDING}px`,
+      '--pipeline-team-panel-width': `${PIPELINE_TEAM_PANEL_WIDTH}px`,
+      '--pipeline-mobile-team-panel-width': `${PIPELINE_MOBILE_TEAM_PANEL_WIDTH}px`,
+      '--pipeline-toolbar-height': `${PIPELINE_TOOLBAR_HEIGHT}px`,
+      '--pipeline-mobile-toolbar-height': `${PIPELINE_MOBILE_TOOLBAR_HEIGHT}px`,
+      '--pipeline-toolbar-button-height': `${PIPELINE_TOOLBAR_BUTTON_HEIGHT}px`,
+      '--pipeline-mobile-toolbar-button-height': `${PIPELINE_MOBILE_TOOLBAR_BUTTON_HEIGHT}px`,
       '--pipeline-content-background': 'var(--bigin-bg)',
     } : {}),
   } as CSSProperties;

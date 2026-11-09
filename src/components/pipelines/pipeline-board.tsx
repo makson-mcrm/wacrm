@@ -21,7 +21,6 @@ import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
-import { BRAND_SIDEBAR_ACTIVE, MOBILE_STAGE_TAB_HEIGHT } from '@/lib/ui/layout-geometry';
 
 const STAGE_COLORS: Record<string, string> = {
   klasyfikacja: '#64748b',
@@ -65,7 +64,6 @@ export function PipelineBoard({
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
-  const [openStageId, setOpenStageId] = useState('');
 
   const sortedStages = useMemo(
     () => [...stages].sort((a, b) => a.position - b.position),
@@ -83,7 +81,7 @@ export function PipelineBoard({
   }, [sortedStages, deals]);
 
   const sensors = useSensors(
-    // 5px activation distance avoids clicks being interpreted as drags.
+    // Keep mouse drag activation; native touch panning stays available.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     // Keyboard drag support: focus a card, Space to pick up, arrows to move,
     // Space to drop, Escape to cancel.
@@ -93,8 +91,6 @@ export function PipelineBoard({
   const activeDeal = activeDealId
     ? (deals.find((d) => d.id === activeDealId) ?? null)
     : null;
-  const mobileStage =
-    sortedStages.find((stage) => stage.id === openStageId) ?? sortedStages[0];
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDealId(String(event.active.id));
@@ -127,112 +123,12 @@ export function PipelineBoard({
       onDragCancel={handleDragCancel}
     >
       {!surfaceFlags.pipelineExtensions ? (
-        <div className="flex items-baseline gap-2 text-slate-900">
-          <h1 className="text-sm font-semibold">Transakcje</h1>
-          <span className="text-xs text-slate-600" aria-label="Liczba transakcji">
-            {deals.length}
-          </span>
+        <div className="sr-only">
+          <h1>Transakcje</h1>
+          <span aria-label="Liczba transakcji">{deals.length}</span>
         </div>
       ) : null}
-      <div className="min-w-0 space-y-2 bg-[#f9fbfc] text-slate-900 md:hidden">
-        <nav
-          className="flex gap-2 overflow-x-auto"
-          aria-label="Etapy lejka"
-        >
-          {sortedStages.map((stage) => (
-            <button
-              key={stage.id}
-              type="button"
-              onClick={() => setOpenStageId(stage.id)}
-              className="flex shrink-0 items-center justify-center gap-2 border-b-2 px-3 text-xs font-semibold whitespace-nowrap"
-              style={{
-                height: MOBILE_STAGE_TAB_HEIGHT,
-                borderBottomColor: mobileStage?.id === stage.id ? BRAND_SIDEBAR_ACTIVE : 'transparent',
-                color: mobileStage?.id === stage.id ? BRAND_SIDEBAR_ACTIVE : '#475569',
-              }}
-              aria-current={mobileStage?.id === stage.id ? 'step' : undefined}
-            >
-              {stage.name}
-              <span>{dealsByStage.get(stage.id)?.length ?? 0}</span>
-            </button>
-          ))}
-        </nav>
-        {sortedStages
-          .filter((stage) => stage.id === mobileStage?.id)
-          .map((stage) => {
-            const stageDeals = dealsByStage.get(stage.id) ?? [];
-            const totalValue = stageDeals.reduce(
-              (sum, deal) => sum + Number(deal.value || 0),
-              0
-            );
-            return (
-              <section
-                key={stage.id}
-                data-stage-color={stageColor(stage.name)}
-                className="overflow-hidden rounded-xl border border-[#e3e7ec] bg-[#f1f3f6] text-slate-900 shadow-sm"
-              >
-                <div
-                  aria-hidden="true"
-                  className="h-[3px] shrink-0"
-                  style={{ backgroundColor: stageColor(stage.name) }}
-                />
-                <div
-                  className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: stageColor(stage.name) }}
-                  />
-                  <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1 text-xs">
-                    <span className="w-full text-[11px] font-normal text-slate-600">Transakcja</span>
-                    <span
-                      className="min-w-0 truncate font-black text-slate-900"
-                      title={stage.name}
-                    >
-                      {stage.name}
-                    </span>
-                    <StageSummary
-                      count={stageDeals.length}
-                      totalValue={totalValue}
-                      currency={defaultCurrency}
-                    />
-                  </span>
-                </div>
-                <div className="border-t border-slate-100 p-2">
-                  <div className="pipeline-stage-scroll max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                    {stageDeals.length ? (
-                      stageDeals.map((deal) => (
-                        <PipelineDealCard
-                          key={deal.id}
-                          deal={deal}
-                          stage={stage}
-                          onEdit={onEditDeal}
-                        />
-                      ))
-                    ) : (
-                      <p className="rounded-lg border border-dashed p-5 text-center text-xs text-slate-600">
-                        Ten etap jest pusty
-                      </p>
-                    )}
-                  </div>
-                  {surfaceFlags.pipelineExtensions ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onAddDeal(stage.id)}
-                      className="mt-2 h-9 w-full justify-start border border-dashed border-slate-200 text-xs"
-                    >
-                      <Plus className="mr-1 size-3" /> Dodaj deal
-                    </Button>
-                  ) : null}
-                </div>
-              </section>
-            );
-          })}
-      </div>
-
-      <div className="pipeline-scroll hidden min-w-0 gap-[10px] overflow-x-auto bg-[#f9fbfc] pb-2 text-slate-900 md:flex" aria-label="Tablica transakcji">
+      <div className="pipeline-scroll flex min-w-0 gap-[0px] overflow-x-auto bg-[var(--bigin-bg)] pb-2 text-[var(--bigin-text)]" aria-label="Tablica transakcji" tabIndex={0}>
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(
@@ -384,19 +280,19 @@ function StageColumn({
     <div
       data-pipeline-column={stage.id}
       data-stage-color={stageColor(stage.name)}
-      className="flex h-[calc(100dvh-245px)] min-h-[480px] w-[220px] flex-none flex-col overflow-hidden rounded-lg border border-[#e3e7ec] bg-[#f1f3f6] p-1.5 text-slate-900"
+      className="flex h-full min-h-0 w-[230px] flex-none flex-col overflow-hidden px-[5px] text-[var(--bigin-text)]"
     >
       {/* 3px colored top border — sits above the column's padding */}
       <div
         aria-hidden="true"
-        className="-mx-1.5 -mt-1.5 h-[3px] shrink-0"
+        className="h-[3px] shrink-0 rounded-t"
         style={{
           backgroundColor: stageColor(stage.name),
         }}
       />
       <div
         data-stage-header
-        className="sticky top-0 z-10 bg-[#f1f3f6] pt-1.5"
+        className="z-10 h-[49px] shrink-0 overflow-hidden rounded-b border border-t-0 border-[var(--bigin-border)] bg-[var(--bigin-surface)] px-3 py-1"
       >
         <span className="block text-[11px] font-normal text-slate-600">Transakcja</span>
         <h3 className="flex min-w-0 flex-wrap items-baseline gap-x-1 text-xs font-bold">
@@ -421,7 +317,7 @@ function StageColumn({
 
       <div
         ref={setNodeRef}
-        className={`pipeline-stage-scroll mt-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5 transition-all ${
+        className={`pipeline-stage-scroll mt-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded bg-[var(--bigin-row)] transition-all ${
           isOver
             ? 'bg-primary/5 outline-primary outline outline-2 outline-dashed'
             : ''
@@ -476,7 +372,7 @@ function DraggableDealCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
+      style={{ opacity: isDragging ? 0.3 : 1, touchAction: 'pan-x pan-y' }}
     >
       <PipelineDealCard deal={deal} stage={stage} onEdit={onEdit} />
     </div>

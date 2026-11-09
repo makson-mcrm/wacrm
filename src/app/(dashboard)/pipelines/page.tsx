@@ -33,6 +33,7 @@ import {
   Sparkles,
   Archive,
   Search,
+  Filter,
   ArrowUpDown,
   MoreHorizontal,
 } from 'lucide-react';
@@ -76,6 +77,7 @@ export default function PipelinesPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const canEditSettings = useCan('edit-settings');
+  const canEditDeals = useCan('send-messages');
   const { accountId } = useAuth();
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -501,6 +503,8 @@ export default function PipelinesPage() {
         if (dealFormOpen || newPipelineOpen || settingsOpen || !searchRef.current) return;
         event.preventDefault();
         event.stopPropagation();
+        const filters = searchRef.current.closest('details');
+        if (filters) filters.open = true;
         searchRef.current.focus();
       }
     }
@@ -510,16 +514,16 @@ export default function PipelinesPage() {
 
   if (loading) {
     return (
-      <div data-pipeline-workspace className="min-h-full space-y-6 bg-[#f9fbfc] text-slate-900">
-        <div className="flex items-center justify-between">
+      <div data-pipeline-workspace className="h-full min-h-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
+        <div className="flex h-[var(--pipeline-toolbar-height)] items-center justify-between">
           <div className="bg-muted h-8 w-48 animate-pulse rounded" />
           <div className="bg-muted h-9 w-28 animate-pulse rounded-lg" />
         </div>
-        <div className="flex gap-[10px] overflow-x-auto">
+        <div className="flex gap-0 overflow-x-auto px-[var(--content-pad-x)]">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="h-96 w-[220px] shrink-0 animate-pulse rounded-lg bg-[#f1f3f6]"
+              className="h-96 w-[230px] shrink-0 animate-pulse rounded bg-[var(--bigin-row)]"
             />
           ))}
         </div>
@@ -528,7 +532,19 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div data-pipeline-workspace className="min-h-full min-w-0 space-y-4 bg-[#f9fbfc] text-slate-900">
+    <div data-pipeline-workspace data-pipeline-extensions={surfaceFlags.pipelineExtensions || undefined} className="relative h-full min-h-0 min-w-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
+      <nav data-pipeline-team-panel aria-label="Potoki zespołu">
+        <div className="flex items-center justify-between gap-2 px-3 py-4 text-sm font-semibold">
+          Potoki zespołu
+          <GatedButton canAct={canEditSettings} gateReason="create pipelines" onClick={() => setNewPipelineOpen(true)} aria-label="Dodaj lejek" variant="ghost" size="icon"><Plus className="size-4" /></GatedButton>
+        </div>
+        {pipelines.map((pipeline) => (
+          <button key={pipeline.id} type="button" aria-current={pipeline.id === selectedPipelineId ? 'page' : undefined} onClick={() => setSelectedPipelineId(pipeline.id)} className="mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm" title={pipeline.name}>
+            <GitBranch className="size-4 shrink-0" /><span className="truncate">{pipeline.name}</span>
+          </button>
+        ))}
+      </nav>
+      <div data-pipeline-content className="flex h-full min-h-0 min-w-0 flex-col">
       {pipelineError ? (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           Nie wczytano lejków: {pipelineError}
@@ -647,8 +663,8 @@ export default function PipelinesPage() {
         </>
       ) : null}
 
-      <section aria-label="Narzędzia tablicy transakcji" className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e3e7ec] bg-white px-3 py-2 text-sm text-slate-900">
-        <label className="relative min-w-48 flex-1">
+      <section data-pipeline-toolbar aria-label="Narzędzia tablicy transakcji" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto bg-[var(--bigin-surface)] px-3 text-sm text-[var(--bigin-text)]">
+        <details className="relative shrink-0"><summary className="cursor-pointer list-none" aria-label="Filtry transakcji" title="Filtry transakcji"><Filter className="size-4" /></summary><label className="relative block w-48">
           <span className="sr-only">Szukaj transakcji</span>
           <Search aria-hidden="true" className="absolute top-2.5 left-3 size-4 text-slate-500" />
           <input
@@ -661,8 +677,8 @@ export default function PipelinesPage() {
             className="h-9 w-full rounded-full border border-slate-300 bg-white pr-12 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
           />
           <kbd aria-hidden="true" className="pointer-events-none absolute top-2 right-3 text-xs text-slate-500">⌘K</kbd>
-        </label>
-        <label className="flex items-center gap-2">
+        </label></details>
+        <label className="flex shrink-0 items-center gap-2">
           <span className="sr-only">Widok transakcji</span>
           <select value={dealView} onChange={(event) => setDealView(event.target.value)} className="h-9 max-w-full rounded-full border border-slate-300 bg-white px-3 text-xs">
             <option value="all">Wszystkie transakcje</option>
@@ -670,7 +686,7 @@ export default function PipelinesPage() {
             <option value="closed">Zamknięte transakcje</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-xs">
+        <label className="flex shrink-0 items-center gap-2 text-xs">
           Właściciel zmiany
           <select aria-label="Właściciel zmiany" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)} className="h-9 max-w-40 rounded-full border border-slate-300 bg-white px-3 text-xs">
             <option value="all">Wszyscy</option>
@@ -678,7 +694,7 @@ export default function PipelinesPage() {
             {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-2 text-xs">
+        <label className="flex shrink-0 items-center gap-2 text-xs">
           <ArrowUpDown aria-hidden="true" className="size-4" /> Sortuj według
           <select aria-label="Sortuj według" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-9 rounded-full border border-slate-300 bg-white px-3 text-xs">
             <option value="created-desc">Czas utworzenia: najnowsze</option>
@@ -697,6 +713,7 @@ export default function PipelinesPage() {
             {selectedPipeline ? <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Zarządzaj lejkami</DropdownMenuItem> : null}
           </DropdownMenuContent>
         </DropdownMenu>
+        <GatedButton canAct={canEditDeals} gateReason="create deals" onClick={() => handleAddDeal()} className="shrink-0 rounded-full" aria-label="Dodaj transakcję"><Plus className="size-4" /> Transakcja</GatedButton>
       </section>
 
       {/* Board */}
@@ -730,6 +747,8 @@ export default function PipelinesPage() {
           />
         </>
       )}
+
+      </div>
 
       {/* New Pipeline Dialog */}
       <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>

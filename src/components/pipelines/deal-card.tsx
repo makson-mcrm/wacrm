@@ -36,7 +36,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
   return (
     <article
       data-pipeline-deal
-      style={{ color: '#0f172a' }}
+      style={{ color: 'var(--bigin-text)' }}
       role="button"
       tabIndex={0}
       onClick={(event) => {
@@ -50,7 +50,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
           onEdit(deal);
         }
       }}
-      className={`relative w-full cursor-pointer rounded-[10px] border border-[#e3e7ec] bg-white p-3 text-left text-slate-900 shadow-[0_1px_2px_rgb(15_23_42_/_0.06)] transition ${isOverlay ? 'opacity-90' : 'hover:border-emerald-700 hover:shadow-md'}`}
+      className={`relative w-full cursor-pointer rounded border border-[var(--bigin-border)] bg-white px-3 py-1 text-left text-slate-900 shadow-[0_1px_2px_rgb(15_23_42_/_0.06)] transition ${isOverlay ? 'opacity-90' : 'hover:border-emerald-700 hover:shadow-md'}`}
     >
       <span
         aria-hidden

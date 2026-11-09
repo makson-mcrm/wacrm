@@ -111,7 +111,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div
       data-slot="app-shell"
-      data-bigin-compact-shell={!isPipeline || undefined}
+      data-bigin-compact-shell={true}
       data-bigin-list-shell={isBiginList || undefined}
       data-bigin-pipeline-shell={isPipeline || undefined}
       data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}

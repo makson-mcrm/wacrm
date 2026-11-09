@@ -156,12 +156,13 @@ function renderPage() {
 }
 
 function boardViews(html: string) {
-  const desktopStart = html.indexOf('<div class="pipeline-scroll hidden');
-  expect(desktopStart).toBeGreaterThan(0);
-  return {
-    mobile: html.slice(0, desktopStart),
-    desktop: html.slice(desktopStart),
-  };
+  const boards = [...html.matchAll(/<div class="pipeline-scroll[^"]*"/g)];
+  expect(boards).toHaveLength(1);
+  expect(boards[0][0]).toContain('overflow-x-auto');
+  expect(boards[0][0]).not.toMatch(/(?:hidden|md:flex)/);
+  const board = html.slice(boards[0].index);
+  // Both responsive views use this one board; CSS controls the viewport.
+  return { mobile: board, desktop: board };
 }
 
 function textContent(html: string) {
@@ -213,7 +214,7 @@ describe('K3-N4: minimalna struktura lejka 04A', () => {
         (button) => textContent(button) === 'Dodaj deal'
       );
       expect(addButtons).toHaveLength(
-        viewport === 'desktop' ? stages.length : 1
+        stages.length
       );
       expect(html).not.toContain('Dodaj sprawę');
     }
@@ -223,31 +224,13 @@ describe('K3-N4: minimalna struktura lejka 04A', () => {
     'łączy nazwę, sumę i licznik danego etapu: %s',
     (viewport) => {
       const html = boardViews(renderPage())[viewport];
-      if (viewport === 'mobile') {
-        const tabs = html.match(/<nav\b[^>]*aria-label="Etapy lejka"[^>]*>[\s\S]*?<\/nav>/)?.[0];
-        expect(tabs).toBeDefined();
-        expect(tabs).toContain('overflow-x-auto');
-        expect(tabs!.match(/aria-current="step"/g)).toHaveLength(1);
-        expect(tabs).toContain('aria-current="step">Kontakt syntetyczny<span>2</span>');
-        expect(textContent(tabs!)).toBe(
-          'Kontakt syntetyczny 2 Oferta syntetyczna 1 Pusty etap 0'
-        );
-        expect(html.match(/<section\b[^>]*data-stage-color=/g)).toHaveLength(1);
-        expect(html.match(/<article\b[^>]*data-pipeline-deal/g)).toHaveLength(2);
-        expect(html).toContain('/deals/deal-0');
-        expect(html).toContain('/deals/deal-1');
-        expect(html).not.toContain('/deals/deal-2');
-        expect(html).not.toContain('data-pipeline-column=');
-        expect(html).toMatch(/<div[^>]*class="[^"]*md:hidden[^"]*"/);
-      }
-      const header =
-        viewport === 'mobile'
-          ? html.match(
-              /<section\b[^>]*data-stage-color[^>]*>[\s\S]*?(<div class="flex w-full[^>]*>[\s\S]*?<\/div>)/
-            )?.[1]
-          : html.match(
-              /<div[^>]*data-stage-header[^>]*>([\s\S]*?)<\/div>/
-            )?.[0];
+      expect(html.match(/data-pipeline-column=/g)).toHaveLength(stages.length);
+      expect(html.match(/<article\b[^>]*data-pipeline-deal/g)).toHaveLength(deals.length);
+      for (const deal of deals) expect(html).toContain(`/deals/${deal.id}`);
+      expect(html).not.toContain('aria-label="Etapy lejka"');
+      const header = html.match(
+        /<div[^>]*data-stage-header[^>]*>([\s\S]*?)<\/div>/
+      )?.[0];
       expect(header).toBeDefined();
       expect(textContent(header!)).toBe(
         'Transakcja Kontakt syntetyczny · 35 000 zł · 2 transakcje'
@@ -362,7 +345,7 @@ describe('K3-02B-01: suma i licznik nagłówka', () => {
     const { desktop, mobile } = boardViews(renderPage());
     expect(desktop.match(/<h3\b/g)).toHaveLength(stages.length);
     expect(desktop.match(/href="\/deals\//g)).toHaveLength(deals.length);
-    expect(mobile.match(/href="\/deals\//g)).toHaveLength(2);
+    expect(mobile.match(/href="\/deals\//g)).toHaveLength(deals.length);
     for (const deal of deals) {
       expect(desktop).toContain(`href="/deals/${deal.id}"`);
       expect(desktop).toContain(`data-draggable="${deal.id}"`);
@@ -468,12 +451,12 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
     (viewport) => {
       const html = boardViews(renderPage())[viewport];
       expect(html).toMatch(
-        /data-stage-color="[^"]+" class="[^"]*bg-\[#f1f3f6\]/
+        /data-stage-color="[^"]+" class="[^"]*w-\[230px\]/
       );
       expect(html).toMatch(
         /<article[^>]*data-pipeline-deal="true"[^>]*class="[^"]*bg-white[^"]*text-slate-900/
       );
-      expect(html).toContain('rounded-[10px]');
+      expect(html).toContain('rounded border');
       expect(html).toContain('text-xs text-slate-600');
       if (viewport === 'desktop') expect(html).toContain('data-stage-header');
     }
@@ -501,7 +484,7 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
 
   it('tło przestrzeni roboczej jest jasne', () => {
     expect(renderPage()).toMatch(
-      /data-pipeline-workspace="true" class="[^"]*bg-\[#f9fbfc\]/
+      /data-pipeline-workspace="true" class="[^"]*bg-\[var\(--bigin-bg\)\]/
     );
   });
 });
@@ -518,18 +501,19 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
         html.match(/<(?:div|section)\b[^>]*data-stage-color[^>]*>/g) ?? [];
       const cards =
         html.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
-      expect(columns).toHaveLength(viewport === 'desktop' ? stages.length : 1);
-      expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
+      expect(columns).toHaveLength(stages.length);
+      expect(cards).toHaveLength(deals.length);
       for (const column of columns) {
-        expect(column).toContain('bg-[#f1f3f6]');
-        expect(column).toContain('border-[#e3e7ec]');
+        expect(column).toContain('w-[230px]');
+        expect(column).toContain('px-[5px]');
+        expect(column).toContain('flex-none');
         expect(column).not.toMatch(forbiddenSurface);
       }
       for (const card of cards) {
         expect(card).toContain('bg-white');
         expect(card).toContain('text-slate-900');
-        expect(card).toContain('border-[#e3e7ec]');
-        expect(card).toContain('rounded-[10px]');
+        expect(card).toContain('border-[var(--bigin-border)]');
+        expect(card).toContain('rounded border');
         expect(card).toContain('shadow-[0_1px_2px_rgb(15_23_42_/_0.06)]');
         expect(card).not.toMatch(forbiddenSurface);
       }
@@ -547,7 +531,7 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
     const header = desktop.match(
       /<div[^>]*data-stage-header[^>]*>[\s\S]*?<\/div>/
     )?.[0];
-    expect(header).toContain('bg-[#f1f3f6]');
+    expect(header).toContain('bg-[var(--bigin-surface)]');
     expect(header).toContain('background-color:#f59e0b');
     expect(header).not.toMatch(forbiddenSurface);
     const cards = desktop.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
@@ -584,7 +568,7 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
       />
     );
     const cards = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
-    expect(cards).toHaveLength(3); // mobile, desktop and drag overlay
+    expect(cards).toHaveLength(2); // shared board and drag overlay
     for (const card of cards) {
       expect(card).toMatch(/<article[^>]*bg-white[^>]*text-slate-900/);
       expect(card).toContain('background-color:#0ea5e9');
@@ -592,7 +576,7 @@ describe('K3-02B-03: powierzchnie bez nadpisań ciemnego motywu', () => {
       expect(card.includes('ZADZWOŃ')).toBe(enabled);
       expect(card.includes('WIADOMOŚĆ')).toBe(enabled);
     }
-    expect(cards[2]).toContain('opacity-90');
+    expect(cards[1]).toContain('opacity-90');
   });
 });
 
@@ -601,30 +585,19 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
     'maluje kartę na article, a jasne tło na kontenerze tablicy: %s',
     (viewport) => {
       const html = boardViews(renderPage())[viewport];
-      const board =
-        viewport === 'desktop'
-          ? html.match(/<div class="pipeline-scroll[^"]*"/)?.[0]
-          : html.match(/<div class="[^"]*md:hidden[^"]*"/)?.[0];
-      expect(board).toContain('bg-[#f9fbfc]');
-      const stage = viewport === 'mobile'
-        ? html.match(/<section\b[^>]*data-stage-color[^>]*>[\s\S]*?<\/section>/)?.[0]
-        : html;
-      if (viewport === 'mobile') {
-        expect(stage).toBeDefined();
-        expect(stage).toContain('title="Kontakt syntetyczny"');
-        expect(stage).toContain('/deals/deal-0');
-        expect(stage).toContain('/deals/deal-1');
-        expect(stage).not.toContain('/deals/deal-2');
-        expect(html).not.toContain('data-pipeline-column=');
-      }
+      const board = html.match(/<div class="pipeline-scroll[^"]*"/)?.[0];
+      expect(board).toContain('bg-[var(--bigin-bg)]');
+      expect(html.match(/data-pipeline-column=/g)).toHaveLength(stages.length);
+      for (const deal of deals) expect(html).toContain(`/deals/${deal.id}`);
+      const stage = html;
       const cards = stage?.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
-      expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
+      expect(cards).toHaveLength(deals.length);
       for (const card of cards) {
         expect(card).toContain('bg-white');
         expect(card).toContain('text-slate-900');
-        expect(card).toContain('style="color:#0f172a"');
-        expect(card).toContain('border-[#e3e7ec]');
-        expect(card).toContain('rounded-[10px]');
+        expect(card).toContain('style="color:var(--bigin-text)"');
+        expect(card).toContain('border-[var(--bigin-border)]');
+        expect(card).toContain('rounded border');
         expect(card).toContain('shadow-[0_1px_2px_rgb(15_23_42_/_0.06)]');
       }
     }
@@ -637,8 +610,8 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
       const workspace = renderPage().match(
         /<div[^>]*data-pipeline-workspace[^>]*>/
       )?.[0];
-      expect(workspace).toContain('min-h-full');
-      expect(workspace).toContain('bg-[#f9fbfc]');
+      expect(workspace).toContain('h-full min-h-0');
+      expect(workspace).toContain('bg-[var(--bigin-bg)]');
     }
   );
 });
@@ -778,8 +751,8 @@ describe('KM3.2.08-BIGIN-SURFACE-02: jeden przełącznik całej powierzchni', ()
       const html = renderPage();
       const { desktop, mobile } = boardViews(html);
       expect(desktop.match(/data-pipeline-column=/g)).toHaveLength(6);
-      expect(desktop.match(/w-\[220px\] flex-none/g)).toHaveLength(6);
-      expect(desktop).toContain('gap-[10px] overflow-x-auto');
+      expect(desktop.match(/w-\[230px\] flex-none/g)).toHaveLength(6);
+      expect(desktop).toContain('gap-[0px] overflow-x-auto');
       expect(desktop.match(/>Transakcja<\/span>/g)).toHaveLength(6);
       expect(desktop.match(/Ten etap jest pusty/g)).toHaveLength(5);
       expect(desktop).not.toContain('7. ARCHIWUM');
@@ -811,7 +784,7 @@ describe('KM3.2.08-BIGIN-SURFACE-02: jeden przełącznik całej powierzchni', ()
       ]) expect(html.includes(label)).toBe(enabled);
       for (const label of ['Szukaj transakcji', 'Wszystkie transakcje', 'Właściciel zmiany', 'Więcej', 'Sortuj według'])
         expect(html).toContain(label);
-      expect(html).toContain('bg-[#f9fbfc]');
+      expect(html).toContain('bg-[var(--bigin-bg)]');
       expect(harness.states[3]).toBe(originalDeals);
     }
   );
@@ -866,7 +839,7 @@ describe('KM3.2.08-BIGIN-CORE: tablica i narzędzia bez utraty funkcji mCRM', ()
     const stats = html.indexOf('aria-label="Statystyki lejka"');
     const assistant = html.indexOf('href="/assistant?feature=pipeline"');
     const toolbar = html.indexOf('aria-label="Narzędzia tablicy transakcji"');
-    const board = html.indexOf('<div class="pipeline-scroll hidden');
+    const board = html.indexOf('<div class="pipeline-scroll flex');
     expect(filters).toBeGreaterThan(0);
     expect(stats).toBeGreaterThan(filters);
     expect(assistant).toBeGreaterThan(stats);
