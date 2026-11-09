@@ -661,14 +661,45 @@ body {
 [data-pipeline-content] { min-width: 0; overflow: hidden; }
 [data-pipeline-team-panel] {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: var(--pipeline-team-panel-width);
+  inset: 0 auto 0 1px;
+  width: calc(var(--pipeline-team-panel-width) - 1px);
   overflow-y: auto;
   color: var(--bigin-panel-text);
   background: var(--bigin-accent);
+  padding-bottom: 48px;
 }
 [data-pipeline-team-panel] [aria-current='page'] { background: var(--bigin-panel-hover); }
 [data-pipeline-team-panel] button { color: var(--bigin-panel-text); }
+/* KM3.5.1G: a 41px control gutter + 10px board inset gives x=115
+   with the unchanged 64px rail. The team panel itself occupies zero. */
+[data-bigin-pipeline-shell] [data-pipeline-workspace][data-pipeline-team-collapsed='true'] {
+  --pipeline-team-panel-width: 0px;
+  padding-left: 41px;
+}
+[data-pipeline-workspace][data-pipeline-team-collapsed='true'] [data-pipeline-team-panel] {
+  display: none;
+  width: 0;
+}
+[data-pipeline-workspace] [data-pipeline-team-toggle] {
+  position: absolute;
+  bottom: 8px;
+  left: calc(var(--pipeline-team-panel-width) - 40px);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--bigin-panel-text);
+  background: var(--bigin-accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+[data-pipeline-workspace][data-pipeline-team-collapsed='true'] [data-pipeline-team-toggle] { left: 5px; }
+[data-pipeline-workspace] [data-pipeline-team-toggle]:focus-visible {
+  outline: 2px solid var(--bigin-link);
+  outline-offset: 2px;
+}
 [data-pipeline-toolbar] {
   height: var(--pipeline-toolbar-height);
   min-height: var(--pipeline-toolbar-height);

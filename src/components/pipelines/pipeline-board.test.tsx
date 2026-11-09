@@ -324,7 +324,8 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
       '--pipeline-toolbar-button-height': 'var(--pipeline-mobile-toolbar-button-height)',
     });
     expect(rules('[data-pipeline-workspace]')['padding-left']).toBe('var(--pipeline-team-panel-width)');
-    expect(rules('[data-pipeline-team-panel]').width).toBe('var(--pipeline-team-panel-width)');
+    expect(rules('[data-pipeline-team-panel]').width).toBe('calc(var(--pipeline-team-panel-width) - 1px)');
+    expect(rules('[data-pipeline-team-panel]').inset).toBe('0 auto 0 1px');
     expect(rules('[data-pipeline-toolbar]')).toMatchObject({
       height: 'var(--pipeline-toolbar-height)', 'min-height': 'var(--pipeline-toolbar-height)',
     });

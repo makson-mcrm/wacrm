@@ -484,7 +484,7 @@ describe('K3-02B-02: jasne powierzchnie i kolory etapów', () => {
 
   it('tło przestrzeni roboczej jest jasne', () => {
     expect(renderPage()).toMatch(
-      /data-pipeline-workspace="true" class="[^"]*bg-\[var\(--bigin-bg\)\]/
+      /data-pipeline-workspace="true"[^>]* class="[^"]*bg-\[var\(--bigin-bg\)\]/
     );
   });
 });

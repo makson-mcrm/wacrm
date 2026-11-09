@@ -29,6 +29,8 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Settings,
   Sparkles,
   Archive,
@@ -54,6 +56,8 @@ interface PipelineDeal extends Deal {
   tagNames: string[];
   bankNames: string[];
 }
+
+const TEAM_PANEL_STORAGE_KEY = 'mcrm:pipelines:team-panel-collapsed';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -113,6 +117,7 @@ export default function PipelinesPage() {
   const [dealView, setDealView] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created-desc');
+  const [teamPanelCollapsed, setTeamPanelCollapsed] = useState(false);
 
   const loadPipelines = useCallback(async () => {
     if (!accountId) return null;
@@ -516,9 +521,28 @@ export default function PipelinesPage() {
     </>
   );
 
+  useEffect(() => {
+    try {
+      // Read after hydration so the server and first client render agree.
+      setTeamPanelCollapsed(window.localStorage.getItem(TEAM_PANEL_STORAGE_KEY) === 'true');
+    } catch {
+      // Storage can be unavailable; the panel still works for this visit.
+    }
+  }, []);
+
+  function toggleTeamPanel() {
+    const collapsed = !teamPanelCollapsed;
+    setTeamPanelCollapsed(collapsed);
+    try {
+      window.localStorage.setItem(TEAM_PANEL_STORAGE_KEY, String(collapsed));
+    } catch {
+      // Keep the control usable when the browser denies persistence.
+    }
+  }
+
   if (loading) {
     return (
-      <div data-pipeline-workspace className="h-full min-h-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
+      <div data-pipeline-workspace data-pipeline-team-collapsed={teamPanelCollapsed} className="h-full min-h-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
         <div className="flex h-[var(--pipeline-toolbar-height)] items-center justify-between">
           <div className="bg-muted h-8 w-48 animate-pulse rounded" />
           <div className="bg-muted h-9 w-28 animate-pulse rounded-lg" />
@@ -536,8 +560,8 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div data-pipeline-workspace data-pipeline-extensions={surfaceFlags.pipelineExtensions || undefined} className="relative h-full min-h-0 min-w-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
-      <nav data-pipeline-team-panel aria-label="Potoki zespołu">
+    <div data-pipeline-workspace data-pipeline-team-collapsed={teamPanelCollapsed} data-pipeline-extensions={surfaceFlags.pipelineExtensions || undefined} className="relative h-full min-h-0 min-w-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
+      <nav id="pipeline-team-panel" data-pipeline-team-panel aria-label="Potoki zespołu" hidden={teamPanelCollapsed}>
         <div className="flex items-center justify-between gap-2 px-3 py-4 text-sm font-semibold">
           Potoki zespołu
           <GatedButton canAct={canEditSettings} gateReason="create pipelines" onClick={() => setNewPipelineOpen(true)} aria-label="Dodaj lejek" variant="ghost" size="icon"><Plus className="size-4" /></GatedButton>
@@ -551,6 +575,17 @@ export default function PipelinesPage() {
           </button>
         ))}
       </nav>
+      <button
+        type="button"
+        data-pipeline-team-toggle
+        aria-label={teamPanelCollapsed ? 'Rozwiń panel potoków' : 'Zwiń panel potoków'}
+        title={teamPanelCollapsed ? 'Rozwiń panel potoków' : 'Zwiń panel potoków'}
+        aria-expanded={!teamPanelCollapsed}
+        aria-controls="pipeline-team-panel"
+        onClick={toggleTeamPanel}
+      >
+        {teamPanelCollapsed ? <ChevronsRight aria-hidden="true" className="size-4" /> : <ChevronsLeft aria-hidden="true" className="size-4" />}
+      </button>
       <div data-pipeline-content className="flex h-full min-h-0 min-w-0 flex-col">
       {pipelineError ? (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">

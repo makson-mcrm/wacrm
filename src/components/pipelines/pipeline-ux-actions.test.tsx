@@ -1,4 +1,6 @@
 import { isValidElement, type ReactElement, type ReactNode } from 'react';
+import { readFileSync } from 'node:fs';
+import postcss from 'postcss';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Deal, Pipeline, PipelineStage } from '@/types';
 import { Header } from '@/components/layout/header';
@@ -9,6 +11,7 @@ import { DealForm } from './deal-form';
 import { PipelineSettings } from './pipeline-settings';
 import { PipelineBoard, PipelineToolbar } from './pipeline-board';
 import PipelinesPage from '@/app/(dashboard)/pipelines/page';
+import { biginGeometryCssVars, SHELL_CSS_VARS } from '@/lib/ui/layout-geometry';
 
 type Props = Record<string, unknown> & { children?: ReactNode };
 const h = vi.hoisted(() => ({
@@ -84,6 +87,136 @@ beforeEach(() => {
   h.from.mockImplementation(() => { throw new Error('Unexpected database access'); });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+describe('KM3.5.1G: zwijanie Potoków zespołu', () => {
+  const storageKey = 'mcrm:pipelines:team-panel-collapsed';
+  let stored: Map<string, string>;
+  let getItem: ReturnType<typeof vi.fn>;
+  let setItem: ReturnType<typeof vi.fn>;
+  const workspace = (tree = page()) => find(tree, (node) => node.props['data-pipeline-workspace'] !== undefined);
+  const toggle = (tree = page()) => find(tree, (node) => node.props['data-pipeline-team-toggle'] !== undefined);
+  const panel = (tree = page()) => find(tree, (node) => node.props['data-pipeline-team-panel'] !== undefined);
+  const restore = () => {
+    page();
+    h.effects.at(-1)!(); // storage effect; database effects are deliberately not run
+  };
+  beforeEach(() => {
+    h.cells = [pipelines, 'pipeline-a', stages, deals, false];
+    stored = new Map();
+    getItem = vi.fn((key: string) => stored.get(key) ?? null);
+    setItem = vi.fn((key: string, value: string) => { stored.set(key, value); });
+    vi.stubGlobal('window', { localStorage: { getItem, setItem } });
+  });
+
+  it('domyślnie rozwija panel, klik zwija, drugi rozwija i zapisuje obie wartości', () => {
+    restore();
+    expect(getItem).toHaveBeenCalledWith(storageKey);
+    expect(setItem).not.toHaveBeenCalled();
+    for (const collapsed of [false, true, false]) {
+      const tree = page();
+      expect(workspace(tree).props['data-pipeline-team-collapsed']).toBe(collapsed);
+      expect(panel(tree).props.hidden).toBe(collapsed);
+      const button = toggle(tree);
+      const label = collapsed ? 'Rozwiń panel potoków' : 'Zwiń panel potoków';
+      expect(button.type).toBe('button');
+      expect(button.props).toMatchObject({ type: 'button', 'aria-label': label, title: label,
+        'aria-expanded': !collapsed, 'aria-controls': panel(tree).props.id });
+      if (!collapsed && setItem.mock.calls.length) break;
+      click(button);
+      expect(stored.get(storageKey)).toBe(String(!collapsed));
+    }
+    expect(setItem.mock.calls).toEqual([[storageKey, 'true'], [storageKey, 'false']]);
+    expect(h.from).not.toHaveBeenCalled();
+  });
+
+  it('odtwarza zapis po ponownym wejściu i nie nadpisuje go przed odczytem', () => {
+    click(toggle());
+    h.cells = [pipelines, 'pipeline-a', stages, deals, false]; // remount
+    restore();
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(true);
+    expect(panel().props.hidden).toBe(true);
+    expect(setItem).toHaveBeenCalledTimes(1);
+    click(toggle());
+    h.cells = [pipelines, 'pipeline-a', stages, deals, false];
+    restore();
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(false);
+    expect(stored.get(storageKey)).toBe('false');
+  });
+
+  it.each(['false', 'invalid', null])('wartość %s zachowuje domyślny stan rozwinięty', (value) => {
+    if (value !== null) stored.set(storageKey, value);
+    restore();
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(false);
+  });
+
+  it('odmowa odczytu/zapisu localStorage nie blokuje obu kliknięć', () => {
+    getItem.mockImplementation(() => { throw new Error('SecurityError'); });
+    setItem.mockImplementation(() => { throw new Error('QuotaExceededError'); });
+    expect(restore).not.toThrow();
+    click(toggle());
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(true);
+    click(toggle());
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(false);
+  });
+
+  it('przekazuje odtworzony stan także do szkieletu ładowania', () => {
+    h.cells[4] = true;
+    stored.set(storageKey, 'true');
+    restore();
+    expect(workspace().props['data-pipeline-team-collapsed']).toBe(true);
+  });
+
+  // CSS contract checks complement handler tests. They do not replace browser DOM measurements.
+  it.each([1536, 1024, 768, 390])('CSS: po kliknięciach poprawna geometria i ograniczenie overflow przy %s px', (viewport) => {
+    const sheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const rules = (selector: string) => {
+      const values: Record<string, string> = {};
+      sheet.walkRules((rule) => {
+        if (!rule.selectors.includes(selector)) return;
+        if (rule.parent?.type === 'atrule') {
+          const maximum = Number(rule.parent.params.match(/max-width: (\d+)px/)?.[1]);
+          if (!maximum || viewport > maximum) return;
+        }
+        rule.walkDecls((decl) => { values[decl.prop] = decl.value; });
+      });
+      return values;
+    };
+    const collapsedSelector = "[data-bigin-pipeline-shell] [data-pipeline-workspace][data-pipeline-team-collapsed='true']";
+    const inherited = { ...SHELL_CSS_VARS, ...biginGeometryCssVars('pipelines'),
+      ...rules("[data-slot='app-shell']"),
+      ...rules('[data-bigin-pipeline-shell] [data-pipeline-workspace]') } as Record<string, string>;
+    const pixel = (value: string, variables: Record<string, string>): number => {
+      const reference = /^var\((--[^)]+)\)$/.exec(value);
+      return reference ? pixel(variables[reference[1]], variables) : Number.parseFloat(value);
+    };
+    const rail = pixel(inherited['--app-sidebar-width'], inherited);
+    const expected = viewport === 1536 ? [295, 115, 295] : viewport === 390 ? [272, 114, 272] : [294, 114, 294];
+    expected.forEach((x, index) => {
+      const tree = page();
+      const collapsed = workspace(tree).props['data-pipeline-team-collapsed'];
+      expect(collapsed).toBe(index === 1);
+      const variables = { ...inherited, ...(collapsed ? rules(collapsedSelector) : {}) };
+      const padding = rules(collapsed ? collapsedSelector : '[data-pipeline-workspace]')['padding-left'];
+      const contentX = rail + pixel(padding, variables);
+      const inset = pixel(rules('[data-bigin-pipeline-shell] .pipeline-scroll')['padding-left'], variables);
+      expect(contentX + inset).toBe(x);
+      expect(pixel(variables['--pipeline-team-panel-width'], variables)).toBe(collapsed ? 0 : viewport === 390 ? 199 : 221);
+      expect(pixel(variables['--pipeline-column-width'], variables)).toBe(230);
+      expect(pixel(variables['--pipeline-card-width'], variables)).toBe(220);
+      expect(viewport - contentX).toBeGreaterThan(0);
+      expect(rules('[data-pipeline-workspace]').overflow).toBe('hidden');
+      expect(rules('[data-pipeline-content]')).toMatchObject({ 'min-width': '0', overflow: 'hidden' });
+      expect(rules('[data-bigin-pipeline-shell] .pipeline-scroll')).toMatchObject({ 'min-width': '0', 'overflow-x': 'auto' });
+      const control = rules('[data-pipeline-workspace] [data-pipeline-team-toggle]');
+      expect(control).toMatchObject({ position: 'absolute', bottom: '8px', width: '32px', height: '32px', display: 'inline-flex' });
+      const left = collapsed ? 5 : pixel(variables['--pipeline-team-panel-width'], variables) - 40;
+      expect(rail + left + 32).toBeLessThanOrEqual(contentX);
+      expect(toggle(tree).props['aria-expanded']).toBe(!collapsed);
+      if (index < 2) click(toggle(tree));
+    });
+    expect(rules("[data-pipeline-workspace][data-pipeline-team-collapsed='true'] [data-pipeline-team-panel]")).toMatchObject({ display: 'none', width: '0' });
+  });
+});
 
 describe('KM3.5.1F: nagłówek podłączony do istniejących akcji', () => {
   it.each([['Zadania', '/tasks'], ['Powiadomienia', '/notifications'], ['Ustawienia', '/settings']])('%s prowadzi do %s', (label, href) => {

@@ -177,7 +177,7 @@ export function PipelineBoard({
           <span aria-label="Liczba transakcji">{deals.length}</span>
         </div>
       ) : null}
-      <div className="pipeline-scroll flex min-w-0 gap-[0px] overflow-x-auto bg-[var(--bigin-bg)] pb-2 text-[var(--bigin-text)]" aria-label="Tablica transakcji" tabIndex={0}>
+      <div className="pipeline-scroll flex min-w-0 gap-[0px] overflow-x-auto bg-[var(--bigin-bg)] pb-2 text-[var(--bigin-text)] w-full max-w-full" aria-label="Tablica transakcji" tabIndex={0}>
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(
