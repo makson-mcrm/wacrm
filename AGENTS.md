@@ -75,10 +75,11 @@ techniczny, nie odbiór. Statusy ekranu: **ZGODNY I DZIAŁA** · **DZIAŁA CZĘ�
 
 ## 9. Stan na 09.11.2026
 
-- TEST: `test.makson.space` — build `01a1c09a-024c-73fa-8762-53627c470c71`, commit `061dc6d`.
+- TEST: `test.makson.space` — build `01a1c147-d6a1-7103-a37c-fc02f715f3d6` (completed 09.11 18:12), źródło: archiwum
+  `review-build/wacrm-i3.tgz` ze źródeł `907cf7d` (archiwum nie niesie numeru commita).
 - Produkcja: bez zmian — commit `0f7317df`, build `01a1aba4`.
-- Testy: 2235 PASS / 1 skipped / 0 FAIL; `tsc` 0 błędów.
-- Repo roboczy: `~/wacrm-a`, gałąź `k3/bigin-02b-20261105`.
+- Testy na `907cf7d`: 2239 PASS / 1 skipped / 0 FAIL (2240); `tsc` 0 błędów.
+- Repo roboczy: kanoniczne `~/wacrm-km2` (`main`); worktree aktywnej paczki `~/wacrm-a` (detached HEAD `907cf7d`).
 
 <!-- BEGIN:nextjs-agent-rules -->
 
