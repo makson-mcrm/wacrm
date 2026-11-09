@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { parse } from 'postcss';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pipelineSurfaceExtensions, surfaceFlags } from './surface-flags';
+import PipelinesPage from '@/app/(dashboard)/pipelines/page';
 import ContactsPage from '@/app/(dashboard)/contacts/page';
 import CompaniesPage from '@/app/(dashboard)/companies/page';
 import { CompanyCard } from '@/components/companies/company-card';
@@ -48,7 +49,9 @@ function globalDeclarations(selector: string) {
 
 // Render the real global provider: AppShell must only consume these values.
 let globalRoot: string;
+let defaultSurfaceFlags: typeof surfaceFlags;
 beforeAll(async () => {
+  defaultSurfaceFlags = (await vi.importActual<typeof import('./surface-flags')>('./surface-flags')).surfaceFlags;
   const html = renderToStaticMarkup(await RootLayout({ children: null }));
   globalRoot = html.match(/<html[^>]+>/)![0];
 });
@@ -180,7 +183,8 @@ function cardTabs(html: string) {
 beforeEach(() => {
   harness.cursor = 0;
   harness.states.clear();
-  harness.extensions = undefined;
+  // Explicit fallback mode keeps the Bigin-only regression checks independent of defaults.
+  harness.extensions = false;
   harness.pathname = '/contacts';
   harness.captureEffects = false;
   harness.effects = [];
@@ -189,11 +193,11 @@ beforeEach(() => {
 
 describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
   it.each(['contactsExtensions', 'companiesExtensions', 'dealsListExtensions'] as const)(
-    '%s jest domyślnie false', (flag) => expect(surfaceFlags[flag]).toBe(false)
+    '%s jest domyślnie true', (flag) => expect(defaultSurfaceFlags[flag]).toBe(true)
   );
 
   it('zachowuje flagę Lejka i inwentarz rozszerzeń list', () => {
-    expect(surfaceFlags.pipelineExtensions).toBe(false);
+    expect(defaultSurfaceFlags.pipelineExtensions).toBe(true);
     for (const label of ['Kontakty:', 'Firmy:', 'Lista transakcji:']) {
       expect(pipelineSurfaceExtensions.some((entry) => entry.startsWith(label))).toBe(true);
     }
@@ -361,7 +365,7 @@ describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
     expect([CARD_SIDEBAR_WIDTH, CARD_HEADER_HEIGHT, CARD_LEFT_PANEL_WIDTH, CARD_CONTENT_TOP, CARD_FIELD_ROW_HEIGHT,
       WEEK_GRID_HOUR_HEIGHT, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH]).toEqual([65, 49, 488, 148, 44, 56, 8, 18, 40]);
     expect(LIST_BANNER_HEIGHT + CARD_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT).toBe(CARD_CONTENT_TOP);
-    expect(surfaceFlags.cardExtensions).toBe(false);
+    expect(defaultSurfaceFlags.cardExtensions).toBe(true);
   });
 
   it.each(['/deals/deal-synthetic', '/calendar'])('dziedziczy globalną ramę i zachowuje białą powierzchnię na %s', (pathname) => {
@@ -558,8 +562,8 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     'dashboardExtensions',
     'tasksExtensions',
     'inboxExtensions',
-  ] as const)('%s jest domyślnie false', (flag) => {
-    expect(surfaceFlags[flag]).toBe(false);
+  ] as const)('%s jest domyślnie true', (flag) => {
+    expect(defaultSurfaceFlags[flag]).toBe(true);
   });
 
   it('zachowuje kontrakt 65/49/148/32 i wiersz Dzisiaj 44', () => {
@@ -799,11 +803,8 @@ describe('KM3.2.19 — wspólna rama siedmiu ekranów', () => {
     return [[12, true], [13, contact.id], [25, { ...contact, account_id: 'account-synthetic', description: 'Opis kontaktu', created_at: '2026-11-02T09:00:00+01:00' }], [26, false], [28, tab]];
   }
 
-  it('wszystkie flagi powierzchni są wyłączone', () => {
-    expect(surfaceFlags.activitiesExtensions).toBe(false);
-    for (const [key, value] of Object.entries(surfaceFlags)) {
-      if (key.endsWith('Extensions')) expect(value).toBe(false);
-    }
+  it('wszystkie flagi powierzchni są domyślnie włączone', () => {
+    for (const value of Object.values(defaultSurfaceFlags)) expect(value).toBe(true);
   });
 
   it('Aktywności mają pięć kolumn, rzeczywiste powiązania i właściciela', () => {
@@ -949,5 +950,64 @@ describe('KM3.2.26 — jedno globalne źródło wymiarów i palety', () => {
     const source = readFileSync(new URL(path, dashboard), 'utf8');
     expect(source).not.toMatch(/["']?--app-(?:sidebar-width(?:-collapsed)?|header-height|topbar-height)["']?\s*:/);
     expect(source).not.toMatch(/setProperty\(\s*["']--app-(?:sidebar-width|header-height|topbar-height)/);
+  });
+});
+
+
+describe('KM3.3.1 — dodatki widoczne domyślnie i zachowane pod flagami', () => {
+  beforeEach(() => {
+    // No override: these renders exercise the actual production defaults.
+    harness.extensions = undefined;
+    vi.stubGlobal('fetch', vi.fn(() => { throw new Error('Network forbidden in surface tests'); }));
+  });
+
+  it.each([
+    'pipelineExtensions', 'contactsExtensions', 'companiesExtensions',
+    'dealsListExtensions', 'cardExtensions', 'dashboardExtensions',
+    'activitiesExtensions', 'tasksExtensions', 'inboxExtensions', 'bankQualification',
+  ] as const)('%s jest true bez nadpisania w teście', (flag) => {
+    expect(defaultSurfaceFlags[flag]).toBe(true);
+    expect(surfaceFlags[flag]).toBe(true);
+  });
+
+  it.each([undefined, false, true])('Lejek renderuje KPI i filtry zgodnie z flagą %s', (override) => {
+    harness.extensions = override;
+    const html = render(PipelinesPage, [[4, false]]);
+    const enabled = override ?? defaultSurfaceFlags.pipelineExtensions;
+    const stats = html.match(/<section[^>]*aria-label="Statystyki lejka"[^>]*>([\s\S]*?)<\/section>/)?.[1] ?? '';
+    for (const label of ['Aktywne sprawy', 'Przychód TERAZ', 'Przychód PÓŹNIEJ', 'Z blockerem', 'Z next action']) {
+      expect(stats.includes(label)).toBe(enabled);
+    }
+    for (const label of ['Produkt', 'Tag', 'Bank', 'Priorytet']) {
+      expect(new RegExp(`<label[^>]*>${label}<select`).test(html)).toBe(enabled);
+    }
+    for (const label of ['Tylko przeterminowane', 'Bez next action', 'Więcej filtrów', 'Przeanalizuj lejek']) {
+      expect(html.includes(label)).toBe(enabled);
+    }
+    expect(html).toContain('Narzędzia tablicy transakcji');
+    expect(html).toContain('Wyszukaj transakcje');
+  });
+
+  it('Kontakty i karta kontaktu pokazują dodatki bez nadpisania flagi', () => {
+    const list = render(ContactsPage, [[0, [contact]], [2, false]]);
+    for (const label of ['TAG_EXTENSION', 'CUSTOM_FIELDS_EXTENSION', 'Eksportuj', 'Nowy kontakt / nieznany numer', 'Kluczowi']) expect(list).toContain(label);
+    expect(render(ContactsPage, [[12, true], [13, contact.id]])).toContain('LEGACY_CONTACT_EXTENSION');
+  });
+
+  it('Firmy pokazują istniejące kolumny dodatkowe bez nadpisania flagi', () => {
+    const html = render(CompaniesPage, [[0, [company]], [1, false]]);
+    for (const label of ['NIP_EXTENSION', 'PRIMARY_CONTACT_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale']) expect(html).toContain(label);
+  });
+
+  it('lista transakcji i karta deala pokazują dodatki bez nadpisania flagi', () => {
+    expect(render(DealsPage, [[2, false]])).toContain('Pojedyncze sprawy klientów.');
+    expect(render(DealPage, [[0, deal]])).toContain('Asystent AI');
+  });
+
+  it.each([
+    [DashboardPage, 'KM1.2'], [QuickCallPage, 'LEGACY_ACTIVITIES_EXTENSION'],
+    [TasksPage, 'KALENDARZ'], [InboxPage, 'Kanały Inbox:'],
+  ] as const)('%s pokazuje dodatek %s bez nadpisania flagi', (Page, marker) => {
+    expect(render(Page, [])).toContain(marker);
   });
 });

@@ -1,7 +1,7 @@
 /**
- * KM3.2.08 / KM3.2.09-A: powierzchnia Lejka 02B i list pokazuje rdzeń Bigin.
- * Po decyzji Tomasza ustaw odpowiednią flagę na true, aby przywrócić
- * dodatki danego ekranu w ich dotychczasowych miejscach.
+ * KM3.3.1 — Faza 2: decyzją Tomasza dodatki wszystkich ekranów są widoczne.
+ * Ustaw odpowiednią flagę na false, aby ukryć dodatki danego ekranu
+ * z zachowaniem ich kodu i dotychczasowych miejsc.
  * To przełącznik prezentacji; nie zmienia danych, zapytań ani uprawnień.
  */
 export const surfaceFlags: Readonly<{
@@ -16,15 +16,15 @@ export const surfaceFlags: Readonly<{
   inboxExtensions: boolean;
   bankQualification: boolean;
 }> = {
-  pipelineExtensions: false,
-  contactsExtensions: false,
-  companiesExtensions: false,
-  dealsListExtensions: false,
-  cardExtensions: false,
-  dashboardExtensions: false,
-  activitiesExtensions: false,
-  tasksExtensions: false,
-  inboxExtensions: false,
+  pipelineExtensions: true,
+  contactsExtensions: true,
+  companiesExtensions: true,
+  dealsListExtensions: true,
+  cardExtensions: true,
+  dashboardExtensions: true,
+  activitiesExtensions: true,
+  tasksExtensions: true,
+  inboxExtensions: true,
   bankQualification: true,
 };
 
