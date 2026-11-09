@@ -13,10 +13,12 @@ import TasksPage from '@/app/(dashboard)/tasks/page';
 import InboxPage from '@/app/(dashboard)/inbox/page';
 import { createRecordLinkHandlers } from '@/app/(dashboard)/deals/kanban-card';
 import { DealCard } from '@/components/pipelines/deal-card';
+import { PipelineBoard } from '@/components/pipelines/pipeline-board';
 import type { Company, Deal } from '@/types';
 import { AppShell } from '@/components/layout/app-shell';
 import {
   BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_PAGE_BG_PIPELINE, BRAND_PAGE_BG,
+  BRAND_HEADER_BG, BRAND_SIDEBAR_ACTIVE,
   BRAND_ROW_BG, BRAND_BORDER, BRAND_HOVER, BRAND_LINK, BRAND_INFO_BANNER,
   geometryCssVars, LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT,
   LIST_TOOLBAR_HEIGHT, LIST_TABLE_TOP, LIST_ROW_HEIGHT, LIST_HEADER_BACKGROUND,
@@ -673,6 +675,35 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
   });
 });
 
+
+describe('KM3.2.17 — rama Lejka', () => {
+  it('eksportuje kolory paska i aktywnej pozycji panelu', () => {
+    expect(BRAND_HEADER_BG).toBe('#093E52');
+    expect(BRAND_SIDEBAR_ACTIVE).toBe('#0B4A63');
+  });
+
+  it('stosuje białe ikony i tekst oraz dolną krawędź tylko w nagłówku Lejka', () => {
+    harness.pathname = '/pipelines';
+    const html = render(AppShell as ComponentType, []);
+    expect(html).toContain(`--list-header-background:${BRAND_HEADER_BG}`);
+    const pipelineHeader = html.match(/\[data-bigin-pipeline-shell\] > div > header \{([^}]+)\}/)?.[1];
+    for (const rule of ['background: var(--list-header-background)', 'color: #ffffff',
+      '--foreground: #ffffff', '--muted-foreground: #e6eef2',
+      'border-bottom: 1px solid var(--brand-sidebar-alt)']) expect(pipelineHeader).toContain(rule);
+    expect(html).toContain('[data-bigin-pipeline-shell] > div > header svg');
+    harness.pathname = '/settings';
+    expect(render(AppShell as ComponentType, [])).not.toContain('--muted-foreground: #e6eef2');
+  });
+
+  it.each([false, true])('nagłówek z licznikiem zależy od flagi rozszerzeń: %s', (enabled) => {
+    harness.extensions = enabled;
+    const html = renderToStaticMarkup(createElement(PipelineBoard, {
+      stages: [], deals: [deal], onDealMoved: vi.fn(), onAddDeal: vi.fn(), onEditDeal: vi.fn(),
+    }));
+    expect(html.includes('>Transakcje</h1>')).toBe(!enabled);
+    expect(html.includes('aria-label="Liczba transakcji">1</span>')).toBe(!enabled);
+  });
+});
 
 describe('KM3.2.14 — paleta Bigin', () => {
   it.each([

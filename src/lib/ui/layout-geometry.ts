@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react';
 // KM3.2.14 — measured Bigin palette; geometry remains unchanged.
 export const BRAND_SIDEBAR_BG = '#093E52';
 export const BRAND_SIDEBAR_BG_ALT = '#0B4A63';
+export const BRAND_HEADER_BG = '#093E52';
+export const BRAND_SIDEBAR_ACTIVE = '#0B4A63';
 export const BRAND_PAGE_BG_PIPELINE = '#F9FBFC';
 export const BRAND_PAGE_BG = '#FFFFFF';
 export const BRAND_ROW_BG = '#FCFDFD';

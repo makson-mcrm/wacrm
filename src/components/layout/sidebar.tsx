@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_BORDER, BRAND_LINK } from '@/lib/ui/layout-geometry';
+import { BRAND_SIDEBAR_BG, BRAND_SIDEBAR_ACTIVE, BRAND_BORDER, BRAND_LINK } from '@/lib/ui/layout-geometry';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -223,11 +223,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         )}
         style={{
           background: BRAND_SIDEBAR_BG,
-          '--sidebar-alt': BRAND_SIDEBAR_BG_ALT,
+          '--sidebar-alt': BRAND_SIDEBAR_ACTIVE,
           '--border': BRAND_BORDER,
           '--foreground': '#FFFFFF',
           '--muted-foreground': '#FFFFFF',
-          '--muted': BRAND_SIDEBAR_BG_ALT,
+          '--muted': BRAND_SIDEBAR_ACTIVE,
           '--primary': BRAND_LINK,
         } as React.CSSProperties}
         aria-label="Primary"

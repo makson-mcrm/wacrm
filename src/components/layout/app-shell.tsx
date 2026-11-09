@@ -13,8 +13,8 @@ import {
   geometryCssVars,
   BRAND_SIDEBAR_BG, BRAND_SIDEBAR_BG_ALT, BRAND_PAGE_BG, BRAND_PAGE_BG_PIPELINE,
   BRAND_BORDER, BRAND_HOVER, BRAND_LINK, BRAND_INFO_BANNER,
+  BRAND_HEADER_BG,
   LIST_HEADER_HEIGHT,
-  LIST_HEADER_BACKGROUND,
   LIST_TEXT_COLOR,
   PIPELINE_COLUMN_WIDTH,
   PIPELINE_COLUMN_GAP,
@@ -154,7 +154,7 @@ export function AppShell({ children }: AppShellProps) {
         ...geometryCssVars(isBiginList ? 'lists' : isPipeline ? 'pipelines' : 'default'),
         ...(isPipeline ? {
           '--app-header-height': `${LIST_HEADER_HEIGHT}px`,
-          '--list-header-background': LIST_HEADER_BACKGROUND,
+          '--list-header-background': BRAND_HEADER_BG,
           '--pipeline-column-width': `${PIPELINE_COLUMN_WIDTH}px`,
           '--pipeline-column-gap': `${PIPELINE_COLUMN_GAP}px`,
           '--pipeline-card-height': `${PIPELINE_CARD_HEIGHT}px`,
@@ -183,10 +183,13 @@ export function AppShell({ children }: AppShellProps) {
       {isPipeline && <style>{`
         [data-bigin-pipeline-shell] > div > header {
           background: var(--list-header-background);
-          color: white;
-          --foreground: white;
-          --muted-foreground: white;
-          border: 0;
+          color: #ffffff;
+          --foreground: #ffffff;
+          --muted-foreground: #e6eef2;
+          border-bottom: 1px solid var(--brand-sidebar-alt);
+        }
+        [data-bigin-pipeline-shell] > div > header svg {
+          color: #ffffff;
         }
         [data-bigin-pipeline-shell],
         [data-bigin-pipeline-shell] #main-content,

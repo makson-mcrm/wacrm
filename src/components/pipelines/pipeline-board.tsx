@@ -125,6 +125,14 @@ export function PipelineBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
+      {!surfaceFlags.pipelineExtensions ? (
+        <div className="flex items-baseline gap-2 text-slate-900">
+          <h1 className="text-sm font-semibold">Transakcje</h1>
+          <span className="text-xs text-slate-600" aria-label="Liczba transakcji">
+            {deals.length}
+          </span>
+        </div>
+      ) : null}
       <div className="space-y-2 bg-[#f9fbfc] text-slate-900 lg:hidden">
         <nav
           className="flex gap-2 overflow-x-auto pb-1"
