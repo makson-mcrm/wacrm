@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { DailyStartCard } from '@/components/layout/daily-start-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -749,11 +750,13 @@ export default function DashboardPage() {
             <p className="px-5 py-3 text-sm">Brak działań na dziś.</p>
           )}
         </div>
+        <DailyStartCard />
       </section>
     );
   }
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-5 lg:space-y-6">
+      <DailyStartCard />
       <p className="text-muted-foreground text-xs">
         KM1.2 — kontrola wdrożenia (v: 2026-10-11T18:45)
       </p>

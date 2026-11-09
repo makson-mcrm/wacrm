@@ -53,7 +53,8 @@ vi.mock('@/components/layout/account-access-alert', () => ({
   AccountAccessAlert: () => null,
 }));
 vi.mock('@/components/layout/daily-start-card', () => ({
-  DailyStartCard: () => null,
+  // Deliberately visible: a null mock hid the global overlay regression.
+  DailyStartCard: () => <div data-slot="daily-start-card" className="fixed inset-0">Nowy dzień</div>,
 }));
 vi.mock('@/components/layout/mobile-bottom-nav', () => ({
   MobileBottomNav: () => null,
@@ -70,6 +71,33 @@ vi.mock('@/components/layout/global-add', () => ({ GlobalAdd: () => null }));
 const render = async () => renderToStaticMarkup(await RootLayout({
   children: <AppShell><p>Treść syntetyczna</p></AppShell>,
 }));
+
+describe('KM3.5.1E: shell nie montuje nakładki Nowy dzień', () => {
+  it.each([390, 768, 1024, 1536])('Lejek pozostaje dostępny przy %i px', async (width) => {
+    vi.stubGlobal('window', { innerWidth: width });
+    try {
+      route.pathname = '/pipelines';
+      const html = await render();
+      expect(html).toContain('Treść syntetyczna');
+      expect(html).toContain('<aside');
+      expect(html).toContain('<header');
+      expect(html).not.toContain('data-slot="daily-start-card"');
+      expect(html).not.toContain('Nowy dzień');
+      expect(html).not.toContain('role="dialog"');
+      expect(html).not.toContain('aria-modal="true"');
+      const classes = [...html.matchAll(/class="([^"]*)"/g)].map((match) => match[1].split(/\s+/));
+      expect(classes.some((tokens) => tokens.includes('fixed') && tokens.includes('inset-0'))).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('wspólny shell nie importuje ani nie renderuje DailyStartCard', () => {
+    const source = readFileSync(new URL('./app-shell.tsx', import.meta.url), 'utf8');
+    expect(source).not.toContain('DailyStartCard');
+    expect(source).not.toContain('fixed inset-0');
+  });
+});
 
 describe('02A-5: geometria shellu, nagłówka i menu', () => {
   it.each(['/pipelines', '/contacts', '/companies', '/dashboard', '/calendar', '/quick-call', '/deals', '/finances', '/settings', '/agents', '/audyt-crm', '/future-synthetic-route'])(

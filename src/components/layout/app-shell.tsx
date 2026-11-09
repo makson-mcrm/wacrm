@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
-import { DailyStartCard } from '@/components/layout/daily-start-card';
 import { Header } from '@/components/layout/header';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -120,7 +119,6 @@ export function AppShell({ children }: AppShellProps) {
       }}
     >
       <PresenceHeartbeat />
-      <DailyStartCard />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden [&>header]:h-[var(--app-topbar-height)]">
         <Header />
