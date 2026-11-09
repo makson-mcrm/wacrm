@@ -511,7 +511,7 @@ async function mountCard() {
   await vi.waitFor(() => {
     render();
     const card = nodes().find((node) =>
-      harness.extensions === false
+      harness.extensions !== true
         ? 'data-bigin-deal-card' in node.props
         : node.type === 'h1' && node.props.children === 'Sprawa syntetyczna Alfa'
     );
@@ -528,7 +528,7 @@ async function mountCard() {
 
 async function editCard() {
   invoke(
-    harness.extensions === false
+    harness.extensions !== true
       ? find('aria-label', 'Edytuj transakcję')
       : find('children', 'Zmień deal'),
     'onClick'
@@ -584,8 +584,12 @@ describe('KM3.2.21: firma, nazwa deala i kontakt na karcie Lejka', () => {
 });
 
 describe('K3: kartoteka /deals/[id]', () => {
-  it.each([undefined, false, true])('odczytuje dane, zmienia etap i zachowuje następny krok po powrocie, flaga %s', async (extensions) => {
-    harness.extensions = extensions;
+  it.each([
+    { mode: 'domyślna powierzchnia', extensions: false, override: undefined },
+    { mode: 'jawnie ukryte dodatki', extensions: false, override: false },
+    { mode: 'włączone dodatki', extensions: true, override: true },
+  ])('odczytuje dane, zmienia etap i zachowuje następny krok po powrocie: $mode, flaga $extensions', async ({ extensions, override }) => {
+    harness.extensions = override;
     await mount();
     fillNew();
     await save();
@@ -610,6 +614,8 @@ describe('K3: kartoteka /deals/[id]', () => {
     render();
     await save();
     expect(tables.deals[0].stage_id).toBe('stage-1');
+    // The query double does not join pipeline_stages; supply the saved relation.
+    tables.deals[0].stage = { ...stages[1] };
     await mountCard();
     await editCard();
     field('Następne działanie', 'Syntetyczny telefon z kartoteki');
@@ -620,10 +626,20 @@ describe('K3: kartoteka /deals/[id]', () => {
       next_action_at: '2026-07-06T08:30:00.000Z',
     });
     await mountCard();
+    expect(nodes().some(
+      (node) => node.type === 'h1' && node.props.children === 'Sprawa syntetyczna Alfa'
+    )).toBe(true);
+    if (!extensions) {
+      const fields = nodes().filter((node) => node.type === 'dd');
+      expect(fields.some((node) => node.props.children === 'Sprawa syntetyczna Alfa')).toBe(true);
+      expect(fields.some((node) => node.props.children === stages[1].name)).toBe(true);
+      expect(fields.some((node) => node.props.children === 'Syntetyczny telefon z kartoteki')).toBe(true);
+      expect(nodes().some((node) => node.props.placeholder === 'Co robimy dalej?')).toBe(false);
+    }
     expect(
       nodes().some(
         (node) =>
-          (harness.extensions === false
+          (extensions === false
             ? node.type === 'dd' && node.props.children === 'Syntetyczny telefon z kartoteki'
             : node.props.placeholder === 'Co robimy dalej?' && node.props.value === 'Syntetyczny telefon z kartoteki')
       )
@@ -631,6 +647,7 @@ describe('K3: kartoteka /deals/[id]', () => {
     expect(
       nodes().find((node) => node.type === DealForm)?.props.deal
     ).toMatchObject({
+      title: 'Sprawa syntetyczna Alfa',
       contact_id: contactId,
       stage_id: 'stage-1',
       description: 'Opis syntetyczny',

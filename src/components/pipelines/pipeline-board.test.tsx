@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/postcss';
 import type { Deal, PipelineStage } from '@/types';
 import { PipelineBoard } from './pipeline-board';
 import { DealCard } from './deal-card';
+import PipelinesPage from '@/app/(dashboard)/pipelines/page';
 import { MOBILE_BREAKPOINT, MOBILE_STAGE_TAB_HEIGHT } from '@/lib/ui/layout-geometry';
 
 // Exercise the board's click handlers in the existing Node test environment.
@@ -51,6 +52,12 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('@/hooks/use-can', () => ({ useCan: () => true }));
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({ from: () => { throw new Error('Database forbidden in synthetic board tests'); } }),
+}));
+vi.mock('@/components/pipelines/pipeline-settings', () => ({ PipelineSettings: () => null }));
+vi.mock('@/components/pipelines/deal-form', () => ({ DealForm: () => null }));
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: ReactNode }) => children,
   DragOverlay: ({ children }: { children: ReactNode }) => children,
@@ -171,10 +178,10 @@ describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
     expect(html.includes('Dodaj deal')).toBe(enabled);
   });
 
-  it.each([undefined, false, true])('pokazuje dodatki domyślnie i według flagi %s na mobile i desktop, zachowując rdzeń', (override) => {
+  it.each([undefined, false, true])('domyślnie ukrywa dodatki i respektuje flagę %s na mobile i desktop, zachowując rdzeń', (override) => {
     flags.extensions = override;
-    const enabled = override !== false;
-    const html = render([{
+    const enabled = override ?? false;
+    const deals = [{
       id: 'deal-default',
       title: 'Sprawa syntetyczna',
       stage_id: 'stage-0',
@@ -183,7 +190,28 @@ describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
       value: 25000,
       currency: 'PLN',
       created_at: '2026-11-01T12:00:00Z',
-    } as Deal]);
+    } as Deal];
+    // Seed the loaded workspace; SSR does not run its database effects.
+    state.active = true;
+    state.cursor = 0;
+    state.cells = [
+      [{ id: 'pipeline-synthetic', name: 'Lejek syntetyczny' }],
+      'pipeline-synthetic', stages,
+      deals.map((deal) => ({ ...deal, tagNames: [], bankNames: [] })),
+      false,
+    ];
+    let html: string;
+    try {
+      html = renderToStaticMarkup(<PipelinesPage />);
+    } finally {
+      state.active = false;
+    }
+    for (const label of [
+      'Aktywne sprawy', 'Przychód TERAZ', 'Przychód PÓŹNIEJ', 'Z blockerem', 'Z next action',
+      'Produkt', 'Tag', 'Bank', 'Priorytet', 'Tylko przeterminowane', 'Bez next action', 'Więcej filtrów',
+    ]) {
+      expect(html.includes(label)).toBe(enabled);
+    }
     expect(desktop(html).match(/data-pipeline-column=/g)).toHaveLength(6);
     const cards = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) ?? [];
     expect(cards).toHaveLength(2); // rzeczywiste karty desktop i mobile
