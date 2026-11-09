@@ -223,11 +223,28 @@ describe('K3-N4: minimalna struktura lejka 04A', () => {
     'łączy nazwę, sumę i licznik danego etapu: %s',
     (viewport) => {
       const html = boardViews(renderPage())[viewport];
+      if (viewport === 'mobile') {
+        const tabs = html.match(/<nav\b[^>]*aria-label="Etapy lejka"[^>]*>[\s\S]*?<\/nav>/)?.[0];
+        expect(tabs).toBeDefined();
+        expect(tabs).toContain('overflow-x-auto');
+        expect(tabs!.match(/aria-current="step"/g)).toHaveLength(1);
+        expect(tabs).toContain('aria-current="step">Kontakt syntetyczny<span>2</span>');
+        expect(textContent(tabs!)).toBe(
+          'Kontakt syntetyczny 2 Oferta syntetyczna 1 Pusty etap 0'
+        );
+        expect(html.match(/<section\b[^>]*data-stage-color=/g)).toHaveLength(1);
+        expect(html.match(/<article\b[^>]*data-pipeline-deal/g)).toHaveLength(2);
+        expect(html).toContain('/deals/deal-0');
+        expect(html).toContain('/deals/deal-1');
+        expect(html).not.toContain('/deals/deal-2');
+        expect(html).not.toContain('data-pipeline-column=');
+        expect(html).toMatch(/<div[^>]*class="[^"]*md:hidden[^"]*"/);
+      }
       const header =
         viewport === 'mobile'
           ? html.match(
-              /<button[^>]*aria-expanded="true"[^>]*>([\s\S]*?)<\/button>/
-            )?.[0]
+              /<section\b[^>]*data-stage-color[^>]*>[\s\S]*?(<div class="flex w-full[^>]*>[\s\S]*?<\/div>)/
+            )?.[1]
           : html.match(
               /<div[^>]*data-stage-header[^>]*>([\s\S]*?)<\/div>/
             )?.[0];
@@ -587,9 +604,20 @@ describe('K3-02B-04: białe karty i jasny obszar tablicy', () => {
       const board =
         viewport === 'desktop'
           ? html.match(/<div class="pipeline-scroll[^"]*"/)?.[0]
-          : html.match(/<div class="space-y-2[^"]*"/)?.[0];
+          : html.match(/<div class="[^"]*md:hidden[^"]*"/)?.[0];
       expect(board).toContain('bg-[#f9fbfc]');
-      const cards = html.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
+      const stage = viewport === 'mobile'
+        ? html.match(/<section\b[^>]*data-stage-color[^>]*>[\s\S]*?<\/section>/)?.[0]
+        : html;
+      if (viewport === 'mobile') {
+        expect(stage).toBeDefined();
+        expect(stage).toContain('title="Kontakt syntetyczny"');
+        expect(stage).toContain('/deals/deal-0');
+        expect(stage).toContain('/deals/deal-1');
+        expect(stage).not.toContain('/deals/deal-2');
+        expect(html).not.toContain('data-pipeline-column=');
+      }
+      const cards = stage?.match(/<article\b[^>]*data-pipeline-deal[^>]*>/g) ?? [];
       expect(cards).toHaveLength(viewport === 'desktop' ? deals.length : 2);
       for (const card of cards) {
         expect(card).toContain('bg-white');
