@@ -196,7 +196,8 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     expect(sidebar).not.toContain('lg:w-40');
     expect(header).toContain('min-h-[var(--app-header-height)]');
     expect(header).toContain('md:h-[var(--app-header-height)]');
-    expect(logo).toContain('h-[var(--app-header-height)]');
+    expect(logo).toContain('h-[var(--app-topbar-height)]');
+    expect(html).toContain('[&amp;&gt;header]:h-[var(--app-topbar-height)]');
 
     const require = createRequire(import.meta.url);
     const compiler = await compile(
@@ -244,7 +245,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     });
     expect(rules).toContainEqual({
       property: 'height',
-      value: 'var(--app-header-height)',
+      value: 'var(--app-topbar-height)',
       media: undefined,
     });
   });
@@ -381,5 +382,24 @@ describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
     expect(html).toContain('--sidebar-alt:var(--bigin-accent)');
     expect(html).toContain('--foreground:var(--bigin-panel-text)');
     expect(html).not.toMatch(/#(?:093e52|0b4a63|245247|173a52)\b/i);
+  });
+});
+
+
+describe('KM3.2.26 — tokeny panelu nawigacji', () => {
+  it('źródła shellu i sidebaru nie zawierają emerald ani ring-white', () => {
+    for (const path of ['./app-shell.tsx', './sidebar.tsx']) {
+      const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+      expect(source).not.toMatch(/emerald|ring-white/);
+    }
+  });
+  it.each([false, true])('panel używa tokenów Bigin także po zwinięciu: %s', (collapsed) => {
+    const html = renderToStaticMarkup(<Sidebar collapsed={collapsed} />);
+    const aside = html.match(/<aside[\s\S]*?<\/aside>/)![0];
+    expect(aside).toContain('background:var(--bigin-panel)');
+    expect(aside).toContain('bg-[var(--bigin-accent)]');
+    expect(aside).toContain('text-[var(--bigin-panel-text)]');
+    expect(aside).toContain('border-[var(--bigin-border)]');
+    expect(aside).not.toMatch(/(?:bg|text|border|ring)-(?:emerald|amber|slate|white|primary|card|foreground|muted)/);
   });
 });

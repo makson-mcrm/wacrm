@@ -47,26 +47,26 @@ const ROLE_CHIP: Record<
   owner: {
     icon: Crown,
     labelKey: 'roleOwner',
-    // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+    // Role icons and labels distinguish permissions within the shared palette.
+    className: 'border-[var(--bigin-border)] bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]',
   },
   admin: {
     icon: Shield,
     labelKey: 'roleAdmin',
-    // Primary-tinted: significant but not as scarce as owner.
-    className: 'border-primary/40 bg-[var(--sidebar-alt)] text-white',
+    // Shared navigation palette.
+    className: 'border-[var(--bigin-border)] bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]',
   },
   agent: {
     icon: UserCog,
     labelKey: 'roleAgent',
-    // Neutral slate: the operational default.
-    className: 'border-border bg-muted text-foreground',
+    // Operational default.
+    className: 'border-[var(--bigin-border)] bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]',
   },
   viewer: {
     icon: User,
     labelKey: 'roleViewer',
-    // Muted slate: read-only role; visually quieter than agent.
-    className: 'border-border bg-card text-muted-foreground',
+    // Read-only role.
+    className: 'border-[var(--bigin-border)] bg-[var(--bigin-panel)] text-[var(--bigin-panel-text)]',
   },
 };
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -204,7 +204,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
         aria-label={t('closeMenu')}
         onClick={onClose}
         className={cn(
-          'bg-background/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
+          'bg-[var(--bigin-panel)]/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
           open
             ? 'pointer-events-auto opacity-100'
             : 'pointer-events-none opacity-0'
@@ -215,7 +215,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
         data-collapsed={collapsed || undefined}
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
-          'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col border-r',
+          'border-[var(--bigin-border)] bg-[var(--bigin-panel)] fixed inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col border-r',
           collapsed ? 'w-[var(--app-sidebar-width-collapsed)]' : 'w-[var(--app-sidebar-width)]',
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
@@ -235,18 +235,18 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="border-border flex h-[var(--app-header-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
+        <div className="border-[var(--bigin-border)] flex h-[var(--app-topbar-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sidebar-alt)] text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]">
               <Sparkles className="h-4 w-4" />
             </div>
-            <span className="text-foreground text-sm font-black">mCRM AI</span>
+            <span className="text-[var(--bigin-panel-text)] text-sm font-black">mCRM AI</span>
           </Link>
           <button
             type="button"
             onClick={onClose}
             aria-label={t('closeMenu')}
-            className="text-white hover:bg-[var(--sidebar-alt)] hover:text-white flex size-11 items-center justify-center rounded-lg lg:hidden"
+            className="text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)] flex size-11 items-center justify-center rounded-lg lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -280,8 +280,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-[var(--sidebar-alt)] text-white'
-                        : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
+                        ? 'bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]'
+                        : 'text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)]'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -291,7 +291,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                     {item.beta && (
                       <span
                         aria-label={t('beta')}
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs font-semibold tracking-wider text-amber-200 uppercase"
+                        className="rounded-full border border-[var(--bigin-border)] bg-[var(--bigin-accent)] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-[var(--bigin-panel-text)] uppercase"
                       >
                         {t('beta')}
                       </span>
@@ -303,8 +303,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                         })}
                         className="relative flex h-2 w-2"
                       >
-                        <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                        <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                        <span className="bg-[var(--bigin-accent)] absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                        <span className="bg-[var(--bigin-accent)] relative inline-flex h-2 w-2 rounded-full" />
                       </span>
                     )}
                     {showNotificationBadge && (
@@ -312,13 +312,13 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                         aria-label={t('unreadNotifications', {
                           count: unreadNotifications,
                         })}
-                        className="bg-primary text-primary-foreground flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold"
+                        className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold"
                       >
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
                     {showSubmissionBadge && (
-                      <span className="bg-primary text-primary-foreground min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold">
+                      <span className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold">
                         {unhandledSubmissions > 99
                           ? '99+'
                           : unhandledSubmissions}
@@ -331,7 +331,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
           </ul>
 
           <details className="mt-4 rounded-lg border">
-            <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold">
+            <summary className="text-[var(--bigin-panel-text)] flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold">
               <ChevronDown className="size-3.5" /> NARZĘDZIA DODATKOWE
             </summary>
             <ul className="flex flex-col gap-1 border-t p-2">
@@ -353,8 +353,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                       className={cn(
                         'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors lg:min-h-0',
                         isActive
-                          ? 'bg-[var(--sidebar-alt)] text-white'
-                          : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
+                          ? 'bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]'
+                          : 'text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)]'
                       )}
                     >
                       <item.icon className="size-4" />
@@ -362,7 +362,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                         {item.label || t(item.labelKey as string)}
                       </span>
                       {badge > 0 ? (
-                        <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs">
+                        <span className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] rounded-full px-1.5 text-xs">
                           {badge > 99 ? '99+' : badge}
                         </span>
                       ) : null}
@@ -373,7 +373,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
             </ul>
           </details>
 
-          <div className="border-border my-4 border-t" />
+          <div className="border-[var(--bigin-border)] my-4 border-t" />
 
           <ul className="flex flex-col gap-1">
             {bottomNavItems.map((item) => {
@@ -385,8 +385,8 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-[var(--sidebar-alt)] text-white'
-                        : 'text-white hover:bg-[var(--sidebar-alt)] hover:text-white'
+                        ? 'bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]'
+                        : 'text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)]'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -399,7 +399,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
         </nav>
 
         {/* User section */}
-        <div className="border-border shrink-0 border-t p-3">
+        <div className="border-[var(--bigin-border)] shrink-0 border-t p-3">
           {/* Account name display — surfaced only when the account
               name differs from the user's own name (see
               `showAccountStrip`). For a default solo account the two
@@ -407,7 +407,7 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
               below; for renamed or shared accounts it tells the user
               which account they're acting in. */}
           {showAccountStrip && account?.name ? (
-            <div className="text-muted-foreground mb-2 flex items-center gap-2 px-3 text-xs">
+            <div className="text-[var(--bigin-panel-text)] mb-2 flex items-center gap-2 px-3 text-xs">
               <UsersRound className="size-3.5 shrink-0" />
               {/* `title=` exposes the full name on hover when it
                   gets truncated (long account names + narrow
@@ -443,17 +443,17 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
                   alt={profile.full_name ?? t('defaultAvatar')}
                 />
               ) : null}
-              <AvatarFallback className="bg-[var(--sidebar-alt)] text-white text-sm font-medium">
+              <AvatarFallback className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] text-sm font-medium">
                 {profile?.full_name?.charAt(0)?.toUpperCase() ??
                   profile?.email?.charAt(0)?.toUpperCase() ??
                   'U'}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="text-foreground truncate text-sm font-medium">
+              <p className="text-[var(--bigin-panel-text)] truncate text-sm font-medium">
                 {profile?.full_name ?? t('defaultUser')}
               </p>
-              <p className="text-muted-foreground truncate text-xs">
+              <p className="text-[var(--bigin-panel-text)] truncate text-xs">
                 {profile?.email ?? ''}
               </p>
             </div>
