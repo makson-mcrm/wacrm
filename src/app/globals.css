@@ -427,6 +427,8 @@ body {
 }
 
 [data-slot='app-shell'] {
+  width: 100%;
+  min-width: 0;
   background: var(--bigin-bg);
 }
 
@@ -603,6 +605,8 @@ body {
   width: var(--app-sidebar-width);
   flex-basis: var(--app-sidebar-width);
   transform: none;
+  translate: none;
+  flex-shrink: 0;
   border: 0;
 }
 [data-bigin-compact-shell] > button[aria-label] { display: none; }
@@ -649,7 +653,12 @@ body {
   padding: 0;
   overflow: hidden;
 }
-[data-pipeline-workspace] { padding-left: var(--pipeline-team-panel-width); }
+[data-pipeline-workspace] {
+  min-width: 0;
+  overflow: hidden;
+  padding-left: var(--pipeline-team-panel-width);
+}
+[data-pipeline-content] { min-width: 0; overflow: hidden; }
 [data-pipeline-team-panel] {
   position: absolute;
   inset: 0 auto 0 0;
@@ -671,12 +680,15 @@ body {
   min-height: var(--pipeline-toolbar-button-height);
   white-space: nowrap;
 }
-[data-pipeline-toolbar] > label { flex-shrink: 0; }
+[data-pipeline-toolbar] label { flex-shrink: 0; }
 [data-pipeline-toolbar] > details[open] { display: flex; align-items: center; gap: 8px; }
-[data-pipeline-toolbar] > details[open] > label { flex-shrink: 0; }
+[data-pipeline-compact-filters] { display: none; }
+[data-pipeline-filter-popover] > label { flex-shrink: 0; }
 [data-bigin-pipeline-shell] .pipeline-scroll {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow-x: auto;
   padding-left: var(--content-pad-x);
   padding-right: var(--content-pad-x);
   overscroll-behavior-x: contain;
@@ -690,26 +702,78 @@ body {
   flex-shrink: 0;
 }
 [data-bigin-pipeline-cards] [data-pipeline-deal] > span[aria-hidden] { display: none; }
-@media (max-width: 767px) {
+/* KM3.5.1D — LIVE chrome breakpoint, independent of bottom navigation. */
+@media (max-width: 1280px) {
   [data-slot='app-shell'] {
     --app-topbar-height: var(--app-mobile-topbar-height);
     --app-sidebar-width: var(--app-mobile-sidebar-width);
     --app-sidebar-width-collapsed: var(--app-mobile-sidebar-width);
   }
-  [data-bigin-pipeline-shell] {
-    --bigin-font-size: 12.6px;
-  }
   /* Override inherited defaults below the shell's inline geometry tokens. */
   [data-bigin-pipeline-shell] [data-pipeline-workspace] {
-    --pipeline-team-panel-width: var(--pipeline-mobile-team-panel-width);
     --pipeline-toolbar-height: var(--pipeline-mobile-toolbar-height);
     --pipeline-toolbar-button-height: var(--pipeline-mobile-toolbar-button-height);
+  }
+
+  [data-bigin-pipeline-shell] > div > header { --bigin-font-size: 12.6px; font-size: var(--bigin-font-size); }
+  [data-bigin-pipeline-shell] > div > header a[aria-label='mCRM AI — DZISIAJ'] > span { font-size: inherit; }
+}
+/* Compact controls retain their menus; only their labels collapse. */
+@media (max-width: 1280px) {
+  [data-slot='app-shell'] > div > header { gap: 8px; padding-inline: 8px; }
+  [data-slot='app-shell'] > div > header > div:first-child { flex-shrink: 0; }
+  [data-slot='app-shell'] > div > header a[aria-label='mCRM AI — DZISIAJ'] { display: flex; }
+  [data-slot='app-shell'] > div > header a[aria-label='mCRM AI — DZISIAJ'] > span:last-child,
+  [data-header-account-name],
+  [data-header-account-actions] button[aria-label='Dodaj w mCRM'] > span:last-child { display: none; }
+  [data-header-actions], [data-header-account-actions] { display: flex; flex-shrink: 0; gap: 4px; }
+  [data-header-account-actions] > button { padding-inline: 4px; }
+  [data-slot='app-shell'] > div > header > div > :is(a, button),
+  [data-header-account-actions] > button { height: 29px; min-height: 0; }
+  [data-header-account-actions] [data-slot='avatar'] { width: 28px; height: 28px; }
+  [data-slot='app-shell'] > div > header .mobile-global-search { padding-inline: 0; }
+  [data-slot='app-shell'] > div > header input { height: 29px; min-width: 0; font-size: 12.6px; }
+  [data-pipeline-toolbar] { min-width: 0; gap: 4px; padding-inline: 5px; }
+  [data-pipeline-wide-filters] { display: none; }
+  [data-pipeline-compact-filters] { display: grid; gap: 12px; }
+  [data-pipeline-compact-filters] label { flex-wrap: wrap; min-width: 0; }
+  [data-pipeline-compact-filters] select { width: 100%; max-width: 100%; }
+  [data-pipeline-filter-menu] > summary { width: 29px; justify-content: center; }
+  [data-pipeline-toolbar] > details[open] { display: block; }
+  [data-pipeline-filter-menu][open] [data-pipeline-filter-popover] {
+    position: fixed;
+    top: calc(var(--app-topbar-height) + var(--pipeline-toolbar-height));
+    right: 8px;
+    z-index: 30;
+    display: grid;
+    gap: 12px;
+    width: min(280px, calc(100vw - var(--app-sidebar-width) - 16px));
+    max-height: calc(100dvh - 180px);
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid var(--bigin-border);
+    border-radius: 8px;
+    background: var(--bigin-surface);
+    box-shadow: 0 4px 12px #0002;
+  }
+  [data-pipeline-filter-popover] > label { width: 100%; }
+  [data-pipeline-toolbar] :is([data-pipeline-more], [aria-label='Dodaj transakcję']) {
+    width: 29px;
+    min-width: 29px;
+    flex-shrink: 0;
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  [data-pipeline-more] > span, [data-pipeline-toolbar] [aria-label='Dodaj transakcję'] > span { display: none; }
+}
+@media (max-width: 767px) {
+  [data-bigin-pipeline-shell] [data-pipeline-workspace] {
+    --pipeline-team-panel-width: var(--pipeline-mobile-team-panel-width);
   }
   [data-bigin-pipeline-shell] #main-content {
     margin-bottom: calc(56px + env(safe-area-inset-bottom));
   }
-  [data-bigin-pipeline-shell] > div > header { font-size: var(--bigin-font-size); }
-  [data-bigin-pipeline-shell] > div > header a[aria-label='mCRM AI — DZISIAJ'] > span { font-size: inherit; }
 }
 [data-pipeline-extensions] [data-pipeline-content] { overflow-y: auto; }
 [data-pipeline-extensions] .pipeline-scroll {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COMPACT_SHELL_MAX_WIDTH,
+  MOBILE_BREAKPOINT,
   APP_SIDEBAR_WIDTH,
   PIPELINE_SIDEBAR_WIDTH,
   PIPELINE_CONTENT_PADDING_X,
@@ -79,6 +81,15 @@ describe('KM3.5.1: geometria zalogowanego Bigin', () => {
     expect([MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH]).toEqual([43, 63]);
     expect([PIPELINE_TOOLBAR_BUTTON_HEIGHT, PIPELINE_MOBILE_TOOLBAR_BUTTON_HEIGHT]).toEqual([32, 29]);
     expect(MOBILE_SIDEBAR_WIDTH + PIPELINE_MOBILE_TEAM_PANEL_WIDTH + PIPELINE_CONTENT_PADDING_X).toBe(272);
+  });
+
+  it('oddziela zmierzony próg kompaktowej ramy od dolnej nawigacji', () => {
+    expect(COMPACT_SHELL_MAX_WIDTH).toBe(1280);
+    expect(MOBILE_BREAKPOINT).toBe(768);
+    expect(SHELL_CSS_VARS).toMatchObject({
+      '--app-mobile-topbar-height': '43px',
+      '--app-mobile-sidebar-width': '63px',
+    });
   });
 
   it('zwraca typowane zmienne CSS gotowe do dziedziczenia z shellu', () => {

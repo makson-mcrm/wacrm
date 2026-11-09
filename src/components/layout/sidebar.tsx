@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -31,7 +30,6 @@ import {
   Users,
   UsersRound,
   Workflow,
-  X,
   Zap,
 } from 'lucide-react';
 import type { AccountRole } from '@/lib/auth/roles';
@@ -145,14 +143,11 @@ const bottomNavItems = [
 
 interface SidebarProps {
   collapsed?: boolean;
-  /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
-  open?: boolean;
-  onClose?: () => void;
 }
 
 import { useTranslations } from 'next-intl';
 
-export function Sidebar({ open = false, collapsed = false, onClose }: SidebarProps) {
+export function Sidebar({ collapsed = false }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole } = useAuth();
@@ -170,165 +165,112 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
   const showAccountStrip =
     !profileLoading && !!account?.name && account.name !== profile?.full_name;
 
-  // Close the drawer when route changes — users opened it to navigate,
-  // so once they pick a destination the drawer should get out of the way.
-  useEffect(() => {
-    onClose?.();
-    // Only pathname drives this — onClose identity doesn't need to re-run it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  // Lock body scroll and allow Escape to close while the drawer is open on
-  // mobile. No-ops on desktop because the sidebar isn't positioned there.
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
-
   return (
-    <>
-      {/* Backdrop — only exists on mobile and only when open. Clicking
-          it closes the drawer. Hidden from lg+ since the sidebar is
-          part of the main flex row there. */}
-      <button
-        type="button"
-        aria-label={t('closeMenu')}
-        onClick={onClose}
-        className={cn(
-          'bg-[var(--bigin-panel)]/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
-          open
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0'
-        )}
-      />
+    <aside
+      data-collapsed={collapsed || undefined}
+      className={cn(
+        // The rail participates in the flex row at every viewport width.
+        'border-[var(--bigin-border)] bg-[var(--bigin-panel)] relative z-20 flex h-full shrink-0 flex-col border-r',
+        collapsed ? 'w-[var(--app-sidebar-width-collapsed)]' : 'w-[var(--app-sidebar-width)]'
+      )}
+      style={{
+        background: 'var(--bigin-panel)',
+        '--sidebar-alt': 'var(--bigin-accent)',
+        '--border': 'var(--bigin-border)',
+        '--foreground': 'var(--bigin-panel-text)',
+        '--muted-foreground': 'var(--bigin-panel-text)',
+        '--muted': 'var(--bigin-accent)',
+        '--primary': 'var(--bigin-accent)',
+      } as React.CSSProperties}
+      aria-label="Primary"
+    >
+      {/* Shared rail logo. */}
+      <div className="border-[var(--bigin-border)] flex h-[var(--app-topbar-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <span className="text-[var(--bigin-panel-text)] text-sm font-black">mCRM AI</span>
+        </Link>
+      </div>
 
-      <aside
-        data-collapsed={collapsed || undefined}
-        className={cn(
-          // Mobile: fixed drawer that slides in from the left.
-          'border-[var(--bigin-border)] bg-[var(--bigin-panel)] fixed inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col border-r',
-          collapsed ? 'w-[var(--app-sidebar-width-collapsed)]' : 'w-[var(--app-sidebar-width)]',
-          'transition-transform duration-200 ease-out will-change-transform',
-          open ? 'translate-x-0' : '-translate-x-full',
-          // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:translate-x-0 lg:transition-none'
-        )}
-        style={{
-          background: 'var(--bigin-panel)',
-          '--sidebar-alt': 'var(--bigin-accent)',
-          '--border': 'var(--bigin-border)',
-          '--foreground': 'var(--bigin-panel-text)',
-          '--muted-foreground': 'var(--bigin-panel-text)',
-          '--muted': 'var(--bigin-accent)',
-          '--primary': 'var(--bigin-accent)',
-        } as React.CSSProperties}
-        aria-label="Primary"
-      >
-        {/* Logo row. On mobile we put a close button here; on desktop the
-            close button is hidden since the sidebar is always-visible. */}
-        <div className="border-[var(--bigin-border)] flex h-[var(--app-topbar-height)] shrink-0 items-center justify-between gap-2 border-b px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <span className="text-[var(--bigin-panel-text)] text-sm font-black">mCRM AI</span>
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('closeMenu')}
-            className="text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)] flex size-11 items-center justify-center rounded-lg lg:hidden"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      {/* Main navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ul className="flex flex-col gap-1">
+          {navItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
-        {/* Main navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const showUnreadDot =
+              item.href === '/inbox' && totalUnread > 0 && !isActive;
 
-              const showUnreadDot =
-                item.href === '/inbox' && totalUnread > 0 && !isActive;
+            // Unlike the inbox dot, the notifications count stays visible
+            // even while the page is active — it reflects unread state
+            // (cleared by marking notifications read), not "currently
+            // viewing this section".
+            const showNotificationBadge =
+              item.href === '/notifications' && unreadNotifications > 0;
+            const showSubmissionBadge =
+              item.href === '/submissions' && unhandledSubmissions > 0;
 
-              // Unlike the inbox dot, the notifications count stays visible
-              // even while the page is active — it reflects unread state
-              // (cleared by marking notifications read), not "currently
-              // viewing this section".
-              const showNotificationBadge =
-                item.href === '/notifications' && unreadNotifications > 0;
-              const showSubmissionBadge =
-                item.href === '/submissions' && unhandledSubmissions > 0;
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    title={item.label || t(item.labelKey as string)}
-                    aria-label={item.label || t(item.labelKey as string)}
-                    className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]'
-                        : 'text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)]'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">
-                      {item.label || t(item.labelKey as string)}
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  title={item.label || t(item.labelKey as string)}
+                  aria-label={item.label || t(item.labelKey as string)}
+                  className={cn(
+                    // Taller on mobile so fingers can hit the row reliably (≥44px).
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                    isActive
+                      ? 'bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)]'
+                      : 'text-[var(--bigin-panel-text)] hover:bg-[var(--bigin-accent)] hover:text-[var(--bigin-panel-text)]'
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1">
+                    {item.label || t(item.labelKey as string)}
+                  </span>
+                  {item.beta && (
+                    <span
+                      aria-label={t('beta')}
+                      className="rounded-full border border-[var(--bigin-border)] bg-[var(--bigin-accent)] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-[var(--bigin-panel-text)] uppercase"
+                    >
+                      {t('beta')}
                     </span>
-                    {item.beta && (
-                      <span
-                        aria-label={t('beta')}
-                        className="rounded-full border border-[var(--bigin-border)] bg-[var(--bigin-accent)] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-[var(--bigin-panel-text)] uppercase"
-                      >
-                        {t('beta')}
-                      </span>
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={t('unreadConversations', {
-                          count: totalUnread,
-                        })}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="bg-[var(--bigin-accent)] absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                        <span className="bg-[var(--bigin-accent)] relative inline-flex h-2 w-2 rounded-full" />
-                      </span>
-                    )}
-                    {showNotificationBadge && (
-                      <span
-                        aria-label={t('unreadNotifications', {
-                          count: unreadNotifications,
-                        })}
-                        className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold"
-                      >
-                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                      </span>
-                    )}
-                    {showSubmissionBadge && (
-                      <span className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold">
-                        {unhandledSubmissions > 99
-                          ? '99+'
-                          : unhandledSubmissions}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
+                  )}
+                  {showUnreadDot && (
+                    <span
+                      aria-label={t('unreadConversations', {
+                        count: totalUnread,
+                      })}
+                      className="relative flex h-2 w-2"
+                    >
+                      <span className="bg-[var(--bigin-accent)] absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                      <span className="bg-[var(--bigin-accent)] relative inline-flex h-2 w-2 rounded-full" />
+                    </span>
+                  )}
+                  {showNotificationBadge && (
+                    <span
+                      aria-label={t('unreadNotifications', {
+                        count: unreadNotifications,
+                      })}
+                      className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold"
+                    >
+                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                    </span>
+                  )}
+                  {showSubmissionBadge && (
+                    <span className="bg-[var(--bigin-accent)] text-[var(--bigin-panel-text)] min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold">
+                      {unhandledSubmissions > 99
+                        ? '99+'
+                        : unhandledSubmissions}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
             })}
           </ul>
 
@@ -466,6 +408,5 @@ export function Sidebar({ open = false, collapsed = false, onClose }: SidebarPro
           </div>
         </div>
       </aside>
-    </>
   );
 }

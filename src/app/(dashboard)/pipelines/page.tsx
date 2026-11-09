@@ -512,6 +512,36 @@ export default function PipelinesPage() {
     return () => window.removeEventListener('keydown', focusSearch, true);
   }, [dealFormOpen, newPipelineOpen, settingsOpen]);
 
+  const coreFilters = (
+    <>
+      <label className="flex shrink-0 items-center gap-2">
+        <span className="sr-only">Widok transakcji</span>
+        <select value={dealView} onChange={(event) => setDealView(event.target.value)} className="h-9 max-w-full rounded-full border border-slate-300 bg-white px-3 text-xs">
+          <option value="all">Wszystkie transakcje</option>
+          <option value="open">Otwarte transakcje</option>
+          <option value="closed">Zamknięte transakcje</option>
+        </select>
+      </label>
+      <label className="flex shrink-0 items-center gap-2 text-xs">
+        Właściciel zmiany
+        <select aria-label="Właściciel zmiany" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)} className="h-9 max-w-40 rounded-full border border-slate-300 bg-white px-3 text-xs">
+          <option value="all">Wszyscy</option>
+          <option value="unassigned">Nieprzypisane</option>
+          {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      </label>
+      <label className="flex shrink-0 items-center gap-2 text-xs">
+        <ArrowUpDown aria-hidden="true" className="size-4" /> Sortuj według
+        <select aria-label="Sortuj według" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-9 rounded-full border border-slate-300 bg-white px-3 text-xs">
+          <option value="created-desc">Czas utworzenia: najnowsze</option>
+          <option value="created-asc">Czas utworzenia: najstarsze</option>
+          <option value="title">Nazwa transakcji</option>
+          <option value="value-desc">Kwota: malejąco</option>
+        </select>
+      </label>
+    </>
+  );
+
   if (loading) {
     return (
       <div data-pipeline-workspace className="h-full min-h-0 bg-[var(--bigin-bg)] text-[var(--bigin-text)]">
@@ -663,8 +693,8 @@ export default function PipelinesPage() {
         </>
       ) : null}
 
-      <section data-pipeline-toolbar aria-label="Narzędzia tablicy transakcji" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto bg-[var(--bigin-surface)] px-3 text-sm text-[var(--bigin-text)]">
-        <details className="relative shrink-0"><summary className="cursor-pointer list-none" aria-label="Filtry transakcji" title="Filtry transakcji"><Filter className="size-4" /></summary><label className="relative block w-48">
+      <section data-pipeline-toolbar aria-label="Narzędzia tablicy transakcji" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-visible bg-[var(--bigin-surface)] px-3 text-sm text-[var(--bigin-text)]">
+        <details data-pipeline-filter-menu className="relative shrink-0"><summary className="cursor-pointer list-none" aria-label="Filtry transakcji" title="Filtry transakcji"><Filter className="size-4" /></summary><div data-pipeline-filter-popover><label className="relative block w-48">
           <span className="sr-only">Szukaj transakcji</span>
           <Search aria-hidden="true" className="absolute top-2.5 left-3 size-4 text-slate-500" />
           <input
@@ -677,35 +707,11 @@ export default function PipelinesPage() {
             className="h-9 w-full rounded-full border border-slate-300 bg-white pr-12 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
           />
           <kbd aria-hidden="true" className="pointer-events-none absolute top-2 right-3 text-xs text-slate-500">⌘K</kbd>
-        </label></details>
-        <label className="flex shrink-0 items-center gap-2">
-          <span className="sr-only">Widok transakcji</span>
-          <select value={dealView} onChange={(event) => setDealView(event.target.value)} className="h-9 max-w-full rounded-full border border-slate-300 bg-white px-3 text-xs">
-            <option value="all">Wszystkie transakcje</option>
-            <option value="open">Otwarte transakcje</option>
-            <option value="closed">Zamknięte transakcje</option>
-          </select>
-        </label>
-        <label className="flex shrink-0 items-center gap-2 text-xs">
-          Właściciel zmiany
-          <select aria-label="Właściciel zmiany" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)} className="h-9 max-w-40 rounded-full border border-slate-300 bg-white px-3 text-xs">
-            <option value="all">Wszyscy</option>
-            <option value="unassigned">Nieprzypisane</option>
-            {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </label>
-        <label className="flex shrink-0 items-center gap-2 text-xs">
-          <ArrowUpDown aria-hidden="true" className="size-4" /> Sortuj według
-          <select aria-label="Sortuj według" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-9 rounded-full border border-slate-300 bg-white px-3 text-xs">
-            <option value="created-desc">Czas utworzenia: najnowsze</option>
-            <option value="created-asc">Czas utworzenia: najstarsze</option>
-            <option value="title">Nazwa transakcji</option>
-            <option value="value-desc">Kwota: malejąco</option>
-          </select>
-        </label>
+        </label><div data-pipeline-compact-filters>{coreFilters}</div></div></details>
+        <div data-pipeline-wide-filters className="contents">{coreFilters}</div>
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs">
-            <MoreHorizontal aria-hidden="true" className="size-4" /> Więcej
+          <DropdownMenuTrigger aria-label="Więcej" title="Więcej" data-pipeline-more className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs">
+            <MoreHorizontal aria-hidden="true" className="size-4" /><span>Więcej</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => { setSearch(''); setDealView('all'); setOwnerFilter('all'); setSortBy('created-desc'); }}>Resetuj widok</DropdownMenuItem>
@@ -713,7 +719,7 @@ export default function PipelinesPage() {
             {selectedPipeline ? <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Zarządzaj lejkami</DropdownMenuItem> : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        <GatedButton canAct={canEditDeals} gateReason="create deals" onClick={() => handleAddDeal()} className="shrink-0 rounded-full" aria-label="Dodaj transakcję"><Plus className="size-4" /> Transakcja</GatedButton>
+        <GatedButton canAct={canEditDeals} gateReason="create deals" onClick={() => handleAddDeal()} className="shrink-0 rounded-full" aria-label="Dodaj transakcję" title="Dodaj transakcję"><Plus className="size-4" /><span>Transakcja</span></GatedButton>
       </section>
 
       {/* Board */}

@@ -55,6 +55,9 @@ export const SHELL_CSS_VARS = {
 } as const satisfies CSSProperties & Record<`--${string}`, string>;
 
 export const APP_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
+// LIVE Bigin: compact chrome includes tablets and small laptops.
+// The bottom navigation keeps its independent 768 px breakpoint.
+export const COMPACT_SHELL_MAX_WIDTH = 1280;
 export const MOBILE_BREAKPOINT = 768;
 export const MOBILE_STAGE_TAB_HEIGHT = 44;
 // Bigin demo DOM, 09.11.2026: rail + team pipelines panel + board inset.

@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   Bell,
   LogOut,
-  Menu,
   Settings as SettingsIcon,
   Sparkles,
   User,
@@ -59,15 +58,9 @@ function getPageTitleKey(pathname: string): string {
   return match ? match[1] : 'dashboard';
 }
 
-interface HeaderProps {
-  /** Wired to the shell's drawer state. Used only on mobile — the
-   *  hamburger button is hidden on lg+. */
-  onOpenSidebar?: () => void;
-}
-
 import { useTranslations } from 'next-intl';
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header() {
   const t = useTranslations('Header');
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -85,15 +78,6 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   return (
     <header className="border-border bg-background flex min-h-[var(--app-header-height)] shrink-0 flex-wrap items-center justify-between gap-1.5 border-b px-3 py-1.5 md:h-[var(--app-header-height)] md:flex-nowrap md:gap-3 md:px-4 md:py-0 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
-        {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
-        <button
-          type="button"
-          onClick={onOpenSidebar}
-          aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-lg transition-colors lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
         <Link
           href="/dashboard"
           className="flex min-w-0 items-center gap-2 lg:hidden"
@@ -112,7 +96,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <GlobalCrmSearch />
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div data-header-actions className="flex items-center gap-1 sm:gap-2">
         <Link
           href="/notifications"
           aria-label="Powiadomienia"
@@ -120,7 +104,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         >
           <Bell className="size-4" />
         </Link>
-        <div className="hidden items-center gap-2 sm:flex">
+        <div data-header-account-actions className="hidden items-center gap-2 sm:flex">
           <GlobalAdd />
           <ModeToggle />
 
@@ -140,7 +124,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
                   {initial}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-foreground hidden text-sm font-medium sm:inline">
+              <span data-header-account-name className="text-foreground hidden text-sm font-medium sm:inline">
                 {profile?.full_name ?? t('defaultUser')}
               </span>
             </DropdownMenuTrigger>

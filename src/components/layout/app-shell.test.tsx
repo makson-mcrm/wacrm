@@ -362,8 +362,17 @@ describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
     const dimensions: Record<string, string> = {};
     css.walkRules((rule) => {
       if (rule.selector === "[data-slot='app-shell'] > div > header") {
-        expect(rule.parent?.type).toBe('root');
-        rule.walkDecls((decl) => { dimensions[decl.prop] = decl.value; });
+        if (rule.parent?.type === 'root') {
+          rule.walkDecls((decl) => { dimensions[decl.prop] = decl.value; });
+        } else {
+          // Compact chrome may adjust spacing, but must never replace the
+          // inherited height or re-enable wrapping at a responsive breakpoint.
+          const responsive: Record<string, string> = {};
+          rule.walkDecls((decl) => { responsive[decl.prop] = decl.value; });
+          expect(responsive).toEqual({ gap: '8px', 'padding-inline': '8px' });
+          expect(rule.parent?.type).toBe('atrule');
+          if (rule.parent?.type === 'atrule') expect(rule.parent.params).toBe('(max-width: 1280px)');
+        }
       }
     });
     expect(dimensions).toMatchObject({
@@ -420,5 +429,90 @@ describe('KM3.2.26 — tokeny panelu nawigacji', () => {
     expect(aside).toContain('text-[var(--bigin-panel-text)]');
     expect(aside).toContain('border-[var(--bigin-border)]');
     expect(aside).not.toMatch(/(?:bg|text|border|ring)-(?:emerald|amber|slate|white|primary|card|foreground|muted)/);
+  });
+});
+
+describe('KM3.5.1D: stały rail i kompaktowa rama po pomiarze LIVE', () => {
+  const css = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+  const atWidth = (selector: string, width: number) => {
+    const values: Record<string, string> = {};
+    css.walkRules((rule) => {
+      if (!rule.selectors.includes(selector)) return;
+      let parent = rule.parent;
+      while (parent && parent.type !== 'root') {
+        if (parent.type === 'atrule' && parent.name === 'media') {
+          const max = /max-width:\s*(\d+)px/.exec(parent.params);
+          const min = /min-width:\s*(\d+)(px|rem)/.exec(parent.params);
+          if (max && width > Number(max[1])) return;
+          if (min && width < Number(min[1]) * (min[2] === 'rem' ? 16 : 1)) return;
+        }
+        parent = parent.parent;
+      }
+      rule.walkDecls((decl) => { values[decl.prop] = decl.value; });
+    });
+    return values;
+  };
+
+  it.each(['/pipelines', '/contacts', '/agents', '/future-synthetic-route'].flatMap((pathname) =>
+    [390, 640, 767, 768, 900, 1023, 1024, 1280, 1281, 1366, 1536].map((width) => ({ pathname, width }))
+  ))('zachowuje rail w układzie flex: $pathname, $width px', async ({ pathname, width }) => {
+    route.pathname = pathname;
+    const html = await render();
+    const shellTag = html.match(/<div data-slot="app-shell"[^>]+>/)![0];
+    const aside = html.match(/<aside[^>]+>/)![0];
+    const classes = aside.match(/class="([^"]+)"/)![1].split(/\s+/);
+    expect(classes).toContain('relative');
+    expect(classes).toContain('shrink-0');
+    expect(classes).not.toContain('fixed');
+    expect(classes.some((value) => /translate|will-change/.test(value))).toBe(false);
+    expect(shellTag).toContain('overflow-hidden');
+    expect(html).not.toContain('aria-label="openMenu"');
+    expect(html).not.toContain('aria-label="closeMenu"');
+
+    // Apply the actual global declarations below the inline html defaults.
+    const variables = { ...SHELL_CSS_VARS, ...atWidth("[data-slot='app-shell']", width) } as Record<string, string>;
+    const resolve = (name: string): string => {
+      const reference = /^var\((--[^)]+)\)$/.exec(variables[name]);
+      return reference ? resolve(reference[1]) : variables[name];
+    };
+    expect(resolve('--app-topbar-height')).toBe(width <= 1280 ? '43px' : '48px');
+    expect(resolve('--app-header-height')).toBe(width <= 1280 ? '43px' : '48px');
+    expect(resolve('--app-sidebar-width')).toBe(width <= 1280 ? '63px' : '64px');
+    expect(resolve('--app-sidebar-width-collapsed')).toBe(resolve('--app-sidebar-width'));
+    expect(atWidth('[data-bigin-compact-shell] > aside', width)).toMatchObject({
+      position: 'relative', inset: 'auto', width: 'var(--app-sidebar-width)',
+      'flex-basis': 'var(--app-sidebar-width)', 'flex-shrink': '0',
+      transform: 'none', translate: 'none',
+    });
+    expect(atWidth("[data-slot='app-shell']", width)).toMatchObject({ width: '100%', 'min-width': '0' });
+    // Both the content wrapper and main can shrink alongside the visible rail.
+    expect(html).toContain('flex min-w-0 flex-1 flex-col overflow-hidden');
+    const main = html.match(/<main id="main-content"[^>]+>/)![0];
+    expect(main).toContain('min-w-0');
+    expect(main).toContain('overflow-x-hidden');
+    if (pathname === '/pipelines') {
+      expect(atWidth('[data-pipeline-workspace]', width)).toMatchObject({ 'min-width': '0', overflow: 'hidden' });
+      expect(atWidth('[data-pipeline-content]', width)).toMatchObject({ 'min-width': '0', overflow: 'hidden' });
+      expect(atWidth('[data-bigin-pipeline-shell] .pipeline-scroll', width)).toMatchObject({
+        'min-width': '0', 'overflow-x': 'auto', 'overscroll-behavior-x': 'contain',
+      });
+    }
+  });
+
+  it.each([390, 640, 768, 900, 1024, 1280, 1281, 1536])('zwija etykiety, zachowuje menu i ogranicza panel filtrów do viewportu: %i px', (width) => {
+    const compact = width <= 1280;
+    const actions = atWidth('[data-header-account-actions]', width);
+    expect(actions.display).toBe(compact ? 'flex' : undefined);
+    expect(atWidth('[data-header-account-name]', width).display).toBe(compact ? 'none' : undefined);
+    expect(atWidth('[data-pipeline-wide-filters]', width).display).toBe(compact ? 'none' : undefined);
+    expect(atWidth('[data-pipeline-compact-filters]', width).display).toBe(compact ? 'grid' : 'none');
+    expect(atWidth('[data-pipeline-toolbar]', width)['overflow-x']).toBeUndefined();
+    if (compact) {
+      expect(atWidth('[data-pipeline-filter-menu][open] [data-pipeline-filter-popover]', width)).toMatchObject({
+        position: 'fixed', right: '8px',
+        width: 'min(280px, calc(100vw - var(--app-sidebar-width) - 16px))',
+        'overflow-y': 'auto',
+      });
+    }
   });
 });

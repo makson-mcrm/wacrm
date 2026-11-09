@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
@@ -26,8 +26,6 @@ export function AppShell({ children }: AppShellProps) {
   const isBiginList =
     ['/contacts', '/companies', '/calendar'].includes(pathname) ||
     (/^\/deals\/[^/]+$/.test(pathname) && !surfaceFlags.dealsListExtensions);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -123,9 +121,9 @@ export function AppShell({ children }: AppShellProps) {
     >
       <PresenceHeartbeat />
       <DailyStartCard />
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden [&>header]:h-[var(--app-topbar-height)]">
-        <Header onOpenSidebar={() => setSidebarOpen(true)} />
+        <Header />
         <main
           id="main-content"
           className={cn(

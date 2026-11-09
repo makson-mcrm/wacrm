@@ -9,7 +9,7 @@ import type { Deal, PipelineStage } from '@/types';
 import { PipelineBoard } from './pipeline-board';
 import { DealCard } from './deal-card';
 import PipelinesPage from '@/app/(dashboard)/pipelines/page';
-import { MOBILE_BREAKPOINT, PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH, biginGeometryCssVars } from '@/lib/ui/layout-geometry';
+import { COMPACT_SHELL_MAX_WIDTH, MOBILE_BREAKPOINT, PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH, biginGeometryCssVars } from '@/lib/ui/layout-geometry';
 
 // Exercise the board's click handlers in the existing Node test environment.
 // Nested components and static renders keep the real React hooks.
@@ -303,22 +303,22 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
 
   it('CSS ramy utrzymuje przewijanie, zmienne telefonu i przyciski 32/29 bez zawijania', () => {
     const stylesheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
-    const rules = (selector: string, mobile = false) => {
+    const rules = (selector: string, mediaQuery = '') => {
       const values: Record<string, string> = {};
       stylesheet.walkRules((rule) => {
         if (!rule.selectors.includes(selector)) return;
         const media = rule.parent?.type === 'atrule' && rule.parent.name === 'media'
           ? rule.parent.params : '';
-        if (mobile ? media !== '(max-width: 767px)' : !!media) return;
+        if (media !== mediaQuery) return;
         rule.walkDecls((decl) => { values[decl.prop] = decl.value; });
       });
       return values;
     };
-    expect(rules("[data-slot='app-shell']", true)).toMatchObject({
+    expect(rules("[data-slot='app-shell']", '(max-width: 1280px)')).toMatchObject({
       '--app-topbar-height': 'var(--app-mobile-topbar-height)',
       '--app-sidebar-width': 'var(--app-mobile-sidebar-width)',
     });
-    expect(rules('[data-bigin-pipeline-shell] [data-pipeline-workspace]', true)).toMatchObject({
+    expect({ ...rules('[data-bigin-pipeline-shell] [data-pipeline-workspace]', '(max-width: 1280px)'), ...rules('[data-bigin-pipeline-shell] [data-pipeline-workspace]', '(max-width: 767px)') }).toMatchObject({
       '--pipeline-team-panel-width': 'var(--pipeline-mobile-team-panel-width)',
       '--pipeline-toolbar-height': 'var(--pipeline-mobile-toolbar-height)',
       '--pipeline-toolbar-button-height': 'var(--pipeline-mobile-toolbar-button-height)',
@@ -348,7 +348,7 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     expect(bottom).toContain('<GlobalAdd mobile />');
   });
 
-  it.each([390, 767, 768, 1366, 1536])('KM3.5.1C: nadpisuje odziedziczone tokeny poniżej inline shellu tylko na telefonie, %s px', (viewport) => {
+  it.each([390, 640, 767, 768, 900, 1023, 1024, 1280, 1281, 1366, 1536])('KM3.5.1D: rozdziela kompaktową ramę i panel telefonu poniżej inline shellu, %s px', (viewport) => {
     const stylesheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
     const shell = biginGeometryCssVars('pipelines') as Record<string, string>;
     const workspace: Record<string, string> = {};
@@ -358,8 +358,9 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
       expect(rule.parent?.type).toBe('atrule');
       if (rule.parent?.type !== 'atrule') return;
       expect(rule.parent.name).toBe('media');
-      expect(rule.parent.params).toBe('(max-width: 767px)');
-      if (viewport < MOBILE_BREAKPOINT) {
+      expect(['(max-width: 767px)', '(max-width: 1280px)']).toContain(rule.parent.params);
+      const maximum = Number(rule.parent.params.match(/max-width: (\d+)px/)![1]);
+      if (viewport <= maximum) {
         rule.walkDecls((decl) => { workspace[decl.prop] = decl.value; });
       }
     });
@@ -376,10 +377,11 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     };
     const mobile = viewport < MOBILE_BREAKPOINT;
     expect(pixels('--pipeline-team-panel-width')).toBe(mobile ? 199 : 221);
-    expect(pixels('--pipeline-toolbar-height')).toBe(mobile ? 72 : 67);
-    expect(pixels('--pipeline-toolbar-button-height')).toBe(mobile ? 29 : 32);
-    expect((mobile ? 63 : 64) + pixels('--pipeline-team-panel-width') + pixels('--content-pad-x')).toBe(mobile ? 272 : 295);
-    expect((mobile ? 43 : 48) + pixels('--pipeline-toolbar-height')).toBe(115);
+    const compact = viewport <= COMPACT_SHELL_MAX_WIDTH;
+    expect(pixels('--pipeline-toolbar-height')).toBe(compact ? 72 : 67);
+    expect(pixels('--pipeline-toolbar-button-height')).toBe(compact ? 29 : 32);
+    expect((compact ? 63 : 64) + pixels('--pipeline-team-panel-width') + pixels('--content-pad-x')).toBe(mobile ? 272 : compact ? 294 : 295);
+    expect((compact ? 43 : 48) + pixels('--pipeline-toolbar-height')).toBe(115);
     const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
     const containers = source.match(/<div data-pipeline-workspace[^>]*>/g) ?? [];
     expect(containers).toHaveLength(2); // loading and loaded workspace
