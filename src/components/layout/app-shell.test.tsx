@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { compile } from 'tailwindcss';
 import { parse } from 'postcss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './app-shell';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
 import type { PipelineStage } from '@/types';
-import { geometryCssVars } from '@/lib/ui/layout-geometry';
+import { BIGIN_TOKENS, BIGIN_CSS_VARS, biginGeometryCssVars } from '@/lib/ui/layout-geometry';
+import RootLayout from '@/app/layout';
 
 const route = vi.hoisted(() => ({ pathname: '/contacts' }));
 beforeEach(() => { route.pathname = '/contacts'; });
@@ -16,7 +18,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
   usePathname: () => route.pathname,
 }));
-vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+  NextIntlClientProvider: ({ children }: { children: ReactNode }) => children,
+}));
+vi.mock('next-intl/server', () => ({ getLocale: async () => 'pl', getMessages: async () => ({}) }));
+vi.mock('next/font/google', () => ({ Inter: () => ({ variable: 'synthetic-inter' }) }));
+vi.mock('next/script', () => ({ default: () => null }));
+vi.mock('@/hooks/use-theme', () => ({ ThemeProvider: ({ children }: { children: ReactNode }) => children }));
+vi.mock('@/components/themed-toaster', () => ({ ThemedToaster: () => null }));
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children?: ReactNode; href: string }) => (
     <a {...props}>{children}</a>
@@ -64,18 +74,18 @@ const render = () =>
   );
 
 describe('02A-5: geometria shellu, nagłówka i menu', () => {
-  it.each(['/deals', '/contacts', '/dashboard', '/calendar', '/finances', '/settings'])(
-    'zachowuje dotychczasową ramę poza Lejkiem: %s',
+  it.each(['/deals', '/contacts', '/dashboard', '/calendar', '/finances', '/settings', '/future-synthetic-route'])(
+    'stosuje globalną ramę Bigin także na nowej trasie: %s',
     (pathname) => {
       route.pathname = pathname;
       const html = render();
-      expect(html).toContain(`--app-sidebar-width:${['/contacts', '/calendar'].includes(pathname) ? 65 : 160}px`);
-      expect(html).toContain('--brand-sidebar:#093E52');
-      expect(html).toContain('bg-[var(--brand-page)]');
-      expect(html).toContain('lg:px-5');
+      expect(html).toContain('--app-sidebar-width:65px');
+      expect(html).toContain('--bigin-panel:#093E52');
+      expect(html).toContain('bg-[var(--bigin-bg)]');
+      expect(html).toContain('lg:px-[var(--content-pad-x)]');
       expect(html).not.toContain('lg:bg-[#20383d]');
       expect(html).not.toContain('bg-[#f9fbfc]');
-      expect(html).toContain('--brand-sidebar-alt:#0B4A63');
+      expect(html).toContain('--bigin-accent:#0B4A63');
       expect(html).toContain(`--app-header-height:${['/contacts', '/calendar'].includes(pathname) ? 49 : 56}px`);
     }
   );
@@ -98,14 +108,14 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     const columns = [...html.matchAll(/data-pipeline-column="[^"]+"[^>]+class="([^"]+)"/g)].map((match) => match[1]);
     expect(root).toContain('--app-sidebar-width:285px');
     expect(root).toContain('--content-pad-x:10px');
-    expect(root).toContain('background:#F9FBFC');
+    expect(root).toContain('--bigin-bg:#F9FBFC');
     expect(root).toContain('--app-header-height:49px');
-    expect(root).toContain('--list-header-background:#093E52');
+    expect(root).toContain('--list-header-background:var(--bigin-panel)');
     expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
     expect(sidebar).toContain('lg:shrink-0');
     expect(html).toContain('background:#093E52;--sidebar-alt:#0B4A63');
     expect(main).toContain('lg:px-[var(--content-pad-x)]');
-    expect(main).toContain('bg-[var(--brand-page)]');
+    expect(main).toContain('bg-[var(--bigin-bg)]');
     expect(board).toContain('bg-[#f9fbfc]');
     expect(board).toContain('overflow-x-auto');
     expect(columns).toHaveLength(6);
@@ -138,7 +148,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     for (const [selector, property, value, media] of [
       ['.lg:w-[var(--app-sidebar-width)]', 'width', 'var(--app-sidebar-width)', '(width >= 64rem)'],
       ['.lg:shrink-0', 'flex-shrink', '0', '(width >= 64rem)'],
-      ['.bg-[var(--brand-page)]', 'background-color', 'var(--brand-page)', undefined],
+      ['.bg-[var(--bigin-bg)]', 'background-color', 'var(--bigin-bg)', undefined],
       ['.lg:px-[var(--content-pad-x)]', 'padding-inline', 'var(--content-pad-x)', '(width >= 64rem)'],
       ['.bg-[#f9fbfc]', 'background-color', '#f9fbfc', undefined],
       ['.w-[220px]', 'width', '220px', undefined],
@@ -150,7 +160,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
   it('ustawia wszystkie zmienne raz na głównym kontenerze i zachowuje przesunięcie viewportu', () => {
     const html = render();
     const root = html.match(/<div data-slot="app-shell"[^>]+>/)![0];
-    for (const [name, value] of Object.entries(geometryCssVars('lists'))) {
+    for (const [name, value] of Object.entries({ ...BIGIN_CSS_VARS, ...biginGeometryCssVars('lists') })) {
       expect(root).toContain(`${name}:${value}`);
       expect(html.split(`${name}:`)).toHaveLength(2);
     }
@@ -221,5 +231,60 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
       value: 'var(--app-header-height)',
       media: undefined,
     });
+  });
+});
+
+
+describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
+  const source = readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8');
+  const css = parse(source);
+  const declarations = (selector: string) => {
+    const result: Record<string, string> = {};
+    css.walkRules((rule) => {
+      if (rule.selectors.includes(selector)) rule.walkDecls((decl) => { result[decl.prop] = decl.value; });
+    });
+    return result;
+  };
+
+  it('utrzymuje całą paletę :root zgodną z tokenami używanymi przez shell i RootLayout', () => {
+    const defaults = declarations(':root');
+    expect(BIGIN_TOKENS).toMatchObject({
+      bg: '#F9FBFC', panel: '#093E52', accent: '#0B4A63', border: '#E0E9EE',
+      row: '#FCFDFD', hover: '#F0F7FB', link: '#7EB5F4',
+    });
+    expect(defaults).toMatchObject(BIGIN_CSS_VARS);
+    const html = render();
+    for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(html).toContain(`${name}:${value}`);
+    expect(declarations('body').background).toBe('var(--bigin-bg)');
+    expect(declarations("[data-slot='app-shell']").background).toBe('var(--bigin-bg)');
+    expect(declarations('body.bigin-shell')).toMatchObject({
+      '--background': 'var(--bigin-bg)', '--brand-sidebar': 'var(--bigin-panel)',
+      'font-family': 'var(--font-sans), Arial, sans-serif', 'font-size': 'var(--bigin-font-size)',
+    });
+  });
+
+  it('ekran bez własnych stylów dziedziczy tło i geometrię z rzeczywistego RootLayout', async () => {
+    const html = renderToStaticMarkup(await RootLayout({ children: <main id="unstyled-screen"><p>Nowy ekran syntetyczny</p></main> }));
+    expect(html).toMatch(/<html[^>]+class="[^"]*bigin-shell/);
+    const body = html.match(/<body[^>]+>/)![0];
+    expect(body).toContain('class="bigin-shell');
+    for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(body).toContain(`${name}:${value}`);
+    expect(body).toContain('--app-sidebar-width:65px');
+    expect(body).toContain('--app-header-height:56px');
+    expect(body).toContain('--columns-three:minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)');
+    expect(body).toContain('--bigin-font-size:14px');
+    expect(html).toContain('<main id="unstyled-screen"><p>Nowy ekran syntetyczny</p></main>');
+    const backgroundVariable = declarations('body').background.match(/^var\((--[^)]+)\)$/)![1];
+    expect(BIGIN_CSS_VARS[backgroundVariable as keyof typeof BIGIN_CSS_VARS]).toBe('#F9FBFC');
+    // Optional real-browser evidence, without a server, network or customer data.
+    if (process.env.KM3_RENDER_DIR) {
+      mkdirSync(process.env.KM3_RENDER_DIR, { recursive: true });
+      writeFileSync(join(process.env.KM3_RENDER_DIR, 'unstyled.html'), html.replace('<html ', '<html style="--font-sans:Arial" ').replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
+      for (const pathname of ['/contacts', '/pipelines', '/future-synthetic-route']) {
+        route.pathname = pathname;
+        const page = renderToStaticMarkup(await RootLayout({ children: <AppShell><p>Treść syntetyczna</p></AppShell> }));
+        writeFileSync(join(process.env.KM3_RENDER_DIR, `${pathname.slice(1)}.html`), page.replace('<html ', '<html style="--font-sans:Arial" ').replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
+      }
+    }
   });
 });

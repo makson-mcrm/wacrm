@@ -370,3 +370,188 @@ html[data-theme='rose'] {
     min-height: var(--touch-target);
   }
 }
+
+/* KM3.2.23 — Bigin defaults before hydration. Kept in sync with BIGIN_TOKENS. */
+:root {
+  --bigin-bg: #f9fbfc;
+  --bigin-panel: #093e52;
+  --bigin-accent: #0b4a63;
+  --bigin-border: #e0e9ee;
+  --bigin-row: #fcfdfd;
+  --bigin-hover: #f0f7fb;
+  --bigin-link: #7eb5f4;
+  --bigin-surface: #ffffff;
+  --bigin-text: #212129;
+  --bigin-info: #dff9f3;
+  --bigin-panel-text: #ffffff;
+  --bigin-panel-muted: #e6eef2;
+}
+
+/* Applied by RootLayout, including routes that do not render AppShell.
+ * The class wins over saved mode/accent choices without removing that code.
+ * Keep legacy 02A rules above for consumers outside the global Bigin layout. */
+html.bigin-shell,
+body.bigin-shell,
+[data-slot='app-shell'].bigin-shell,
+html.bigin-shell [data-contact-detail-view] {
+  --brand-page: var(--bigin-bg);
+  --brand-sidebar: var(--bigin-panel);
+  --brand-sidebar-alt: var(--bigin-accent);
+  --brand-hover: var(--bigin-hover);
+  --brand-link: var(--bigin-link);
+  --brand-info: var(--bigin-info);
+  --background: var(--bigin-bg);
+  --app-surface: var(--bigin-bg);
+  --foreground: var(--bigin-text);
+  --card-foreground: var(--bigin-text);
+  --popover-foreground: var(--bigin-text);
+  --accent-foreground: var(--bigin-text);
+  --muted-foreground: var(--bigin-text);
+  --primary-foreground: var(--bigin-surface);
+  --card: var(--bigin-surface);
+  --popover: var(--bigin-surface);
+  --border: var(--bigin-border);
+  --input: var(--bigin-border);
+  --muted: var(--bigin-hover);
+  --accent: var(--bigin-hover);
+  --primary: var(--bigin-panel);
+  --sidebar: var(--bigin-panel);
+  --sidebar-foreground: var(--bigin-panel-text);
+  font-family: var(--font-sans), Arial, sans-serif;
+  font-size: var(--bigin-font-size);
+}
+
+body {
+  background: var(--bigin-bg);
+}
+
+[data-slot='app-shell'] {
+  background: var(--bigin-bg);
+}
+
+[data-slot='app-shell'] > div > header {
+  background: var(--brand-sidebar);
+  color: var(--bigin-panel-text);
+  --foreground: var(--bigin-panel-text);
+  --muted-foreground: var(--bigin-panel-text);
+  --muted: var(--brand-sidebar-alt);
+  --primary: var(--brand-link);
+  border-color: var(--border);
+}
+[data-slot='app-shell']
+  > div
+  > header
+  a[aria-label='mCRM AI — DZISIAJ']
+  > span:first-child {
+  background: var(--brand-sidebar-alt);
+}
+[data-slot='app-shell'] > div > header a[aria-label='Powiadomienia']:hover {
+  background: var(--brand-sidebar-alt);
+}
+
+[data-bigin-pipeline-shell] > div > header {
+  background: var(--bigin-panel);
+  color: var(--bigin-panel-text);
+  --foreground: var(--bigin-panel-text);
+  --muted-foreground: var(--bigin-panel-muted);
+  border-bottom: 1px solid var(--brand-sidebar-alt);
+}
+[data-bigin-pipeline-shell] > div > header svg {
+  color: var(--bigin-panel-text);
+}
+[data-bigin-pipeline-shell],
+[data-bigin-pipeline-shell] #main-content,
+[data-bigin-pipeline-shell] .pipeline-scroll {
+  background: var(--pipeline-content-background);
+}
+[data-bigin-pipeline-shell] .pipeline-scroll {
+  gap: var(--pipeline-column-gap);
+}
+[data-bigin-pipeline-shell] [data-pipeline-column] {
+  width: var(--pipeline-column-width);
+}
+[data-bigin-pipeline-cards] [data-pipeline-deal] {
+  height: var(--pipeline-card-height);
+  min-height: var(--pipeline-card-height);
+  padding: 0 var(--pipeline-column-gap);
+}
+[data-bigin-pipeline-cards] [data-pipeline-deal] > a {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+[data-bigin-pipeline-cards] [data-pipeline-deal] > p.font-bold {
+  display: inline;
+  margin: 0;
+}
+[data-bigin-pipeline-cards] [data-pipeline-deal] > time {
+  display: inline;
+  margin: 0 0 0 var(--pipeline-column-gap);
+}
+
+[data-bigin-list-shell] > div > header {
+  background: var(--bigin-panel);
+  color: var(--bigin-panel-text);
+  --foreground: var(--bigin-panel-text);
+  --muted-foreground: var(--bigin-panel-text);
+  border: 0;
+}
+@media (min-width: 64rem) {
+  [data-bigin-compact-shell] > aside {
+    width: var(--app-sidebar-width);
+    flex-shrink: 0;
+    background: var(--bigin-panel);
+    border: 0;
+  }
+  [data-bigin-compact-shell] > aside > div:first-child {
+    padding: 0;
+    justify-content: center;
+    border: 0;
+  }
+  [data-bigin-compact-shell] > aside > div:first-child a > span {
+    display: none;
+  }
+  [data-bigin-compact-shell] > aside nav {
+    padding: 0;
+  }
+  [data-bigin-compact-shell] > aside nav ul {
+    gap: 0;
+  }
+  [data-bigin-compact-shell] > aside nav a {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--bigin-nav-gap);
+    min-height: var(--bigin-nav-height);
+    padding: var(--bigin-nav-pad-y) var(--bigin-nav-gap);
+    border-radius: 0;
+    font-size: var(--bigin-nav-font-size);
+  }
+  [data-bigin-compact-shell] > aside nav a > span {
+    flex: none;
+    max-width: var(--bigin-nav-label-width);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  [data-bigin-compact-shell] > aside nav details summary {
+    overflow: hidden;
+    padding: var(--bigin-nav-pad-y) var(--bigin-nav-gap);
+    font-size: var(--bigin-nav-summary-font-size);
+  }
+  [data-bigin-compact-shell] > aside > div:last-child {
+    padding: var(--bigin-nav-gap);
+  }
+  [data-bigin-compact-shell] > aside > div:last-child > div {
+    padding: var(--bigin-nav-gap);
+    justify-content: center;
+  }
+  [data-bigin-compact-shell] > aside > div:last-child > div > div {
+    display: none;
+  }
+  [data-bigin-list-shell] #main-content {
+    padding: 0;
+    background: var(--bigin-bg);
+    color: var(--list-text);
+  }
+}

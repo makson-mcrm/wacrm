@@ -1,17 +1,41 @@
 import type { CSSProperties } from 'react';
 
-// KM3.2.14 — measured Bigin palette; geometry remains unchanged.
-export const BRAND_SIDEBAR_BG = '#093E52';
-export const BRAND_SIDEBAR_BG_ALT = '#0B4A63';
-export const BRAND_HEADER_BG = '#093E52';
-export const BRAND_SIDEBAR_ACTIVE = '#0B4A63';
-export const BRAND_PAGE_BG_PIPELINE = '#F9FBFC';
-export const BRAND_PAGE_BG = '#FFFFFF';
-export const BRAND_ROW_BG = '#FCFDFD';
-export const BRAND_BORDER = '#E0E9EE';
-export const BRAND_HOVER = '#F0F7FB';
-export const BRAND_LINK = '#7EB5F4';
-export const BRAND_INFO_BANNER = '#DFF9F3';
+// KM3.2.23 — canonical palette. globals.css provides matching pre-hydration defaults.
+export const BIGIN_TOKENS = {
+  bg: '#F9FBFC',
+  panel: '#093E52',
+  accent: '#0B4A63',
+  border: '#E0E9EE',
+  row: '#FCFDFD',
+  hover: '#F0F7FB',
+  link: '#7EB5F4',
+  surface: '#FFFFFF',
+  text: '#212129',
+  info: '#DFF9F3',
+  panelText: '#ffffff',
+  panelMuted: '#e6eef2',
+} as const;
+
+/** Shared by RootLayout and standalone shell renders; CSS consumes these variables. */
+export const BIGIN_CSS_VARS = Object.fromEntries(
+  Object.entries(BIGIN_TOKENS).map(([name, value]) => [
+    `--bigin-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`,
+    value,
+  ])
+) as Record<`--bigin-${string}`, string>;
+
+// Compatibility exports for existing screens; the palette has one TypeScript source.
+export const BRAND_SIDEBAR_BG = BIGIN_TOKENS.panel;
+export const BRAND_SIDEBAR_BG_ALT = BIGIN_TOKENS.accent;
+export const BRAND_HEADER_BG = BIGIN_TOKENS.panel;
+export const BRAND_SIDEBAR_ACTIVE = BIGIN_TOKENS.accent;
+export const BRAND_PAGE_BG_PIPELINE = BIGIN_TOKENS.bg;
+export const BRAND_PAGE_BG = BIGIN_TOKENS.surface;
+export const BRAND_ROW_BG = BIGIN_TOKENS.row;
+export const BRAND_BORDER = BIGIN_TOKENS.border;
+export const BRAND_HOVER = BIGIN_TOKENS.hover;
+export const BRAND_LINK = BIGIN_TOKENS.link;
+export const BRAND_INFO_BANNER = BIGIN_TOKENS.info;
 
 export const APP_SIDEBAR_WIDTH = 160;
 export const MOBILE_BREAKPOINT = 768;
@@ -35,7 +59,7 @@ export const LIST_HEADER_BACKGROUND = BRAND_SIDEBAR_BG;
 export const LIST_CONTENT_BACKGROUND = BRAND_PAGE_BG;
 export const LIST_ROW_BACKGROUND = BRAND_ROW_BG;
 export const LIST_BORDER_COLOR = BRAND_BORDER;
-export const LIST_TEXT_COLOR = '#212129';
+export const LIST_TEXT_COLOR = BIGIN_TOKENS.text;
 export const LIST_FONT_SIZE = 14;
 export const LIST_TABLE_HEADER_FONT_SIZE = 12;
 // KM3.2.11 — card and work-week measurements, Bigin 1536×1024.
@@ -131,4 +155,31 @@ export function geometryCssVars(
       '--week-grid-time-column-width': `${WEEK_GRID_TIME_COLUMN_WIDTH}px`,
     } : {}),
   };
+}
+
+/** Bigin defaults for every route, including routes with no surface-specific styles.
+ * geometryCssVars retains the legacy 00S contract for existing isolated consumers.
+ */
+export function biginGeometryCssVars(
+  surface: 'default' | 'pipelines' | 'lists' = 'default'
+): CSSProperties {
+  return {
+    ...geometryCssVars(surface),
+    '--app-sidebar-width': `${surface === 'pipelines' ? PIPELINE_SIDEBAR_WIDTH : LIST_SIDEBAR_WIDTH}px`,
+    '--app-header-height': `${surface === 'default' ? APP_HEADER_HEIGHT : LIST_HEADER_HEIGHT}px`,
+    '--bigin-font-size': `${LIST_FONT_SIZE}px`,
+    '--bigin-nav-gap': '4px',
+    '--bigin-nav-height': '64px',
+    '--bigin-nav-pad-y': '8px',
+    '--bigin-nav-font-size': '11px',
+    '--bigin-nav-label-width': '57px',
+    '--bigin-nav-summary-font-size': '9px',
+    ...(surface === 'pipelines' ? {
+      '--list-header-background': 'var(--bigin-panel)',
+      '--pipeline-column-width': `${PIPELINE_COLUMN_WIDTH}px`,
+      '--pipeline-column-gap': `${PIPELINE_COLUMN_GAP}px`,
+      '--pipeline-card-height': `${PIPELINE_CARD_HEIGHT}px`,
+      '--pipeline-content-background': 'var(--bigin-bg)',
+    } : {}),
+  } as CSSProperties;
 }
