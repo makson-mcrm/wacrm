@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 // KM3.2.23 — canonical palette. globals.css provides matching pre-hydration defaults.
 export const BIGIN_TOKENS = {
   bg: '#F9FBFC',
-  panel: '#093E52',
+  panel: '#093E53',
+  panelDark: '#073346',
+  panelHover: '#08394C',
   accent: '#0B4A63',
   border: '#E0E9EE',
   row: '#FCFDFD',
@@ -39,9 +41,9 @@ export const BRAND_INFO_BANNER = BIGIN_TOKENS.info;
 
 // KM3.2.25 — the shell dimensions are inherited only from <html>.
 export const SIDEBAR_WIDTH = 285;
-export const SIDEBAR_WIDTH_COLLAPSED = 65;
-export const TOPBAR_HEIGHT = 56;
-export const TOPBAR_HEIGHT_LIST = 49;
+export const SIDEBAR_WIDTH_COLLAPSED = 64;
+export const TOPBAR_HEIGHT = 48;
+export const TOPBAR_HEIGHT_LIST = 48;
 export const SHELL_CSS_VARS = {
   '--app-sidebar-width': `${SIDEBAR_WIDTH}px`,
   '--app-sidebar-width-collapsed': `${SIDEBAR_WIDTH_COLLAPSED}px`,
@@ -53,9 +55,10 @@ export const SHELL_CSS_VARS = {
 export const APP_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const MOBILE_BREAKPOINT = 768;
 export const MOBILE_STAGE_TAB_HEIGHT = 44;
-// Bigin demo, 1536×1024, 05.11.2026. Content measurements remain unchanged.
+// Bigin demo DOM, 1536×1024, 09.11.2026: content x=285, board x=295.
 export const PIPELINE_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const PIPELINE_CONTENT_PADDING_X = 10;
+export const BOARD_START_X = PIPELINE_SIDEBAR_WIDTH + PIPELINE_CONTENT_PADDING_X;
 export const PIPELINE_COLUMN_WIDTH = 220;
 export const PIPELINE_COLUMN_GAP = 10;
 export const PIPELINE_CARD_HEIGHT = 60;
@@ -66,7 +69,7 @@ export const LIST_SIDEBAR_WIDTH = SIDEBAR_WIDTH_COLLAPSED;
 export const LIST_BANNER_HEIGHT = 33;
 export const LIST_HEADER_HEIGHT = TOPBAR_HEIGHT_LIST;
 export const LIST_TOOLBAR_HEIGHT = 56;
-export const LIST_TABLE_TOP = 138;
+export const LIST_TABLE_TOP = LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + LIST_TOOLBAR_HEIGHT;
 export const LIST_ROW_HEIGHT = 32;
 export const LIST_HEADER_BACKGROUND = BRAND_SIDEBAR_BG;
 export const LIST_CONTENT_BACKGROUND = BRAND_PAGE_BG;

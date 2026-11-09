@@ -4,6 +4,7 @@ import {
   PIPELINE_SIDEBAR_WIDTH,
   PIPELINE_CONTENT_PADDING_X,
   APP_HEADER_HEIGHT,
+  BOARD_START_X,
   CONTENT_PADDING_X,
   CONTENT_PADDING_Y,
   SECTION_GAP,
@@ -20,6 +21,7 @@ describe('02A-5: geometria 00S', () => {
     expect(PIPELINE_SIDEBAR_WIDTH).toBe(285);
     expect(PIPELINE_CONTENT_PADDING_X).toBe(10);
     expect(PIPELINE_SIDEBAR_WIDTH + PIPELINE_CONTENT_PADDING_X).toBe(295);
+    expect(BOARD_START_X).toBe(295);
     expect(geometryCssVars('pipelines')).toEqual({
       ...geometryCssVars(),
       '--content-pad-x': '10px',
@@ -40,7 +42,7 @@ describe('02A-5: geometria 00S', () => {
       COLUMNS_THREE,
     }).toEqual({
       APP_SIDEBAR_WIDTH: 285,
-      APP_HEADER_HEIGHT: 56,
+      APP_HEADER_HEIGHT: 48,
       CONTENT_PADDING_X: 24,
       CONTENT_PADDING_Y: 24,
       SECTION_GAP: 16,
@@ -50,7 +52,8 @@ describe('02A-5: geometria 00S', () => {
     });
     expect(SHELL_CSS_VARS).toMatchObject({
       '--app-sidebar-width': '285px',
-      '--app-topbar-height': '56px',
+      '--app-sidebar-width-collapsed': '64px',
+      '--app-topbar-height': '48px',
     });
   });
 

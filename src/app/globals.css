@@ -374,7 +374,9 @@ html[data-theme='rose'] {
 /* KM3.2.23 — Bigin defaults before hydration. Kept in sync with BIGIN_TOKENS. */
 :root {
   --bigin-bg: #f9fbfc;
-  --bigin-panel: #093e52;
+  --bigin-panel: #093e53;
+  --bigin-panel-dark: #073346;
+  --bigin-panel-hover: #08394c;
   --bigin-accent: #0b4a63;
   --bigin-border: #e0e9ee;
   --bigin-row: #fcfdfd;

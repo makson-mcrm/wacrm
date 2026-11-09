@@ -78,13 +78,13 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
       route.pathname = pathname;
       const html = await render();
       expect(html).toContain('--app-sidebar-width:285px');
-      expect(html).toContain('--bigin-panel:#093E52');
+      expect(html).toContain('--bigin-panel:#093E53');
       expect(html).toContain('bg-[var(--bigin-bg)]');
       expect(html).toContain('lg:px-[var(--content-pad-x)]');
       expect(html).not.toContain('lg:bg-[#20383d]');
       expect(html).not.toContain('bg-[#f9fbfc]');
       expect(html).toContain('--bigin-accent:#0B4A63');
-      expect(html).toContain('--app-topbar-height:56px');
+      expect(html).toContain('--app-topbar-height:48px');
       expect(html).not.toContain('data-slot="list-banner"');
       expect(html).not.toContain('pt-[var(--list-banner-height)]');
       for (const [name, value] of Object.entries(SHELL_CSS_VARS)) {
@@ -266,7 +266,7 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
   it('utrzymuje całą paletę :root zgodną z tokenami używanymi przez shell i RootLayout', async () => {
     const defaults = declarations(':root');
     expect(BIGIN_TOKENS).toMatchObject({
-      bg: '#F9FBFC', panel: '#093E52', accent: '#0B4A63', border: '#E0E9EE',
+      bg: '#F9FBFC', panel: '#093E53', accent: '#0B4A63', border: '#E0E9EE',
       row: '#FCFDFD', hover: '#F0F7FB', link: '#7EB5F4',
     });
     // Hex digits are case-insensitive; compare values without requiring CSS formatting.
@@ -291,7 +291,7 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
     expect(body).toContain('class="bigin-shell');
     for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(root).toContain(`${name}:${value}`);
     expect(root).toContain('--app-sidebar-width:285px');
-    expect(root).toContain('--app-topbar-height:56px');
+    expect(root).toContain('--app-topbar-height:48px');
     expect(root).toContain('--columns-three:minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)');
     expect(root).toContain('--bigin-font-size:14px');
     expect(html).toContain('<main id="unstyled-screen"><p>Nowy ekran syntetyczny</p></main>');
@@ -312,10 +312,10 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
 
 describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
   it('definiuje wymiary w jednym miejscu; każdy wariant treści dziedziczy je bez nadpisań', () => {
-    expect([SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST]).toEqual([285, 65, 56, 49]);
+    expect([SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST]).toEqual([285, 64, 48, 48]);
     expect(SHELL_CSS_VARS).toMatchObject({
-      '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '65px',
-      '--app-topbar-height': '56px', '--list-banner-height': '0px',
+      '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '64px',
+      '--app-topbar-height': '48px', '--list-banner-height': '0px',
       '--app-header-height': 'var(--app-topbar-height)',
     });
     for (const surface of ['default', 'pipelines', 'lists', 'cards', 'calendar'] as const) {
@@ -381,7 +381,7 @@ describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
     const html = renderToStaticMarkup(<Sidebar />);
     expect(html).toContain('--sidebar-alt:var(--bigin-accent)');
     expect(html).toContain('--foreground:var(--bigin-panel-text)');
-    expect(html).not.toMatch(/#(?:093e52|0b4a63|245247|173a52)\b/i);
+    expect(html).not.toMatch(/#(?:093e5[23]|0b4a63|245247|173a52)\b/i);
   });
 });
 

@@ -1,6 +1,6 @@
 /**
- * KM3.3.1 — Faza 2: decyzją Tomasza dodatki wszystkich ekranów są widoczne.
- * Ustaw odpowiednią flagę na false, aby ukryć dodatki danego ekranu
+ * KM3.4.1 — dodatki wszystkich ekranów są domyślnie ukryte.
+ * Ustaw odpowiednią flagę na true, aby przywrócić dodatki danego ekranu
  * z zachowaniem ich kodu i dotychczasowych miejsc.
  * To przełącznik prezentacji; nie zmienia danych, zapytań ani uprawnień.
  */
@@ -16,16 +16,16 @@ export const surfaceFlags: Readonly<{
   inboxExtensions: boolean;
   bankQualification: boolean;
 }> = {
-  pipelineExtensions: true,
-  contactsExtensions: true,
-  companiesExtensions: true,
-  dealsListExtensions: true,
-  cardExtensions: true,
-  dashboardExtensions: true,
-  activitiesExtensions: true,
-  tasksExtensions: true,
-  inboxExtensions: true,
-  bankQualification: true,
+  pipelineExtensions: false,
+  contactsExtensions: false,
+  companiesExtensions: false,
+  dealsListExtensions: false,
+  cardExtensions: false,
+  dashboardExtensions: false,
+  activitiesExtensions: false,
+  tasksExtensions: false,
+  inboxExtensions: false,
+  bankQualification: false,
 };
 
 // Historyczna nazwa: lista obejmuje również dodatki ekranów list KM3.2.09-A.

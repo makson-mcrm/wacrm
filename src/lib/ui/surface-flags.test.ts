@@ -57,8 +57,8 @@ beforeAll(async () => {
 });
 function expectGlobalShell(html: string) {
   expect(SHELL_CSS_VARS).toMatchObject({
-    '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '65px',
-    '--app-topbar-height': '56px', '--app-header-height': 'var(--app-topbar-height)',
+    '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '64px',
+    '--app-topbar-height': '48px', '--app-header-height': 'var(--app-topbar-height)',
     '--list-banner-height': '0px',
   });
   for (const [name, value] of Object.entries({ ...SHELL_CSS_VARS, ...BIGIN_CSS_VARS })) {
@@ -193,11 +193,11 @@ beforeEach(() => {
 
 describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
   it.each(['contactsExtensions', 'companiesExtensions', 'dealsListExtensions'] as const)(
-    '%s jest domyślnie true', (flag) => expect(defaultSurfaceFlags[flag]).toBe(true)
+    '%s jest domyślnie false', (flag) => expect(defaultSurfaceFlags[flag]).toBe(false)
   );
 
   it('zachowuje flagę Lejka i inwentarz rozszerzeń list', () => {
-    expect(defaultSurfaceFlags.pipelineExtensions).toBe(true);
+    expect(defaultSurfaceFlags.pipelineExtensions).toBe(false);
     for (const label of ['Kontakty:', 'Firmy:', 'Lista transakcji:']) {
       expect(pipelineSurfaceExtensions.some((entry) => entry.startsWith(label))).toBe(true);
     }
@@ -269,17 +269,17 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('Pojedyncze sprawy klientów.');
   });
 
-  it('KM3.2.09-A2 — eksportuje zmierzone tokeny i początek tabeli y=138', () => {
-    expect([LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT, LIST_TOOLBAR_HEIGHT, LIST_ROW_HEIGHT]).toEqual([65, 33, 49, 56, 32]);
+  it('KM3.2.09-A2 — eksportuje zmierzone tokeny i początek tabeli y=137', () => {
+    expect([LIST_SIDEBAR_WIDTH, LIST_BANNER_HEIGHT, LIST_HEADER_HEIGHT, LIST_TOOLBAR_HEIGHT, LIST_ROW_HEIGHT]).toEqual([64, 33, 48, 56, 32]);
     expect(LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + LIST_TOOLBAR_HEIGHT).toBe(LIST_TABLE_TOP);
-    expect(LIST_TABLE_TOP).toBe(138);
-    expect([LIST_HEADER_BACKGROUND, LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR]).toEqual(['#093E52', '#FFFFFF', '#FCFDFD', '#E0E9EE', '#212129']);
+    expect(LIST_TABLE_TOP).toBe(137);
+    expect([LIST_HEADER_BACKGROUND, LIST_CONTENT_BACKGROUND, LIST_ROW_BACKGROUND, LIST_BORDER_COLOR, LIST_TEXT_COLOR]).toEqual(['#093E53', '#FFFFFF', '#FCFDFD', '#E0E9EE', '#212129']);
     expect([LIST_FONT_SIZE, LIST_TABLE_HEADER_FONT_SIZE]).toEqual([14, 12]);
     for (const name of Object.keys(SHELL_CSS_VARS)) expect(geometryCssVars('lists')).not.toHaveProperty(name);
     expect(geometryCssVars('lists')).toMatchObject({
       '--content-pad-x': '0px', '--content-pad-y': '0px',
       '--list-toolbar-height': '56px', '--list-row-height': '32px',
-      '--list-header-background': '#093E52', '--list-content-background': '#FFFFFF',
+      '--list-header-background': '#093E53', '--list-content-background': '#FFFFFF',
       '--list-row-background': '#FCFDFD', '--list-border': '#E0E9EE', '--list-text': '#212129',
     });
   });
@@ -310,7 +310,7 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
   it('KM3.2.10 — dziedziczy ramę i zachowuje tokeny kart Lejka 60/220/10', () => {
     expect([PIPELINE_SIDEBAR_WIDTH, LIST_SIDEBAR_WIDTH, LIST_HEADER_HEIGHT, LIST_TABLE_TOP,
       LIST_ROW_HEIGHT, PIPELINE_CARD_HEIGHT, PIPELINE_COLUMN_WIDTH, PIPELINE_COLUMN_GAP])
-      .toEqual([285, 65, 49, 138, 32, 60, 220, 10]);
+      .toEqual([285, 64, 48, 137, 32, 60, 220, 10]);
     expect(PIPELINE_CONTENT_BACKGROUND).toBe('#F9FBFC');
     harness.pathname = '/pipelines';
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
@@ -363,16 +363,16 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
   it('eksportuje zmierzone tokeny karty oraz tygodnia', () => {
     expect([CARD_SIDEBAR_WIDTH, CARD_HEADER_HEIGHT, CARD_LEFT_PANEL_WIDTH, CARD_CONTENT_TOP, CARD_FIELD_ROW_HEIGHT,
-      WEEK_GRID_HOUR_HEIGHT, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH]).toEqual([65, 49, 488, 148, 44, 56, 8, 18, 40]);
+      WEEK_GRID_HOUR_HEIGHT, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH]).toEqual([64, 48, 488, 148, 44, 56, 8, 18, 40]);
     expect(LIST_BANNER_HEIGHT + CARD_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT).toBe(CARD_CONTENT_TOP);
-    expect(defaultSurfaceFlags.cardExtensions).toBe(true);
+    expect(defaultSurfaceFlags.cardExtensions).toBe(false);
   });
 
   it.each(['/deals/deal-synthetic', '/calendar'])('dziedziczy globalną ramę i zachowuje białą powierzchnię na %s', (pathname) => {
     harness.pathname = pathname;
     const html = render(AppShell as ComponentType, []);
     expectGlobalShell(html);
-    for (const value of ['--list-header-background:#093E52', '--list-content-background:#FFFFFF']) expect(html).toContain(value);
+    for (const value of ['--list-header-background:#093E53', '--list-content-background:#FFFFFF']) expect(html).toContain(value);
   });
 
   it('pokazuje lewą kolumnę 488, wiersze 44 i dokładnie cztery zakładki', () => {
@@ -407,7 +407,7 @@ describe('KM3.2.11 — karta, wielokartowość i kalendarz', () => {
     expect(html).toContain('--week-grid-hour-height:56px');
     expect(html).toContain('h-[var(--week-grid-hour-height)]');
     expect(html).toContain('grid-template-columns:var(--week-grid-time-column-width) repeat(5, minmax(0, 1fr))');
-    expect((1536 - CARD_SIDEBAR_WIDTH - WEEK_GRID_TIME_COLUMN_WIDTH) / 5).toBe(286.2);
+    expect((1536 - CARD_SIDEBAR_WIDTH - WEEK_GRID_TIME_COLUMN_WIDTH) / 5).toBe(286.4);
     expect(html).toContain('6 lis 2026');
   });
 
@@ -562,18 +562,18 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     'dashboardExtensions',
     'tasksExtensions',
     'inboxExtensions',
-  ] as const)('%s jest domyślnie true', (flag) => {
-    expect(defaultSurfaceFlags[flag]).toBe(true);
+  ] as const)('%s jest domyślnie false', (flag) => {
+    expect(defaultSurfaceFlags[flag]).toBe(false);
   });
 
-  it('zachowuje kontrakt 65/49/148/32 i wiersz Dzisiaj 44', () => {
+  it('zachowuje kontrakt 64/48/148/32 i wiersz Dzisiaj 44', () => {
     expect([
       LIST_SIDEBAR_WIDTH,
       LIST_HEADER_HEIGHT,
       CARD_CONTENT_TOP,
       LIST_ROW_HEIGHT,
       CARD_FIELD_ROW_HEIGHT,
-    ]).toEqual([65, 49, 148, 32, 44]);
+    ]).toEqual([64, 48, 148, 32, 44]);
     expect(
       LIST_BANNER_HEIGHT + LIST_HEADER_HEIGHT + CARD_RECORD_HEADER_HEIGHT
     ).toBe(148);
@@ -601,7 +601,7 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
       'data-bigin-dashboard',
       '--today-content-top:148px',
       '--today-row-height:44px',
-      'height:66px',
+      'height:67px',
       'h-[var(--today-row-height)]',
       'Działanie syntetyczne',
       'background:#FFFFFF',
@@ -693,7 +693,7 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
     for (const value of [
       'data-bigin-inbox',
       '--inbox-list-width:360px',
-      '--inbox-header-height:49px',
+      '--inbox-header-height:48px',
       '--inbox-border:#E0E9EE',
       '--inbox-row:#FCFDFD',
       '--inbox-hover:#F0F7FB',
@@ -726,7 +726,7 @@ describe('KM3.2.13 — Dzisiaj, Zadania i Inbox', () => {
 
 describe('KM3.2.17 — rama Lejka', () => {
   it('eksportuje kolory paska i aktywnej pozycji panelu', () => {
-    expect(BRAND_HEADER_BG).toBe('#093E52');
+    expect(BRAND_HEADER_BG).toBe('#093E53');
     expect(BRAND_SIDEBAR_ACTIVE).toBe('#0B4A63');
   });
 
@@ -758,7 +758,7 @@ describe('KM3.2.17 — rama Lejka', () => {
 
 describe('KM3.2.14 — paleta Bigin', () => {
   it.each([
-    [BRAND_SIDEBAR_BG, '#093E52'],
+    [BRAND_SIDEBAR_BG, '#093E53'],
     [BRAND_SIDEBAR_BG_ALT, '#0B4A63'],
     [BRAND_PAGE_BG_PIPELINE, '#F9FBFC'],
     [BRAND_PAGE_BG, '#FFFFFF'],
@@ -803,8 +803,8 @@ describe('KM3.2.19 — wspólna rama siedmiu ekranów', () => {
     return [[12, true], [13, contact.id], [25, { ...contact, account_id: 'account-synthetic', description: 'Opis kontaktu', created_at: '2026-11-02T09:00:00+01:00' }], [26, false], [28, tab]];
   }
 
-  it('wszystkie flagi powierzchni są domyślnie włączone', () => {
-    for (const value of Object.values(defaultSurfaceFlags)) expect(value).toBe(true);
+  it('wszystkie flagi powierzchni są domyślnie wyłączone', () => {
+    for (const value of Object.values(defaultSurfaceFlags)) expect(value).toBe(false);
   });
 
   it('Aktywności mają pięć kolumn, rzeczywiste powiązania i właściciela', () => {
@@ -898,14 +898,14 @@ describe('KM3.2.19 — wspólna rama siedmiu ekranów', () => {
       '--brand-sidebar': 'var(--bigin-panel)', '--brand-page': 'var(--bigin-bg)',
     });
     const source = readFileSync(new URL(`../../app/(dashboard)${pathname}/page.tsx`, import.meta.url), 'utf8');
-    expect(source).not.toMatch(/#(?:093e52|0b4a63)\b/i);
+    expect(source).not.toMatch(/#(?:093e5[23]|0b4a63)\b/i);
   });
 });
 
 describe('KM3.2.24 — jedna globalna paleta, bez lokalnych nadpisań ekranów', () => {
   it('definiuje kolor panelu i biały tekst w :root', () => {
     expect(globalDeclarations(':root')).toMatchObject({
-      '--bigin-panel': '#093e52', '--bigin-accent': '#0b4a63', '--bigin-panel-text': '#ffffff',
+      '--bigin-panel': '#093e53', '--bigin-accent': '#0b4a63', '--bigin-panel-text': '#ffffff',
     });
   });
 
@@ -918,7 +918,7 @@ describe('KM3.2.24 — jedna globalna paleta, bez lokalnych nadpisań ekranów',
     '../../components/companies/company-card.tsx',
   ])('%s dziedziczy paletę bez twardych kolorów panelu', (path) => {
     const source = readFileSync(new URL(path, import.meta.url), 'utf8');
-    expect(source).not.toMatch(/#(?:093e52|0b4a63)\b/i);
+    expect(source).not.toMatch(/#(?:093e5[23]|0b4a63)\b/i);
   });
 });
 
@@ -927,11 +927,14 @@ describe('KM3.2.26 — jedno globalne źródło wymiarów i palety', () => {
   it('RootLayout stosuje globalne tokeny, a CSS zapewnia zgodne wartości przed hydratacją', () => {
     const source = readFileSync(new URL('../../app/layout.tsx', import.meta.url), 'utf8');
     expect(source).toMatch(/style=\{\{[^}]*\.\.\.BIGIN_CSS_VARS[^}]*\.\.\.SHELL_CSS_VARS/);
+    for (const [name, value] of Object.entries(SHELL_CSS_VARS)) {
+      expect(globalRoot).toContain(`${name}:${value}`);
+    }
     for (const name of ['--app-sidebar-width', '--app-topbar-height', '--bigin-panel', '--bigin-bg']) {
       expect(globalRoot).toContain(`${name}:`);
     }
     expect(globalDeclarations(':root')).toMatchObject({
-      '--bigin-panel': '#093e52', '--bigin-bg': '#f9fbfc',
+      '--bigin-panel': '#093e53', '--bigin-bg': '#f9fbfc',
     });
     expect(globalDeclarations("[data-slot='app-shell'].bigin-shell")).not.toHaveProperty('--brand-info');
   });
@@ -954,7 +957,7 @@ describe('KM3.2.26 — jedno globalne źródło wymiarów i palety', () => {
 });
 
 
-describe('KM3.3.1 — dodatki widoczne domyślnie i zachowane pod flagami', () => {
+describe('KM3.4.1 — dodatki ukryte domyślnie i zachowane pod flagami', () => {
   beforeEach(() => {
     // No override: these renders exercise the actual production defaults.
     harness.extensions = undefined;
@@ -965,9 +968,9 @@ describe('KM3.3.1 — dodatki widoczne domyślnie i zachowane pod flagami', () =
     'pipelineExtensions', 'contactsExtensions', 'companiesExtensions',
     'dealsListExtensions', 'cardExtensions', 'dashboardExtensions',
     'activitiesExtensions', 'tasksExtensions', 'inboxExtensions', 'bankQualification',
-  ] as const)('%s jest true bez nadpisania w teście', (flag) => {
-    expect(defaultSurfaceFlags[flag]).toBe(true);
-    expect(surfaceFlags[flag]).toBe(true);
+  ] as const)('%s jest false bez nadpisania w teście', (flag) => {
+    expect(defaultSurfaceFlags[flag]).toBe(false);
+    expect(surfaceFlags[flag]).toBe(false);
   });
 
   it.each([undefined, false, true])('Lejek renderuje KPI i filtry zgodnie z flagą %s', (override) => {
@@ -988,26 +991,40 @@ describe('KM3.3.1 — dodatki widoczne domyślnie i zachowane pod flagami', () =
     expect(html).toContain('Wyszukaj transakcje');
   });
 
-  it('Kontakty i karta kontaktu pokazują dodatki bez nadpisania flagi', () => {
+  it.each([undefined, true])('Kontakty i karta kontaktu zachowują dodatki pod flagą %s', (override) => {
+    harness.extensions = override;
+    const enabled = override ?? defaultSurfaceFlags.contactsExtensions;
     const list = render(ContactsPage, [[0, [contact]], [2, false]]);
-    for (const label of ['TAG_EXTENSION', 'CUSTOM_FIELDS_EXTENSION', 'Eksportuj', 'Nowy kontakt / nieznany numer', 'Kluczowi']) expect(list).toContain(label);
-    expect(render(ContactsPage, [[12, true], [13, contact.id]])).toContain('LEGACY_CONTACT_EXTENSION');
+    for (const label of ['TAG_EXTENSION', 'CUSTOM_FIELDS_EXTENSION', 'Eksportuj', 'Nowy kontakt / nieznany numer', 'Kluczowi']) expect(list.includes(label)).toBe(enabled);
+    expect(render(ContactsPage, [[12, true], [13, contact.id]]).includes('LEGACY_CONTACT_EXTENSION')).toBe(enabled);
   });
 
-  it('Firmy pokazują istniejące kolumny dodatkowe bez nadpisania flagi', () => {
+  it.each([undefined, true])('Firmy zachowują istniejące kolumny dodatkowe pod flagą %s', (override) => {
+    harness.extensions = override;
+    const enabled = override ?? defaultSurfaceFlags.companiesExtensions;
     const html = render(CompaniesPage, [[0, [company]], [1, false]]);
-    for (const label of ['NIP_EXTENSION', 'PRIMARY_CONTACT_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale']) expect(html).toContain(label);
+    for (const label of ['NIP_EXTENSION', 'NEXT_ACTION_EXTENSION', 'Aktywne Deale']) expect(html.includes(label)).toBe(enabled);
+    expect(html).toContain('PRIMARY_CONTACT_EXTENSION');
   });
 
-  it('lista transakcji i karta deala pokazują dodatki bez nadpisania flagi', () => {
-    expect(render(DealsPage, [[2, false]])).toContain('Pojedyncze sprawy klientów.');
-    expect(render(DealPage, [[0, deal]])).toContain('Asystent AI');
+  it.each([undefined, true])('lista transakcji i karta deala zachowują dodatki pod flagą %s', (override) => {
+    harness.extensions = override;
+    if (override ?? defaultSurfaceFlags.dealsListExtensions) {
+      expect(render(DealsPage, [[2, false]])).toContain('Pojedyncze sprawy klientów.');
+    } else {
+      expect(() => render(DealsPage, [[2, false]])).toThrow('NEXT_REDIRECT');
+      expect(harness.cursor).toBe(0);
+    }
+    expect(render(DealPage, [[0, deal]]).includes('Asystent AI')).toBe(override ?? defaultSurfaceFlags.cardExtensions);
   });
 
   it.each([
-    [DashboardPage, 'KM1.2'], [QuickCallPage, 'LEGACY_ACTIVITIES_EXTENSION'],
-    [TasksPage, 'KALENDARZ'], [InboxPage, 'Kanały Inbox:'],
-  ] as const)('%s pokazuje dodatek %s bez nadpisania flagi', (Page, marker) => {
+    [DashboardPage, 'KM1.2', 'dashboardExtensions'],
+    [QuickCallPage, 'LEGACY_ACTIVITIES_EXTENSION', 'activitiesExtensions'],
+    [TasksPage, 'KALENDARZ', 'tasksExtensions'], [InboxPage, 'Kanały Inbox:', 'inboxExtensions'],
+  ] as const)('%s zachowuje dodatek %s pod flagą %s', (Page, marker, flag) => {
+    expect(render(Page, []).includes(marker)).toBe(defaultSurfaceFlags[flag]);
+    harness.extensions = true;
     expect(render(Page, [])).toContain(marker);
   });
 });
