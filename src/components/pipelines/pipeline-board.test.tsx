@@ -9,7 +9,7 @@ import type { Deal, PipelineStage } from '@/types';
 import { PipelineBoard } from './pipeline-board';
 import { DealCard } from './deal-card';
 import PipelinesPage from '@/app/(dashboard)/pipelines/page';
-import { MOBILE_BREAKPOINT, PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH } from '@/lib/ui/layout-geometry';
+import { MOBILE_BREAKPOINT, PIPELINE_COLUMN_WIDTH, PIPELINE_CARD_WIDTH, BOARD_START_Y, MOBILE_TOPBAR_HEIGHT, MOBILE_SIDEBAR_WIDTH, biginGeometryCssVars } from '@/lib/ui/layout-geometry';
 
 // Exercise the board's click handlers in the existing Node test environment.
 // Nested components and static renders keep the real React hooks.
@@ -318,9 +318,15 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
       '--app-topbar-height': 'var(--app-mobile-topbar-height)',
       '--app-sidebar-width': 'var(--app-mobile-sidebar-width)',
     });
-    expect(rules('[data-bigin-pipeline-shell]', true)).toMatchObject({
+    expect(rules('[data-bigin-pipeline-shell] [data-pipeline-workspace]', true)).toMatchObject({
+      '--pipeline-team-panel-width': 'var(--pipeline-mobile-team-panel-width)',
       '--pipeline-toolbar-height': 'var(--pipeline-mobile-toolbar-height)',
       '--pipeline-toolbar-button-height': 'var(--pipeline-mobile-toolbar-button-height)',
+    });
+    expect(rules('[data-pipeline-workspace]')['padding-left']).toBe('var(--pipeline-team-panel-width)');
+    expect(rules('[data-pipeline-team-panel]').width).toBe('var(--pipeline-team-panel-width)');
+    expect(rules('[data-pipeline-toolbar]')).toMatchObject({
+      height: 'var(--pipeline-toolbar-height)', 'min-height': 'var(--pipeline-toolbar-height)',
     });
     expect(rules('[data-bigin-pipeline-shell] #main-content')).toMatchObject({
       'margin-top': 'var(--app-topbar-height)', padding: '0', overflow: 'hidden',
@@ -340,6 +346,44 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     const bottom = readFileSync('src/components/layout/mobile-bottom-nav.tsx', 'utf8');
     expect(bottom).toContain('md:hidden');
     expect(bottom).toContain('<GlobalAdd mobile />');
+  });
+
+  it.each([390, 767, 768, 1366, 1536])('KM3.5.1C: nadpisuje odziedziczone tokeny poniżej inline shellu tylko na telefonie, %s px', (viewport) => {
+    const stylesheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const shell = biginGeometryCssVars('pipelines') as Record<string, string>;
+    const workspace: Record<string, string> = {};
+    stylesheet.walkRules((rule) => {
+      if (!rule.selectors.includes('[data-bigin-pipeline-shell] [data-pipeline-workspace]')) return;
+      // An unscoped rule would also change desktop and laptop geometry.
+      expect(rule.parent?.type).toBe('atrule');
+      if (rule.parent?.type !== 'atrule') return;
+      expect(rule.parent.name).toBe('media');
+      expect(rule.parent.params).toBe('(max-width: 767px)');
+      if (viewport < MOBILE_BREAKPOINT) {
+        rule.walkDecls((decl) => { workspace[decl.prop] = decl.value; });
+      }
+    });
+    expect(shell['--pipeline-team-panel-width']).toBe('221px');
+    expect(shell['--pipeline-toolbar-height']).toBe('67px');
+    expect(shell['--pipeline-toolbar-button-height']).toBe('32px');
+    // Local declarations beat inherited inline values. A rule on the shell
+    // itself loses to its inline style and reproduces LIVE's x=294 / y=110.
+    const inherited = { ...shell, ...workspace };
+    const pixels = (name: string): number => {
+      const value = inherited[name];
+      const reference = /^var\((--[^)]+)\)$/.exec(value);
+      return reference ? pixels(reference[1]) : Number.parseFloat(value);
+    };
+    const mobile = viewport < MOBILE_BREAKPOINT;
+    expect(pixels('--pipeline-team-panel-width')).toBe(mobile ? 199 : 221);
+    expect(pixels('--pipeline-toolbar-height')).toBe(mobile ? 72 : 67);
+    expect(pixels('--pipeline-toolbar-button-height')).toBe(mobile ? 29 : 32);
+    expect((mobile ? 63 : 64) + pixels('--pipeline-team-panel-width') + pixels('--content-pad-x')).toBe(mobile ? 272 : 295);
+    expect((mobile ? 43 : 48) + pixels('--pipeline-toolbar-height')).toBe(115);
+    const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
+    const containers = source.match(/<div data-pipeline-workspace[^>]*>/g) ?? [];
+    expect(containers).toHaveLength(2); // loading and loaded workspace
+    for (const container of containers) expect(container).not.toContain('style=');
   });
 
   it.each(['Firma syntetyczna', undefined, '   '])('tytuł karty dla firmy %s zachowuje powiązanie kontaktu', (companyName) => {

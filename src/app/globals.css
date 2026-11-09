@@ -697,10 +697,13 @@ body {
     --app-sidebar-width-collapsed: var(--app-mobile-sidebar-width);
   }
   [data-bigin-pipeline-shell] {
+    --bigin-font-size: 12.6px;
+  }
+  /* Override inherited defaults below the shell's inline geometry tokens. */
+  [data-bigin-pipeline-shell] [data-pipeline-workspace] {
     --pipeline-team-panel-width: var(--pipeline-mobile-team-panel-width);
     --pipeline-toolbar-height: var(--pipeline-mobile-toolbar-height);
     --pipeline-toolbar-button-height: var(--pipeline-mobile-toolbar-button-height);
-    --bigin-font-size: 12.6px;
   }
   [data-bigin-pipeline-shell] #main-content {
     margin-bottom: calc(56px + env(safe-area-inset-bottom));
