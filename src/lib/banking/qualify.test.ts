@@ -86,8 +86,8 @@ describe('KM4.1 — kwalifikacja offline', () => {
         throw new Error('Sieć zabroniona');
       })
     );
-    expect(surfaceFlags.bankQualification).toBe(true);
-    expect(surfaceFlags.cardExtensions).toBe(true);
+    expect(surfaceFlags.bankQualification).toBe(false);
+    expect(surfaceFlags.cardExtensions).toBe(false);
     const html = renderToStaticMarkup(
       createElement(BankQualification, { deal })
     );

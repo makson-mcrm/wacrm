@@ -924,6 +924,24 @@ describe('KM3.2.24 — jedna globalna paleta, bez lokalnych nadpisań ekranów',
 
 
 describe('KM3.2.26 — jedno globalne źródło wymiarów i palety', () => {
+  it('RootLayout zapisuje wymiary 285/64/48 bezpośrednio w stylu html', async () => {
+    const html = renderToStaticMarkup(await RootLayout({ children: null }));
+    const rootStyle = html.match(/<html\b[^>]*\bstyle="([^"]*)"/)?.[1];
+    expect(rootStyle).toBeDefined();
+    for (const declaration of [
+      '--app-sidebar-width:285px',
+      '--app-sidebar-width-collapsed:64px',
+      '--app-topbar-height:48px',
+    ]) {
+      expect(rootStyle!.split(';')).toContain(declaration);
+    }
+    // The browser probe loads the actual RootLayout output, without injecting variables.
+    if (process.env.KM3_RENDER_DIR) {
+      mkdirSync(process.env.KM3_RENDER_DIR, { recursive: true });
+      writeFileSync(join(process.env.KM3_RENDER_DIR, 'root-layout.html'), `<!doctype html>${html}`);
+    }
+  });
+
   it('RootLayout stosuje globalne tokeny, a CSS zapewnia zgodne wartości przed hydratacją', () => {
     const source = readFileSync(new URL('../../app/layout.tsx', import.meta.url), 'utf8');
     expect(source).toMatch(/style=\{\{[^}]*\.\.\.BIGIN_CSS_VARS[^}]*\.\.\.SHELL_CSS_VARS/);
