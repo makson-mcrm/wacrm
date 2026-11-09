@@ -672,6 +672,7 @@ export default function DashboardPage() {
           {
             background: LIST_CONTENT_BACKGROUND,
             '--today-row-bg': BRAND_ROW_BG,
+            '--brand-row': BRAND_ROW_BG,
             '--today-hover': BRAND_HOVER,
             '--today-link': BRAND_LINK,
             '--today-content-top': `${CARD_CONTENT_TOP}px`,
@@ -1265,18 +1266,18 @@ function TodayLoadingState() {
     <section
       aria-label="Wczytywanie planu dnia"
       aria-busy="true"
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+      className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm"
     >
-      <div className="h-7 w-36 animate-pulse rounded bg-slate-200" />
+      <div className="h-7 w-36 animate-pulse rounded bg-[var(--border)]" />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {[0, 1, 2].map((item) => (
           <div
             key={item}
-            className="h-24 animate-pulse rounded-lg bg-slate-100"
+            className="h-24 animate-pulse rounded-lg bg-[var(--brand-row)]"
           />
         ))}
       </div>
-      <p className="mt-4 text-sm font-medium text-slate-500">
+      <p className="mt-4 text-sm font-medium text-[var(--foreground)]">
         Układam aktualny plan dnia…
       </p>
     </section>
@@ -1378,7 +1379,7 @@ function DesktopTodayBoard({
       value: formatMoney(revenueNow),
       detail: `z ${immediateDeals.length} transakcji`,
       icon: '▥',
-      tone: 'text-emerald-700',
+      tone: 'text-[var(--brand-link)]',
     },
     {
       label: 'Przychód później',
@@ -1394,7 +1395,7 @@ function DesktopTodayBoard({
       value: String(nearCommissionDeals.length),
       detail: 'sprawy na finiszu',
       icon: '♙',
-      tone: 'text-emerald-700',
+      tone: 'text-[var(--brand-link)]',
     },
     {
       label: 'Blockery',
@@ -1410,14 +1411,14 @@ function DesktopTodayBoard({
       value: String(dealsWithoutAction.length),
       detail: 'spraw czeka na akcję',
       icon: '•••',
-      tone: 'text-slate-600',
+      tone: 'text-[var(--foreground)]',
     },
   ];
   return (
     <section className="hidden lg:block" aria-label="DZISIAJ — widok roboczy">
       <div className="mb-3 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-black tracking-tight text-slate-950">
+          <h1 className="text-[28px] font-black tracking-tight text-[var(--foreground)]">
             Dzisiaj
           </h1>
           <p className="text-sm font-medium text-blue-900 capitalize">
@@ -1433,17 +1434,17 @@ function DesktopTodayBoard({
           <Link
             key={metric.label}
             href={metric.label === 'TOP 6' ? '/tasks' : '/pipelines'}
-            className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-emerald-200"
+            className="min-w-0 rounded-xl border border-[var(--border)] bg-white p-3 shadow-sm transition hover:border-[var(--border)]"
           >
             <div className="flex items-start gap-2">
               <span className={`text-lg font-black ${metric.tone}`}>
                 {metric.icon}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-xs font-black text-slate-950">
+                <p className="truncate text-xs font-black text-[var(--foreground)]">
                   {metric.label}
                 </p>
-                <p className="truncate text-xs text-slate-500">{metric.note}</p>
+                <p className="truncate text-xs text-[var(--foreground)]">{metric.note}</p>
               </div>
             </div>
             <p className="mt-2 truncate text-xl font-black text-blue-950">
@@ -1462,7 +1463,7 @@ function DesktopTodayBoard({
           action="Zobacz cały dzień"
           href="/calendar?view=day"
         >
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[var(--border)]">
             {allItems.slice(0, 6).map((item, index) => (
               <DesktopTodayRow key={item.id} item={item} index={index} />
             ))}
@@ -1471,7 +1472,7 @@ function DesktopTodayBoard({
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Link
               href="/calendar?new=event"
-              className="rounded-lg bg-emerald-700 px-3 py-2 text-center text-xs font-bold text-white"
+              className="rounded-lg bg-[var(--brand-sidebar)] px-3 py-2 text-center text-xs font-bold text-white"
             >
               + Dodaj spotkanie
             </Link>
@@ -1489,7 +1490,7 @@ function DesktopTodayBoard({
           action={`Zobacz wszystkie (${callsToday.length})`}
           href="/tasks"
         >
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[var(--border)]">
             {(callsToday.length ? callsToday : allItems)
               .slice(0, 5)
               .map((item, index) => (
@@ -1506,12 +1507,12 @@ function DesktopTodayBoard({
 
         <TodayPanel title="Pasek rytmu dnia">
           <div className="flex items-center gap-3 py-2">
-            <div className="flex size-20 shrink-0 items-center justify-center rounded-full border-[8px] border-emerald-500 border-r-emerald-100 text-xl font-black text-blue-950">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full border-[8px] border-[var(--border)] border-r-[var(--border)] text-xl font-black text-blue-950">
               {rhythmPercent}%
             </div>
             <div>
-              <p className="font-black text-emerald-800">Dobry rytm!</p>
-              <p className="mt-1 text-xs leading-4 text-slate-500">
+              <p className="font-black text-[var(--brand-link)]">Dobry rytm!</p>
+              <p className="mt-1 text-xs leading-4 text-[var(--foreground)]">
                 Masz zaplanowane {todayPlan.mainCount} kluczowych aktywności.
               </p>
             </div>
@@ -1526,10 +1527,10 @@ function DesktopTodayBoard({
             ].map((label, index) => (
               <div key={label} className="flex items-center gap-2">
                 <span
-                  className={`size-3 rounded-full border ${index < 3 ? 'border-emerald-600 bg-emerald-600' : 'border-blue-400'}`}
+                  className={`size-3 rounded-full border ${index < 3 ? 'border-[var(--border)] bg-[var(--brand-sidebar)]' : 'border-blue-400'}`}
                 />
                 <span className="min-w-0 flex-1 truncate">{label}</span>
-                <span className="text-slate-500">
+                <span className="text-[var(--foreground)]">
                   {['08:00', '10:00', '12:00', '14:00', '17:00'][index]}
                 </span>
               </div>
@@ -1578,26 +1579,26 @@ function DesktopTodayRow({
         minute: '2-digit',
       })
     : '—';
-  const dots = ['bg-red-500', 'bg-emerald-500', 'bg-amber-400', 'bg-slate-400'];
+  const dots = ['bg-red-500', 'bg-[var(--brand-sidebar)]', 'bg-amber-400', 'bg-[var(--border)]'];
   const content = (
     <div
       className={`grid grid-cols-[66px_minmax(0,1fr)_auto] items-center gap-2 ${compact ? 'py-2' : 'py-2.5'}`}
     >
-      <span className="flex items-center gap-2 text-sm font-black text-slate-700">
+      <span className="flex items-center gap-2 text-sm font-black text-[var(--foreground)]">
         <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
         {time}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-slate-900">
+        <span className="block truncate text-sm font-bold text-[var(--foreground)]">
           {item.title}
           {item.action && item.action !== item.title ? ` — ${item.action}` : ''}
         </span>
-        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500 uppercase">
+        <span className="mt-0.5 block truncate text-xs font-semibold text-[var(--foreground)] uppercase">
           {[item.stageName, item.section].filter(Boolean).join(' · ') ||
             item.reason}
         </span>
       </span>
-      <ArrowRight className="size-4 text-slate-600" />
+      <ArrowRight className="size-4 text-[var(--foreground)]" />
     </div>
   );
   return item.href ? <Link href={item.href}>{content}</Link> : content;
@@ -1615,8 +1616,8 @@ function TodayPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-h-[310px] rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
+    <section className="min-h-[310px] rounded-xl border border-[var(--border)] bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between border-b border-[var(--border)] pb-2">
         <h2 className="text-sm font-black text-blue-950">{title}</h2>
         {action && href ? (
           <Link
@@ -1646,8 +1647,8 @@ function DealStatusPanel({
   blocker?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
+    <section className="rounded-xl border border-[var(--border)] bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between border-b border-[var(--border)] pb-2">
         <h2 className="text-sm font-black text-blue-950">{title}</h2>
         <Link
           href={href}
@@ -1661,13 +1662,13 @@ function DealStatusPanel({
           <Link
             key={deal.id}
             href={`/deals/${deal.id}`}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-1 py-1.5 hover:bg-[var(--brand-hover)]"
           >
             <span className="min-w-0">
-              <span className="block truncate text-xs font-bold text-slate-900">
+              <span className="block truncate text-xs font-bold text-[var(--foreground)]">
                 {blocker ? deal.blocker : deal.title}
               </span>
-              <span className="block truncate text-xs text-slate-500">
+              <span className="block truncate text-xs text-[var(--foreground)]">
                 {deal.contact?.name ||
                   deal.company?.name ||
                   deal.stage?.name ||
@@ -1682,7 +1683,7 @@ function DealStatusPanel({
           </Link>
         ))}
         {!deals.length ? (
-          <p className="py-5 text-center text-xs text-slate-600">{empty}</p>
+          <p className="py-5 text-center text-xs text-[var(--foreground)]">{empty}</p>
         ) : null}
       </div>
     </section>
@@ -1691,7 +1692,7 @@ function DealStatusPanel({
 
 function EmptyTodayState() {
   return (
-    <p className="py-10 text-center text-xs text-slate-600">
+    <p className="py-10 text-center text-xs text-[var(--foreground)]">
       Brak działań zaplanowanych na dziś.
     </p>
   );
@@ -1743,19 +1744,19 @@ function DesktopWorkspaces({
   return (
     <section
       aria-label="Pięć paneli roboczych mCRM AI"
-      className="hidden min-h-[540px] overflow-hidden rounded-2xl border border-emerald-950/15 bg-[#f8faf7] shadow-sm lg:grid lg:grid-cols-[1.05fr_1.2fr_1fr_1.05fr_1fr]"
+      className="hidden min-h-[540px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[#f8faf7] shadow-sm lg:grid lg:grid-cols-[1.05fr_1.2fr_1fr_1.05fr_1fr]"
     >
       <WorkspacePanel title="Dziś" subtitle={dayLabel}>
         <div className="space-y-4">
           {sections.map(([title, items]) => (
             <div key={title}>
-              <p className="mb-1.5 text-xs font-black tracking-wide text-emerald-800 uppercase">
+              <p className="mb-1.5 text-xs font-black tracking-wide text-[var(--brand-link)] uppercase">
                 {title}
               </p>
               {items[0] ? (
                 <MiniTodayRow item={items[0]} primary={title === 'TERAZ'} />
               ) : (
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-[var(--foreground)]">
                   Brak zaplanowanej sprawy
                 </p>
               )}
@@ -1786,9 +1787,9 @@ function DesktopWorkspaces({
           {pipelineStages.map((stage, index) => (
             <div
               key={stage.name}
-              className={`flex min-w-0 flex-col rounded-lg p-1.5 ${index === 0 ? 'bg-emerald-50' : index === 1 ? 'bg-lime-50' : 'bg-amber-50'}`}
+              className={`flex min-w-0 flex-col rounded-lg p-1.5 ${index === 0 ? 'bg-[var(--brand-hover)]' : index === 1 ? 'bg-lime-50' : 'bg-amber-50'}`}
             >
-              <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-emerald-950/10 pb-1 text-xs font-black">
+              <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-[var(--border)] pb-1 text-xs font-black">
                 <span className="truncate">{stage.name}</span>
                 <span>{stage.deals.length}</span>
               </div>
@@ -1799,12 +1800,12 @@ function DesktopWorkspaces({
                     href={`/deals/${deal.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block rounded-md border bg-white p-1.5 hover:border-emerald-600"
+                    className="block rounded-md border bg-white p-1.5 hover:border-[var(--border)]"
                   >
                     <span className="line-clamp-2 text-xs leading-3.5 font-bold">
                       {deal.title}
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    <span className="mt-0.5 block truncate text-xs text-[var(--foreground)]">
                       {deal.value
                         ? `${Number(deal.value).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`
                         : deal.product_type || '—'}
@@ -1814,7 +1815,7 @@ function DesktopWorkspaces({
               </div>
               <Link
                 href="/pipelines?new=deal"
-                className="mt-auto pt-2 text-center text-xs font-black text-emerald-900"
+                className="mt-auto pt-2 text-center text-xs font-black text-[var(--brand-link)]"
               >
                 + Nowy Deal
               </Link>
@@ -1827,7 +1828,7 @@ function DesktopWorkspaces({
         {activeContact ? (
           <>
             <div className="flex items-center gap-2">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 font-black text-slate-600">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-row)] font-black text-[var(--foreground)]">
                 <UserRound className="size-4" />
               </span>
               <div className="min-w-0">
@@ -1835,11 +1836,11 @@ function DesktopWorkspaces({
                   href={`/contacts?open=${activeContact.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block truncate text-sm font-black hover:text-emerald-800"
+                  className="block truncate text-sm font-black hover:text-[var(--brand-link)]"
                 >
                   {activeContact.name || activeContact.phone}
                 </Link>
-                <p className="truncate text-xs text-slate-500">
+                <p className="truncate text-xs text-[var(--foreground)]">
                   {activeContact.phone}
                 </p>
               </div>
@@ -1865,7 +1866,7 @@ function DesktopWorkspaces({
               </Link>
             </div>
             <div className="mt-4 border-t pt-3">
-              <p className="mb-2 text-xs font-black text-emerald-800 uppercase">
+              <p className="mb-2 text-xs font-black text-[var(--brand-link)] uppercase">
                 Deale ({relatedDeals.length})
               </p>
               <div className="space-y-1.5">
@@ -1875,12 +1876,12 @@ function DesktopWorkspaces({
                     href={`/deals/${deal.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block rounded-lg bg-emerald-50 p-2"
+                    className="block rounded-lg bg-[var(--brand-hover)] p-2"
                   >
                     <span className="block truncate text-xs font-bold">
                       {deal.title}
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-[var(--foreground)]">
                       {deal.stage?.name || 'Etap nieustalony'}
                     </span>
                     <span className="mt-1 block text-xs font-bold">
@@ -1888,11 +1889,11 @@ function DesktopWorkspaces({
                         ? `${Number(deal.value).toLocaleString('pl-PL')} ${deal.currency || 'PLN'}`
                         : ''}
                     </span>
-                    <span className="mt-1 block text-xs text-slate-500">
+                    <span className="mt-1 block text-xs text-[var(--foreground)]">
                       Następny krok: {deal.next_action || 'Nie ustalono'}
                     </span>
                     {deal.next_action_at && (
-                      <span className="mt-1 block text-xs text-slate-500">
+                      <span className="mt-1 block text-xs text-[var(--foreground)]">
                         {new Date(deal.next_action_at).toLocaleDateString(
                           'pl-PL'
                         )}
@@ -1910,7 +1911,7 @@ function DesktopWorkspaces({
             </Link>
           </>
         ) : (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[var(--foreground)]">
             Wybierz klienta lub sprawę z DZISIAJ.
           </p>
         )}
@@ -1923,11 +1924,11 @@ function DesktopWorkspaces({
               href={`/deals/${activeDeal.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-black hover:text-emerald-800"
+              className="text-sm font-black hover:text-[var(--brand-link)]"
             >
               {activeDeal.title}
             </Link>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--foreground)]">
               {activeDeal.product_type}
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -1982,16 +1983,16 @@ function DesktopWorkspaces({
             </Link>
           </>
         ) : (
-          <p className="text-xs text-slate-500">Brak aktywnego Deala.</p>
+          <p className="text-xs text-[var(--foreground)]">Brak aktywnego Deala.</p>
         )}
       </WorkspacePanel>
 
       <WorkspacePanel title="Asystent AI" subtitle="Twoje wsparcie AI" last>
-        <div className="flex size-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-900">
+        <div className="flex size-11 items-center justify-center rounded-full bg-[var(--brand-hover)] text-[var(--brand-link)]">
           <Bot className="size-5" />
         </div>
         <h3 className="mt-3 text-sm font-black">Jak mogę Ci dziś pomóc?</h3>
-        <p className="mt-1 text-xs leading-4 text-slate-500">
+        <p className="mt-1 text-xs leading-4 text-[var(--foreground)]">
           Jestem tu, aby przyspieszyć Twoją pracę.
         </p>
         <div className="mt-4 space-y-1.5 text-xs">
@@ -2007,7 +2008,7 @@ function DesktopWorkspaces({
               href={
                 activeDeal ? `/assistant?deal=${activeDeal.id}` : '/assistant'
               }
-              className="flex items-center gap-2 rounded-lg border border-lime-300 bg-lime-50 px-2 py-2 font-semibold text-emerald-950 hover:bg-lime-100"
+              className="flex items-center gap-2 rounded-lg border border-lime-300 bg-lime-50 px-2 py-2 font-semibold text-[var(--brand-link)] hover:bg-lime-100"
             >
               <Sparkles className="size-3 text-lime-700" /> {label}
             </Link>
@@ -2015,7 +2016,7 @@ function DesktopWorkspaces({
         </div>
         <Link
           href={activeDeal ? `/assistant?deal=${activeDeal.id}` : '/assistant'}
-          className="mt-auto rounded-lg border border-lime-400 bg-lime-100 px-2 py-2 text-center text-xs font-black text-emerald-950"
+          className="mt-auto rounded-lg border border-lime-400 bg-lime-100 px-2 py-2 text-center text-xs font-black text-[var(--brand-link)]"
         >
           Napisz pytanie…
         </Link>
@@ -2058,8 +2059,8 @@ function MobileTodayBoard({
           {dayLabel}
         </p>
       </div>
-      <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-bold text-blue-900">
-        <span className="bg-emerald-700 px-1 py-2 text-center text-white">
+      <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-[var(--border)] bg-white text-xs font-bold text-blue-900">
+        <span className="bg-[var(--brand-sidebar)] px-1 py-2 text-center text-white">
           Moje zadania{' '}
           <b className="ml-0.5 rounded-full bg-rose-500 px-1.5 py-0.5">
             {todayPlan.mainCount}
@@ -2074,19 +2075,19 @@ function MobileTodayBoard({
         <span className="px-1 py-2 text-center">Na dziś</span>
         <span className="px-1 py-2 text-center">Na później</span>
       </div>
-      <div className="mt-2 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white px-2">
+      <div className="mt-2 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-white px-2">
         {allItems.slice(0, 6).map((item, index) => (
           <MobileTodayTaskRow key={item.id} item={item} index={index} />
         ))}
         {!allItems.length ? (
-          <p className="py-12 text-center text-xs text-slate-600">
+          <p className="py-12 text-center text-xs text-[var(--foreground)]">
             Brak działań zaplanowanych na dziś.
           </p>
         ) : null}
       </div>
       <Link
         href="/tasks?new=task"
-        className="mt-3 flex min-h-12 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white shadow-sm"
+        className="mt-3 flex min-h-12 items-center justify-center rounded-lg bg-[var(--brand-sidebar)] text-sm font-bold text-white shadow-sm"
       >
         + Dodaj zadanie
       </Link>
@@ -2122,10 +2123,10 @@ function MobileTodayTaskRow({
         minute: '2-digit',
       })
     : '—';
-  const dots = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-400', 'bg-sky-600'];
+  const dots = ['bg-[var(--brand-sidebar)]', 'bg-blue-500', 'bg-amber-400', 'bg-sky-600'];
   const content = (
     <div className="grid grid-cols-[18px_8px_minmax(0,1fr)_44px_12px] items-center gap-2 py-3">
-      <span className="size-3.5 rounded border border-slate-300" />
+      <span className="size-3.5 rounded border border-[var(--border)]" />
       <span className={`size-2 rounded-full ${dots[index % dots.length]}`} />
       <span className="min-w-0">
         <span className="block truncate text-xs font-black text-blue-950">
@@ -2155,11 +2156,11 @@ function WorkspacePanel({
 }) {
   return (
     <section
-      className={`flex min-w-0 flex-col p-3 ${last ? '' : 'border-r border-emerald-950/10'}`}
+      className={`flex min-w-0 flex-col p-3 ${last ? '' : 'border-r border-[var(--border)]'}`}
     >
       <div className="mb-3 border-b pb-2">
         <h2 className="text-sm font-black">{title}</h2>
-        <p className="truncate text-xs text-slate-500">{subtitle}</p>
+        <p className="truncate text-xs text-[var(--foreground)]">{subtitle}</p>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
@@ -2175,16 +2176,16 @@ function MiniTodayRow({
 }) {
   const content = (
     <div
-      className={`rounded-lg border-l-4 p-2 ${primary ? 'border-l-emerald-700 bg-emerald-50' : 'border-l-slate-300 bg-white'}`}
+      className={`rounded-lg border-l-4 p-2 ${primary ? 'border-l-[var(--border)] bg-[var(--brand-hover)]' : 'border-l-[var(--border)] bg-white'}`}
     >
       <p className="line-clamp-2 text-xs font-black">
         {item.action || item.title}
       </p>
       {item.action && item.action !== item.title ? (
-        <p className="mt-0.5 truncate text-xs text-slate-500">{item.title}</p>
+        <p className="mt-0.5 truncate text-xs text-[var(--foreground)]">{item.title}</p>
       ) : null}
       {primary ? (
-        <span className="mt-2 inline-block rounded-md bg-emerald-700 px-2 py-1 text-xs font-black text-white">
+        <span className="mt-2 inline-block rounded-md bg-[var(--brand-sidebar)] px-2 py-1 text-xs font-black text-white">
           Rozpocznij
         </span>
       ) : null}
@@ -2202,7 +2203,7 @@ function WorkspaceField({
 }) {
   return (
     <div>
-      <dt className="text-xs font-black text-slate-600 uppercase">{label}</dt>
+      <dt className="text-xs font-black text-[var(--foreground)] uppercase">{label}</dt>
       <dd className="mt-1 min-h-9 rounded border bg-white p-1.5 font-semibold">
         {value || '—'}
       </dd>

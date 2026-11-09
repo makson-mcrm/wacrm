@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -39,6 +39,7 @@ import { SpouseLinks } from '@/components/relationships/spouse-links';
 import { CompanyCard } from '@/components/companies/company-card';
 import { loadSpouseLinks } from '@/lib/mcrm/spouse-relations';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+import { BRAND_ROW_BG } from '@/lib/ui/layout-geometry';
 import {
   geometryCssVars,
   listTableClassName,
@@ -256,7 +257,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <div className={extensions ? 'space-y-5 p-4 md:p-6' : 'bg-white'} style={extensions ? undefined : geometryCssVars('lists')}>
+    <div className={extensions ? 'space-y-5 p-4 md:p-6' : 'bg-[var(--list-content-background)]'} style={{ ...(!extensions ? geometryCssVars('lists') : {}), '--brand-row': BRAND_ROW_BG } as CSSProperties}>
       <div data-slot="list-toolbar" className={extensions ? 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between' : listToolbarClassName}>
         {extensions ? <div>
           <h1 className="text-foreground text-2xl font-semibold">Firmy</h1>
@@ -273,7 +274,7 @@ export default function CompaniesPage() {
         <Button
           onClick={() => openNew()}
           disabled={!canEdit}
-          className={extensions ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'rounded-full bg-emerald-600 text-white hover:bg-emerald-700'}
+          className={extensions ? 'bg-[var(--brand-sidebar)] text-white hover:bg-[var(--brand-sidebar)]' : 'rounded-full bg-[var(--brand-sidebar)] text-white hover:bg-[var(--brand-sidebar)]'}
         >
           <Plus className="size-4" /> {extensions ? 'Dodaj firmę' : 'Firma'}
         </Button>
@@ -336,7 +337,7 @@ export default function CompaniesPage() {
             <TableBody>
               {!extensions && (loading || visible.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={6} className="h-32 text-center text-[var(--foreground)]">
                     {loading ? <Loader2 className="mx-auto size-5 animate-spin" aria-label="Ładowanie firm" /> : 'Brak firm.'}
                   </TableCell>
                 </TableRow>
@@ -981,9 +982,9 @@ function CompanySheet({
                           href={`/contacts?open=${link.contact_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-h-10 rounded px-1 py-1 hover:bg-emerald-50"
+                          className="min-h-10 rounded px-1 py-1 hover:bg-[var(--brand-hover)]"
                         >
-                          <p className="font-medium hover:text-emerald-800 hover:underline">
+                          <p className="font-medium hover:text-[var(--brand-link)] hover:underline">
                             {link.contact?.name || link.contact?.phone}
                           </p>
                           {link.role && (

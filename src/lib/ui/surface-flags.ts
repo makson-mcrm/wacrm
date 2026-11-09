@@ -11,6 +11,7 @@ export const surfaceFlags: Readonly<{
   dealsListExtensions: boolean;
   cardExtensions: boolean;
   dashboardExtensions: boolean;
+  activitiesExtensions: boolean;
   tasksExtensions: boolean;
   inboxExtensions: boolean;
   bankQualification: boolean;
@@ -21,6 +22,7 @@ export const surfaceFlags: Readonly<{
   dealsListExtensions: false,
   cardExtensions: false,
   dashboardExtensions: false,
+  activitiesExtensions: false,
   tasksExtensions: false,
   inboxExtensions: false,
   bankQualification: true,
@@ -43,4 +45,6 @@ export const pipelineSurfaceExtensions = [
   'Firmy: NIP, osoba kontaktowa, aktywne Deale i następne działanie na liście',
   'Firmy: historia aktywności, powiązania małżonka i edytor tagów',
   'Lista transakcji: autorski nagłówek i opis; filtry i AI obecnie nie występują',
+  'Aktywności: panel rozmowy, notatki, next action, AI, KPI i szybkie akcje',
+  'Karta kontaktu: autorski widok szczegółów, powiązania i panele dodatkowe',
 ] as const;

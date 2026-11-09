@@ -1,5 +1,7 @@
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pipelineSurfaceExtensions, surfaceFlags } from './surface-flags';
 import ContactsPage from '@/app/(dashboard)/contacts/page';
@@ -9,6 +11,7 @@ import DealsPage from '@/app/(dashboard)/deals/page';
 import DealPage from '@/app/(dashboard)/deals/[id]/page';
 import CalendarPage from '@/app/(dashboard)/calendar/page';
 import DashboardPage from '@/app/(dashboard)/dashboard/page';
+import QuickCallPage from '@/app/(dashboard)/quick-call/page';
 import TasksPage from '@/app/(dashboard)/tasks/page';
 import InboxPage from '@/app/(dashboard)/inbox/page';
 import { createRecordLinkHandlers } from '@/app/(dashboard)/deals/kanban-card';
@@ -67,6 +70,7 @@ vi.mock('./surface-flags', async (importOriginal) => {
       get dealsListExtensions() { return harness.extensions ?? original.surfaceFlags.dealsListExtensions; },
       get cardExtensions() { return harness.extensions ?? original.surfaceFlags.cardExtensions; },
       get dashboardExtensions() { return harness.extensions ?? original.surfaceFlags.dashboardExtensions; },
+      get activitiesExtensions() { return harness.extensions ?? original.surfaceFlags.activitiesExtensions; },
       get tasksExtensions() { return harness.extensions ?? original.surfaceFlags.tasksExtensions; },
       get inboxExtensions() { return harness.extensions ?? original.surfaceFlags.inboxExtensions; },
     },
@@ -94,6 +98,8 @@ vi.mock('@/hooks/use-unread-notifications', () => ({ useUnreadNotifications: () 
 vi.mock('@/hooks/use-unhandled-submissions', () => ({ useUnhandledSubmissions: () => 0 }));
 vi.mock('@/hooks/use-theme', () => ({ useTheme: () => ({ mode: 'light', toggleMode: vi.fn() }) }));
 vi.mock('@/components/contacts/contact-form', () => ({ ContactForm: () => null }));
+vi.mock('@/components/contacts/contact-detail-view', () => ({ ContactDetailView: () => createElement('div', null, 'LEGACY_CONTACT_EXTENSION') }));
+vi.mock('@/components/sales/activity-board-08', () => ({ ActivityBoard08: () => createElement('div', null, 'LEGACY_ACTIVITIES_EXTENSION') }));
 vi.mock('@/components/contacts/import-modal', () => ({ ImportModal: () => null }));
 vi.mock('@/components/contacts/custom-fields-manager', () => ({ CustomFieldsManager: () => createElement('div', null, 'CUSTOM_FIELDS_EXTENSION') }));
 vi.mock('@/components/pipelines/deal-form', () => ({ DealForm: () => null }));
@@ -730,5 +736,114 @@ describe('KM3.2.14 — paleta Bigin', () => {
     expect(aside).toContain('bg-[var(--sidebar-alt)] text-white');
     expect(aside).toContain('hover:bg-[var(--sidebar-alt)]');
     expect(html).not.toContain('text-slate-950');
+  });
+});
+
+describe('KM3.2.19 — wspólna rama siedmiu ekranów', () => {
+  const activity = {
+    id: 'activity-synthetic', title: 'Rozmowa syntetyczna', user_id: 'owner-synthetic',
+    scheduled_at: '2026-11-09T09:00:00+01:00', next_action_date: null,
+    occurred_at: '2026-11-08T10:00:00+01:00',
+    contact: { id: contact.id, name: contact.name },
+    company: { id: company.id, name: company.name },
+    deal: { id: deal.id, title: deal.title },
+  };
+  function contactCardStates(tab = 'timeline'): [number, unknown][] {
+    return [[12, true], [13, contact.id], [25, { ...contact, account_id: 'account-synthetic', description: 'Opis kontaktu', created_at: '2026-11-02T09:00:00+01:00' }], [26, false], [28, tab]];
+  }
+
+  it('wszystkie flagi powierzchni są wyłączone', () => {
+    expect(surfaceFlags.activitiesExtensions).toBe(false);
+    for (const [key, value] of Object.entries(surfaceFlags)) {
+      if (key.endsWith('Extensions')) expect(value).toBe(false);
+    }
+  });
+
+  it('Aktywności mają pięć kolumn, rzeczywiste powiązania i właściciela', () => {
+    const html = render(QuickCallPage, [[0, [activity]], [1, false]]);
+    expect(headings(html)).toEqual(['', 'Temat', 'Termin', 'Powiązanie', 'Właściciel']);
+    for (const value of ['Rozmowa syntetyczna', 'Właściciel syntetyczny', 'Zaznacz wszystkie aktywności', `href="/contacts?open=${contact.id}"`, `href="/companies?open=${company.id}"`, `href="/deals/${deal.id}"`, 'dateTime="2026-11-09T09:00:00+01:00"']) expect(html).toContain(value);
+    for (const value of ['LEGACY_ACTIVITIES_EXTENSION', 'Asystent', 'KPI']) expect(html).not.toContain(value);
+  });
+
+  it('Aktywności obsługują brak terminu i nie przypisują cudzej aktywności zalogowanemu', () => {
+    const html = render(QuickCallPage, [[0, [{ ...activity, user_id: 'other-synthetic', scheduled_at: null, contact: null, company: null, deal: null }]], [1, false]]);
+    expect(html).not.toContain('Właściciel syntetyczny');
+    expect(html).not.toContain('<time');
+    expect(html).not.toContain('href=');
+  });
+
+  it('Aktywności rozróżniają ładowanie, pustą listę i błąd', () => {
+    expect(render(QuickCallPage, [])).toContain('Wczytywanie aktywności');
+    expect(render(QuickCallPage, [[1, false]])).toContain('Brak aktywności.');
+    const html = render(QuickCallPage, [[1, false], [2, true]]);
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Spróbuj ponownie');
+  });
+
+  it('flaga Aktywności przywraca cały dotychczasowy komponent', () => {
+    harness.extensions = true;
+    const html = render(QuickCallPage, []);
+    expect(html).toContain('LEGACY_ACTIVITIES_EXTENSION');
+    expect(html).not.toContain('data-bigin-activities');
+  });
+
+  it.each(['timeline', 'comments', 'activities', 'messages'])('karta kontaktu zachowuje cztery zakładki: %s', (tab) => {
+    const html = render(ContactsPage, contactCardStates(tab));
+    expect(cardTabs(html)).toEqual(['Oś czasu', 'Komentarze', 'Aktywności', 'Wiadomości']);
+    expect(html).toContain('data-bigin-contact-card');
+    expect(html).toContain('Kontakt syntetyczny');
+    expect(html).toContain('href="mailto:kontakt@example.invalid"');
+    expect(html).not.toContain('LEGACY_CONTACT_EXTENSION');
+    expect(html).not.toContain('TAG_EXTENSION');
+  });
+
+  it('karta kontaktu pokazuje istniejące komentarze i aktywności', () => {
+    expect(render(ContactsPage, [...contactCardStates('comments'), [31, [{ id: 'note-synthetic', note_text: 'Komentarz syntetyczny', created_at: activity.occurred_at }]]])).toContain('Komentarz syntetyczny');
+    expect(render(ContactsPage, [...contactCardStates('activities'), [32, [activity]]])).toContain(activity.title);
+  });
+
+  it('stara karta kontaktu pozostaje dostępna pod flagą', () => {
+    harness.extensions = true;
+    expect(render(ContactsPage, [[12, true], [13, contact.id]])).toContain('LEGACY_CONTACT_EXTENSION');
+  });
+
+  it('widoczne elementy siedmiu ekranów nie używają klas emerald/slate', () => {
+    const screens = [
+      render(ContactsPage, [[0, [contact]], [2, false]]),
+      render(CompaniesPage, [[0, [company]], [1, false]]),
+      render(ContactsPage, contactCardStates()),
+      render(() => createElement(CompanyCard, { company, ownerName: 'Właściciel syntetyczny', canEdit: true, onBack: vi.fn(), onEdit: vi.fn() }), []),
+      render(QuickCallPage, [[0, [activity]], [1, false]]),
+      render(DashboardPage, [[10, false]]),
+      render(CalendarPage, [[0, calendarItems], [5, new Date(2026, 10, 2, 12)]]),
+    ];
+    for (const html of screens) {
+      expect(html).not.toMatch(/(?:bg|text|border|ring|divide)-(?:emerald|slate)-/);
+      expect(html).not.toContain('LEGACY_');
+    }
+    // Optional review artifacts, always synthetic and outside the application tree.
+    if (process.env.KM3_RENDER_DIR) {
+      const directory = process.env.KM3_RENDER_DIR;
+      mkdirSync(directory, { recursive: true });
+      const names = ['kontakty', 'firmy', 'karta-kontaktu', 'karta-firmy', 'aktywnosci', 'dzisiaj', 'kalendarz'];
+      const paths = ['/contacts', '/companies', '/contacts', '/companies', '/quick-call', '/dashboard', '/calendar'];
+      screens.forEach((body, index) => {
+        harness.pathname = paths[index];
+        const page = () => createElement(AppShell, { children: createElement('div', { dangerouslySetInnerHTML: { __html: body } }) });
+        const markup = render(page, []);
+        writeFileSync(join(directory, `${names[index]}.html`), `<!doctype html><html lang="pl"><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><style>body{margin:0;font-family:Arial,sans-serif}aside,main{min-width:0}</style></head><body>${markup}</body></html>`);
+      });
+    }
+  });
+
+  it.each(['/contacts', '/companies', '/quick-call', '/dashboard', '/calendar'])('panel i górny pasek %s mają token #093E52 i biały tekst', (pathname) => {
+    harness.pathname = pathname;
+    const html = render(AppShell as ComponentType, []);
+    expect(BRAND_HEADER_BG).toBe('#093E52');
+    expect(html).toContain('--brand-sidebar:#093E52');
+    expect(html).toContain('background: var(--brand-sidebar)');
+    expect(html).toContain('color: white');
+    expect(html).toContain('--brand-page:#FFFFFF');
   });
 });

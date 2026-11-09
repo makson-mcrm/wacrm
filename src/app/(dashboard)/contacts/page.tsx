@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { CallAction } from '@/components/sales/call-action';
 import { SmsAction } from '@/components/sales/sms-action';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag } from '@/types';
+import type { Contact, Tag, ContactTag, ContactNote } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -57,6 +58,8 @@ import {
   Rows3,
   LayoutGrid,
   ChevronDown,
+  ArrowLeft,
+  Mail,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -77,9 +80,101 @@ import {
   geometryCssVars,
   listTableClassName,
   listToolbarClassName,
+  BRAND_ROW_BG,
+  BRAND_PAGE_BG,
+  LIST_TEXT_COLOR,
 } from '@/lib/ui/layout-geometry';
 
 const PAGE_SIZE = 20;
+
+// The full mCRM detail view remains above under contactsExtensions.
+// This card reads the existing record; editing still uses the existing form.
+function BiginContactCard({ contactId, onBack, onUpdated }: {
+  contactId: string | null;
+  onBack: () => void;
+  onUpdated: () => void;
+}) {
+  const db = useMemo(() => createClient(), []);
+  const { accountId, user, profile } = useAuth();
+  const canEdit = useCan('send-messages');
+  const [contact, setContact] = useState<Contact | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [tab, setTab] = useState('timeline');
+  const [editing, setEditing] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [notes, setNotes] = useState<Pick<ContactNote, 'id' | 'note_text' | 'created_at'>[]>([]);
+  const [activities, setActivities] = useState<{ id: string; title: string; occurred_at: string }[]>([]);
+  const [contactTags, setContactTags] = useState<ContactTag[]>([]);
+
+  useEffect(() => {
+    if (!accountId || !contactId) return;
+    let active = true;
+    setLoading(true);
+    setError(false);
+    setContact(null);
+    setNotes([]);
+    setActivities([]);
+    setContactTags([]);
+    void (async () => {
+      try {
+        const [record, comments, history, tags] = await Promise.all([
+          // Existing form needs the complete record to preserve fields outside the card.
+          db.from('contacts').select('*').eq('account_id', accountId).eq('id', contactId).single(),
+          db.from('contact_notes').select('id,note_text,created_at').eq('account_id', accountId).eq('contact_id', contactId).order('created_at', { ascending: false }),
+          db.from('sales_activities').select('id,title,occurred_at').eq('account_id', accountId).eq('contact_id', contactId).order('occurred_at', { ascending: false }),
+          db.from('contact_tags').select('*').eq('contact_id', contactId),
+        ]);
+        if (!active) return;
+        if (record.error || comments.error || history.error || tags.error) setError(true);
+        else {
+          setContact(record.data as Contact);
+          setNotes(comments.data ?? []);
+          setActivities(history.data ?? []);
+          setContactTags(tags.data ?? []);
+        }
+      } catch {
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [accountId, contactId, db, revision]);
+
+  const name = contact?.name || [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || 'Kontakt';
+  return <section data-bigin-contact-card style={{ ...geometryCssVars('cards'), background: BRAND_PAGE_BG, color: LIST_TEXT_COLOR, '--brand-row': BRAND_ROW_BG } as CSSProperties} className="min-h-full text-sm [&_a]:text-[var(--brand-link)]">
+    <header data-slot="card-record-header" className="flex h-[var(--card-record-header-height)] items-center gap-4 border-b px-5">
+      <Button variant="ghost" size="icon" aria-label="Wróć do kontaktów" onClick={onBack}><ArrowLeft className="size-5" /></Button>
+      <div className="min-w-0 flex-1"><h1 className="truncate font-semibold">{loading ? 'Wczytywanie kontaktu…' : name}</h1><p className="truncate text-xs">{contact?.company || '—'}</p></div>
+      <Button variant="ghost" size="icon" aria-label="Edytuj kontakt" disabled={!contact || !canEdit} onClick={() => setEditing(true)}><Pencil className="size-4" /></Button>
+    </header>
+    {loading ? <p role="status" className="p-5">Wczytywanie kontaktu…</p> : error || !contact ? <div role="alert" className="p-5">Nie udało się wczytać kontaktu. <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>Spróbuj ponownie</Button></div> : <div data-slot="card-content" className="grid grid-cols-1 lg:grid-cols-[var(--card-left-panel-width)_minmax(0,1fr)]">
+      <aside data-slot="card-fields" className="min-w-0 border-r px-5">
+        <h2 className="flex h-[var(--card-field-row-height)] items-center font-semibold">Informacje Podstawowe</h2>
+        <dl>{([
+          ['Nazwa kontaktu', name],
+          ['Firma', contact.company || '—'],
+          ['E-mail', contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : '—'],
+          ['Telefon', contact.phone ? <a href={`tel:${contact.phone}`}>{contact.phone}</a> : '—'],
+          ['Właściciel', contact.user_id === user?.id ? profile?.full_name || profile?.email || '—' : '—'],
+          ['Adres', [contact.address, contact.postal_code, contact.city].filter(Boolean).join(' ') || '—'],
+        ] as const).map(([label, value]) => <div data-slot="card-field-row" key={label} className="grid h-[var(--card-field-row-height)] grid-cols-2 items-center gap-3 border-b"><dt className="truncate">{label}</dt><dd className="truncate">{value}</dd></div>)}</dl>
+        <h2 className="mt-5 font-semibold">Opis</h2><p className="mt-2 whitespace-pre-wrap">{contact.description || '—'}</p>
+      </aside>
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="min-w-0 gap-0">
+        <TabsList variant="line" aria-label="Sekcje kontaktu" className="h-[var(--card-field-row-height)]! w-full justify-start overflow-x-auto border-b p-0 text-[var(--list-text)] dark:text-[var(--list-text)]">
+          {([['timeline', 'Oś czasu'], ['comments', 'Komentarze'], ['activities', 'Aktywności'], ['messages', 'Wiadomości']] as const).map(([value, label]) => <TabsTrigger key={value} value={value} className="h-full flex-none rounded-none px-5 font-normal data-active:border-transparent data-active:bg-white text-[var(--list-text)] hover:bg-[var(--brand-hover)] hover:text-[var(--list-text)] data-active:text-[var(--list-text)] dark:text-[var(--list-text)] dark:hover:bg-[var(--brand-hover)] dark:hover:text-[var(--list-text)] dark:data-active:border-[var(--border)] dark:data-active:bg-[var(--list-content-background)] dark:data-active:text-[var(--list-text)]">{label}</TabsTrigger>)}
+        </TabsList>
+        <TabsContent value="timeline" className="m-0 p-5"><h2 className="mb-5 font-semibold">Historia</h2>{contact.updated_at && contact.updated_at !== contact.created_at && <article className="border-b bg-[var(--brand-row)] py-3">Ostatnia modyfikacja kontaktu<p className="text-xs">{formatCrmDate(contact.updated_at)}</p></article>}{contact.created_at ? <article className="border-b bg-[var(--brand-row)] py-3">Utworzono kontakt<p className="text-xs">{formatCrmDate(contact.created_at)}</p></article> : <p>Ten rekord nie ma żadnej historii.</p>}</TabsContent>
+        <TabsContent value="comments" className="m-0 space-y-3 p-5">{notes.length ? notes.map((note) => <article key={note.id} className="border-b bg-[var(--brand-row)] py-3"><p className="whitespace-pre-wrap">{note.note_text}</p><time dateTime={note.created_at} className="text-xs">{formatCrmDate(note.created_at)}</time></article>) : <p>Brak komentarzy.</p>}</TabsContent>
+        <TabsContent value="activities" className="m-0 p-5">{activities.length ? activities.map((activity) => <article key={activity.id} className="border-b bg-[var(--brand-row)] py-3"><p>{activity.title}</p><time dateTime={activity.occurred_at} className="text-xs">{formatCrmDate(activity.occurred_at)}</time></article>) : <p>Brak aktywności.</p>}</TabsContent>
+        <TabsContent value="messages" className="m-0 p-5">{contact.email ? <a className="inline-flex items-center gap-2 hover:underline" href={`mailto:${contact.email}`}><Mail className="size-4" />Wyślij wiadomość e-mail</a> : <p>Kontakt nie ma adresu e-mail.</p>}</TabsContent>
+      </Tabs>
+    </div>}
+    {contact && <ContactForm open={editing} onOpenChange={setEditing} contact={contact} contactTags={contactTags} onSaved={() => { setRevision((value) => value + 1); onUpdated(); }} />}
+  </section>;
+}
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
@@ -644,6 +739,9 @@ export default function ContactsPage() {
   }
 
   if (detailOpen) {
+    if (!surfaceFlags.contactsExtensions) {
+      return <BiginContactCard contactId={detailContactId} onBack={() => handleDetailOpenChange(false)} onUpdated={fetchContacts} />;
+    }
     return (
       <ContactDetailView
         open={detailOpen}
@@ -655,7 +753,7 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ '--brand-row': BRAND_ROW_BG } as CSSProperties}>
       {surfaceFlags.contactsExtensions && <MobileContactsView
         contacts={contacts}
         loading={loading}
@@ -1314,7 +1412,7 @@ function TagFilterControl({
             type="button"
             variant="outline"
             size={compact ? 'icon-lg' : 'default'}
-            className="relative border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            className="relative border-[var(--border)] bg-white text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--brand-hover)] hover:text-[var(--brand-link)]"
             aria-label={compact ? 'Filtruj według tagów' : undefined}
           />
         }
@@ -1325,8 +1423,8 @@ function TagFilterControl({
           <span
             className={
               compact
-                ? 'absolute -top-1 -right-1 flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-xs font-bold text-white'
-                : 'ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 text-xs font-bold text-white'
+                ? 'absolute -top-1 -right-1 flex min-w-5 items-center justify-center rounded-full bg-[var(--brand-sidebar)] px-1 text-xs font-bold text-white'
+                : 'ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--brand-sidebar)] px-1.5 text-xs font-bold text-white'
             }
           >
             {selectedTagIds.length}
@@ -1335,17 +1433,17 @@ function TagFilterControl({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-64 gap-0 border border-slate-200 bg-white p-0"
+        className="w-64 gap-0 border border-[var(--border)] bg-white p-0"
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-          <span className="text-sm font-bold text-slate-900">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
+          <span className="text-sm font-bold text-[var(--foreground)]">
             Filtruj według tagów
           </span>
           {selectedTagIds.length > 0 ? (
             <button
               type="button"
               onClick={onClearTags}
-              className="text-xs font-semibold text-emerald-800 hover:text-emerald-950"
+              className="text-xs font-semibold text-[var(--brand-link)] hover:text-[var(--brand-link)]"
             >
               Wyczyść
             </button>
@@ -1356,26 +1454,26 @@ function TagFilterControl({
             {allTags.map((tag) => (
               <label
                 key={tag.id}
-                className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-emerald-50/60"
+                className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-[var(--brand-hover)]"
               >
                 <Checkbox
                   checked={selectedTagIds.includes(tag.id)}
                   onCheckedChange={() => onToggleTag(tag.id)}
-                  className="data-[checked]:border-emerald-700 data-[checked]:bg-emerald-700"
+                  className="data-[checked]:border-[var(--border)] data-[checked]:bg-[var(--brand-sidebar)]"
                   aria-label={`Filtruj według tagu ${tag.name}`}
                 />
                 <span
                   className="size-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: tag.color }}
                 />
-                <span className="truncate text-sm text-slate-700">
+                <span className="truncate text-sm text-[var(--foreground)]">
                   {tag.name}
                 </span>
               </label>
             ))}
           </div>
         ) : (
-          <p className="px-3 py-4 text-center text-sm text-slate-700">
+          <p className="px-3 py-4 text-center text-sm text-[var(--foreground)]">
             Brak tagów.
           </p>
         )}
@@ -1426,7 +1524,7 @@ function MobileContactsView({
 
   return (
     <section
-      className="space-y-2.5 text-slate-950 lg:hidden"
+      className="space-y-2.5 text-[var(--foreground)] lg:hidden"
       aria-label="Klienci"
       data-mobile-page="contacts"
     >
@@ -1445,7 +1543,7 @@ function MobileContactsView({
           <button
             type="button"
             onClick={onAdd}
-            className="flex size-11 items-center justify-center rounded-full bg-emerald-800 text-white"
+            className="flex size-11 items-center justify-center rounded-full bg-[var(--brand-sidebar)] text-white"
             aria-label="Dodaj klienta"
           >
             <Plus className="size-5" />
@@ -1453,12 +1551,12 @@ function MobileContactsView({
         </div>
       </div>
       <label className="relative block">
-        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
+        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--foreground)]" />
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Szukaj klientów, firm, NIP…"
-          className="h-11 rounded-xl border-slate-200 bg-white pl-9"
+          className="h-11 rounded-xl border-[var(--border)] bg-white pl-9"
         />
       </label>
       <div className="relative -mx-3">
@@ -1471,8 +1569,8 @@ function MobileContactsView({
               onClick={() => onSegmentChange(value)}
               className={`min-h-10 shrink-0 snap-start rounded-lg border px-3.5 py-1.5 text-sm font-bold whitespace-nowrap transition-colors ${
                 segment === value
-                  ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm'
-                  : 'border-slate-300 bg-white text-slate-800'
+                  ? 'border-[var(--border)] bg-[var(--brand-sidebar)] text-white shadow-sm'
+                  : 'border-[var(--border)] bg-white text-[var(--foreground)]'
               }`}
             >
               {label}{' '}
@@ -1480,13 +1578,13 @@ function MobileContactsView({
             </button>
           ))}
         </div>
-        <span className="pointer-events-none absolute right-3 -bottom-3 z-20 rounded-full bg-white px-1.5 text-xs font-bold text-emerald-800 shadow-sm">
+        <span className="pointer-events-none absolute right-3 -bottom-3 z-20 rounded-full bg-white px-1.5 text-xs font-bold text-[var(--brand-link)] shadow-sm">
           przesuń →
         </span>
       </div>
       <div className="space-y-2 pt-1 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {loading ? (
-          <p className="py-12 text-center text-sm text-slate-700">
+          <p className="py-12 text-center text-sm text-[var(--foreground)]">
             <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
             Ładowanie…
           </p>
@@ -1502,16 +1600,16 @@ function MobileContactsView({
             const statusClass =
               status === 'Prospekt'
                 ? 'bg-amber-100 text-amber-800'
-                : 'bg-emerald-100 text-emerald-800';
+                : 'bg-[var(--brand-hover)] text-[var(--brand-link)]';
             return (
               <article
                 key={contact.id}
-                className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)]"
+                className="overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)]"
               >
                 <button
                   type="button"
                   onClick={() => onOpen(contact.id)}
-                  className="block w-full px-3 pt-2.5 pb-2 text-left transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50/40"
+                  className="block w-full px-3 pt-2.5 pb-2 text-left transition-colors hover:bg-[var(--brand-hover)] focus-visible:bg-[var(--brand-hover)]"
                 >
                   <span className="flex items-start gap-2.5">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-black text-blue-800">
@@ -1525,7 +1623,7 @@ function MobileContactsView({
                       <span className="block truncate text-[15px] leading-5 font-black text-[#071747]">
                         {contact.name || 'Kontakt bez nazwy'}
                       </span>
-                      <span className="block truncate text-[13px] leading-5 font-semibold text-slate-800">
+                      <span className="block truncate text-[13px] leading-5 font-semibold text-[var(--foreground)]">
                         {contact.phone || 'Brak numeru telefonu'}
                       </span>
                     </span>
@@ -1539,11 +1637,11 @@ function MobileContactsView({
                         {contact.dealCount ?? 0} deal
                       </span>
                     </span>
-                    <ChevronRight className="mt-2 size-4 shrink-0 text-slate-600" />
+                    <ChevronRight className="mt-2 size-4 shrink-0 text-[var(--foreground)]" />
                   </span>
-                  <span className="mt-1.5 block border-t border-slate-100 pt-1.5 text-xs text-slate-700">
+                  <span className="mt-1.5 block border-t border-[var(--border)] pt-1.5 text-xs text-[var(--foreground)]">
                     Ostatni kontakt:{' '}
-                    <b className="font-bold text-slate-950">
+                    <b className="font-bold text-[var(--foreground)]">
                       {contact.lastActivityAt
                         ? formatCrmDate(contact.lastActivityAt)
                         : 'brak aktywności'}
@@ -1552,7 +1650,7 @@ function MobileContactsView({
                 </button>
                 <nav
                   aria-label={`Powiązania: ${contact.name || contact.phone}`}
-                  className="grid grid-cols-3 border-y border-slate-200 bg-slate-50"
+                  className="grid grid-cols-3 border-y border-[var(--border)] bg-[var(--brand-row)]"
                 >
                   <Link
                     href={
@@ -1560,10 +1658,10 @@ function MobileContactsView({
                         ? `/companies?open=${contact.companies[0].id}`
                         : `/companies?contact=${contact.id}`
                     }
-                    className="min-h-11 min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
+                    className="min-h-11 min-w-0 border-r border-[var(--border)] px-2 py-1.5 text-center text-xs font-black text-[var(--brand-link)]"
                   >
                     <span className="block truncate">Firma</span>
-                    <span className="block truncate font-semibold text-slate-700">
+                    <span className="block truncate font-semibold text-[var(--foreground)]">
                       {contact.companies?.[0]?.name || 'Brak'} ·{' '}
                       {contact.companies?.length ?? 0}
                     </span>
@@ -1574,10 +1672,10 @@ function MobileContactsView({
                         ? `/contacts?open=${contact.spouses[0].id}`
                         : `/contacts?open=${contact.id}`
                     }
-                    className="min-h-11 min-w-0 border-r border-slate-200 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
+                    className="min-h-11 min-w-0 border-r border-[var(--border)] px-2 py-1.5 text-center text-xs font-black text-[var(--brand-link)]"
                   >
                     <span className="block truncate">Współmałżonek</span>
-                    <span className="block truncate font-semibold text-slate-700">
+                    <span className="block truncate font-semibold text-[var(--foreground)]">
                       {contact.spouses?.[0]?.name || 'Brak'} ·{' '}
                       {contact.spouses?.length ?? 0}
                     </span>
@@ -1588,10 +1686,10 @@ function MobileContactsView({
                         ? `/deals/${contact.activeDeal.id}`
                         : `/pipelines?new=deal&contact=${contact.id}`
                     }
-                    className="min-h-11 min-w-0 px-2 py-1.5 text-center text-xs font-black text-emerald-900"
+                    className="min-h-11 min-w-0 px-2 py-1.5 text-center text-xs font-black text-[var(--brand-link)]"
                   >
                     <span className="block truncate">Deal</span>
-                    <span className="block truncate font-semibold text-slate-700">
+                    <span className="block truncate font-semibold text-[var(--foreground)]">
                       {contact.activeDeal?.title || 'Dodaj'} ·{' '}
                       {contact.dealCount ?? 0}
                     </span>
@@ -1600,19 +1698,19 @@ function MobileContactsView({
                 <div className="grid grid-cols-2 gap-1.5 bg-white p-1.5">
                   <CallAction
                     phone={contact.phone}
-                    className="h-11 min-h-11 w-full border-emerald-900 bg-emerald-900 text-xs font-black text-white hover:bg-emerald-800 hover:text-white"
+                    className="h-11 min-h-11 w-full border-[var(--border)] bg-[var(--brand-sidebar)] text-xs font-black text-white hover:bg-[var(--brand-sidebar)] hover:text-white"
                   />
                   <SmsAction
                     phone={contact.phone}
                     label="WIADOMOŚĆ"
-                    className="h-11 min-h-11 w-full border-slate-300 bg-white text-xs font-black text-slate-950 hover:bg-slate-100 hover:text-slate-950"
+                    className="h-11 min-h-11 w-full border-[var(--border)] bg-white text-xs font-black text-[var(--foreground)] hover:bg-[var(--brand-hover)] hover:text-[var(--foreground)]"
                   />
                 </div>
               </article>
             );
           })}
         {!loading && !filtered.length ? (
-          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-700">
+          <p className="rounded-xl border border-dashed p-8 text-center text-sm text-[var(--foreground)]">
             Brak klientów.
           </p>
         ) : null}
@@ -1703,10 +1801,10 @@ function DesktopContactsView({
     >
       <div data-slot="list-toolbar" className={extensions ? 'mb-4 flex items-center justify-between' : listToolbarClassName}>
         {extensions ? <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+          <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
             Klienci
           </h1>
-          <p className="mt-1 text-sm text-slate-700">
+          <p className="mt-1 text-sm text-[var(--foreground)]">
             Osoby, firmy i powiązania.
           </p>
         </div> : (
@@ -1772,12 +1870,12 @@ function DesktopContactsView({
             canAct={canEdit}
             gateReason="add contacts"
             onClick={onAdd}
-            className={extensions ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'rounded-l-full rounded-r-none bg-emerald-600 text-white hover:bg-emerald-700'}
+            className={extensions ? 'bg-[var(--brand-sidebar)] text-white hover:bg-[var(--brand-sidebar)]' : 'rounded-l-full rounded-r-none bg-[var(--brand-sidebar)] text-white hover:bg-[var(--brand-sidebar)]'}
           >
             <Plus className="size-4" /> {extensions ? 'Dodaj klienta' : 'Kontakt'}
           </GatedButton>
           {!extensions && <DropdownMenu>
-            <DropdownMenuTrigger disabled={!canEdit} aria-label="Menu dodawania kontaktu" className="flex size-8 items-center justify-center rounded-r-full bg-emerald-600 text-white">
+            <DropdownMenuTrigger disabled={!canEdit} aria-label="Menu dodawania kontaktu" className="flex size-8 items-center justify-center rounded-r-full bg-[var(--brand-sidebar)] text-white">
               <ChevronDown className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -1796,7 +1894,7 @@ function DesktopContactsView({
         </div>
       </div>
 
-      <div className={extensions ? 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm' : 'bg-white'}>
+      <div className={extensions ? 'rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm' : 'bg-white'}>
         {extensions && <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
             {segments.map(([value, label]) => (
@@ -1806,8 +1904,8 @@ function DesktopContactsView({
                 onClick={() => onSegmentChange(value)}
                 className={`rounded-lg border px-4 py-2 text-xs font-bold transition-colors ${
                   segment === value
-                    ? 'border-emerald-700 bg-emerald-700 text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    ? 'border-[var(--border)] bg-[var(--brand-sidebar)] text-white'
+                    : 'border-[var(--border)] bg-white text-[var(--foreground)] hover:bg-[var(--brand-hover)]'
                 }`}
               >
                 {label}{' '}
@@ -1817,12 +1915,12 @@ function DesktopContactsView({
           </div>
           <div className="flex w-full max-w-md items-center gap-2">
             <label className="relative min-w-0 flex-1">
-              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-600" />
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--foreground)]" />
               <Input
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Szukaj klienta…"
-                className="border-slate-200 bg-white pl-9"
+                className="border-[var(--border)] bg-white pl-9"
               />
             </label>
             <TagFilterControl
@@ -1834,7 +1932,7 @@ function DesktopContactsView({
           </div>
         </div>}
 
-        <div className={extensions ? 'overflow-hidden rounded-xl border border-slate-200' : 'overflow-hidden'}>
+        <div className={extensions ? 'overflow-hidden rounded-xl border border-[var(--border)]' : 'overflow-hidden'}>
           {!extensions && tileView ? <div
             role="group"
             aria-label="Kontakty — kafelki"
@@ -1862,7 +1960,7 @@ function DesktopContactsView({
             ))}
           </div> : <Table className={extensions ? undefined : listTableClassName}>
             <TableHeader>
-              <TableRow className={extensions ? 'border-slate-200 bg-slate-50 hover:bg-slate-50' : ''}>
+              <TableRow className={extensions ? 'border-[var(--border)] bg-[var(--brand-row)] hover:bg-[var(--brand-hover)]' : ''}>
                 <TableHead className="w-10">
                   <Checkbox
                     checked={
@@ -1903,7 +2001,7 @@ function DesktopContactsView({
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="h-48 text-center text-slate-700"
+                    className="h-48 text-center text-[var(--foreground)]"
                   >
                     <Loader2 className={extensions ? 'mx-auto mb-2 size-5 animate-spin' : 'mr-2 inline-block size-4 animate-spin align-middle'} />{' '}
                     Ładowanie klientów…
@@ -1914,7 +2012,7 @@ function DesktopContactsView({
                   return (
                     <TableRow
                       key={contact.id}
-                      className={extensions ? `${compact ? 'h-10' : 'h-16'} cursor-pointer border-slate-200 hover:bg-emerald-50/40` : 'cursor-pointer'}
+                      className={extensions ? `${compact ? 'h-10' : 'h-16'} cursor-pointer border-[var(--border)] hover:bg-[var(--brand-hover)]` : 'cursor-pointer'}
                       tabIndex={0}
                       aria-label={`Otwórz kartę klienta ${contact.name || contact.phone}`}
                       onClick={(event) => {
@@ -1943,10 +2041,10 @@ function DesktopContactsView({
                           rel="noopener"
                           className="block text-left"
                         >
-                          <span className={extensions ? 'block font-bold text-slate-900' : 'block truncate font-semibold text-[var(--list-text)]'}>
+                          <span className={extensions ? 'block font-bold text-[var(--foreground)]' : 'block truncate font-semibold text-[var(--list-text)]'}>
                             {contact.name || 'Kontakt bez nazwy'}
                           </span>
-                          {extensions && <span className="block text-xs text-slate-700">
+                          {extensions && <span className="block text-xs text-[var(--foreground)]">
                             {contact.companies
                               ?.map((company) => company.name)
                               .join(', ') || '—'}
@@ -1962,7 +2060,7 @@ function DesktopContactsView({
                                 ? `/companies?open=${contact.companies[0].id}`
                                 : `/companies?contact=${contact.id}`
                             }
-                            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-emerald-900 hover:border-emerald-400 hover:bg-emerald-50"
+                            className="rounded-md border border-[var(--border)] bg-white px-2 py-1 text-xs font-bold text-[var(--brand-link)] hover:border-[var(--border)] hover:bg-[var(--brand-hover)]"
                           >
                             Firma: {contact.companies?.[0]?.name || 'brak'} ·{' '}
                             {contact.companies?.length ?? 0}
@@ -1973,7 +2071,7 @@ function DesktopContactsView({
                                 ? `/contacts?open=${contact.spouses[0].id}`
                                 : `/contacts?open=${contact.id}`
                             }
-                            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-emerald-900 hover:border-emerald-400 hover:bg-emerald-50"
+                            className="rounded-md border border-[var(--border)] bg-white px-2 py-1 text-xs font-bold text-[var(--brand-link)] hover:border-[var(--border)] hover:bg-[var(--brand-hover)]"
                           >
                             Współmałżonek:{' '}
                             {contact.spouses?.[0]?.name || 'brak'} ·{' '}
@@ -1985,24 +2083,24 @@ function DesktopContactsView({
                         {contact.activeDeal ? (
                           <Link
                             href={`/deals/${contact.activeDeal.id}`}
-                            className="block text-xs font-semibold text-slate-900 hover:underline"
+                            className="block text-xs font-semibold text-[var(--foreground)] hover:underline"
                           >
                             <span className="block truncate">
                               Deal: {contact.activeDeal.title} ·{' '}
                               {contact.dealCount ?? 0}
                             </span>
-                            <span className="text-slate-700">
+                            <span className="text-[var(--foreground)]">
                               {contact.activeDeal.stage?.name ||
                                 'Etap nieustalony'}
                             </span>
                           </Link>
                         ) : (
-                          <span className="text-xs text-slate-700">
+                          <span className="text-xs text-[var(--foreground)]">
                             Brak aktywnej sprawy
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-700">
+                      <TableCell className="text-sm text-[var(--foreground)]">
                         {contact.lastActivityAt
                           ? formatCrmDate(contact.lastActivityAt)
                           : 'Brak'}
@@ -2023,7 +2121,7 @@ function DesktopContactsView({
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-700">—</span>
+                            <span className="text-xs text-[var(--foreground)]">—</span>
                           )}
                         </div>
                       </TableCell>
@@ -2032,7 +2130,7 @@ function DesktopContactsView({
                           <CallAction
                             phone={contact.phone}
                             contactId={contact.id}
-                            className="bg-emerald-800 text-white"
+                            className="bg-[var(--brand-sidebar)] text-white"
                           />
                           <SmsAction
                             phone={contact.phone}
@@ -2075,7 +2173,7 @@ function DesktopContactsView({
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="h-48 text-center text-slate-700"
+                    className="h-48 text-center text-[var(--foreground)]"
                   >
                     Brak klientów w tym widoku.
                   </TableCell>
@@ -2084,9 +2182,9 @@ function DesktopContactsView({
             </TableBody>
           </Table>}
         </div>
-        {extensions && <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_auto]">
+        {extensions && <div className="mt-4 grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--brand-row)] p-3 md:grid-cols-[1fr_auto]">
           <div>
-            <p className="text-sm font-black text-slate-900">
+            <p className="text-sm font-black text-[var(--foreground)]">
               Nowy kontakt / nieznany numer
             </p>
             <div className="mt-2 flex max-w-3xl flex-wrap gap-2">
@@ -2101,7 +2199,7 @@ function DesktopContactsView({
                     phone={unknownPhone}
                     contactId={unknownContactId}
                     label="Odzwoń"
-                    className="bg-emerald-800 text-white"
+                    className="bg-[var(--brand-sidebar)] text-white"
                   />
                   <Button
                     variant="outline"
@@ -2110,14 +2208,14 @@ function DesktopContactsView({
                         href={`/pipelines?new=deal&contact=${encodeURIComponent(unknownContactId)}`}
                       />
                     }
-                    className="border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    className="border-[var(--border)] bg-white text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--brand-hover)]"
                   >
                     Utwórz deal
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={onCloseUnknownPhone}
-                    className="text-slate-600"
+                    className="text-[var(--foreground)]"
                   >
                     Zamknij
                   </Button>
@@ -2135,11 +2233,11 @@ function DesktopContactsView({
               )}
             </div>
           </div>
-          <div className="flex items-end text-xs text-slate-700">
+          <div className="flex items-end text-xs text-[var(--foreground)]">
             Kontakt jest odnajdywany lub tworzony przed połączeniem.
           </div>
         </div>}
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-700">
+        <div className="mt-3 flex items-center justify-between text-xs text-[var(--foreground)]">
           {extensions ? <span>
             Zaznaczono {selected.size} z {totalCount} · Na stronie: {PAGE_SIZE}
           </span> : <span>{totalCount} kontaktów</span>}
@@ -2152,7 +2250,7 @@ function DesktopContactsView({
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="px-2 font-bold text-slate-700">
+            <span className="px-2 font-bold text-[var(--foreground)]">
               {page + 1} / {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
             </span>
             <Button

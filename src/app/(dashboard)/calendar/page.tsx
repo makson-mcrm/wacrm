@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -24,7 +24,7 @@ import {
 } from '@/lib/date-time';
 import { isOperationalTestRecord } from '@/lib/mcrm/test-record';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
-import { geometryCssVars, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR } from '@/lib/ui/layout-geometry';
+import { geometryCssVars, BRAND_ROW_BG, WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR } from '@/lib/ui/layout-geometry';
 type View = 'day' | 'week' | 'month';
 type Source = 'calendar' | 'activity' | 'deal' | 'queue';
 type Item = {
@@ -379,15 +379,15 @@ export default function CalendarPage() {
     setCursor(d);
   };
   return (
-    <div data-bigin-calendar style={geometryCssVars('calendar')} className="w-full space-y-0 bg-white">
+    <div data-bigin-calendar style={{ ...geometryCssVars('calendar'), '--brand-row': BRAND_ROW_BG } as CSSProperties} className="w-full space-y-0 bg-[var(--list-content-background)] text-[var(--list-text)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+          <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)]">
             KALENDARZ
           </h1>
-          <p className="text-muted-foreground text-sm">
+          {surfaceFlags.cardExtensions && <p className="text-muted-foreground text-sm">
             Spotkania, follow-upy, zadania i terminy sprzedażowe.
-          </p>
+          </p>}
         </div>
         <Button onClick={() => reset()}>
           <Plus className="size-4" />
@@ -451,15 +451,15 @@ export default function CalendarPage() {
             }}
             onOpen={reset}
           />
-          {surfaceFlags.cardExtensions && <aside className="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
-            <p className="text-xs font-black tracking-wide text-slate-500 uppercase">
+          {surfaceFlags.cardExtensions && <aside className="hidden rounded-xl border border-[var(--border)] bg-white p-4 shadow-sm lg:block">
+            <p className="text-xs font-black tracking-wide text-[var(--foreground)] uppercase">
               Najbliższe wydarzenie
             </p>
             {visible[0] ? (
               <div className="mt-4 space-y-4">
                 <div>
-                  <p className="text-xs text-slate-500">Termin</p>
-                  <p className="mt-1 font-black text-slate-950">
+                  <p className="text-xs text-[var(--foreground)]">Termin</p>
+                  <p className="mt-1 font-black text-[var(--foreground)]">
                     {new Date(visible[0].startsAt).toLocaleString('pl-PL', {
                       timeZone: BUSINESS_TIME_ZONE,
                       dateStyle: 'medium',
@@ -468,14 +468,14 @@ export default function CalendarPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Typ</p>
-                  <p className="mt-1 font-bold text-slate-800 capitalize">
+                  <p className="text-xs text-[var(--foreground)]">Typ</p>
+                  <p className="mt-1 font-bold text-[var(--foreground)] capitalize">
                     {visible[0].type}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Cel</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                  <p className="text-xs text-[var(--foreground)]">Cel</p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
                     {visible[0].title}
                   </p>
                 </div>
@@ -489,14 +489,14 @@ export default function CalendarPage() {
                 {visible[0].dealId ? (
                   <Link
                     href={`/deals/${visible[0].dealId}`}
-                    className="block rounded-lg border border-slate-200 px-3 py-2 text-center text-sm font-semibold"
+                    className="block rounded-lg border border-[var(--border)] px-3 py-2 text-center text-sm font-semibold"
                   >
                     Otwórz Deal
                   </Link>
                 ) : null}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-slate-500">
+              <p className="mt-4 text-sm text-[var(--foreground)]">
                 Brak wydarzeń w tym zakresie.
               </p>
             )}
@@ -702,7 +702,7 @@ function WeekGrid({
       <div className="overflow-x-auto">
         <div className={showWeekends ? 'min-w-[960px]' : 'min-w-[720px]'}>
           <div
-            className="grid border-b border-slate-200 bg-slate-50/70"
+            className="grid border-b border-[var(--border)] bg-[var(--brand-row)]"
             style={{ gridTemplateColumns: columns }}
           >
             <div aria-hidden="true" />
@@ -710,13 +710,13 @@ function WeekGrid({
               <button
                 key={dateKey(day)}
                 type="button"
-                className="border-l border-slate-200 px-2 py-3 text-center hover:bg-slate-100"
+                className="border-l border-[var(--border)] px-2 py-3 text-center hover:bg-[var(--brand-hover)]"
                 onClick={() => onAdd(day, 9)}
               >
-                <span className="block text-xs font-semibold text-slate-600 uppercase">
+                <span className="block text-xs font-semibold text-[var(--foreground)] uppercase">
                   {day.toLocaleDateString('pl-PL', { weekday: 'short' })}
                 </span>
-                <span className="text-sm font-bold text-slate-900">
+                <span className="text-sm font-bold text-[var(--foreground)]">
                   {day.toLocaleDateString('pl-PL', {
                     day: 'numeric',
                     month: 'short',
@@ -731,10 +731,10 @@ function WeekGrid({
               <div
                 key={hour}
                 data-slot="week-hour-row"
-                className="grid h-[var(--week-grid-hour-height)] border-b border-slate-100 last:border-b-0"
+                className="grid h-[var(--week-grid-hour-height)] border-b border-[var(--border)] last:border-b-0"
                 style={{ gridTemplateColumns: columns }}
               >
-                <div className="px-2 pt-2 text-right text-xs text-slate-500 tabular-nums">
+                <div className="px-2 pt-2 text-right text-xs text-[var(--foreground)] tabular-nums">
                   {String(hour).padStart(2, '0')}:00
                 </div>
                 {workDays.map((day) => {
@@ -755,7 +755,7 @@ function WeekGrid({
                   return (
                     <div
                       key={`${dateKey(day)}-${hour}`}
-                      className="group min-w-0 overflow-y-auto border-l border-slate-200 p-1"
+                      className="group min-w-0 overflow-y-auto border-l border-[var(--border)] p-1"
                       onDoubleClick={() => onAdd(day, hour)}
                     >
                       <div className="space-y-1">
@@ -765,9 +765,9 @@ function WeekGrid({
                             type="button"
                             onClick={() => onOpen(item)}
                             onDoubleClick={(event) => event.stopPropagation()}
-                            className="w-full rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-left hover:border-emerald-400 hover:bg-emerald-100"
+                            className="w-full rounded-md border border-[var(--border)] bg-[var(--brand-hover)] px-2 py-1 text-left hover:border-[var(--border)] hover:bg-[var(--brand-hover)]"
                           >
-                            <span className="block truncate text-xs font-bold text-slate-900">
+                            <span className="block truncate text-xs font-bold text-[var(--foreground)]">
                               {new Date(item.startsAt).toLocaleTimeString(
                                 'pl-PL',
                                 {
@@ -778,7 +778,7 @@ function WeekGrid({
                               )}{' '}
                               {item.title}
                             </span>
-                            <span className="block truncate text-xs text-slate-600">
+                            <span className="block truncate text-xs text-[var(--foreground)]">
                               {item.dealId
                                 ? names.deals.get(item.dealId)
                                 : item.contactId
@@ -849,7 +849,7 @@ function Day({
           <button
             key={x.id}
             onClick={() => onOpen(x)}
-            className="w-full rounded border-l-2 border-emerald-700 bg-emerald-50 px-2 py-1 text-left"
+            className="w-full rounded border-l-2 border-[var(--border)] bg-[var(--brand-hover)] px-2 py-1 text-left"
           >
             <p className="truncate text-xs font-semibold">
               <Clock className="mr-1 inline size-3" />
