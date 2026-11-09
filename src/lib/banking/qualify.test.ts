@@ -87,7 +87,7 @@ describe('KM4.1 — kwalifikacja offline', () => {
       })
     );
     expect(surfaceFlags.bankQualification).toBe(true);
-    expect(surfaceFlags.cardExtensions).toBe(false);
+    expect(surfaceFlags.cardExtensions).toBe(true);
     const html = renderToStaticMarkup(
       createElement(BankQualification, { deal })
     );
