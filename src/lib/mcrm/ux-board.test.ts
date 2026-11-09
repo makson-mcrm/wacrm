@@ -40,7 +40,7 @@ describe('plansza UX mCRM AI 10.09', () => {
     const header = source('src/components/layout/header.tsx');
     const mobile = source('src/components/layout/mobile-bottom-nav.tsx');
     expect(header).toContain('<GlobalCrmSearch />');
-    expect(header).toContain('<GlobalAdd />');
+    expect(header).toContain('<GlobalAdd compact />');
     expect(mobile).toContain('grid-cols-5');
     for (const label of ['DZISIAJ', 'AKTYWNOŚĆ', 'KLIENCI', 'ASYSTENT']) {
       expect(mobile).toContain(`label: '${label}'`);

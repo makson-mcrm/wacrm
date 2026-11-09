@@ -338,11 +338,41 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     expect(rules('[data-bigin-pipeline-shell] [data-pipeline-column]')).toMatchObject({
       width: 'var(--pipeline-column-width)', 'padding-inline': 'var(--pipeline-column-padding)',
     });
+    expect(rules('[data-bigin-pipeline-cards] [data-pipeline-deal]')).toMatchObject({
+      'box-sizing': 'border-box', display: 'grid',
+      height: 'var(--pipeline-card-height)', 'min-height': 'var(--pipeline-card-height)',
+      'grid-template-rows': '16px 14px 16px', padding: '6px 10px',
+      'font-family': 'var(--font-sans), Arial, sans-serif',
+    });
+    // 46 px of text + 12 px padding + 2 px border = the 60 px card.
+    expect(16 + 14 + 16 + 6 * 2 + 2).toBe(60);
+    expect(rules('[data-bigin-pipeline-cards] [data-pipeline-deal] > a')).toMatchObject({
+      'font-size': '13px', 'font-weight': '500', 'line-height': '16px',
+    });
+    expect(rules('[data-bigin-pipeline-cards] [data-card-contact]')).toMatchObject({
+      'font-size': '11px', 'line-height': '14px', 'grid-area': '2 / 1 / 3 / -1',
+    });
+    expect(rules('[data-bigin-pipeline-cards] [data-pipeline-deal] > p.font-bold')).toMatchObject({
+      'font-size': '12px', 'line-height': '16px', 'grid-area': '3 / 1 / 4 / 2',
+    });
+    expect(rules('[data-bigin-pipeline-cards] [data-pipeline-deal] > time')).toMatchObject({
+      'font-size': '11px', 'line-height': '16px', 'grid-area': '3 / 2 / 4 / -1',
+    });
+    const shellSource = readFileSync('src/components/layout/app-shell.tsx', 'utf8');
+    expect(shellSource).toContain('data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}');
+    expect(rules('[data-pipeline-toolbar] :is(button, select, input, summary)')).toMatchObject({
+      height: 'var(--pipeline-toolbar-button-height)', 'min-height': 'var(--pipeline-toolbar-button-height)',
+    });
+    expect(rules('[data-pipeline-toolbar]')).toMatchObject({ 'overflow-x': 'auto', 'flex-wrap': 'nowrap' });
     const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
-    const toolbar = source.slice(source.indexOf('<section data-pipeline-toolbar'), source.indexOf('{/* Board */}'));
+    const boardSource = readFileSync('src/components/pipelines/pipeline-board.tsx', 'utf8');
+    const toolbar = boardSource.slice(boardSource.indexOf('<section data-pipeline-toolbar'), boardSource.indexOf('</section>'));
     expect(toolbar).toContain('flex-nowrap');
-    expect(toolbar.indexOf('Filtry transakcji')).toBeLessThan(toolbar.indexOf('Więcej'));
-    expect(toolbar.indexOf('Więcej')).toBeLessThan(toolbar.indexOf('Dodaj transakcję'));
+    expect(toolbar.indexOf('Wszystkie Transakcje')).toBeLessThan(toolbar.indexOf('Czas Utworzenia'));
+    expect(toolbar.indexOf('Czas Utworzenia')).toBeLessThan(toolbar.indexOf('Dodaj transakcję'));
+    const pageToolbar = source.slice(source.indexOf('<PipelineToolbar'), source.indexOf('</PipelineToolbar>'));
+    expect(pageToolbar.indexOf('Filtry transakcji')).toBeLessThan(pageToolbar.indexOf('Więcej'));
+    expect(toolbar).toContain('overflow-x-auto');
     const bottom = readFileSync('src/components/layout/mobile-bottom-nav.tsx', 'utf8');
     expect(bottom).toContain('md:hidden');
     expect(bottom).toContain('<GlobalAdd mobile />');

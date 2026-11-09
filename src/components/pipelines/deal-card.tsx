@@ -57,16 +57,16 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
         className="absolute top-0 left-0 h-full w-1 rounded-l-[10px]"
         style={{ backgroundColor: accentColor ?? (stage == null ? '#173A52' : BRAND_STAGE_COLORS[stage.position % BRAND_STAGE_COLORS.length]) }}
       />
-      <a data-stage={stage?.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener" onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-semibold text-slate-950 hover:underline">
+      <a data-stage={stage?.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener" onClick={(event) => event.stopPropagation()} title={companyName || deal.title} className="truncate text-sm font-semibold text-slate-950 hover:underline">
         {companyName || deal.title}
       </a>
       {companyName ? (
-        <p className="truncate text-xs text-[#475569]" title={deal.title}>
+        <p data-card-subtitle className="truncate text-xs text-[#475569]" title={deal.title}>
           {deal.title}
         </p>
       ) : null}
       {contactName ? (
-        <p className="truncate text-xs text-slate-600" title={contactName}>
+        <p data-card-contact data-card-has-company={Boolean(companyName)} className="truncate text-xs text-slate-600" title={contactName}>
           {contactName}{companyName ? ' · kontakt' : ''}
         </p>
       ) : null}

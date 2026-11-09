@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -14,13 +14,62 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import type { Deal, PipelineStage } from '@/types';
+import type { Deal, Pipeline, PipelineStage } from '@/types';
 import { DealCard } from './deal-card';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
+
+import { GatedButton } from '@/components/ui/gated-button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+interface PipelineToolbarProps {
+  pipelines: Pipeline[];
+  selectedPipelineId: string;
+  onSelectPipeline: (pipelineId: string) => void;
+  sortBy: string;
+  onSortChange: (sort: string) => void;
+  canAddDeal: boolean;
+  onAddDeal: () => void;
+  children?: ReactNode;
+}
+
+export function PipelineToolbar({ pipelines, selectedPipelineId, onSelectPipeline, sortBy, onSortChange, canAddDeal, onAddDeal, children }: PipelineToolbarProps) {
+  return (
+    <section data-pipeline-toolbar aria-label="Narzędzia tablicy transakcji" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-x-auto bg-[var(--bigin-surface)] px-3 text-sm text-[var(--bigin-text)]">
+      <DropdownMenu>
+        <DropdownMenuTrigger aria-label="Wybierz lejek" className="inline-flex shrink-0 items-center gap-2 rounded border border-[var(--bigin-border)] px-3 text-sm" disabled={!pipelines.length}>
+          Wszystkie Transakcje <ChevronDown aria-hidden="true" className="size-3" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {pipelines.map((pipeline) => (
+            <DropdownMenuItem key={pipeline.id} aria-current={pipeline.id === selectedPipelineId ? 'true' : undefined} onClick={() => onSelectPipeline(pipeline.id)}>{pipeline.name}</DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <label className="shrink-0">
+        <span className="sr-only">Sortuj według</span>
+        <select aria-label="Sortuj według" value={sortBy} onChange={(event) => onSortChange(event.target.value)} className="rounded border border-[var(--bigin-border)] bg-white px-2 text-sm">
+          <option value="created-desc">Czas Utworzenia</option>
+          <option value="created-asc">Czas utworzenia: najstarsze</option>
+          <option value="title">Nazwa transakcji</option>
+          <option value="value-desc">Kwota: malejąco</option>
+        </select>
+      </label>
+      {children}
+      <GatedButton canAct={canAddDeal} gateReason="create deals" onClick={onAddDeal} className="shrink-0 rounded" aria-label="Dodaj transakcję" title="Dodaj transakcję">
+        <Plus aria-hidden="true" className="size-4" /><span>Transakcja</span>
+      </GatedButton>
+    </section>
+  );
+}
 
 const STAGE_COLORS: Record<string, string> = {
   klasyfikacja: '#64748b',

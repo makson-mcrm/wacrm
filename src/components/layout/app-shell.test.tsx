@@ -397,9 +397,10 @@ describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
           // inherited height or re-enable wrapping at a responsive breakpoint.
           const responsive: Record<string, string> = {};
           rule.walkDecls((decl) => { responsive[decl.prop] = decl.value; });
-          expect(responsive).toEqual({ gap: '8px', 'padding-inline': '8px' });
+          const phone = rule.parent?.type === 'atrule' && rule.parent.params === '(max-width: 767px)';
+          expect(responsive).toEqual(phone ? { gap: '4px' } : { gap: '8px', 'padding-inline': '8px' });
           expect(rule.parent?.type).toBe('atrule');
-          if (rule.parent?.type === 'atrule') expect(rule.parent.params).toBe('(max-width: 1280px)');
+          if (rule.parent?.type === 'atrule') expect(['(max-width: 1280px)', '(max-width: 767px)']).toContain(rule.parent.params);
         }
       }
     });
@@ -533,8 +534,9 @@ describe('KM3.5.1D: stały rail i kompaktowa rama po pomiarze LIVE', () => {
     expect(actions.display).toBe(compact ? 'flex' : undefined);
     expect(atWidth('[data-header-account-name]', width).display).toBe(compact ? 'none' : undefined);
     expect(atWidth('[data-pipeline-wide-filters]', width).display).toBe(compact ? 'none' : undefined);
-    expect(atWidth('[data-pipeline-compact-filters]', width).display).toBe(compact ? 'grid' : 'none');
-    expect(atWidth('[data-pipeline-toolbar]', width)['overflow-x']).toBeUndefined();
+    expect(atWidth('[data-pipeline-compact-filters]', width).display).toBe('grid');
+    expect(atWidth('[data-pipeline-toolbar]', width)['overflow-x']).toBe('auto');
+    expect(atWidth('[data-pipeline-toolbar]', width)['flex-wrap']).toBe('nowrap');
     if (compact) {
       expect(atWidth('[data-pipeline-filter-menu][open] [data-pipeline-filter-popover]', width)).toMatchObject({
         position: 'fixed', right: '8px',

@@ -24,7 +24,21 @@ export function GlobalSearch() {
     companies: [],
   });
   const requestSeq = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const term = query.trim();
+
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        // Keep shortcuts inside an open dialog with that dialog.
+        if (document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
 
   useEffect(() => {
     if (!accountId || term.length < 3) {
@@ -83,11 +97,13 @@ export function GlobalSearch() {
       <div className="relative">
         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <input
+          ref={inputRef}
+          aria-keyshortcuts="Meta+K Control+K"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => term.length >= 3 && setOpen(true)}
           onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
-          placeholder="Szukaj kontaktu, firmy, telefonu lub Deala…"
+          placeholder="Szukaj (⌘K)"
           aria-label="Globalna wyszukiwarka CRM"
           role="combobox"
           aria-autocomplete="list"

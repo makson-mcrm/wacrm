@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Bell,
+  CircleHelp,
+  ListTodo,
   LogOut,
   Settings as SettingsIcon,
   Sparkles,
@@ -48,6 +50,9 @@ const mcrmSectionTitles: Record<string, string> = {
   '/tasks': 'ZADANIA',
   '/assistant': 'ASYSTENT',
   '/finances': 'FINANSE',
+  '/agents': 'AGENCI',
+  '/audyt-crm': 'AUDYT CRM',
+  '/flows': 'PRZEPŁYWY',
 };
 
 function getPageTitleKey(pathname: string): string {
@@ -80,16 +85,17 @@ export function Header() {
       <div className="flex min-w-0 items-center gap-2">
         <Link
           href="/dashboard"
-          className="flex min-w-0 items-center gap-2 lg:hidden"
+          className="flex min-w-0 items-center gap-2"
           aria-label="mCRM AI — DZISIAJ"
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-white">
             <Sparkles className="size-4" />
           </span>
-          <span className="text-foreground truncate text-base font-black sm:text-lg">
+          <span className="text-foreground truncate text-sm font-medium">
             mCRM AI
           </span>
         </Link>
+        <span data-header-module className="truncate text-sm font-medium">{sectionTitle}</span>
       </div>
 
       <div className="mobile-global-search order-last flex min-w-0 basis-full justify-center md:order-none md:flex-1 md:basis-auto md:px-3">
@@ -97,15 +103,26 @@ export function Header() {
       </div>
 
       <div data-header-actions className="flex items-center gap-1 sm:gap-2">
-        <Link
-          href="/notifications"
-          aria-label="Powiadomienia"
-          className="flex size-11 items-center justify-center rounded-full hover:bg-emerald-50 sm:hidden"
-        >
+        <GlobalAdd compact />
+        <Link href="/tasks" aria-label="Zadania" title="Zadania" className="header-icon">
+          <ListTodo className="size-4" />
+        </Link>
+        <Link href="/notifications" aria-label="Powiadomienia" title="Powiadomienia" className="header-icon">
           <Bell className="size-4" />
         </Link>
-        <div data-header-account-actions className="hidden items-center gap-2 sm:flex">
-          <GlobalAdd />
+        <Link href="/settings" aria-label="Ustawienia" title="Ustawienia" className="header-icon">
+          <SettingsIcon className="size-4" />
+        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label="Pomoc" title="Pomoc" className="header-icon">
+            <CircleHelp className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem render={<Link href="/assistant" />}>Asystent</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/audyt-crm" />}>Audyt CRM</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div data-header-account-actions className="flex items-center gap-2">
           <ModeToggle />
 
           <DropdownMenu>

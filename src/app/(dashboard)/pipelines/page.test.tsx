@@ -683,7 +683,7 @@ describe('K3-02B-05: rzeczywisty błąd pobrania i Kontakt na karcie', () => {
       const card = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/)?.[0];
       expect(card).toBeDefined();
       expect(card).toMatch(
-        /Deal syntetyczny 0<\/a><p class="truncate text-xs text-slate-600" title="Osoba syntetyczna">Osoba syntetyczna<\/p><p class="mt-2 text-sm font-bold">/
+        /Deal syntetyczny 0<\/a><p data-card-contact="true" data-card-has-company="false" class="truncate text-xs text-slate-600" title="Osoba syntetyczna">Osoba syntetyczna<\/p><p class="mt-2 text-sm font-bold">/
       );
       const amount = card!.match(
         /<p class="mt-2 text-sm font-bold">([^<]+)<\/p>/
@@ -845,9 +845,9 @@ describe('KM3.2.08-BIGIN-CORE: tablica i narzędzia bez utraty funkcji mCRM', ()
     expect(assistant).toBeGreaterThan(stats);
     expect(toolbar).toBeGreaterThan(assistant);
     expect(board).toBeGreaterThan(toolbar);
-    for (const text of ['Szukaj transakcji', '⌘K', 'Wszystkie transakcje', 'Właściciel zmiany', 'Więcej', 'Sortuj według'])
+    for (const text of ['Szukaj transakcji', 'Wszystkie Transakcje', 'Czas Utworzenia', 'Wszystkie transakcje', 'Właściciel zmiany', 'Więcej', 'Sortuj według'])
       expect(html).toContain(text);
-    expect(html).toContain('aria-keyshortcuts="Meta+K Control+K"');
+    expect(html).not.toContain('aria-keyshortcuts="Meta+K Control+K"'); // shortcut belongs to global header search
   });
 
   it('wyszukuje po nazwie sprawy i kontakcie bez zmiany źródłowych danych', () => {

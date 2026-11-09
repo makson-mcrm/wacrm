@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
-import { PipelineBoard } from '@/components/pipelines/pipeline-board';
+import { PipelineBoard, PipelineToolbar } from '@/components/pipelines/pipeline-board';
 import { PipelineSettings } from '@/components/pipelines/pipeline-settings';
 import { DealForm } from '@/components/pipelines/deal-form';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,6 @@ import {
   Archive,
   Search,
   Filter,
-  ArrowUpDown,
   MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -114,7 +113,6 @@ export default function PipelinesPage() {
   const [dealView, setDealView] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created-desc');
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadPipelines = useCallback(async () => {
     if (!accountId) return null;
@@ -496,22 +494,6 @@ export default function PipelinesPage() {
     return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pl'));
   }, [operationalDeals]);
 
-  useEffect(() => {
-    function focusSearch(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        // Leave dialog keyboard handling alone while editing a Deal or pipeline.
-        if (dealFormOpen || newPipelineOpen || settingsOpen || !searchRef.current) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const filters = searchRef.current.closest('details');
-        if (filters) filters.open = true;
-        searchRef.current.focus();
-      }
-    }
-    window.addEventListener('keydown', focusSearch, true);
-    return () => window.removeEventListener('keydown', focusSearch, true);
-  }, [dealFormOpen, newPipelineOpen, settingsOpen]);
-
   const coreFilters = (
     <>
       <label className="flex shrink-0 items-center gap-2">
@@ -530,15 +512,7 @@ export default function PipelinesPage() {
           {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
       </label>
-      <label className="flex shrink-0 items-center gap-2 text-xs">
-        <ArrowUpDown aria-hidden="true" className="size-4" /> Sortuj według
-        <select aria-label="Sortuj według" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-9 rounded-full border border-slate-300 bg-white px-3 text-xs">
-          <option value="created-desc">Czas utworzenia: najnowsze</option>
-          <option value="created-asc">Czas utworzenia: najstarsze</option>
-          <option value="title">Nazwa transakcji</option>
-          <option value="value-desc">Kwota: malejąco</option>
-        </select>
-      </label>
+
     </>
   );
 
@@ -568,6 +542,9 @@ export default function PipelinesPage() {
           Potoki zespołu
           <GatedButton canAct={canEditSettings} gateReason="create pipelines" onClick={() => setNewPipelineOpen(true)} aria-label="Dodaj lejek" variant="ghost" size="icon"><Plus className="size-4" /></GatedButton>
         </div>
+        <button type="button" disabled={!selectedPipeline} onClick={() => setSettingsOpen(true)} className="mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm disabled:opacity-50">
+          <Settings className="size-4 shrink-0" /><span>Plan sprzedaży</span>
+        </button>
         {pipelines.map((pipeline) => (
           <button key={pipeline.id} type="button" aria-current={pipeline.id === selectedPipelineId ? 'page' : undefined} onClick={() => setSelectedPipelineId(pipeline.id)} className="mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm" title={pipeline.name}>
             <GitBranch className="size-4 shrink-0" /><span className="truncate">{pipeline.name}</span>
@@ -693,22 +670,26 @@ export default function PipelinesPage() {
         </>
       ) : null}
 
-      <section data-pipeline-toolbar aria-label="Narzędzia tablicy transakcji" className="flex shrink-0 flex-nowrap items-center gap-2 overflow-visible bg-[var(--bigin-surface)] px-3 text-sm text-[var(--bigin-text)]">
+      <PipelineToolbar
+        pipelines={pipelines}
+        selectedPipelineId={selectedPipelineId}
+        onSelectPipeline={setSelectedPipelineId}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        canAddDeal={canEditDeals && Boolean(selectedPipelineId)}
+        onAddDeal={() => handleAddDeal()}
+      >
         <details data-pipeline-filter-menu className="relative shrink-0"><summary className="cursor-pointer list-none" aria-label="Filtry transakcji" title="Filtry transakcji"><Filter className="size-4" /></summary><div data-pipeline-filter-popover><label className="relative block w-48">
           <span className="sr-only">Szukaj transakcji</span>
           <Search aria-hidden="true" className="absolute top-2.5 left-3 size-4 text-slate-500" />
           <input
-            ref={searchRef}
             type="search"
-            aria-keyshortcuts="Meta+K Control+K"
             placeholder="Wyszukaj transakcje"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="h-9 w-full rounded-full border border-slate-300 bg-white pr-12 pl-9 text-sm outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
           />
-          <kbd aria-hidden="true" className="pointer-events-none absolute top-2 right-3 text-xs text-slate-500">⌘K</kbd>
         </label><div data-pipeline-compact-filters>{coreFilters}</div></div></details>
-        <div data-pipeline-wide-filters className="contents">{coreFilters}</div>
         <DropdownMenu>
           <DropdownMenuTrigger aria-label="Więcej" title="Więcej" data-pipeline-more className="inline-flex h-9 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs">
             <MoreHorizontal aria-hidden="true" className="size-4" /><span>Więcej</span>
@@ -719,8 +700,7 @@ export default function PipelinesPage() {
             {selectedPipeline ? <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Zarządzaj lejkami</DropdownMenuItem> : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        <GatedButton canAct={canEditDeals} gateReason="create deals" onClick={() => handleAddDeal()} className="shrink-0 rounded-full" aria-label="Dodaj transakcję" title="Dodaj transakcję"><Plus className="size-4" /><span>Transakcja</span></GatedButton>
-      </section>
+      </PipelineToolbar>
 
       {/* Board */}
       {pipelines.length === 0 ? (
