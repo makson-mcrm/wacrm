@@ -45,6 +45,7 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 vi.mock('sonner', () => ({ toast: harness.toast }));
 import { DealForm } from './deal-form';
+import { DealCard } from './deal-card';
 import DealPage from '@/app/(dashboard)/deals/[id]/page';
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'generated-1' }),
@@ -180,6 +181,17 @@ function database() {
 function render() {
   harness.cursor = 0;
   tree = view === 'form' ? DealForm(props) : DealPage();
+  if (view === 'card') {
+    // The page delegates its default surface to this child. Evaluate only that
+    // component so assertions inspect rendered text, rather than its deal prop.
+    const card = nodes().find(
+      (node) => typeof node.type === 'function' && node.type.name === 'BiginDealCard'
+    );
+    if (card) {
+      const component = card.type as (props: Record<string, unknown>) => ReactNode;
+      tree = [tree, component(card.props)];
+    }
+  }
 }
 function nodes(node: ReactNode = tree): Element[] {
   const found: Element[] = [];
@@ -484,15 +496,69 @@ async function mountCard() {
   for (const effect of harness.effects) effect();
   await vi.waitFor(() => {
     render();
+    const card = nodes().find((node) => 'data-bigin-deal-card' in node.props);
+    expect(card).toBeDefined();
     expect(
-      nodes().some(
+      nodes(card).some(
         (node) =>
-          node.type === 'h1' &&
+          typeof node.type === 'string' &&
           node.props.children === 'Sprawa syntetyczna Alfa'
       )
     ).toBe(true);
   });
 }
+
+async function editCard() {
+  invoke(find('aria-label', 'Edytuj transakcję'), 'onClick');
+  render();
+  const form = nodes().find((node) => node.type === DealForm)!;
+  expect(form.props.open).toBe(true);
+  await mount(form.props.deal as Deal);
+}
+
+describe('KM3.2.21: firma, nazwa deala i kontakt na karcie Lejka', () => {
+  it.each(['company_name', 'company', 'none'] as const)(
+    'zawsze renderuje nazwę deala, źródło firmy: %s',
+    (companySource) => {
+      const deal = {
+        id: 'deal-card-synthetic',
+        title: 'Sprawa syntetyczna Alfa',
+        value: 100000,
+        currency: 'PLN',
+        created_at: '2026-11-09T10:00:00Z',
+        contact: { name: 'Kontakt syntetyczny' },
+        ...(companySource === 'company_name'
+          ? { company_name: 'Firma syntetyczna' }
+          : companySource === 'company'
+            ? { company: { name: 'Firma syntetyczna' } }
+            : {}),
+      } as Deal;
+      const card = DealCard({ deal, stage: null, onEdit: vi.fn() });
+      const lines = (card.props.children as ReactNode[]).filter(
+        (node): node is Element =>
+          !!node && typeof node === 'object' && 'props' in node &&
+          ['a', 'p'].includes(String((node as Element).type))
+      );
+      expect(nodes(card).some(
+        (node) => node.props.children === 'Sprawa syntetyczna Alfa'
+      )).toBe(true);
+      expect(lines[0].type).toBe('a');
+      expect(lines[0].props.className).toContain('font-semibold');
+      expect(lines[0].props.href).toBe('/deals/deal-card-synthetic');
+      if (companySource === 'none') {
+        expect(lines[0].props.children).toBe(deal.title);
+        expect(lines[1].props.title).toBe('Kontakt syntetyczny');
+      } else {
+        expect(lines[0].props.children).toBe('Firma syntetyczna');
+        expect(lines[1].type).toBe('p');
+        expect(lines[1].props.children).toBe(deal.title);
+        expect(lines[1].props.className).toContain('text-xs');
+        expect(lines[1].props.className).toContain('text-[#475569]');
+        expect(lines[2].props.title).toBe('Kontakt syntetyczny');
+      }
+    }
+  );
+});
 
 describe('K3: kartoteka /deals/[id]', () => {
   it('odczytuje dane, zmienia etap i zapisuje następny krok trwale po ponownym wejściu', async () => {
@@ -510,39 +576,29 @@ describe('K3: kartoteka /deals/[id]', () => {
       description: 'Opis syntetyczny',
       value: 100000,
     });
+    await editCard();
     const stageSelect = nodes().find(
       (node) => node.type === 'select' && node.props.value === 'stage-0'
     )!;
     invoke(stageSelect, 'onChange', { target: { value: 'stage-1' } });
-    await vi.waitFor(() => expect(tables.deals[0].stage_id).toBe('stage-1'));
-    await mountCard();
-    input('Ustal następny krok', 'Syntetyczny telefon z kartoteki');
-    const dateInput = nodes().find(
-      (node) => node.props.type === 'datetime-local'
-    )!;
-    invoke(dateInput, 'onChange', { target: { value: '2026-07-06T10:30' } });
     render();
-    const button = nodes().find(
-      (node) =>
-        Array.isArray(node.props.children) &&
-        node.props.children.includes('Zapisz status')
-    )!;
-    invoke(button, 'onClick');
-    await vi.waitFor(() =>
-      expect(tables.deals[0]).toMatchObject({
-        next_action: 'Syntetyczny telefon z kartoteki',
-        next_action_at: '2026-07-06T08:30:00.000Z',
-      })
-    );
+    await save();
+    expect(tables.deals[0].stage_id).toBe('stage-1');
     await mountCard();
-    expect(find('placeholder', 'Ustal następny krok').props.value).toBe(
-      'Syntetyczny telefon z kartoteki'
-    );
+    await editCard();
+    field('Następne działanie', 'Syntetyczny telefon z kartoteki');
+    field('Termin następnego działania', '2026-07-06T10:30');
+    await save();
+    expect(tables.deals[0]).toMatchObject({
+      next_action: 'Syntetyczny telefon z kartoteki',
+      next_action_at: '2026-07-06T08:30:00.000Z',
+    });
+    await mountCard();
     expect(
       nodes().some(
         (node) =>
-          node.props.type === 'datetime-local' &&
-          node.props.value === '2026-07-06T10:30'
+          node.type === 'dd' &&
+          node.props.children === 'Syntetyczny telefon z kartoteki'
       )
     ).toBe(true);
     expect(
@@ -552,6 +608,12 @@ describe('K3: kartoteka /deals/[id]', () => {
       stage_id: 'stage-1',
       description: 'Opis syntetyczny',
       value: 100000,
+      next_action: 'Syntetyczny telefon z kartoteki',
+      next_action_at: '2026-07-06T08:30:00.000Z',
     });
+    await editCard();
+    expect(find('label', 'Termin następnego działania').props.children)
+      .toMatchObject({ props: { value: '2026-07-06T10:30' } });
+    expect(nodes().some((node) => node.props.value === 'stage-1')).toBe(true);
   });
 });

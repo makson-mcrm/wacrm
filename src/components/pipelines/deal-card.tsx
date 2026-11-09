@@ -60,6 +60,11 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
       <a data-stage={stage?.id} href={`/deals/${deal.id}`} target="_blank" rel="noopener" onClick={(event) => event.stopPropagation()} className="line-clamp-2 text-sm font-semibold text-slate-950 hover:underline">
         {companyName || deal.title}
       </a>
+      {companyName ? (
+        <p className="truncate text-xs text-[#475569]" title={deal.title}>
+          {deal.title}
+        </p>
+      ) : null}
       {contactName ? (
         <p className="truncate text-xs text-slate-600" title={contactName}>
           {contactName}{companyName ? ' · kontakt' : ''}
