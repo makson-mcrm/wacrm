@@ -69,12 +69,14 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     (pathname) => {
       route.pathname = pathname;
       const html = render();
-      expect(html).toContain('--app-sidebar-width:160px');
-      expect(html).toContain('lg:bg-[#20383d]');
-      expect(html).toContain('md:bg-transparent');
+      expect(html).toContain(`--app-sidebar-width:${['/contacts', '/calendar'].includes(pathname) ? 65 : 160}px`);
+      expect(html).toContain('--brand-sidebar:#093E52');
+      expect(html).toContain('bg-[var(--brand-page)]');
       expect(html).toContain('lg:px-5');
-      expect(html).not.toContain('bg-[#093e52]');
+      expect(html).not.toContain('lg:bg-[#20383d]');
       expect(html).not.toContain('bg-[#f9fbfc]');
+      expect(html).toContain('--brand-sidebar-alt:#0B4A63');
+      expect(html).toContain(`--app-header-height:${['/contacts', '/calendar'].includes(pathname) ? 49 : 56}px`);
     }
   );
 
@@ -96,12 +98,14 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     const columns = [...html.matchAll(/data-pipeline-column="[^"]+"[^>]+class="([^"]+)"/g)].map((match) => match[1]);
     expect(root).toContain('--app-sidebar-width:285px');
     expect(root).toContain('--content-pad-x:10px');
-    expect(root).toContain('bg-[#f9fbfc]');
+    expect(root).toContain('background:#F9FBFC');
+    expect(root).toContain('--app-header-height:49px');
+    expect(root).toContain('--list-header-background:#093E52');
     expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
     expect(sidebar).toContain('lg:shrink-0');
-    expect(sidebar).toContain('lg:bg-[#093e52]');
+    expect(html).toContain('background:#093E52;--sidebar-alt:#0B4A63');
     expect(main).toContain('lg:px-[var(--content-pad-x)]');
-    expect(main).toContain('bg-[#f9fbfc]');
+    expect(main).toContain('bg-[var(--brand-page)]');
     expect(board).toContain('bg-[#f9fbfc]');
     expect(board).toContain('overflow-x-auto');
     expect(columns).toHaveLength(6);
@@ -134,7 +138,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     for (const [selector, property, value, media] of [
       ['.lg:w-[var(--app-sidebar-width)]', 'width', 'var(--app-sidebar-width)', '(width >= 64rem)'],
       ['.lg:shrink-0', 'flex-shrink', '0', '(width >= 64rem)'],
-      ['.lg:bg-[#093e52]', 'background-color', '#093e52', '(width >= 64rem)'],
+      ['.bg-[var(--brand-page)]', 'background-color', 'var(--brand-page)', undefined],
       ['.lg:px-[var(--content-pad-x)]', 'padding-inline', 'var(--content-pad-x)', '(width >= 64rem)'],
       ['.bg-[#f9fbfc]', 'background-color', '#f9fbfc', undefined],
       ['.w-[220px]', 'width', '220px', undefined],
@@ -146,7 +150,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
   it('ustawia wszystkie zmienne raz na głównym kontenerze i zachowuje przesunięcie viewportu', () => {
     const html = render();
     const root = html.match(/<div data-slot="app-shell"[^>]+>/)![0];
-    for (const [name, value] of Object.entries(geometryCssVars())) {
+    for (const [name, value] of Object.entries(geometryCssVars('lists'))) {
       expect(root).toContain(`${name}:${value}`);
       expect(html.split(`${name}:`)).toHaveLength(2);
     }

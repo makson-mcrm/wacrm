@@ -103,6 +103,7 @@ const schema: Record<string, string[]> = {
     'activity_status',
     'completed',
     'title',
+    'description',
     'source',
     'next_action',
     'occurred_at',
@@ -1833,7 +1834,26 @@ it('K3/01-G: rzeczywiste handlery /formularz → /ankieta oraz retry tworzą jed
   expect(tables.financial_questionnaire_submissions).toHaveLength(1);
   expect(tables.client_intakes).toHaveLength(1);
   expect(tables.contact_notes).toHaveLength(2); // original lead + questionnaire history
-  expect(tables.sales_activities).toHaveLength(1);
+  expect(tables.sales_activities).toHaveLength(2); // lead follow-up + questionnaire follow-up, no retry duplicate
+  expect(tables.sales_activities).toMatchObject([
+    {
+      contact_id: tables.contacts[0].id,
+      title: 'Zgłoszenie: audyt finansowy / sprawdzenie możliwości',
+      source: 'makson.space',
+      activity_type: 'zadanie',
+      activity_status: 'PLANOWANE',
+      completed: false,
+      description: expect.stringContaining('Syntetyczne badanie potrzeb finansowych'),
+    },
+    {
+      contact_id: tables.contacts[0].id,
+      title: `Ankieta ${tables.financial_questionnaire_submissions[0].id}`,
+      source: 'makson.space/ankieta',
+      activity_type: 'zadanie',
+      activity_status: 'PLANOWANE',
+      completed: false,
+    },
+  ]);
   expect(
     (harness.db as ReturnType<typeof database>).from
   ).not.toHaveBeenCalledWith('deals');
