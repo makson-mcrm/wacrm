@@ -10,21 +10,22 @@ import {
   CARD_GAP,
   CARD_RADIUS,
   COLUMNS_THREE,
+  SHELL_CSS_VARS,
   geometryCssVars,
   type GeometryCssVars,
 } from './layout-geometry';
 
 describe('02A-5: geometria 00S', () => {
-  it('rama Bigin obowiązuje tylko dla Lejka i wyznacza początek tablicy x=295', () => {
+  it('geometria treści Lejka przy globalnej ramie Bigin wyznacza początek tablicy x=295', () => {
     expect(PIPELINE_SIDEBAR_WIDTH).toBe(285);
     expect(PIPELINE_CONTENT_PADDING_X).toBe(10);
     expect(PIPELINE_SIDEBAR_WIDTH + PIPELINE_CONTENT_PADDING_X).toBe(295);
     expect(geometryCssVars('pipelines')).toEqual({
       ...geometryCssVars(),
-      '--app-sidebar-width': '285px',
       '--content-pad-x': '10px',
     });
-    expect(geometryCssVars()['--app-sidebar-width']).toBe('160px');
+    expect(geometryCssVars('pipelines')).not.toHaveProperty('--app-sidebar-width');
+    expect(geometryCssVars('pipelines')).not.toHaveProperty('--app-header-height');
   });
 
   it('eksportuje uzgodnione wymiary i proporcje', () => {
@@ -38,7 +39,7 @@ describe('02A-5: geometria 00S', () => {
       CARD_RADIUS,
       COLUMNS_THREE,
     }).toEqual({
-      APP_SIDEBAR_WIDTH: 160,
+      APP_SIDEBAR_WIDTH: 285,
       APP_HEADER_HEIGHT: 56,
       CONTENT_PADDING_X: 24,
       CONTENT_PADDING_Y: 24,
@@ -47,13 +48,15 @@ describe('02A-5: geometria 00S', () => {
       CARD_RADIUS: 12,
       COLUMNS_THREE: 'minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)',
     });
+    expect(SHELL_CSS_VARS).toMatchObject({
+      '--app-sidebar-width': '285px',
+      '--app-topbar-height': '56px',
+    });
   });
 
   it('zwraca typowane zmienne CSS gotowe do dziedziczenia z shellu', () => {
     const vars: GeometryCssVars = geometryCssVars();
     expect(vars).toEqual({
-      '--app-sidebar-width': '160px',
-      '--app-header-height': '56px',
       '--content-pad-x': '24px',
       '--content-pad-y': '24px',
       '--section-gap': '16px',
