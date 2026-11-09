@@ -113,7 +113,18 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     expect(root).toContain('--list-header-background:var(--bigin-panel)');
     expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
     expect(sidebar).toContain('lg:shrink-0');
-    expect(html).toContain('background:#093E52;--sidebar-alt:#0B4A63');
+    const globalCss = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+    const shellColors: Record<string, string> = {};
+    globalCss.walkRules((rule) => {
+      if (rule.selectors.includes("[data-slot='app-shell'].bigin-shell")) {
+        rule.walkDecls((decl) => { shellColors[decl.prop] = decl.value; });
+      }
+    });
+    expect(root).toContain('bigin-shell');
+    expect(shellColors).toMatchObject({
+      '--sidebar': 'var(--bigin-panel)', '--brand-sidebar-alt': 'var(--bigin-accent)',
+      '--sidebar-foreground': 'var(--bigin-panel-text)',
+    });
     expect(main).toContain('lg:px-[var(--content-pad-x)]');
     expect(main).toContain('bg-[var(--bigin-bg)]');
     expect(board).toContain('bg-[#f9fbfc]');
@@ -252,7 +263,10 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
       bg: '#F9FBFC', panel: '#093E52', accent: '#0B4A63', border: '#E0E9EE',
       row: '#FCFDFD', hover: '#F0F7FB', link: '#7EB5F4',
     });
-    expect(defaults).toMatchObject(BIGIN_CSS_VARS);
+    // Hex digits are case-insensitive; compare values without requiring CSS formatting.
+    for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) {
+      expect(defaults[name]?.toLowerCase()).toBe(value.toLowerCase());
+    }
     const html = render();
     for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(html).toContain(`${name}:${value}`);
     expect(declarations('body').background).toBe('var(--bigin-bg)');

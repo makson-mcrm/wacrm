@@ -1,7 +1,8 @@
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'postcss';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pipelineSurfaceExtensions, surfaceFlags } from './surface-flags';
 import ContactsPage from '@/app/(dashboard)/contacts/page';
@@ -32,6 +33,17 @@ import {
   CARD_FIELD_ROW_HEIGHT, CARD_RECORD_HEADER_HEIGHT, WEEK_GRID_HOUR_HEIGHT,
   WEEK_GRID_START_HOUR, WEEK_GRID_END_HOUR, WEEK_GRID_TIME_COLUMN_WIDTH,
 } from './layout-geometry';
+
+const globalCss = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+function globalDeclarations(selector: string) {
+  const result: Record<string, string> = {};
+  globalCss.walkRules((rule) => {
+    if (rule.selectors.some((value) => value.replace(/\s+/g, ' ').trim() === selector)) {
+      rule.walkDecls((decl) => { result[decl.prop] = decl.value; });
+    }
+  });
+  return result;
+}
 
 const harness = vi.hoisted(() => ({
   cursor: 0,
@@ -256,12 +268,12 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     expect(html).toContain('data-slot="list-banner"');
   });
 
-  it.each(['/deals', '/contacts/synthetic', '/inbox', '/tasks', '/settings', '/broadcasts', '/assistant'])('zachowuje dotychczasową ramę %s', (pathname) => {
+  it.each(['/deals', '/contacts/synthetic', '/inbox', '/tasks', '/settings', '/broadcasts', '/assistant'])('dziedziczy globalną ramę bez banera listy: %s', (pathname) => {
     harness.pathname = pathname;
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     expect(html).not.toContain('data-bigin-list-shell');
     expect(html).not.toContain('data-slot="list-banner"');
-    expect(html).toContain('--app-sidebar-width:160px');
+    expect(html).toContain('--app-sidebar-width:65px');
     expect(html).toContain('--app-header-height:56px');
   });
 
@@ -273,9 +285,9 @@ describe('KM3.2.09-A — flagi i rzeczywista powierzchnia list', () => {
     harness.pathname = '/pipelines';
     const html = renderToStaticMarkup(createElement(AppShell, null, null));
     for (const token of ['--app-sidebar-width:285px', '--app-header-height:49px',
-      '--list-header-background:#093E52', '--pipeline-column-width:220px',
+      '--list-header-background:var(--bigin-panel)', '--pipeline-column-width:220px',
       '--pipeline-column-gap:10px', '--pipeline-card-height:60px',
-      '--pipeline-content-background:#F9FBFC']) expect(html).toContain(token);
+      '--pipeline-content-background:var(--bigin-bg)']) expect(html).toContain(token);
     expect(html).toContain('data-bigin-pipeline-shell="true"');
     expect(html).toContain('data-bigin-pipeline-cards="true"');
     expect(html).not.toContain('data-slot="list-banner"');
@@ -688,17 +700,20 @@ describe('KM3.2.17 — rama Lejka', () => {
     expect(BRAND_SIDEBAR_ACTIVE).toBe('#0B4A63');
   });
 
-  it('stosuje białe ikony i tekst oraz dolną krawędź tylko w nagłówku Lejka', () => {
+  it('nagłówek Lejka dziedziczy biały tekst i ikony oraz własną dolną krawędź', () => {
     harness.pathname = '/pipelines';
     const html = render(AppShell as ComponentType, []);
-    expect(html).toContain(`--list-header-background:${BRAND_HEADER_BG}`);
-    const pipelineHeader = html.match(/\[data-bigin-pipeline-shell\] > div > header \{([^}]+)\}/)?.[1];
-    for (const rule of ['background: var(--list-header-background)', 'color: #ffffff',
-      '--foreground: #ffffff', '--muted-foreground: #e6eef2',
-      'border-bottom: 1px solid var(--brand-sidebar-alt)']) expect(pipelineHeader).toContain(rule);
-    expect(html).toContain('[data-bigin-pipeline-shell] > div > header svg');
+    expect(html).toContain('--list-header-background:var(--bigin-panel)');
+    expect(html).toContain('data-bigin-pipeline-shell="true"');
+    expect(globalDeclarations('[data-bigin-pipeline-shell] > div > header')).toMatchObject({
+      background: 'var(--bigin-panel)', color: 'var(--bigin-panel-text)',
+      '--foreground': 'var(--bigin-panel-text)', '--muted-foreground': 'var(--bigin-panel-muted)',
+      'border-bottom': '1px solid var(--brand-sidebar-alt)',
+    });
+    expect(globalDeclarations('[data-bigin-pipeline-shell] > div > header svg').color).toBe('var(--bigin-panel-text)');
     harness.pathname = '/settings';
-    expect(render(AppShell as ComponentType, [])).not.toContain('--muted-foreground: #e6eef2');
+    expect(render(AppShell as ComponentType, [])).not.toContain('data-bigin-pipeline-shell');
+    expect(globalDeclarations("[data-slot='app-shell'] > div > header")['--muted-foreground']).toBe('var(--bigin-panel-text)');
   });
 
   it.each([false, true])('nagłówek z licznikiem zależy od flagi rozszerzeń: %s', (enabled) => {
@@ -727,12 +742,18 @@ describe('KM3.2.14 — paleta Bigin', () => {
   it.each(['/dashboard', '/tasks', '/inbox', '/contacts', '/pipelines'])('powłoka %s dziedziczy paletę', (pathname) => {
     harness.pathname = pathname;
     const html = render(AppShell as ComponentType, []);
-    for (const value of ['--brand-sidebar:#093E52', '--brand-sidebar-alt:#0B4A63', '--border:#E0E9EE', '--brand-hover:#F0F7FB', '--brand-link:#7EB5F4', '--brand-info:#DFF9F3']) expect(html).toContain(value);
-    expect(html).toContain(`--brand-page:${pathname === '/pipelines' ? '#F9FBFC' : '#FFFFFF'}`);
+    expect(html).toMatch(/data-slot="app-shell"[^>]+class="[^"]*bigin-shell/);
+    expect(globalDeclarations("[data-slot='app-shell'].bigin-shell")).toMatchObject({
+      '--brand-sidebar': 'var(--bigin-panel)', '--brand-sidebar-alt': 'var(--bigin-accent)',
+      '--border': 'var(--bigin-border)', '--brand-hover': 'var(--bigin-hover)',
+      '--brand-link': 'var(--bigin-link)', '--brand-info': 'var(--bigin-info)',
+      '--brand-page': 'var(--bigin-bg)',
+    });
+    expect(html).toContain('bg-[var(--bigin-bg)]');
     expect(html).not.toContain('#20383d');
     const aside = html.match(/<aside[\s\S]*?<\/aside>/)?.[0] ?? '';
-    expect(aside).toContain('background:#093E52');
-    expect(aside).toContain('--sidebar-alt:#0B4A63');
+    expect(globalDeclarations("[data-slot='app-shell'].bigin-shell")['--sidebar']).toBe('var(--bigin-panel)');
+    expect(globalDeclarations("[data-slot='app-shell'].bigin-shell")['--brand-sidebar-alt']).toBe('var(--bigin-accent)');
     expect(aside).toContain('bg-[var(--sidebar-alt)] text-white');
     expect(aside).toContain('hover:bg-[var(--sidebar-alt)]');
     expect(html).not.toContain('text-slate-950');
@@ -837,13 +858,39 @@ describe('KM3.2.19 — wspólna rama siedmiu ekranów', () => {
     }
   });
 
-  it.each(['/contacts', '/companies', '/quick-call', '/dashboard', '/calendar'])('panel i górny pasek %s mają token #093E52 i biały tekst', (pathname) => {
+  it.each(['/contacts', '/companies', '/quick-call', '/dashboard', '/calendar'])('panel i górny pasek %s dziedziczą globalne kolory', (pathname) => {
     harness.pathname = pathname;
     const html = render(AppShell as ComponentType, []);
-    expect(BRAND_HEADER_BG).toBe('#093E52');
-    expect(html).toContain('--brand-sidebar:#093E52');
-    expect(html).toContain('background: var(--brand-sidebar)');
-    expect(html).toContain('color: white');
-    expect(html).toContain('--brand-page:#FFFFFF');
+    expect(html).toContain('data-bigin-compact-shell="true"');
+    expect(html).toMatch(/data-slot="app-shell"[^>]+class="[^"]*bigin-shell/);
+    expect(globalDeclarations('[data-bigin-compact-shell] > aside').background).toBe('var(--bigin-panel)');
+    expect(globalDeclarations("[data-slot='app-shell'] > div > header")).toMatchObject({
+      background: 'var(--brand-sidebar)', color: 'var(--bigin-panel-text)',
+    });
+    expect(globalDeclarations("[data-slot='app-shell'].bigin-shell")).toMatchObject({
+      '--brand-sidebar': 'var(--bigin-panel)', '--brand-page': 'var(--bigin-bg)',
+    });
+    const source = readFileSync(new URL(`../../app/(dashboard)${pathname}/page.tsx`, import.meta.url), 'utf8');
+    expect(source).not.toMatch(/#(?:093e52|0b4a63)\b/i);
+  });
+});
+
+describe('KM3.2.24 — jedna globalna paleta, bez lokalnych nadpisań ekranów', () => {
+  it('definiuje kolor panelu i biały tekst w :root', () => {
+    expect(globalDeclarations(':root')).toMatchObject({
+      '--bigin-panel': '#093e52', '--bigin-accent': '#0b4a63', '--bigin-panel-text': '#ffffff',
+    });
+  });
+
+  it.each([
+    '../../app/(dashboard)/tasks/page.tsx',
+    '../../app/(dashboard)/inbox/page.tsx',
+    '../../app/(dashboard)/deals/page.tsx',
+    '../../app/(dashboard)/deals/[id]/page.tsx',
+    '../../app/(dashboard)/pipelines/page.tsx',
+    '../../components/companies/company-card.tsx',
+  ])('%s dziedziczy paletę bez twardych kolorów panelu', (path) => {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    expect(source).not.toMatch(/#(?:093e52|0b4a63)\b/i);
   });
 });
