@@ -9,10 +9,7 @@ import { Header } from '@/components/layout/header';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { Sidebar } from '@/components/layout/sidebar';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
-import {
-  BIGIN_CSS_VARS,
-  biginGeometryCssVars,
-} from '@/lib/ui/layout-geometry';
+import { biginGeometryCssVars } from '@/lib/ui/layout-geometry';
 import { surfaceFlags } from '@/lib/ui/surface-flags';
 import { cn } from '@/lib/utils';
 
@@ -118,24 +115,16 @@ export function AppShell({ children }: AppShellProps) {
       data-bigin-list-shell={isBiginList || undefined}
       data-bigin-pipeline-shell={isPipeline || undefined}
       data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}
-      className={cn(
-        'bigin-shell relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden',
-        isBiginList && 'pt-[var(--list-banner-height)]'
-      )}
+      className="bigin-shell relative flex h-[var(--app-viewport-height,100dvh)] min-h-0 overflow-hidden"
       style={{
-        ...BIGIN_CSS_VARS,
         ...biginGeometryCssVars(isBiginList ? 'lists' : isPipeline ? 'pipelines' : 'default'),
         transform: 'translateY(var(--app-viewport-offset-top, 0px))',
       }}
     >
-      {isBiginList && (
-        // Preserve the measured banner offset without copying Bigin marketing.
-        <div data-slot="list-banner" aria-hidden="true" className="absolute inset-x-0 top-0 h-[var(--list-banner-height)] bg-[var(--brand-info)]" />
-      )}
       <PresenceHeartbeat />
       <DailyStartCard />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden [&>header]:h-[var(--app-topbar-height)]">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           id="main-content"

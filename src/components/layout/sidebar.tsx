@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { BRAND_SIDEBAR_BG, BRAND_SIDEBAR_ACTIVE, BRAND_BORDER, BRAND_LINK } from '@/lib/ui/layout-geometry';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useTotalUnread } from '@/hooks/use-total-unread';
@@ -145,6 +144,7 @@ const bottomNavItems = [
 ];
 
 interface SidebarProps {
+  collapsed?: boolean;
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
   onClose?: () => void;
@@ -152,7 +152,7 @@ interface SidebarProps {
 
 import { useTranslations } from 'next-intl';
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({ open = false, collapsed = false, onClose }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole } = useAuth();
@@ -212,23 +212,24 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       />
 
       <aside
+        data-collapsed={collapsed || undefined}
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
-          'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
+          'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full shrink-0 flex-col border-r',
+          collapsed ? 'w-[var(--app-sidebar-width-collapsed)]' : 'w-[var(--app-sidebar-width)]',
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-[var(--app-sidebar-width)] lg:translate-x-0 lg:transition-none',
-          pathname === '/pipelines' && 'lg:shrink-0'
+          'lg:static lg:z-0 lg:translate-x-0 lg:transition-none'
         )}
         style={{
-          background: BRAND_SIDEBAR_BG,
-          '--sidebar-alt': BRAND_SIDEBAR_ACTIVE,
-          '--border': BRAND_BORDER,
-          '--foreground': '#FFFFFF',
-          '--muted-foreground': '#FFFFFF',
-          '--muted': BRAND_SIDEBAR_ACTIVE,
-          '--primary': BRAND_LINK,
+          background: 'var(--bigin-panel)',
+          '--sidebar-alt': 'var(--bigin-accent)',
+          '--border': 'var(--bigin-border)',
+          '--foreground': 'var(--bigin-panel-text)',
+          '--muted-foreground': 'var(--bigin-panel-text)',
+          '--muted': 'var(--bigin-accent)',
+          '--primary': 'var(--bigin-accent)',
         } as React.CSSProperties}
         aria-label="Primary"
       >

@@ -399,7 +399,6 @@ html.bigin-shell [data-contact-detail-view] {
   --brand-sidebar-alt: var(--bigin-accent);
   --brand-hover: var(--bigin-hover);
   --brand-link: var(--bigin-link);
-  --brand-info: var(--bigin-info);
   --background: var(--bigin-bg);
   --app-surface: var(--bigin-bg);
   --foreground: var(--bigin-text);
@@ -430,12 +429,18 @@ body {
 }
 
 [data-slot='app-shell'] > div > header {
-  background: var(--brand-sidebar);
+  height: var(--app-topbar-height);
+  min-height: var(--app-topbar-height);
+  max-height: var(--app-topbar-height);
+  flex-wrap: nowrap;
+  padding-block: 0;
+  background: var(--bigin-panel);
   color: var(--bigin-panel-text);
   --foreground: var(--bigin-panel-text);
   --muted-foreground: var(--bigin-panel-text);
-  --muted: var(--brand-sidebar-alt);
-  --primary: var(--brand-link);
+  --muted: var(--bigin-accent);
+  --primary: var(--bigin-accent);
+  --primary-foreground: var(--bigin-panel-text);
   border-color: var(--border);
 }
 [data-slot='app-shell']
@@ -443,10 +448,43 @@ body {
   > header
   a[aria-label='mCRM AI — DZISIAJ']
   > span:first-child {
-  background: var(--brand-sidebar-alt);
+  background: var(--bigin-accent);
 }
 [data-slot='app-shell'] > div > header a[aria-label='Powiadomienia']:hover {
-  background: var(--brand-sidebar-alt);
+  background: var(--bigin-accent);
+}
+
+/* KM3.2.25 — navigation shares one palette, including saved theme variants. */
+[data-slot='app-shell'] > div > header .mobile-global-search {
+  order: 0;
+  flex: 1;
+  flex-basis: auto;
+}
+[data-slot='app-shell'] > aside nav a,
+[data-slot='app-shell'] > aside button,
+[data-slot='mobile-bottom-nav'] a,
+[data-slot='mobile-bottom-nav'] button,
+[data-slot='app-shell'] > div > header > div > :is(a, button),
+[data-slot='app-shell'] > div > header > div > div > button {
+  color: var(--bigin-panel-text);
+}
+[data-slot='app-shell'] > aside nav a:hover,
+[data-slot='app-shell'] > aside button:hover,
+[data-slot='mobile-bottom-nav'] button,
+[data-slot='mobile-bottom-nav'] button > span:first-child,
+[data-slot='mobile-bottom-nav'] a:is(:hover, [aria-current='page']) > span:first-child,
+[data-slot='app-shell'] > div > header > div > :is(a, button):is(:hover, :focus-visible, [data-popup-open]),
+[data-slot='app-shell'] > div > header > div > div > button:is(:hover, :focus-visible, [data-popup-open]) {
+  background: var(--bigin-accent);
+  color: var(--bigin-panel-text);
+}
+[data-slot='mobile-bottom-nav'] button > span:first-child {
+  --tw-ring-color: var(--bigin-panel);
+}
+[data-slot='mobile-bottom-nav'] {
+  background: var(--bigin-panel);
+  color: var(--bigin-panel-text);
+  border-color: var(--bigin-accent);
 }
 
 [data-bigin-pipeline-shell] > div > header {
@@ -499,7 +537,6 @@ body {
 }
 @media (min-width: 64rem) {
   [data-bigin-compact-shell] > aside {
-    width: var(--app-sidebar-width);
     flex-shrink: 0;
     background: var(--bigin-panel);
     border: 0;

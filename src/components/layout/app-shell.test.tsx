@@ -9,8 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './app-shell';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
 import type { PipelineStage } from '@/types';
-import { BIGIN_TOKENS, BIGIN_CSS_VARS, biginGeometryCssVars } from '@/lib/ui/layout-geometry';
+import { BIGIN_TOKENS, BIGIN_CSS_VARS, biginGeometryCssVars, SHELL_CSS_VARS, geometryCssVars, SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST } from '@/lib/ui/layout-geometry';
 import RootLayout from '@/app/layout';
+import { Sidebar } from './sidebar';
 
 const route = vi.hoisted(() => ({ pathname: '/contacts' }));
 beforeEach(() => { route.pathname = '/contacts'; });
@@ -66,27 +67,30 @@ vi.mock('@/components/layout/global-crm-search', () => ({
 }));
 vi.mock('@/components/layout/global-add', () => ({ GlobalAdd: () => null }));
 
-const render = () =>
-  renderToStaticMarkup(
-    <AppShell>
-      <p>Treść syntetyczna</p>
-    </AppShell>
-  );
+const render = async () => renderToStaticMarkup(await RootLayout({
+  children: <AppShell><p>Treść syntetyczna</p></AppShell>,
+}));
 
 describe('02A-5: geometria shellu, nagłówka i menu', () => {
-  it.each(['/deals', '/contacts', '/dashboard', '/calendar', '/finances', '/settings', '/future-synthetic-route'])(
+  it.each(['/pipelines', '/contacts', '/companies', '/dashboard', '/calendar', '/quick-call', '/deals', '/finances', '/settings', '/future-synthetic-route'])(
     'stosuje globalną ramę Bigin także na nowej trasie: %s',
-    (pathname) => {
+    async (pathname) => {
       route.pathname = pathname;
-      const html = render();
-      expect(html).toContain('--app-sidebar-width:65px');
+      const html = await render();
+      expect(html).toContain('--app-sidebar-width:285px');
       expect(html).toContain('--bigin-panel:#093E52');
       expect(html).toContain('bg-[var(--bigin-bg)]');
       expect(html).toContain('lg:px-[var(--content-pad-x)]');
       expect(html).not.toContain('lg:bg-[#20383d]');
       expect(html).not.toContain('bg-[#f9fbfc]');
       expect(html).toContain('--bigin-accent:#0B4A63');
-      expect(html).toContain(`--app-header-height:${['/contacts', '/calendar'].includes(pathname) ? 49 : 56}px`);
+      expect(html).toContain('--app-topbar-height:56px');
+      expect(html).not.toContain('data-slot="list-banner"');
+      expect(html).not.toContain('pt-[var(--list-banner-height)]');
+      for (const [name, value] of Object.entries(SHELL_CSS_VARS)) {
+        expect(html.match(/<html[^>]+>/)![0]).toContain(`${name}:${value}`);
+        expect(html.split(`${name}:`)).toHaveLength(2);
+      }
     }
   );
 
@@ -106,13 +110,13 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     const main = html.match(/<main[^>]+class="([^"]+)"/)![1];
     const board = html.match(/<div class="(pipeline-scroll[^"]+)"/)![1];
     const columns = [...html.matchAll(/data-pipeline-column="[^"]+"[^>]+class="([^"]+)"/g)].map((match) => match[1]);
-    expect(root).toContain('--app-sidebar-width:285px');
+    expect(root).not.toContain('--app-sidebar-width:');
     expect(root).toContain('--content-pad-x:10px');
-    expect(root).toContain('--bigin-bg:#F9FBFC');
-    expect(root).toContain('--app-header-height:49px');
+    expect(root).not.toContain('--bigin-bg:');
+    expect(root).not.toContain('--app-header-height:');
     expect(root).toContain('--list-header-background:var(--bigin-panel)');
-    expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
-    expect(sidebar).toContain('lg:shrink-0');
+    expect(sidebar).toContain('w-[var(--app-sidebar-width)]');
+    expect(sidebar).toContain('shrink-0');
     const globalCss = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
     const shellColors: Record<string, string> = {};
     globalCss.walkRules((rule) => {
@@ -157,8 +161,8 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
       });
     });
     for (const [selector, property, value, media] of [
-      ['.lg:w-[var(--app-sidebar-width)]', 'width', 'var(--app-sidebar-width)', '(width >= 64rem)'],
-      ['.lg:shrink-0', 'flex-shrink', '0', '(width >= 64rem)'],
+      ['.w-[var(--app-sidebar-width)]', 'width', 'var(--app-sidebar-width)', undefined],
+      ['.shrink-0', 'flex-shrink', '0', undefined],
       ['.bg-[var(--bigin-bg)]', 'background-color', 'var(--bigin-bg)', undefined],
       ['.lg:px-[var(--content-pad-x)]', 'padding-inline', 'var(--content-pad-x)', '(width >= 64rem)'],
       ['.bg-[#f9fbfc]', 'background-color', '#f9fbfc', undefined],
@@ -168,11 +172,12 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     ]) expect(declarations).toContainEqual({ selector, property, value, media });
   });
 
-  it('ustawia wszystkie zmienne raz na głównym kontenerze i zachowuje przesunięcie viewportu', () => {
-    const html = render();
+  it('dziedziczy tokeny z html i zachowuje lokalne przesunięcie viewportu', async () => {
+    const html = await render();
     const root = html.match(/<div data-slot="app-shell"[^>]+>/)![0];
-    for (const [name, value] of Object.entries({ ...BIGIN_CSS_VARS, ...biginGeometryCssVars('lists') })) {
-      expect(root).toContain(`${name}:${value}`);
+    for (const [name, value] of Object.entries({ ...BIGIN_CSS_VARS, ...SHELL_CSS_VARS })) {
+      expect(root).not.toContain(`${name}:`);
+      expect(html.match(/<html[^>]+>/)![0]).toContain(`${name}:${value}`);
       expect(html.split(`${name}:`)).toHaveLength(2);
     }
     expect(root).toContain(
@@ -182,12 +187,12 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
   });
 
   it('rzeczywiste Sidebar i Header używają tokenów przy tych samych breakpointach', async () => {
-    const html = render();
+    const html = await render();
     const sidebar = html.match(/<aside class="([^"]+)"/)![1];
     const header = html.match(/<header class="([^"]+)"/)![1];
     const logo = html.match(/<aside[^>]+><div class="([^"]+)"/)![1];
-    expect(sidebar).toContain('lg:w-[var(--app-sidebar-width)]');
-    expect(sidebar).toContain('w-64');
+    expect(sidebar).toContain('w-[var(--app-sidebar-width)]');
+    expect(sidebar).not.toMatch(/(?:^|\s)(?:lg:)?w-(?:64|16|40)(?:\s|$)/);
     expect(sidebar).not.toContain('lg:w-40');
     expect(header).toContain('min-h-[var(--app-header-height)]');
     expect(header).toContain('md:h-[var(--app-header-height)]');
@@ -225,7 +230,7 @@ describe('02A-5: geometria shellu, nagłówka i menu', () => {
     expect(rules).toContainEqual({
       property: 'width',
       value: 'var(--app-sidebar-width)',
-      media: '(width >= 64rem)',
+      media: undefined,
     });
     expect(rules).toContainEqual({
       property: 'height',
@@ -257,7 +262,7 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
     return result;
   };
 
-  it('utrzymuje całą paletę :root zgodną z tokenami używanymi przez shell i RootLayout', () => {
+  it('utrzymuje całą paletę :root zgodną z tokenami używanymi przez shell i RootLayout', async () => {
     const defaults = declarations(':root');
     expect(BIGIN_TOKENS).toMatchObject({
       bg: '#F9FBFC', panel: '#093E52', accent: '#0B4A63', border: '#E0E9EE',
@@ -267,7 +272,7 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
     for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) {
       expect(defaults[name]?.toLowerCase()).toBe(value.toLowerCase());
     }
-    const html = render();
+    const html = await render();
     for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(html).toContain(`${name}:${value}`);
     expect(declarations('body').background).toBe('var(--bigin-bg)');
     expect(declarations("[data-slot='app-shell']").background).toBe('var(--bigin-bg)');
@@ -281,24 +286,100 @@ describe('KM3.2.23: globalny standard Bigin w RootLayout', () => {
     const html = renderToStaticMarkup(await RootLayout({ children: <main id="unstyled-screen"><p>Nowy ekran syntetyczny</p></main> }));
     expect(html).toMatch(/<html[^>]+class="[^"]*bigin-shell/);
     const body = html.match(/<body[^>]+>/)![0];
+    const root = html.match(/<html[^>]+>/)![0];
     expect(body).toContain('class="bigin-shell');
-    for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(body).toContain(`${name}:${value}`);
-    expect(body).toContain('--app-sidebar-width:65px');
-    expect(body).toContain('--app-header-height:56px');
-    expect(body).toContain('--columns-three:minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)');
-    expect(body).toContain('--bigin-font-size:14px');
+    for (const [name, value] of Object.entries(BIGIN_CSS_VARS)) expect(root).toContain(`${name}:${value}`);
+    expect(root).toContain('--app-sidebar-width:285px');
+    expect(root).toContain('--app-topbar-height:56px');
+    expect(root).toContain('--columns-three:minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)');
+    expect(root).toContain('--bigin-font-size:14px');
     expect(html).toContain('<main id="unstyled-screen"><p>Nowy ekran syntetyczny</p></main>');
     const backgroundVariable = declarations('body').background.match(/^var\((--[^)]+)\)$/)![1];
     expect(BIGIN_CSS_VARS[backgroundVariable as keyof typeof BIGIN_CSS_VARS]).toBe('#F9FBFC');
     // Optional real-browser evidence, without a server, network or customer data.
     if (process.env.KM3_RENDER_DIR) {
       mkdirSync(process.env.KM3_RENDER_DIR, { recursive: true });
-      writeFileSync(join(process.env.KM3_RENDER_DIR, 'unstyled.html'), html.replace('<html ', '<html style="--font-sans:Arial" ').replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
+      writeFileSync(join(process.env.KM3_RENDER_DIR, 'unstyled.html'), html.replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
       for (const pathname of ['/contacts', '/pipelines', '/future-synthetic-route']) {
         route.pathname = pathname;
         const page = renderToStaticMarkup(await RootLayout({ children: <AppShell><p>Treść syntetyczna</p></AppShell> }));
-        writeFileSync(join(process.env.KM3_RENDER_DIR, `${pathname.slice(1)}.html`), page.replace('<html ', '<html style="--font-sans:Arial" ').replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
+        writeFileSync(join(process.env.KM3_RENDER_DIR, `${pathname.slice(1)}.html`), page.replace('<head>', '<head><link rel="stylesheet" href="app.css"/>'));
       }
     }
+  });
+});
+
+describe('KM3.2.25: jeden wymiar szkieletu, bez banera demo', () => {
+  it('definiuje wymiary w jednym miejscu; każdy wariant treści dziedziczy je bez nadpisań', () => {
+    expect([SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, TOPBAR_HEIGHT, TOPBAR_HEIGHT_LIST]).toEqual([285, 65, 56, 49]);
+    expect(SHELL_CSS_VARS).toMatchObject({
+      '--app-sidebar-width': '285px', '--app-sidebar-width-collapsed': '65px',
+      '--app-topbar-height': '56px', '--list-banner-height': '0px',
+      '--app-header-height': 'var(--app-topbar-height)',
+    });
+    for (const surface of ['default', 'pipelines', 'lists', 'cards', 'calendar'] as const) {
+      for (const name of Object.keys(SHELL_CSS_VARS)) expect(geometryCssVars(surface)).not.toHaveProperty(name);
+    }
+    for (const surface of ['default', 'pipelines', 'lists'] as const) {
+      for (const name of Object.keys(SHELL_CSS_VARS)) expect(biginGeometryCssVars(surface)).not.toHaveProperty(name);
+    }
+  });
+
+  it.each([false, true])('sidebar używa wyłącznie zmiennej szerokości, collapsed=%s', async (collapsed) => {
+    const html = renderToStaticMarkup(await RootLayout({ children: <Sidebar collapsed={collapsed} /> }));
+    const aside = html.match(/<aside[^>]+>/)![0];
+    const widthClasses = aside.match(/class="([^"]+)"/)![1].split(/\s+/).filter((name) => /(?:^|:)w-/.test(name));
+    expect(widthClasses).toEqual([collapsed ? 'w-[var(--app-sidebar-width-collapsed)]' : 'w-[var(--app-sidebar-width)]']);
+    expect(aside).not.toMatch(/(?:width:|--app-sidebar-width:)/);
+  });
+
+  it('blokuje wysokość nagłówka na wszystkich breakpointach i usuwa demo także ze źródła', async () => {
+    const html = await render();
+    const source = readFileSync(new URL('./app-shell.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/data-slot=["']list-banner["']|pt-\[var\(--list-banner-height\)\]/);
+    expect(html).toContain('[&amp;&gt;header]:h-[var(--app-topbar-height)]');
+    const css = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+    const dimensions: Record<string, string> = {};
+    css.walkRules((rule) => {
+      if (rule.selector === "[data-slot='app-shell'] > div > header") {
+        expect(rule.parent?.type).toBe('root');
+        rule.walkDecls((decl) => { dimensions[decl.prop] = decl.value; });
+      }
+    });
+    expect(dimensions).toMatchObject({
+      height: 'var(--app-topbar-height)', 'min-height': 'var(--app-topbar-height)',
+      'max-height': 'var(--app-topbar-height)', 'flex-wrap': 'nowrap', 'padding-block': '0',
+      background: 'var(--bigin-panel)', '--muted': 'var(--bigin-accent)',
+      color: 'var(--bigin-panel-text)',
+    });
+    const cssSource = readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8');
+    expect(cssSource).not.toContain('--brand-info');
+  });
+
+  it('pozycje menu, przyciski paska i nawigacja mobilna korzystają z tej samej palety', () => {
+    const css = parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+    const declarations = (selector: string) => {
+      const values: Record<string, string> = {};
+      css.walkRules((rule) => {
+        if (rule.selectors.includes(selector)) rule.walkDecls((decl) => { values[decl.prop] = decl.value; });
+      });
+      return values;
+    };
+    for (const selector of [
+      "[data-slot='app-shell'] > aside nav a",
+      "[data-slot='app-shell'] > div > header > div > :is(a, button)",
+      "[data-slot='app-shell'] > div > header > div > div > button",
+      "[data-slot='mobile-bottom-nav'] a", "[data-slot='mobile-bottom-nav'] button",
+    ]) expect(declarations(selector).color).toBe('var(--bigin-panel-text)');
+    for (const selector of [
+      "[data-slot='app-shell'] > aside nav a:hover",
+      "[data-slot='app-shell'] > div > header > div > div > button:is(:hover, :focus-visible, [data-popup-open])",
+      "[data-slot='mobile-bottom-nav'] button > span:first-child",
+    ]) expect(declarations(selector).background).toBe('var(--bigin-accent)');
+    expect(declarations("[data-slot='mobile-bottom-nav']").background).toBe('var(--bigin-panel)');
+    const html = renderToStaticMarkup(<Sidebar />);
+    expect(html).toContain('--sidebar-alt:var(--bigin-accent)');
+    expect(html).toContain('--foreground:var(--bigin-panel-text)');
+    expect(html).not.toMatch(/#(?:093e52|0b4a63|245247|173a52)\b/i);
   });
 });

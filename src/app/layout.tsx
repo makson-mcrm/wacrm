@@ -4,7 +4,7 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-import { BIGIN_CSS_VARS, biginGeometryCssVars } from "@/lib/ui/layout-geometry";
+import { BIGIN_CSS_VARS, SHELL_CSS_VARS, biginGeometryCssVars } from "@/lib/ui/layout-geometry";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
 import {
@@ -89,6 +89,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
+      style={{ ...BIGIN_CSS_VARS, ...biginGeometryCssVars(), ...SHELL_CSS_VARS }}
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
       className={`${inter.variable} bigin-shell h-full antialiased`}
@@ -110,7 +111,6 @@ export default async function RootLayout({
       </head>
       <body
         className="bigin-shell min-h-full text-foreground font-sans"
-        style={{ ...BIGIN_CSS_VARS, ...biginGeometryCssVars() }}
       >
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>

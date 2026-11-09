@@ -16,7 +16,7 @@ export const BIGIN_TOKENS = {
   panelMuted: '#e6eef2',
 } as const;
 
-/** Shared by RootLayout and standalone shell renders; CSS consumes these variables. */
+/** Applied once by RootLayout; standalone renders must include that layout. */
 export const BIGIN_CSS_VARS = Object.fromEntries(
   Object.entries(BIGIN_TOKENS).map(([name, value]) => [
     `--bigin-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`,
@@ -37,21 +37,34 @@ export const BRAND_HOVER = BIGIN_TOKENS.hover;
 export const BRAND_LINK = BIGIN_TOKENS.link;
 export const BRAND_INFO_BANNER = BIGIN_TOKENS.info;
 
-export const APP_SIDEBAR_WIDTH = 160;
+// KM3.2.25 — the shell dimensions are inherited only from <html>.
+export const SIDEBAR_WIDTH = 285;
+export const SIDEBAR_WIDTH_COLLAPSED = 65;
+export const TOPBAR_HEIGHT = 56;
+export const TOPBAR_HEIGHT_LIST = 49;
+export const SHELL_CSS_VARS = {
+  '--app-sidebar-width': `${SIDEBAR_WIDTH}px`,
+  '--app-sidebar-width-collapsed': `${SIDEBAR_WIDTH_COLLAPSED}px`,
+  '--app-topbar-height': `${TOPBAR_HEIGHT}px`,
+  '--app-header-height': 'var(--app-topbar-height)',
+  '--list-banner-height': '0px',
+} as const satisfies CSSProperties & Record<`--${string}`, string>;
+
+export const APP_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const MOBILE_BREAKPOINT = 768;
 export const MOBILE_STAGE_TAB_HEIGHT = 44;
-// Bigin demo, 1536×1024, 05.11.2026. Apply only to the pipeline frame.
-export const PIPELINE_SIDEBAR_WIDTH = 285;
+// Bigin demo, 1536×1024, 05.11.2026. Content measurements remain unchanged.
+export const PIPELINE_SIDEBAR_WIDTH = SIDEBAR_WIDTH;
 export const PIPELINE_CONTENT_PADDING_X = 10;
 export const PIPELINE_COLUMN_WIDTH = 220;
 export const PIPELINE_COLUMN_GAP = 10;
 export const PIPELINE_CARD_HEIGHT = 60;
 export const PIPELINE_CONTENT_BACKGROUND = BRAND_PAGE_BG_PIPELINE;
-export const APP_HEADER_HEIGHT = 56;
-// Bigin contacts, 1536×1024. Shared header tokens also apply to the pipeline.
-export const LIST_SIDEBAR_WIDTH = 65;
+export const APP_HEADER_HEIGHT = TOPBAR_HEIGHT;
+// Historical Bigin list measurements, retained for existing content calculations.
+export const LIST_SIDEBAR_WIDTH = SIDEBAR_WIDTH_COLLAPSED;
 export const LIST_BANNER_HEIGHT = 33;
-export const LIST_HEADER_HEIGHT = 49;
+export const LIST_HEADER_HEIGHT = TOPBAR_HEIGHT_LIST;
 export const LIST_TOOLBAR_HEIGHT = 56;
 export const LIST_TABLE_TOP = 138;
 export const LIST_ROW_HEIGHT = 32;
@@ -63,8 +76,8 @@ export const LIST_TEXT_COLOR = BIGIN_TOKENS.text;
 export const LIST_FONT_SIZE = 14;
 export const LIST_TABLE_HEADER_FONT_SIZE = 12;
 // KM3.2.11 — card and work-week measurements, Bigin 1536×1024.
-export const CARD_SIDEBAR_WIDTH = 65;
-export const CARD_HEADER_HEIGHT = 49;
+export const CARD_SIDEBAR_WIDTH = SIDEBAR_WIDTH_COLLAPSED;
+export const CARD_HEADER_HEIGHT = TOPBAR_HEIGHT_LIST;
 export const CARD_LEFT_PANEL_WIDTH = 488;
 export const CARD_CONTENT_TOP = 148;
 export const CARD_FIELD_ROW_HEIGHT = 44;
@@ -96,9 +109,7 @@ export const CARD_GAP = 12;
 export const CARD_RADIUS = 12;
 export const COLUMNS_THREE = 'minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr)';
 
-export type GeometryCssVars = CSSProperties & {
-  '--app-sidebar-width': string;
-  '--app-header-height': string;
+export type GeometryCssVars = CSSProperties & Partial<Record<keyof typeof SHELL_CSS_VARS, never>> & {
   '--content-pad-x': string;
   '--content-pad-y': string;
   '--section-gap': string;
@@ -107,13 +118,11 @@ export type GeometryCssVars = CSSProperties & {
   '--columns-three': string;
 };
 
-/** Inherited once from AppShell by the shell and its screens. */
+/** Content geometry only. Screens must never override the inherited shell. */
 export function geometryCssVars(
   surface: 'default' | 'pipelines' | 'lists' | 'cards' | 'calendar' = 'default'
 ): GeometryCssVars {
   return {
-    '--app-sidebar-width': `${surface === 'pipelines' ? PIPELINE_SIDEBAR_WIDTH : APP_SIDEBAR_WIDTH}px`,
-    '--app-header-height': `${APP_HEADER_HEIGHT}px`,
     '--content-pad-x': `${surface === 'pipelines' ? PIPELINE_CONTENT_PADDING_X : CONTENT_PADDING_X}px`,
     '--content-pad-y': `${CONTENT_PADDING_Y}px`,
     '--section-gap': `${SECTION_GAP}px`,
@@ -121,11 +130,8 @@ export function geometryCssVars(
     '--card-radius': `${CARD_RADIUS}px`,
     '--columns-three': COLUMNS_THREE,
     ...(surface === 'lists' ? {
-      '--app-sidebar-width': `${LIST_SIDEBAR_WIDTH}px`,
-      '--app-header-height': `${LIST_HEADER_HEIGHT}px`,
       '--content-pad-x': '0px',
       '--content-pad-y': '0px',
-      '--list-banner-height': `${LIST_BANNER_HEIGHT}px`,
       '--list-toolbar-height': `${LIST_TOOLBAR_HEIGHT}px`,
       '--list-row-height': `${LIST_ROW_HEIGHT}px`,
       '--list-header-background': LIST_HEADER_BACKGROUND,
@@ -139,11 +145,8 @@ export function geometryCssVars(
       '--list-header-font-size': `${LIST_TABLE_HEADER_FONT_SIZE}px`,
     } : {}),
     ...(surface === 'cards' || surface === 'calendar' ? {
-      '--app-sidebar-width': `${CARD_SIDEBAR_WIDTH}px`,
-      '--app-header-height': `${CARD_HEADER_HEIGHT}px`,
       '--content-pad-x': '0px',
       '--content-pad-y': '0px',
-      '--list-banner-height': `${LIST_BANNER_HEIGHT}px`,
       '--list-header-background': LIST_HEADER_BACKGROUND,
       '--list-content-background': LIST_CONTENT_BACKGROUND,
       '--list-text': LIST_TEXT_COLOR,
@@ -157,16 +160,12 @@ export function geometryCssVars(
   };
 }
 
-/** Bigin defaults for every route, including routes with no surface-specific styles.
- * geometryCssVars retains the legacy 00S contract for existing isolated consumers.
- */
+/** Bigin content defaults, without route-specific shell dimensions. */
 export function biginGeometryCssVars(
   surface: 'default' | 'pipelines' | 'lists' = 'default'
 ): CSSProperties {
   return {
     ...geometryCssVars(surface),
-    '--app-sidebar-width': `${surface === 'pipelines' ? PIPELINE_SIDEBAR_WIDTH : LIST_SIDEBAR_WIDTH}px`,
-    '--app-header-height': `${surface === 'default' ? APP_HEADER_HEIGHT : LIST_HEADER_HEIGHT}px`,
     '--bigin-font-size': `${LIST_FONT_SIZE}px`,
     '--bigin-nav-gap': '4px',
     '--bigin-nav-height': '64px',
