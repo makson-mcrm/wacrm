@@ -114,33 +114,33 @@ function DealsList() {
   }, [deals, search]);
 
   return (
-    <div className={extensions ? 'space-y-6 p-4 md:p-6' : 'bg-white'} style={extensions ? undefined : geometryCssVars('lists')}>
+    <div className="space-y-6 bg-[var(--bigin-surface)]" style={geometryCssVars('lists')}>
       {surfaceFlags.dealsListExtensions && (
-        <header>
-          <h1 className="text-2xl font-black text-slate-950">Sprawy</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div>
+          <h1 className="text-2xl font-black text-[var(--bigin-text)]">Sprawy</h1>
+          <p className="mt-1 text-sm text-[var(--bigin-text)]">
             Pojedyncze sprawy klientów.
           </p>
-        </header>
+        </div>
       )}
 
       <div data-slot="list-toolbar" className={extensions ? undefined : listToolbarClassName}>
       <label className="relative block w-full max-w-md">
-        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" />
+        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--bigin-text)]" />
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Szukaj po sprawie lub kliencie…"
           aria-label="Szukaj po tytule sprawy lub nazwie klienta"
-          className="border-slate-200 bg-white pl-9"
+          className="border-[var(--bigin-border)] bg-[var(--bigin-surface)] pl-9"
         />
       </label>
       </div>
 
-      <div className={extensions ? 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm' : 'overflow-hidden'}>
-        <Table className={extensions ? undefined : listTableClassName}>
+      <div className="overflow-hidden">
+        <Table className={listTableClassName}>
           <TableHeader>
-            <TableRow className={extensions ? 'border-slate-200 bg-slate-50 hover:bg-slate-50' : ''}>
+            <TableRow className={extensions ? 'border-[var(--bigin-border)] bg-[var(--bigin-bg)] hover:bg-[var(--bigin-bg)]' : ''}>
               <TableHead>Sprawa</TableHead>
               <TableHead>Klient</TableHead>
               <TableHead>Etap</TableHead>
@@ -155,7 +155,7 @@ function DealsList() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="h-48 text-center text-slate-500"
+                  className="h-48 text-center text-[var(--bigin-text)]"
                 >
                   <Loader2 className={extensions ? 'mx-auto mb-2 size-5 animate-spin' : 'mr-2 inline-block size-4 animate-spin align-middle'} />
                   Ładowanie spraw…
@@ -165,7 +165,7 @@ function DealsList() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="h-32 text-center text-red-700"
+                  className="h-32 text-center text-[var(--bigin-text)]"
                 >
                   {loadError}
                 </TableCell>
@@ -174,7 +174,7 @@ function DealsList() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="h-32 text-center text-slate-500"
+                  className="h-32 text-center text-[var(--bigin-text)]"
                 >
                   Brak spraw.
                 </TableCell>
@@ -185,7 +185,7 @@ function DealsList() {
                   key={deal.id}
                   tabIndex={0}
                   aria-label={`Otwórz sprawę ${deal.title}`}
-                  className={extensions ? 'h-16 cursor-pointer border-slate-200 hover:bg-emerald-50/40' : 'cursor-pointer'}
+                  className="cursor-pointer border-[var(--bigin-border)] hover:bg-[var(--bigin-hover)]"
                   onClick={(event) => {
                     if (!isInteractiveTarget(event.target)) {
                       router.push(`/deals/${deal.id}`);
@@ -204,7 +204,7 @@ function DealsList() {
                   <TableCell className="max-w-72 whitespace-normal">
                     <Link
                       href={`/deals/${deal.id}`}
-                      className={extensions ? 'font-bold text-emerald-900 hover:underline' : 'font-semibold text-[var(--list-text)] hover:underline'}
+                      className={extensions ? 'font-bold text-[var(--bigin-accent)] hover:underline' : 'font-semibold text-[var(--list-text)] hover:underline'}
                     >
                       {deal.title}
                     </Link>

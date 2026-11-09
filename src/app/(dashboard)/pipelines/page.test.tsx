@@ -756,10 +756,10 @@ describe('K3-02B-05: rzeczywisty błąd pobrania i Kontakt na karcie', () => {
 
 describe('KM3.2.08-BIGIN-SURFACE-02: jeden przełącznik całej powierzchni', () => {
   it.each([undefined, false, true])(
-    'pokazuje wyłącznie rdzeń Bigin, a po włączeniu przywraca dodatki: %s',
+    'zachowuje rdzeń Bigin i pokazuje dodatki domyślnie oraz według flagi: %s',
     (extensions) => {
       harness.extensions = extensions;
-      const enabled = extensions === true;
+      const enabled = extensions !== false;
       harness.states[2] = Array.from({ length: 7 }, (_, position) => ({
         ...stages[0],
         id: `stage-${position}`,
@@ -816,9 +816,9 @@ describe('KM3.2.08-BIGIN-SURFACE-02: jeden przełącznik całej powierzchni', ()
     }
   );
 
-  it('źródłowy przełącznik pozostaje domyślnie false i ma jawną listę dodatków', async () => {
+  it('źródłowy przełącznik jest domyślnie true i zachowuje jawną listę dodatków', async () => {
     const actual = await vi.importActual<typeof import('@/lib/ui/surface-flags')>('@/lib/ui/surface-flags');
-    expect(actual.surfaceFlags.pipelineExtensions).toBe(false);
+    expect(actual.surfaceFlags.pipelineExtensions).toBe(true);
     expect(actual.pipelineSurfaceExtensions.join(' ')).toContain('Asystenta AI');
     expect(actual.pipelineSurfaceExtensions.join(' ')).toContain('ZADZWOŃ i WIADOMOŚĆ');
   });

@@ -357,7 +357,7 @@ export default function WorkQueuePage() {
       {r.contactName && (
         <Link
           target="_blank"
-          className="text-primary font-semibold"
+          className="text-[var(--bigin-panel)] font-semibold"
           href={`/contacts?open=${r.contact_id}`}
         >
           {r.contactName}
@@ -366,7 +366,7 @@ export default function WorkQueuePage() {
       {r.companyName && (
         <Link
           target="_blank"
-          className="text-primary font-semibold"
+          className="text-[var(--bigin-panel)] font-semibold"
           href={`/companies?open=${r.company_id}`}
         >
           {r.companyName}
@@ -375,7 +375,7 @@ export default function WorkQueuePage() {
       {r.dealName && (
         <Link
           target="_blank"
-          className="text-primary font-semibold"
+          className="text-[var(--bigin-panel)] font-semibold"
           href={`/deals/${r.deal_id}`}
         >
           {r.dealName}
@@ -385,29 +385,29 @@ export default function WorkQueuePage() {
   );
   const firstItems = rows.slice(0, 5);
   return (
-    <div className="space-y-4 p-4 md:p-6">
-      <header>
+    <div className="space-y-4">
+      <div>
         <h1 className="text-2xl font-bold">DO OBSŁUGI</h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-[var(--bigin-text)] text-sm">
           Jedna kolejka spraw wymagających działania lub decyzji.
         </p>
-      </header>
+      </div>
       {!loading && firstItems.length > 0 && (
-        <section className="rounded-xl border border-emerald-800/20 bg-emerald-50/50 p-4">
-          <h2 className="font-bold text-emerald-950">Najpierw zajmij się</h2>
+        <section className="rounded-xl border border-[var(--bigin-accent)] bg-[var(--bigin-hover)] p-4">
+          <h2 className="font-bold text-[var(--bigin-accent)]">Najpierw zajmij się</h2>
           <div className="mt-3 grid gap-2 lg:grid-cols-2">
             {firstItems.map((r, index) => (
               <article
                 key={r.id}
-                className="bg-background rounded-lg border p-3"
+                className="bg-[var(--bigin-bg)] rounded-lg border p-3"
               >
                 <div className="flex items-start gap-3">
-                  <span className="font-bold text-emerald-800">
+                  <span className="font-bold text-[var(--bigin-accent)]">
                     {index + 1}.
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{r.title}</p>
-                    <p className="text-xs font-medium text-emerald-800">
+                    <p className="text-xs font-medium text-[var(--bigin-accent)]">
                       {r.priorityReason}
                     </p>
                     <div className="mt-1 space-x-2 text-xs">
@@ -425,7 +425,7 @@ export default function WorkQueuePage() {
       ) : (
         <div className="overflow-x-auto rounded-xl border">
           <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-muted/60 text-left text-xs uppercase">
+            <thead className="bg-[var(--bigin-hover)] text-left text-xs uppercase">
               <tr>
                 <th className="p-3">Sprawa</th>
                 <th>Źródło</th>
@@ -441,13 +441,13 @@ export default function WorkQueuePage() {
                 <tr key={r.id} className="border-t">
                   <td className="max-w-72 p-3">
                     <p className="font-semibold">{r.title}</p>
-                    <p className="text-xs font-medium text-emerald-800">
+                    <p className="text-xs font-medium text-[var(--bigin-accent)]">
                       {r.priorityReason}
                       {r.manual_priority !== 0
                         ? ` · ręcznie ${r.manual_priority > 0 ? 'podniesiono' : 'obniżono'}`
                         : ''}
                     </p>
-                    <p className="text-muted-foreground truncate text-xs">
+                    <p className="text-[var(--bigin-text)] truncate text-xs">
                       {r.detail}
                     </p>
                   </td>
@@ -521,7 +521,7 @@ export default function WorkQueuePage() {
             </tbody>
           </table>
           {!rows.length && (
-            <p className="text-muted-foreground p-8 text-center">
+            <p className="text-[var(--bigin-text)] p-8 text-center">
               Brak aktywnych spraw.
             </p>
           )}

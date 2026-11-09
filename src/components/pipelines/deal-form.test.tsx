@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Deal, PipelineStage } from '@/types';
 
 const harness = vi.hoisted(() => ({
+  extensions: undefined as boolean | undefined,
   cells: [] as unknown[],
   cursor: 0,
   mounted: false,
@@ -36,6 +37,18 @@ vi.mock('react', async (original) => ({
     return harness.cells[index];
   },
 }));
+vi.mock('@/lib/ui/surface-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/ui/surface-flags')>();
+  return {
+    ...original,
+    surfaceFlags: {
+      ...original.surfaceFlags,
+      get cardExtensions() {
+        return harness.extensions ?? original.surfaceFlags.cardExtensions;
+      },
+    },
+  };
+});
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => harness.db }));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
@@ -282,6 +295,7 @@ function fillNew(title = 'Sprawa syntetyczna Alfa') {
   select('Kategoria produktu *', 'ML — HIPOTEKA');
 }
 beforeEach(() => {
+  harness.extensions = undefined;
   view = 'form';
   vi.stubGlobal('window', {
     location: { search: '' },
@@ -496,7 +510,11 @@ async function mountCard() {
   for (const effect of harness.effects) effect();
   await vi.waitFor(() => {
     render();
-    const card = nodes().find((node) => 'data-bigin-deal-card' in node.props);
+    const card = nodes().find((node) =>
+      harness.extensions === false
+        ? 'data-bigin-deal-card' in node.props
+        : node.type === 'h1' && node.props.children === 'Sprawa syntetyczna Alfa'
+    );
     expect(card).toBeDefined();
     expect(
       nodes(card).some(
@@ -509,7 +527,12 @@ async function mountCard() {
 }
 
 async function editCard() {
-  invoke(find('aria-label', 'Edytuj transakcję'), 'onClick');
+  invoke(
+    harness.extensions === false
+      ? find('aria-label', 'Edytuj transakcję')
+      : find('children', 'Zmień deal'),
+    'onClick'
+  );
   render();
   const form = nodes().find((node) => node.type === DealForm)!;
   expect(form.props.open).toBe(true);
@@ -561,13 +584,16 @@ describe('KM3.2.21: firma, nazwa deala i kontakt na karcie Lejka', () => {
 });
 
 describe('K3: kartoteka /deals/[id]', () => {
-  it('odczytuje dane, zmienia etap i zapisuje następny krok trwale po ponownym wejściu', async () => {
+  it.each([undefined, false, true])('odczytuje dane, zmienia etap i zachowuje następny krok po powrocie, flaga %s', async (extensions) => {
+    harness.extensions = extensions;
     await mount();
     fillNew();
     await save();
     tables.pipeline_stages = stages as unknown as Row[];
     tables.deals[0].contact = { ...tables.contacts[0] };
     await mountCard();
+    expect(nodes().some((node) => node.props.children === 'Asystent AI'))
+      .toBe(extensions !== false);
     const form = nodes().find((node) => node.type === DealForm)!;
     expect(form.props.deal).toMatchObject({
       title: 'Sprawa syntetyczna Alfa',
@@ -597,8 +623,9 @@ describe('K3: kartoteka /deals/[id]', () => {
     expect(
       nodes().some(
         (node) =>
-          node.type === 'dd' &&
-          node.props.children === 'Syntetyczny telefon z kartoteki'
+          (harness.extensions === false
+            ? node.type === 'dd' && node.props.children === 'Syntetyczny telefon z kartoteki'
+            : node.props.placeholder === 'Co robimy dalej?' && node.props.value === 'Syntetyczny telefon z kartoteki')
       )
     ).toBe(true);
     expect(

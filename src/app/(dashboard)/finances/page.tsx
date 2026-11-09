@@ -189,13 +189,13 @@ export default function FinancesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <div className="w-full space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-950">
+          <h1 className="text-2xl font-black tracking-tight text-[var(--bigin-text)]">
             FINANSE
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-[var(--bigin-text)]">
             Przychody, koszty, VAT, dokumenty i miesięczne zamknięcia — nie
             kalkulator prowizji.
           </p>
@@ -211,7 +211,7 @@ export default function FinancesPage() {
               ? 'Zamykam…'
               : 'Zamknij miesiąc'}
         </Button>
-      </header>
+      </div>
 
       <nav className="flex gap-2 overflow-x-auto" aria-label="Zakres finansów">
         {(
@@ -243,10 +243,10 @@ export default function FinancesPage() {
         ).map(([label, value]) => (
           <article
             key={label}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-[var(--bigin-border)] bg-[var(--bigin-surface)] p-4 shadow-sm"
           >
-            <p className="text-xs font-bold text-slate-600">{label}</p>
-            <p className="mt-2 text-2xl font-black text-slate-950">
+            <p className="text-xs font-bold text-[var(--bigin-text)]">{label}</p>
+            <p className="mt-2 text-2xl font-black text-[var(--bigin-text)]">
               {money(value)}
             </p>
           </article>
@@ -254,11 +254,11 @@ export default function FinancesPage() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-[var(--bigin-border)] bg-[var(--bigin-surface)] p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-black text-slate-950">Dokumenty i wyciągi</h2>
-              <p className="text-xs text-slate-600">
+              <h2 className="font-black text-[var(--bigin-text)]">Dokumenty i wyciągi</h2>
+              <p className="text-xs text-[var(--bigin-text)]">
                 Import zapisuje plik w dokumentach wybranego Deala.
               </p>
             </div>
@@ -267,7 +267,7 @@ export default function FinancesPage() {
                 value={selectedDealId}
                 onChange={(event) => setSelectedDealId(event.target.value)}
                 aria-label="Deal dla dokumentu finansowego"
-                className="min-h-11 max-w-64 rounded-lg border bg-white px-3 text-base md:min-h-8 md:text-sm"
+                className="min-h-11 max-w-64 rounded-lg border bg-[var(--bigin-surface)] px-3 text-base md:min-h-8 md:text-sm"
               >
                 <option value="">Wybierz Deal</option>
                 {visibleDeals.map((deal) => (
@@ -276,7 +276,7 @@ export default function FinancesPage() {
                   </option>
                 ))}
               </select>
-              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-emerald-800 px-3 text-sm font-bold text-white">
+              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-[var(--bigin-panel)] px-3 text-sm font-bold text-[var(--bigin-panel-text)]">
                 <Upload className="size-4" />
                 {uploading ? 'Importuję…' : 'Import pliku'}
                 <input
@@ -294,14 +294,14 @@ export default function FinancesPage() {
             </div>
           </div>
           {loading ? (
-            <Loader2 className="mx-auto my-12 size-5 animate-spin text-slate-600" />
+            <Loader2 className="mx-auto my-12 size-5 animate-spin text-[var(--bigin-text)]" />
           ) : (
-            <div className="mt-4 divide-y divide-slate-100">
+            <div className="mt-4 divide-y divide-[var(--bigin-border)]">
               {visibleDocuments.map((document) => (
                 <Link
                   key={document.id}
                   href={`/deals/${document.deal_id}`}
-                  className="flex min-h-14 items-center gap-3 py-2 hover:text-emerald-800"
+                  className="flex min-h-14 items-center gap-3 py-2 hover:text-[var(--bigin-accent)]"
                 >
                   {/csv|xlsx|xls|wyciąg/i.test(document.name) ? (
                     <Landmark className="size-5" />
@@ -312,7 +312,7 @@ export default function FinancesPage() {
                     <span className="block truncate text-sm font-bold">
                       {document.name}
                     </span>
-                    <span className="block truncate text-xs text-slate-600">
+                    <span className="block truncate text-xs text-[var(--bigin-text)]">
                       {document.deal?.[0]?.title || 'Deal'} ·{' '}
                       {new Date(document.created_at).toLocaleDateString(
                         'pl-PL'
@@ -323,7 +323,7 @@ export default function FinancesPage() {
                 </Link>
               ))}
               {!visibleDocuments.length ? (
-                <p className="py-10 text-center text-sm text-slate-600">
+                <p className="py-10 text-center text-sm text-[var(--bigin-text)]">
                   Brak zaimportowanych dokumentów w tym zakresie.
                 </p>
               ) : null}
@@ -332,12 +332,12 @@ export default function FinancesPage() {
         </section>
 
         <div className="space-y-4">
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="font-black text-slate-950">
+          <section className="rounded-2xl border border-[var(--bigin-border)] bg-[var(--bigin-surface)] p-4 shadow-sm">
+            <h2 className="font-black text-[var(--bigin-text)]">
               Status miesiąca {currentMonth}
             </h2>
             <p
-              className={`mt-2 rounded-lg px-3 py-2 text-sm font-bold ${monthClosed ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}
+              className={`mt-2 rounded-lg px-3 py-2 text-sm font-bold ${monthClosed ? 'bg-[var(--bigin-hover)] text-[var(--bigin-accent)]' : 'bg-[var(--bigin-hover)] text-[var(--bigin-text)]'}`}
             >
               {monthClosed
                 ? 'Zamknięty'
@@ -353,24 +353,24 @@ export default function FinancesPage() {
               ).map(([name, deadline]) => (
                 <div key={name} className="flex justify-between gap-3 text-sm">
                   <dt className="font-bold">{name}</dt>
-                  <dd className="text-slate-600">{deadline}</dd>
+                  <dd className="text-[var(--bigin-text)]">{deadline}</dd>
                 </div>
               ))}
             </dl>
           </section>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="font-black text-slate-950">Historia zamknięć</h2>
+          <section className="rounded-2xl border border-[var(--bigin-border)] bg-[var(--bigin-surface)] p-4 shadow-sm">
+            <h2 className="font-black text-[var(--bigin-text)]">Historia zamknięć</h2>
             <div className="mt-3 space-y-2">
               {history.map((row) => (
-                <article key={row.id} className="rounded-lg bg-slate-50 p-3">
+                <article key={row.id} className="rounded-lg bg-[var(--bigin-bg)] p-3">
                   <p className="text-sm font-bold">{row.title}</p>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-xs text-[var(--bigin-text)]">
                     {row.description}
                   </p>
                 </article>
               ))}
               {!history.length ? (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-[var(--bigin-text)]">
                   Brak zamkniętych miesięcy.
                 </p>
               ) : null}

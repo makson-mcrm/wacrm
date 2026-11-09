@@ -581,19 +581,15 @@ function InboxPageInner() {
             } as React.CSSProperties)
           : undefined
       }
-      className={cn(
-        'flex flex-col overflow-hidden',
-        extensions ? '-m-4 h-[calc(100vh-3.5rem)] sm:-m-6' : 'h-full min-h-0'
-      )}
+      className="flex h-full min-h-0 flex-col overflow-hidden"
     >
       {!extensions && (
         <>
-          <header
-            className="flex h-[var(--inbox-header-height)] shrink-0 items-center border-b px-5"
-            style={{ borderColor: LIST_BORDER_COLOR }}
+          <div
+            className="flex shrink-0 items-center px-5 py-2"
           >
             <h1 className="text-sm font-semibold">Inbox</h1>
-          </header>
+          </div>
           <style>{`
           [data-bigin-inbox] [data-slot="inbox-conversations"] > div { width: 100%; background: ${LIST_CONTENT_BACKGROUND}; border-color: var(--inbox-border); }
           [data-bigin-inbox] [data-slot="inbox-conversations"] button.w-full { background: var(--inbox-row); border-color: var(--inbox-border); }
@@ -605,23 +601,23 @@ function InboxPageInner() {
         </>
       )}
       {extensions && (
-        <div className="bg-card flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2 text-xs">
+        <div className="bg-[var(--bigin-surface)] flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2 text-xs">
           <span className="font-semibold">Kanały Inbox:</span>
           <span
             className={cn(
               'inline-flex items-center gap-1',
-              whatsappConnected ? 'text-emerald-600' : 'text-amber-600'
+              whatsappConnected ? 'text-[var(--bigin-accent)]' : 'text-[var(--bigin-text)]'
             )}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             WhatsApp Business —{' '}
             {whatsappConnected ? 'podłączony' : 'niepodłączony'}
           </span>
-          <span className="text-muted-foreground inline-flex items-center gap-1">
+          <span className="text-[var(--bigin-text)] inline-flex items-center gap-1">
             <Mail className="h-3.5 w-3.5" />
             Gmail biuro@makson.space — do podłączenia
           </span>
-          <span className="text-muted-foreground">
+          <span className="text-[var(--bigin-text)]">
             Poczta mFinanse pozostaje oddzielona.
           </span>
         </div>
@@ -629,9 +625,9 @@ function InboxPageInner() {
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {extensions && whatsappConnected === false && (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
-          <WifiOff className="h-4 w-4 text-amber-400" />
-          <p className="text-xs text-amber-400">{t('whatsappNotConnected')}</p>
+        <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[var(--bigin-border)] bg-[var(--bigin-hover)] px-4 py-2">
+          <WifiOff className="h-4 w-4 text-[var(--bigin-text)]" />
+          <p className="text-xs text-[var(--bigin-text)]">{t('whatsappNotConnected')}</p>
         </div>
       )}
 

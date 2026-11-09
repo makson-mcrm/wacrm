@@ -171,7 +171,9 @@ describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
     expect(html.includes('Dodaj deal')).toBe(enabled);
   });
 
-  it('domyślnie ukrywa dodatki także na mobile, zachowując sześć kolumn desktop i dane kart', () => {
+  it.each([undefined, false, true])('pokazuje dodatki domyślnie i według flagi %s na mobile i desktop, zachowując rdzeń', (override) => {
+    flags.extensions = override;
+    const enabled = override !== false;
     const html = render([{
       id: 'deal-default',
       title: 'Sprawa syntetyczna',
@@ -191,8 +193,11 @@ describe('KM3.2.08-BIGIN-CORE: rdzeń tablicy', () => {
       expect(card).toContain('01.11.2026');
       expect(card).toContain('bg-white');
     }
-    for (const label of ['Ostatnia aktywność', 'ZADZWOŃ', 'WIADOMOŚĆ', 'Dodaj deal'])
-      expect(html).not.toContain(label);
+    for (const card of cards) {
+      for (const label of ['Ostatnia aktywność', 'ZADZWOŃ', 'WIADOMOŚĆ', 'href="tel:+48000000000"'])
+        expect(card.includes(label)).toBe(enabled);
+    }
+    expect(html.includes('Dodaj deal')).toBe(enabled);
   });
 });
 
