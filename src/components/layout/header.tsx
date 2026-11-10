@@ -23,6 +23,7 @@ import {
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { GlobalCrmSearch } from '@/components/layout/global-crm-search';
 import { GlobalAdd } from '@/components/layout/global-add';
+import { surfaceFlags } from '@/lib/ui/surface-flags';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'dashboard',
@@ -82,9 +83,10 @@ export function Header() {
 
   return (
     <header className="border-border bg-background flex min-h-[var(--app-header-height)] shrink-0 flex-wrap items-center justify-between gap-1.5 border-b px-3 py-1.5 md:h-[var(--app-header-height)] md:flex-nowrap md:gap-3 md:px-4 md:py-0 lg:px-6">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Link
           href="/dashboard"
+          data-header-brand
           className="flex min-w-0 items-center gap-2"
           aria-label="mCRM AI — DZISIAJ"
         >
@@ -95,14 +97,15 @@ export function Header() {
             mCRM AI
           </span>
         </Link>
-        <span data-header-module className="truncate text-sm font-medium">{sectionTitle}</span>
       </div>
 
-      <div className="mobile-global-search order-last flex min-w-0 basis-full justify-center md:order-none md:flex-1 md:basis-auto md:px-3">
+      <div className="mobile-global-search flex min-w-0 justify-start">
         <GlobalCrmSearch />
       </div>
 
-      <div data-header-actions className="flex items-center gap-1 sm:gap-2">
+      <span data-header-module className="truncate text-sm font-medium">{sectionTitle}</span>
+
+      <div data-header-actions className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         <GlobalAdd compact />
         <Link href="/tasks" aria-label="Zadania" title="Zadania" className="header-icon">
           <ListTodo className="size-4" />
@@ -113,7 +116,7 @@ export function Header() {
         <Link href="/settings" aria-label="Ustawienia" title="Ustawienia" className="header-icon">
           <SettingsIcon className="size-4" />
         </Link>
-        <DropdownMenu>
+        {surfaceFlags.headerExtensions && <DropdownMenu>
           <DropdownMenuTrigger aria-label="Pomoc" title="Pomoc" className="header-icon">
             <CircleHelp className="size-4" />
           </DropdownMenuTrigger>
@@ -121,16 +124,18 @@ export function Header() {
             <DropdownMenuItem render={<Link href="/assistant" />}>Asystent</DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/audyt-crm" />}>Audyt CRM</DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
         <div data-header-account-actions className="flex items-center gap-2">
-          <ModeToggle />
+          {surfaceFlags.headerExtensions && <ModeToggle />}
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex items-center gap-2 rounded-md px-1 py-1 transition-colors focus:outline-none sm:gap-3 sm:pr-3 sm:pl-1"
-              aria-label={t('openAccountMenu')}
+              data-header-avatar-trigger
+              className="hover:bg-muted/70 focus:bg-muted/70 data-popup-open:bg-muted/70 flex shrink-0 items-center justify-center transition-colors focus:outline-none"
+              title={profile?.full_name ?? t('defaultUser')}
+              aria-label={`${t('openAccountMenu')} — ${profile?.full_name ?? t('defaultUser')}`}
             >
-              <Avatar className="size-8">
+              <Avatar data-header-avatar className="size-8">
                 {profile?.avatar_url ? (
                   <AvatarImage
                     src={profile.avatar_url}
@@ -141,9 +146,6 @@ export function Header() {
                   {initial}
                 </AvatarFallback>
               </Avatar>
-              <span data-header-account-name className="text-foreground hidden text-sm font-medium sm:inline">
-                {profile?.full_name ?? t('defaultUser')}
-              </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

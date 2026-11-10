@@ -5,6 +5,7 @@
  * To przełącznik prezentacji; nie zmienia danych, zapytań ani uprawnień.
  */
 export const surfaceFlags: Readonly<{
+  headerExtensions: boolean;
   pipelineExtensions: boolean;
   contactsExtensions: boolean;
   companiesExtensions: boolean;
@@ -16,6 +17,7 @@ export const surfaceFlags: Readonly<{
   inboxExtensions: boolean;
   bankQualification: boolean;
 }> = {
+  headerExtensions: false,
   pipelineExtensions: false,
   contactsExtensions: false,
   companiesExtensions: false,

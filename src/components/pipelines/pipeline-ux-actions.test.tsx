@@ -6,6 +6,7 @@ import type { Deal, Pipeline, PipelineStage } from '@/types';
 import { Header } from '@/components/layout/header';
 import { GlobalAdd } from '@/components/layout/global-add';
 import { GlobalSearch } from '@/components/layout/global-crm-search';
+import { ModeToggle } from '@/components/layout/mode-toggle';
 import { DealCard } from './deal-card';
 import { DealForm } from './deal-form';
 import { PipelineSettings } from './pipeline-settings';
@@ -16,7 +17,7 @@ import { biginGeometryCssVars, SHELL_CSS_VARS } from '@/lib/ui/layout-geometry';
 type Props = Record<string, unknown> & { children?: ReactNode };
 const h = vi.hoisted(() => ({
   cursor: 0, refCursor: 0, cells: [] as unknown[], refs: [] as { current: unknown }[],
-  effects: [] as (() => void | (() => void))[], pathname: '/pipelines', canAct: true,
+  effects: [] as (() => void | (() => void))[], pathname: '/pipelines', canAct: true, headerExtensions: false,
   push: vi.fn(), signOut: vi.fn(), from: vi.fn(),
 }));
 vi.mock('react', async (original) => ({
@@ -32,8 +33,15 @@ vi.mock('react', async (original) => ({
   useEffect: (effect: () => void | (() => void)) => { h.effects.push(effect); },
 }));
 vi.mock('@/hooks/use-auth', () => ({ useAuth: () => ({
-  accountId: 'account-synthetic', defaultCurrency: 'PLN', profile: { full_name: 'Osoba testowa' }, signOut: h.signOut,
+  accountId: 'account-synthetic', defaultCurrency: 'PLN', profile: { full_name: 'Tomasz' }, signOut: h.signOut,
 }) }));
+vi.mock('@/lib/ui/surface-flags', async (original) => ({
+  ...await original<typeof import('@/lib/ui/surface-flags')>(),
+  surfaceFlags: {
+    ...(await original<typeof import('@/lib/ui/surface-flags')>()).surfaceFlags,
+    get headerExtensions() { return h.headerExtensions; },
+  },
+}));
 vi.mock('@/hooks/use-can', () => ({ useCan: () => h.canAct }));
 vi.mock('next/navigation', () => ({ usePathname: () => h.pathname, useRouter: () => ({ push: h.push }) }));
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }));
@@ -83,7 +91,7 @@ function toolbar(pageTree = page()) {
 }
 
 beforeEach(() => {
-  h.cells = []; h.refs = []; h.canAct = true; h.pathname = '/pipelines';
+  h.cells = []; h.refs = []; h.canAct = true; h.pathname = '/pipelines'; h.headerExtensions = false;
   h.from.mockImplementation(() => { throw new Error('Unexpected database access'); });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -224,14 +232,16 @@ describe('KM3.5.1F: nagłówek podłączony do istniejących akcji', () => {
     expect(link.props.href).toBe(href);
     expect(link.props.className).not.toMatch(/hidden/);
   });
-  it('pokazuje logo, tytuł modułu, istniejące Dodaj, pomoc i wylogowanie', () => {
+  it.each([false, true])('pokazuje rdzeń nagłówka; pomoc i motyw zgodnie z flagą %s', (extensions) => {
+    h.headerExtensions = extensions;
     const tree = render(Header);
     expect(find(tree, (node) => node.props['aria-label'] === 'mCRM AI — DZISIAJ').props.href).toBe('/dashboard');
     expect(text(find(tree, (node) => Boolean(node.props['data-header-module'])))).toBe('LEJEK');
     expect(find(tree, (node) => node.type === GlobalAdd).props.compact).toBe(true);
-    expect(find(tree, (node) => node.props['aria-label'] === 'Pomoc')).toBeDefined();
+    expect(nodes(tree).some((node) => node.props['aria-label'] === 'Pomoc')).toBe(extensions);
+    expect(nodes(tree).some((node) => node.type === ModeToggle)).toBe(extensions);
     for (const href of ['/assistant', '/audyt-crm']) {
-      expect(nodes(tree).some((node) => isValidElement<Props>(node.props.render) && node.props.render.props.href === href)).toBe(true);
+      expect(nodes(tree).some((node) => isValidElement<Props>(node.props.render) && node.props.render.props.href === href)).toBe(extensions);
     }
     click(find(tree, (node) => node.props.onClick === h.signOut));
     expect(h.signOut).toHaveBeenCalledOnce();
@@ -240,8 +250,78 @@ describe('KM3.5.1F: nagłówek podłączony do istniejących akcji', () => {
     const tree = GlobalAdd({ compact: true });
     const routes = nodes(tree).flatMap((node) => isValidElement<Props>(node.props.render) ? [node.props.render.props.href] : []);
     expect(routes).toEqual(['/quick-call', '/pipelines?new=deal', '/contacts?new=contact', '/companies?new=company', '/tasks?new=task', '/calendar?new=event']);
-    expect(find(tree, (node) => node.props['aria-label'] === 'Dodaj w mCRM').props.className).toBe('header-icon');
+    expect(find(tree, (node) => node.props['aria-label'] === 'Dodaj').props.className).toBe('header-icon');
   });
+});
+
+describe('SHELLH: geometria H1–H5 wspólnego nagłówka', () => {
+  const css = postcss.parse(readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8'));
+  const header = "[data-slot='app-shell'] > div > header";
+  const rules = (selector: string) => {
+    const declarations: Record<string, string> = {};
+    css.walkRules((rule) => {
+      if (rule.selectors.includes(selector)) rule.walkDecls((decl) => { declarations[decl.prop] = decl.value; });
+    });
+    return declarations;
+  };
+
+  it('H1: plus ma zielone tło i 32×32 także po fokusie i otwarciu menu', () => {
+    const add = find(GlobalAdd({ compact: true }), (node) => node.props['aria-label'] === 'Dodaj');
+    expect(add.props['data-header-add']).toBe(true);
+    expect(rules(`${header} [data-header-add]`)).toMatchObject({
+      width: '32px', 'min-width': '32px', height: '32px', padding: '0', background: '#1FA463',
+    });
+    expect(rules(`${header} [data-header-add]:is(:hover, :focus-visible, [data-popup-open])`).background).toBe('#1FA463');
+  });
+
+  it('H2: avatar i jego przycisk mają 32×32, pełne zaokrąglenie i imię w opisie', () => {
+    const tree = render(Header);
+    const trigger = find(tree, (node) => node.props['data-header-avatar-trigger'] !== undefined);
+    const avatar = find(tree, (node) => node.props['data-header-avatar'] !== undefined);
+    expect(trigger.props.title).toBe('Tomasz');
+    expect(trigger.props['aria-label']).toContain('Tomasz');
+    expect(text(avatar)).toBe('T');
+    expect(nodes(trigger).some((node) => node.props['data-header-account-name'] !== undefined)).toBe(false);
+    for (const selector of [
+      `${header} [data-header-account-actions] > [data-header-avatar-trigger]`,
+      `${header} [data-header-account-actions] [data-header-avatar]`,
+    ]) expect(rules(selector)).toMatchObject({ width: '32px', height: '32px', padding: '0', 'border-radius': '9999px' });
+  });
+
+  it('H3: rzeczywista flaga ukrywa dodatki domyślnie', async () => {
+    const original = await vi.importActual<typeof import('@/lib/ui/surface-flags')>('@/lib/ui/surface-flags');
+    expect(original.surfaceFlags.headerExtensions).toBe(false);
+  });
+
+  it('H4: wyszukiwanie zajmuje najwyżej 420 px i jest bezpośrednio po logo', () => {
+    const tree = render(Header);
+    const children = (tree.props.children as ReactNode[]).filter(isValidElement<Props>);
+    expect(nodes(children[0]).some((node) => node.props['data-header-brand'] !== undefined)).toBe(true);
+    expect(nodes(children[1]).some((node) => node.type === GlobalSearch)).toBe(true);
+    expect(rules(`${header} .mobile-global-search`)).toMatchObject({
+      'max-width': '420px', 'justify-content': 'flex-start', 'padding-inline': '0',
+    });
+    expect(render(GlobalSearch).props).toMatchObject({ 'data-header-search': true, className: 'relative w-full max-w-[420px]' });
+    expect(rules(`${header} [data-header-search]`)['max-width']).toBe('420px');
+  });
+
+  it.each(['/pipelines', '/contacts', '/companies', '/dashboard', '/calendar', '/quick-call', '/deals', '/finances', '/settings'])(
+    'H5: logo ma lewy brzeg x=72 i wysokość 32 przy 1536 px: %s', (pathname) => {
+      h.pathname = pathname;
+      const brand = find(render(Header), (node) => node.props['data-header-brand'] !== undefined);
+      expect(brand.props.href).toBe('/dashboard');
+      expect(rules(`${header} [data-header-brand]`).height).toBe('32px');
+      const rail = Number.parseInt(SHELL_CSS_VARS['--app-sidebar-width']);
+      const inset = Number.parseInt(rules(header)['padding-inline']);
+      // Pipeline header spans the viewport; other headers start after the rail.
+      const fullWidthHeader = rules("[data-bigin-pipeline-shell] > div > header");
+      expect(fullWidthHeader).toMatchObject({ position: 'absolute', inset: '0 0 auto', width: '100%' });
+      const pipelinePadding = rules("[data-slot='app-shell'][data-bigin-pipeline-shell] > div > header")['padding-left'];
+      expect(pipelinePadding).toBe('calc(var(--app-sidebar-width) + 8px)');
+      const left = pathname === '/pipelines' ? rail + 8 : rail + inset;
+      expect(left).toBe(72);
+    }
+  );
 });
 
 describe('KM3.5.1F: wyszukiwarka globalna', () => {
@@ -251,7 +331,7 @@ describe('KM3.5.1F: wyszukiwarka globalna', () => {
     vi.stubGlobal('document', { querySelector });
     const tree = render(GlobalSearch);
     const input = find(tree, (node) => node.type === 'input');
-    expect(input.props.placeholder).toBe('Szukaj (⌘K)');
+    expect(input.props.placeholder).toBe('Wyszukaj (⌘K)');
     expect(input.props['aria-keyshortcuts']).toBe('Meta+K Control+K');
     (input.props.ref as { current: unknown }).current = { focus };
     const cleanup = h.effects[0]();

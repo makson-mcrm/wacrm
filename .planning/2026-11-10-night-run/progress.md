@@ -113,3 +113,21 @@ Wniosek: **jedyny bloker** — sesja File Browser/API Hostingera wymaga odświe�
 - Jeden Codex przez bramkę (D2 PASS), commit **`7cba0d9`**, `tsc` RC 0, vitest **2358 PASS / 1 skip / 0 FAIL**.
 - PUBLIKACJA: upload TUS nadal **401** → archiwum gotowe `/Users/Shared/wacrm-km3208.tgz` (2,7 MB).
 - Dobór skilli po numerze: KM3.2.08 → `k3-screen-delivery` + `ui-from-screenshot` (test indeksu, bez płatnego LLM).
+
+### KM3.2.08 — PUBLIKACJA PRZEZ GIT (10.11, 17:10)
+- gh CLI 2.103.3 zainstalowany, logowanie przez device code (zatwierdzone przez właściciela), konto `makson-mcrm`.
+- Push fast-forward: `7099b46..64cb783` na `k3/bigin-02b-20261105` (bez force; 41 commitów do przodu, 0 w tyle).
+- Hostinger auto-deploy: build **`01a1c637`**, `source_type: git`, commit `64cb783` (zawiera `7cba0d9`), **completed**, deploy 16:13:54Z.
+- LIVE `https://test.makson.space/pipelines`: D4 **15 px / 550** ✓, D5 **14 px / h 32** ✓, D6 **12,25 px / 500** (Bigin 13/400) — różnica 0,75 px i grubość.
+- Geometria: panel 220, kolumna 230 x=295, karta 220×79 — bez regresji; `overflowX 0`; 37 kart / 6 kolumn po odświeżeniu; Lejek → Deal → powrót OK.
+- Delta pikselowa regionów nadal 9–28% — **wynika z różnych treści** (nazwy etapów, menu, karty), nie ze stylów.
+- Procedura GitHub→Hostinger zapisana: `k3-screen-delivery/references/github-hostinger-autodeploy.md`.
+
+### KM3.2.08 — SHELL GLOBALNY (10.11, 21:00, tryb nocny)
+- Mapa shella: 9 tras TEST (`/pipelines /dashboard /contacts /companies /deals /tasks /calendar /inbox /settings`)
+  ma **jeden wspólny shell**: header 48, rail 64, brak dolnego paska, 0 warstw fixed.
+- Bigin: header 48 (1536) / 44 (≤768), rail 64/63, panel 220/198, brak dolnego paska aplikacji
+  (footer 64 px należy do tablicy, nie do ramy).
+- TEST: header 48/43, rail 64/63, panel 220/198 — **jedyna różnica: 1 px wysokości nagłówka przy ≤768**.
+- Wniosek: brak materialnego diffu shella → **nie uruchamiano Codexa, nie publikowano** (nie ma czego wdrażać).
+- Delta zapisana: `~/.hermes/k3/render/shell/delta_shell.json`, mapa: `shell_map.json`.

@@ -437,6 +437,7 @@ body {
   min-height: var(--app-topbar-height);
   max-height: var(--app-topbar-height);
   flex-wrap: nowrap;
+  padding-inline: 8px;
   padding-block: 0;
   background: var(--bigin-panel);
   color: var(--bigin-panel-text);
@@ -463,6 +464,9 @@ body {
   order: 0;
   flex: 1;
   flex-basis: auto;
+  max-width: 420px;
+  justify-content: flex-start;
+  padding-inline: 0;
 }
 [data-slot='app-shell'] > aside nav a,
 [data-slot='app-shell'] > aside button,
@@ -916,4 +920,35 @@ body {
   [data-header-module] { display: none; }
   [data-slot='app-shell'] > div > header { gap: 4px; }
   [data-header-actions], [data-header-account-actions] { gap: 2px; }
+}
+
+/* SHELLH — header-only geometry; keep the rail and workspace unchanged. */
+[data-slot='app-shell'][data-bigin-pipeline-shell] > div > header {
+  padding-left: calc(var(--app-sidebar-width) + 8px);
+}
+[data-slot='app-shell'] > div > header [data-header-brand] {
+  height: 32px;
+  flex-shrink: 0;
+}
+[data-slot='app-shell'] > div > header [data-header-search] {
+  max-width: 420px;
+}
+[data-slot='app-shell'] > div > header [data-header-add] {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  background: #1FA463;
+  color: var(--bigin-panel-text);
+}
+[data-slot='app-shell'] > div > header [data-header-add]:is(:hover, :focus-visible, [data-popup-open]) {
+  background: #1FA463;
+}
+[data-slot='app-shell'] > div > header [data-header-account-actions] > [data-header-avatar-trigger],
+[data-slot='app-shell'] > div > header [data-header-account-actions] [data-header-avatar] {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 9999px;
 }

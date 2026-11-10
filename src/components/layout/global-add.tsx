@@ -23,7 +23,8 @@ export function GlobalAdd({ mobile = false, compact = false }: { mobile?: boolea
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Dodaj w mCRM"
+        aria-label={compact ? 'Dodaj' : 'Dodaj w mCRM'}
+        data-header-add={compact || undefined}
         className={cn(
           mobile
             ? 'flex h-full min-h-11 w-full min-w-11 flex-col items-center justify-center gap-1 px-0.5 text-xs font-black tracking-[-0.03em] text-emerald-900'

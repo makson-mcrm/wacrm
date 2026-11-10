@@ -23,8 +23,9 @@ F1 — II.1: publikacja i odbiór Lejka
 - [x] Poprawka D1–D3 wdrożona i zacommitowana (`88b8015`), bramki 2358 PASS / 0 FAIL
 - [x] Publikacja `88b8015` na TEST — **build `01a1c59b` completed 13:21:58Z** (archiwum `wacrm-km351h.tgz`, SHA-256 zgodny)
 - [x] Pomiar po poprawce: 1536/1280/1024/390 = Bigin co do piksela (panel 220/198/198/198, kolumna x 295/272, karta 220×79 r=4, kwota widoczna)
-- [ ] Odbiór właściciela (PASS tylko Tomasz)
-- **Status:** in_progress
+- [x] Odbiór TECHNICZNY właściciela: publikacja + trwałość = PASS (decyzja 10.11, D6 0,75 px zaakceptowane)
+- [ ] Odbiór UX całego ekranu — **nie ogłoszony**, czeka na porównanie całego ekranu
+- **Status:** done (technicznie)
 
 ### F2: Trwały test Playwright wyglądu, stanów i interakcji
 
@@ -102,3 +103,11 @@ Test całego przepływu: KM1.4.01 — plan → bramka PASS → Codex → 11/11 t
 | 5 | UXKIN ui-from-screenshot | **PASS** | skill `ui-from-screenshot` (MIT, bez konta/MCP) + powiązanie z `f1_probe.py`/`f1_compare.py` i `weryfikacja-responsywnosci` |
 - Nowy skill `rtk-output-compression` z procedurą użycia i ograniczeniami.
 - Test końcowy przepływu: plan `2026-11-10-night-run` → checkpoint → dobór skilla → zapis `01-checkpoint-2026-11-10T16:02:52`.
+
+### 02A: Karta klienta (przygotowanie, bez wdrożenia)
+
+- [x] Inwentaryzacja kodu: `src/app/(dashboard)/contacts/page.tsx` + `src/components/contacts/contact-detail-view.tsx`,
+  `contact-detail-sections.tsx`, `contact-form.tsx`, testy `contact-detail-*.test.tsx` — ekran istnieje, nie trzeba budować od zera.
+- [ ] Pomiar wzorca Bigin (karta kontaktu: nagłówek, zakładki, sekcje, pola, akcje) — do wykonania po zgodzie na paczkę.
+- [ ] Delta → jeden Codex → test → publikacja git → odbiór.
+- **Status:** pending (czeka na zgodę właściciela; bez nowego Codexa).
