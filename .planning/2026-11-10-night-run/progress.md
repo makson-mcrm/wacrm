@@ -131,3 +131,12 @@ Wniosek: **jedyny bloker** — sesja File Browser/API Hostingera wymaga odświe�
 - TEST: header 48/43, rail 64/63, panel 220/198 — **jedyna różnica: 1 px wysokości nagłówka przy ≤768**.
 - Wniosek: brak materialnego diffu shella → **nie uruchamiano Codexa, nie publikowano** (nie ma czego wdrażać).
 - Delta zapisana: `~/.hermes/k3/render/shell/delta_shell.json`, mapa: `shell_map.json`.
+
+### KM3.2.08 — SHELLH: widoczna poprawka nagłówka (10.11, 21:30–21:40)
+- Wzorzec odczytany z OBRAZU Bigin (vision_analyze) + DOM: zielony „+”, okrągły avatar, brak Pomocy/motywu,
+  wąska wyszukiwarka przy logo, logo za railem.
+- Jeden Codex przez bramkę (D2 PASS): H1–H5, commit **`1e9fbb2`**, `tsc` RC 0, vitest **2372 PASS / 1 skip / 0 FAIL**.
+- Publikacja git → build **`01a1c75e`** (commit `1e9fbb2`), completed 21:35:18Z.
+- Pomiar LIVE: dodawanie **rgb(31,164,99) 32×32**, avatar **32×32 r=9999px**, wyszukiwarka **420 px** @x=172
+  placeholder „Wyszukaj (⌘K)”, logo **x=72**, nagłówek 48 px.
+- Obraz porównawczy: `~/.hermes/k3/render/shell/porownanie3.png` (BIGIN | PRZED | PO).

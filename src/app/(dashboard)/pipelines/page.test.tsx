@@ -873,7 +873,8 @@ describe('KM3.2.08-BIGIN-CORE: tablica i narzędzia bez utraty funkcji mCRM', ()
       { ...deals[1], status: 'won', assigned_to: 'owner-a' },
       { ...deals[2], status: 'lost', product_type: 'Inny produkt' },
     ];
-    expect(renderPage()).toContain('Opiekun syntetyczny');
+    // Owner options now live in a portalled dropdown, rendered when opened.
+    expect(renderPage()).toContain('aria-label="Właściciel zmiany"');
     harness.states[toolbarState.view] = 'closed';
     expect(desktopCards()).toHaveLength(2);
     harness.states[toolbarState.owner] = 'owner-a';

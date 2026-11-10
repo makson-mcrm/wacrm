@@ -19,6 +19,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -37,6 +39,7 @@ import {
   Search,
   Filter,
   MoreHorizontal,
+  Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
@@ -58,6 +61,11 @@ interface PipelineDeal extends Deal {
 }
 
 const TEAM_PANEL_STORAGE_KEY = 'mcrm:pipelines:team-panel-collapsed';
+const PIPELINE_GROUPS = [
+  { id: 'teams', label: 'Dla zespołów' },
+  { id: 'industries', label: 'Dla branży' },
+] as const;
+const groupStorageKey = (id: string) => `mcrm:pipelines:group-${id}-collapsed`;
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -118,6 +126,7 @@ export default function PipelinesPage() {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created-desc');
   const [teamPanelCollapsed, setTeamPanelCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState({ teams: false, industries: false });
 
   const loadPipelines = useCallback(async () => {
     if (!accountId) return null;
@@ -328,7 +337,10 @@ export default function PipelinesPage() {
           query.get('contact') ?? undefined,
           query.get('questionnaire') ?? undefined
         );
-        window.history.replaceState({}, '', '/pipelines');
+        const remaining = new URLSearchParams(window.location.search);
+        for (const key of ['new', 'company', 'contact', 'questionnaire']) remaining.delete(key);
+        const search = remaining.toString();
+        window.history.replaceState(window.history.state, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
       }
     }, 0);
     return () => window.clearTimeout(timer);
@@ -422,7 +434,8 @@ export default function PipelinesPage() {
     }),
     [operationalDeals]
   );
-  const visibleDeals = useMemo(() => {
+  // Keep the owner choices independent of the owner selection itself.
+  const matchingDeals = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pl-PL');
     const rows = operationalDeals.filter((deal) => {
       if (query && ![
@@ -433,7 +446,6 @@ export default function PipelinesPage() {
       ].filter(Boolean).join(' ').toLocaleLowerCase('pl-PL').includes(query)) return false;
       if (dealView === 'open' && deal.status !== 'open') return false;
       if (dealView === 'closed' && deal.status !== 'won' && deal.status !== 'lost') return false;
-      if (ownerFilter === 'unassigned' ? !!deal.assigned_to : ownerFilter !== 'all' && deal.assigned_to !== ownerFilter) return false;
       if (productFilter !== 'all' && deal.product_type !== productFilter)
         return false;
       if (tagFilter !== 'all' && !deal.tagNames.includes(tagFilter))
@@ -455,7 +467,6 @@ export default function PipelinesPage() {
   }, [
     search,
     dealView,
-    ownerFilter,
     sortBy,
     bankFilter,
     operationalDeals,
@@ -465,6 +476,11 @@ export default function PipelinesPage() {
     tagFilter,
     withoutNextAction,
   ]);
+  const visibleDeals = useMemo(() => matchingDeals.filter((deal) => {
+    // assigned_to is the existing ownerId in the Deal model.
+    const ownerId = deal.assigned_to;
+    return ownerFilter === 'all' || (ownerFilter === 'unassigned' ? !ownerId : ownerId === ownerFilter);
+  }), [matchingDeals, ownerFilter]);
   const archiveCount = useMemo(() => {
     const archiveStageIds = new Set(
       stages
@@ -490,14 +506,31 @@ export default function PipelinesPage() {
   ).length;
   const owners = useMemo(() => {
     const names = new Map<string, string>();
-    for (const deal of operationalDeals) {
-      if (!deal.assigned_to) continue;
+    const stageIds = new Set(operationalStages.map((stage) => stage.id));
+    for (const deal of matchingDeals) {
+      if (!stageIds.has(deal.stage_id) || !deal.assigned_to) continue;
       const name = deal.assignee?.full_name?.trim() || deal.assignee?.email?.trim();
       if (name || !names.has(deal.assigned_to))
         names.set(deal.assigned_to, name || 'Właściciel bez nazwy');
     }
     return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pl'));
-  }, [operationalDeals]);
+  }, [matchingDeals, operationalStages]);
+
+  function changeOwnerFilter(ownerId: string) {
+    setOwnerFilter(ownerId);
+    const query = new URLSearchParams(window.location.search);
+    if (ownerId === 'all') query.delete('owner');
+    else query.set('owner', ownerId);
+    const search = query.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
+  }
+
+  useEffect(() => {
+    const restoreOwner = () => setOwnerFilter(new URLSearchParams(window.location.search).get('owner') || 'all');
+    restoreOwner();
+    window.addEventListener('popstate', restoreOwner);
+    return () => window.removeEventListener('popstate', restoreOwner);
+  }, []);
 
   const coreFilters = (
     <>
@@ -509,15 +542,6 @@ export default function PipelinesPage() {
           <option value="closed">Zamknięte transakcje</option>
         </select>
       </label>
-      <label className="flex shrink-0 items-center gap-2 text-xs">
-        Właściciel zmiany
-        <select aria-label="Właściciel zmiany" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)} className="h-9 max-w-40 rounded-full border border-slate-300 bg-white px-3 text-xs">
-          <option value="all">Wszyscy</option>
-          <option value="unassigned">Nieprzypisane</option>
-          {owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-      </label>
-
     </>
   );
 
@@ -525,10 +549,24 @@ export default function PipelinesPage() {
     try {
       // Read after hydration so the server and first client render agree.
       setTeamPanelCollapsed(window.localStorage.getItem(TEAM_PANEL_STORAGE_KEY) === 'true');
+      setCollapsedGroups({
+        teams: window.localStorage.getItem(groupStorageKey('teams')) === 'true',
+        industries: window.localStorage.getItem(groupStorageKey('industries')) === 'true',
+      });
     } catch {
       // Storage can be unavailable; the panel still works for this visit.
     }
   }, []);
+
+  function togglePipelineGroup(id: keyof typeof collapsedGroups) {
+    const collapsed = !collapsedGroups[id];
+    setCollapsedGroups((previous) => ({ ...previous, [id]: collapsed }));
+    try {
+      window.localStorage.setItem(groupStorageKey(id), String(collapsed));
+    } catch {
+      // The group remains interactive when storage is unavailable.
+    }
+  }
 
   function toggleTeamPanel() {
     const collapsed = !teamPanelCollapsed;
@@ -569,10 +607,25 @@ export default function PipelinesPage() {
         <button type="button" disabled={!selectedPipeline} onClick={() => setSettingsOpen(true)} className="mx-2 mb-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm disabled:opacity-50">
           <Settings className="size-4 shrink-0" /><span>Plan sprzedaży</span>
         </button>
-        {pipelines.map((pipeline) => (
-          <button key={pipeline.id} type="button" aria-current={pipeline.id === selectedPipelineId ? 'page' : undefined} onClick={() => setSelectedPipelineId(pipeline.id)} className="mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm" title={pipeline.name}>
-            <GitBranch className="size-4 shrink-0" /><span className="truncate">{pipeline.name}</span>
-          </button>
+        <div className="mx-2 mb-2 [&>span]:flex">
+          <GatedButton canAct={canEditSettings} gateReason="create pipelines" onClick={() => setNewPipelineOpen(true)} variant="ghost" className="h-auto w-full justify-start gap-2 px-2 py-2 text-sm font-normal">
+            <Copy aria-hidden="true" className="size-4 shrink-0" /><span>Klonuj z szablonu</span>
+          </GatedButton>
+        </div>
+        {PIPELINE_GROUPS.map(({ id, label }) => (
+          <div key={id} data-pipeline-group={id}>
+            <button type="button" aria-expanded={!collapsedGroups[id]} aria-controls={`pipeline-group-${id}`} onClick={() => togglePipelineGroup(id)} className="mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded px-2 py-2 text-left text-sm">
+              {collapsedGroups[id] ? <ChevronRight aria-hidden="true" className="size-4 shrink-0" /> : <ChevronDown aria-hidden="true" className="size-4 shrink-0" />}
+              <span>{label}</span>
+            </button>
+            <div id={`pipeline-group-${id}`} hidden={collapsedGroups[id]}>
+              {pipelines.map((pipeline) => (
+                <button key={pipeline.id} type="button" aria-current={pipeline.id === selectedPipelineId ? 'page' : undefined} onClick={() => setSelectedPipelineId(pipeline.id)} className="mx-2 flex w-[calc(100%-1rem)] items-center gap-2 rounded py-2 pr-2 pl-6 text-left text-sm" title={pipeline.name}>
+                  <GitBranch aria-hidden="true" className="size-4 shrink-0" /><span className="truncate">{pipeline.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <button
@@ -714,6 +767,19 @@ export default function PipelinesPage() {
         canAddDeal={canEditDeals && Boolean(selectedPipelineId)}
         onAddDeal={() => handleAddDeal()}
       >
+        <DropdownMenu>
+          <DropdownMenuTrigger aria-label="Właściciel zmiany" data-pipeline-owner-filter className="inline-flex h-8 shrink-0 items-center gap-2 rounded border border-[var(--bigin-border)] bg-white px-3 text-sm">
+            Właściciel zmiany{ownerFilter !== 'all' ? `: ${ownerFilter === 'unassigned' ? 'Nieprzypisane' : owners.find(([id]) => id === ownerFilter)?.[1] ?? 'Wybrany właściciel'}` : ''}
+            <ChevronDown aria-hidden="true" className="size-3" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={ownerFilter} onValueChange={changeOwnerFilter}>
+              <DropdownMenuRadioItem value="all">Wszyscy</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="unassigned">Nieprzypisane</DropdownMenuRadioItem>
+              {owners.map(([id, name]) => <DropdownMenuRadioItem key={id} value={id}>{name}</DropdownMenuRadioItem>)}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <details data-pipeline-filter-menu className="relative shrink-0"><summary className="cursor-pointer list-none" aria-label="Filtry transakcji" title="Filtry transakcji"><Filter className="size-4" /></summary><div data-pipeline-filter-popover><label className="relative block w-48">
           <span className="sr-only">Szukaj transakcji</span>
           <Search aria-hidden="true" className="absolute top-2.5 left-3 size-4 text-slate-500" />
@@ -730,7 +796,7 @@ export default function PipelinesPage() {
             <MoreHorizontal aria-hidden="true" className="size-4" /><span>Więcej</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => { setSearch(''); setDealView('all'); setOwnerFilter('all'); setSortBy('created-desc'); }}>Resetuj widok</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSearch(''); setDealView('all'); changeOwnerFilter('all'); setSortBy('created-desc'); }}>Resetuj widok</DropdownMenuItem>
             <DropdownMenuItem onClick={() => { void refreshStages(); void refreshDeals(); }}>Odśwież tablicę</DropdownMenuItem>
             {selectedPipeline ? <DropdownMenuItem onClick={() => setSettingsOpen(true)}>Zarządzaj lejkami</DropdownMenuItem> : null}
           </DropdownMenuContent>

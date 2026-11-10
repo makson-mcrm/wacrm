@@ -13,6 +13,9 @@ import { PipelineSettings } from './pipeline-settings';
 import { PipelineBoard, PipelineToolbar } from './pipeline-board';
 import PipelinesPage from '@/app/(dashboard)/pipelines/page';
 import { biginGeometryCssVars, SHELL_CSS_VARS } from '@/lib/ui/layout-geometry';
+import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import { Dialog } from '@/components/ui/dialog';
+import { GatedButton } from '@/components/ui/gated-button';
 
 type Props = Record<string, unknown> & { children?: ReactNode };
 const h = vi.hoisted(() => ({
@@ -424,5 +427,253 @@ describe('KM3.5.1F: panel i toolbar używają stanu istniejącej strony', () => 
     expect(h.push).toHaveBeenCalledExactlyOnceWith('/deals/deal-a');
     const link = find(card, (node) => node.type === 'a');
     expect(link.props).toMatchObject({ href: '/deals/deal-a', target: '_blank' });
+  });
+});
+
+describe('MAP1: widoczny filtr właściciela i grupy potoków', () => {
+  let location: URL;
+  let stored: Map<string, string>;
+  let getItem: ReturnType<typeof vi.fn>;
+  let setItem: ReturnType<typeof vi.fn>;
+  let replaceState: ReturnType<typeof vi.fn>;
+  let addEventListener: ReturnType<typeof vi.fn>;
+  let removeEventListener: ReturnType<typeof vi.fn>;
+  const historyState = { preserved: 'next-history' };
+  const ownedDeals = [
+    { ...deals[0], assigned_to: 'owner-a', assignee: { full_name: 'Anna' } },
+    { ...deals[1], assigned_to: 'owner-b', assignee: { full_name: 'Bartek' } },
+    { ...deals[0], id: 'deal-c', assigned_to: 'owner-a', assignee: { full_name: 'Anna' } },
+    { ...deals[0], id: 'deal-unassigned' },
+  ];
+  const seed = () => { h.cells = [pipelines, 'pipeline-a', stages, ownedDeals, false]; };
+  const cards = () => find(page(), (node) => node.type === PipelineBoard).props.deals as Deal[];
+  const ownerGroup = () => find(toolbar(), (node) => node.type === DropdownMenuRadioGroup);
+  const chooseOwner = (ownerId: string) => {
+    (ownerGroup().props.onValueChange as (value: string) => void)(ownerId);
+  };
+  const ownerOptions = () => nodes(ownerGroup()).filter((node) => node.type === DropdownMenuRadioItem);
+  const restoreOwner = () => {
+    page();
+    return h.effects.at(-2)!(); // URL effect, without executing data loads
+  };
+  const restoreGroups = () => { page(); h.effects.at(-1)!(); };
+  const group = (id: string) => find(page(), (node) => node.props['data-pipeline-group'] === id);
+  const groupToggle = (id: string) => find(group(id), (node) => node.props['aria-controls'] === `pipeline-group-${id}`);
+  const groupList = (id: string) => find(group(id), (node) => node.props.id === `pipeline-group-${id}`);
+  const clone = () => find(page(), (node) => node.type === GatedButton && text(node) === 'Klonuj z szablonu');
+  const creationDialog = () => find(page(), (node) => node.type === Dialog);
+
+  beforeEach(() => {
+    seed();
+    location = new URL('https://mcrm.invalid/pipelines?keep=1#board');
+    stored = new Map();
+    getItem = vi.fn((key: string) => stored.get(key) ?? null);
+    setItem = vi.fn((key: string, value: string) => { stored.set(key, value); });
+    replaceState = vi.fn((_state: unknown, _title: string, url: string) => { location.href = new URL(url, location).href; });
+    addEventListener = vi.fn();
+    removeEventListener = vi.fn();
+    vi.stubGlobal('window', {
+      location, history: { state: historyState, replaceState },
+      localStorage: { getItem, setItem }, addEventListener, removeEventListener,
+      setTimeout, clearTimeout,
+    });
+  });
+  afterEach(() => { expect(h.from).not.toHaveBeenCalled(); });
+
+  it('wystawia filtr bezpośrednio w toolbarze, poza zamkniętym menu, z 32 px / 14 px', () => {
+    const tree = toolbar();
+    const trigger = find(tree, (node) => node.props['data-pipeline-owner-filter'] !== undefined);
+    expect(trigger.props['aria-label']).toBe('Właściciel zmiany');
+    expect(text(trigger)).toBe('Właściciel zmiany');
+    expect(nodes(find(tree, (node) => node.type === 'details'))).not.toContain(trigger);
+    const sheet = postcss.parse(readFileSync('src/app/globals.css', 'utf8'));
+    const declarations: Record<string, string> = {};
+    sheet.walkRules((rule) => {
+      if (rule.selectors.includes('[data-pipeline-toolbar] [data-pipeline-owner-filter]'))
+        rule.walkDecls((decl) => { declarations[decl.prop] = decl.value; });
+    });
+    expect(declarations).toMatchObject({ height: '32px', 'min-height': '32px', 'font-size': '14px' });
+  });
+
+  it('listuje unikalne ID widocznych właścicieli, pomija archiwum i rekordy testowe', () => {
+    h.cells[3] = [...ownedDeals,
+      { ...ownedDeals[0], id: 'archive', stage_id: 'archive-stage', assigned_to: 'archive-owner' },
+      { ...ownedDeals[0], id: 'test', title: 'TEST ukryty', assigned_to: 'test-owner' },
+    ];
+    expect(ownerOptions().map((node) => [node.props.value, text(node)])).toEqual([
+      ['all', 'Wszyscy'], ['unassigned', 'Nieprzypisane'], ['owner-a', 'Anna'], ['owner-b', 'Bartek'],
+    ]);
+  });
+
+  it('używa e-maila lub opisu zastępczego, zachowując rozróżnienie ID o tej samej nazwie', () => {
+    h.cells[3] = [
+      { ...ownedDeals[0], assignee: { full_name: ' ', email: 'anna@example.invalid' } },
+      { ...ownedDeals[1], assignee: null },
+      { ...ownedDeals[0], id: 'another', assigned_to: 'owner-c', assignee: { full_name: 'anna@example.invalid' } },
+    ];
+    const options = ownerOptions();
+    expect(options.filter((node) => text(node) === 'anna@example.invalid')).toHaveLength(2);
+    expect(text(find(options, (node) => node.props.value === 'owner-b'))).toBe('Właściciel bez nazwy');
+  });
+
+  it('wybór filtruje karty po ID właściciela i zapisuje owner bez utraty query, hash ani historii Next', () => {
+    chooseOwner('owner-a');
+    expect(cards().map((deal) => deal.id)).toEqual(['deal-a', 'deal-c']);
+    expect(location.searchParams.get('owner')).toBe('owner-a');
+    expect(location.searchParams.get('keep')).toBe('1');
+    expect(location.hash).toBe('#board');
+    expect(replaceState).toHaveBeenCalledWith(historyState, '', '/pipelines?keep=1&owner=owner-a#board');
+    expect(ownedDeals).toHaveLength(4);
+  });
+
+  it('po zawężeniu zachowuje inne opcje i pozwala bezpośrednio przełączyć właściciela', () => {
+    chooseOwner('owner-a');
+    expect(ownerOptions().map((node) => node.props.value)).toContain('owner-b');
+    chooseOwner('owner-b');
+    expect(cards().map((deal) => deal.id)).toEqual(['deal-b']);
+    expect(ownerGroup().props.value).toBe('owner-b');
+    expect(text(find(toolbar(), (node) => node.props['data-pipeline-owner-filter'] !== undefined))).toContain('Bartek');
+  });
+
+  it('Wszyscy przywraca pełną listę i usuwa tylko owner z URL', () => {
+    chooseOwner('owner-a');
+    chooseOwner('all');
+    expect(cards()).toHaveLength(4);
+    expect(ownerGroup().props.value).toBe('all');
+    expect(location.href).toBe('https://mcrm.invalid/pipelines?keep=1#board');
+  });
+
+  it('odtwarza wybranego właściciela po odświeżeniu bez nadpisania URL', () => {
+    chooseOwner('owner-b');
+    seed();
+    restoreOwner();
+    expect(cards().map((deal) => deal.id)).toEqual(['deal-b']);
+    expect(ownerGroup().props.value).toBe('owner-b');
+    expect(replaceState).toHaveBeenCalledTimes(1);
+  });
+
+  it('odtwarza popstate i sprząta listener przy odmontowaniu', () => {
+    const cleanup = restoreOwner();
+    const handler = addEventListener.mock.calls.find(([event]) => event === 'popstate')![1];
+    location.searchParams.set('owner', 'owner-a');
+    handler();
+    expect(cards()).toHaveLength(2);
+    location.searchParams.delete('owner');
+    handler();
+    expect(cards()).toHaveLength(4);
+    if (typeof cleanup === 'function') cleanup();
+    expect(removeEventListener).toHaveBeenCalledWith('popstate', handler);
+  });
+
+  it('nieznany właściciel w URL daje pustą listę, którą Wszyscy przywraca', () => {
+    location.searchParams.set('owner', 'missing-owner');
+    restoreOwner();
+    expect(cards()).toHaveLength(0);
+    expect(location.searchParams.get('owner')).toBe('missing-owner');
+    chooseOwner('all');
+    expect(cards()).toHaveLength(4);
+  });
+
+  it('Nieprzypisane filtruje brak właściciela i także odtwarza się z URL', () => {
+    chooseOwner('unassigned');
+    seed();
+    restoreOwner();
+    expect(cards().map((deal) => deal.id)).toEqual(['deal-unassigned']);
+    expect(location.searchParams.get('owner')).toBe('unassigned');
+  });
+
+  it('lista właścicieli respektuje pozostałe filtry i bieżące dane wybranego lejka', () => {
+    change(find(toolbar(), (node) => node.type === 'input' && node.props.type === 'search'), 'Zeta');
+    expect(ownerOptions().map((node) => node.props.value)).toEqual(['all', 'unassigned', 'owner-a']);
+    h.cells[3] = [{ ...ownedDeals[1], title: 'Zeta' }]; // completion of the existing pipeline read
+    expect(ownerOptions().map((node) => node.props.value)).toEqual(['all', 'unassigned', 'owner-b']);
+  });
+
+  it('Resetuj widok czyści również owner w URL', () => {
+    chooseOwner('owner-b');
+    click(find(toolbar(), (node) => text(node) === 'Resetuj widok'));
+    expect(cards()).toHaveLength(4);
+    expect(location.searchParams.has('owner')).toBe(false);
+  });
+
+  it('obsługa istniejącego new=deal zachowuje owner i pozostałe parametry', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', {
+      ...window, setTimeout, clearTimeout,
+    });
+    location.searchParams.set('new', 'deal');
+    location.searchParams.set('company', 'company-a');
+    location.searchParams.set('owner', 'owner-b');
+    page();
+    h.effects[2](); // existing new=deal effect
+    await vi.runAllTimersAsync();
+    expect(location.searchParams.get('owner')).toBe('owner-b');
+    expect(location.searchParams.get('keep')).toBe('1');
+    expect(location.searchParams.has('new')).toBe(false);
+    expect(location.searchParams.has('company')).toBe(false);
+    expect(location.hash).toBe('#board');
+    expect(find(page(), (node) => node.type === DealForm).props).toMatchObject({ open: true, defaultCompanyId: 'company-a' });
+  });
+
+  it.each([['teams', 'Dla zespołów'], ['industries', 'Dla branży']])('%s: zwija, rozwija i pamięta stan niezależnie', (id, label) => {
+    const otherId = id === 'teams' ? 'industries' : 'teams';
+    expect(text(groupToggle(id))).toBe(label);
+    expect(groupToggle(id).props['aria-expanded']).toBe(true);
+    click(groupToggle(id));
+    expect(groupList(id).props.hidden).toBe(true);
+    expect(groupToggle(id).props['aria-expanded']).toBe(false);
+    expect(groupToggle(otherId).props['aria-expanded']).toBe(true);
+    seed(); restoreGroups();
+    expect(groupList(id).props.hidden).toBe(true);
+    click(groupToggle(id));
+    expect(groupList(id).props.hidden).toBe(false);
+    expect(setItem.mock.calls).toEqual([
+      [`mcrm:pipelines:group-${id}-collapsed`, 'true'], [`mcrm:pipelines:group-${id}-collapsed`, 'false'],
+    ]);
+    seed(); restoreGroups();
+    expect(groupList(id).props.hidden).toBe(false);
+  });
+
+  it.each(['teams', 'industries'])('%s: pokazuje obecne lejki i wybiera istniejącą tablicę', (id) => {
+    const buttons = nodes(groupList(id)).filter((node) => node.type === 'button');
+    expect(buttons.map(text)).toEqual(['Lejek A', 'Lejek B']);
+    click(buttons[1]);
+    expect(find(page(), (node) => node.type === PipelineToolbar).props.selectedPipelineId).toBe('pipeline-b');
+    expect(find(groupList(id), (node) => node.props.title === 'Lejek B').props['aria-current']).toBe('page');
+  });
+
+  it.each(['teams', 'industries'])('%s: brak dostępu do localStorage nie blokuje zwijania', (id) => {
+    getItem.mockImplementation(() => { throw new Error('SecurityError'); });
+    setItem.mockImplementation(() => { throw new Error('QuotaExceededError'); });
+    expect(restoreGroups).not.toThrow();
+    click(groupToggle(id));
+    expect(groupList(id).props.hidden).toBe(true);
+    click(groupToggle(id));
+    expect(groupList(id).props.hidden).toBe(false);
+  });
+
+  it('Klonuj z szablonu otwiera ten sam dialog co Dodaj lejek i respektuje uprawnienia', () => {
+    expect(creationDialog().props.open).toBe(false);
+    click(clone());
+    expect(creationDialog().props.open).toBe(true);
+    (creationDialog().props.onOpenChange as (open: boolean) => void)(false);
+    click(find(page(), (node) => node.props['aria-label'] === 'Dodaj lejek'));
+    expect(creationDialog().props.open).toBe(true);
+    h.canAct = false;
+    const gated = clone();
+    expect(gated.props.canAct).toBe(false);
+    expect(find(GatedButton(gated.props), (node) => node.props.disabled === true)).toBeDefined();
+  });
+
+  it('pusty zestaw danych pozostawia obie grupy używalne oraz akcję tworzenia', () => {
+    h.cells[0] = []; h.cells[1] = ''; h.cells[3] = [];
+    for (const id of ['teams', 'industries']) {
+      expect(nodes(groupList(id)).filter((node) => node.type === 'button')).toHaveLength(0);
+      click(groupToggle(id));
+      expect(groupList(id).props.hidden).toBe(true);
+    }
+    click(clone());
+    expect(creationDialog().props.open).toBe(true);
+    expect(ownerOptions().map((node) => node.props.value)).toEqual(['all', 'unassigned']);
   });
 });

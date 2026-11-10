@@ -721,6 +721,11 @@ body {
   white-space: nowrap;
 }
 [data-pipeline-toolbar] label { flex-shrink: 0; }
+[data-pipeline-toolbar] [data-pipeline-owner-filter] {
+  height: 32px;
+  min-height: 32px;
+  font-size: 14px;
+}
 [data-pipeline-toolbar] > details[open] { display: flex; align-items: center; gap: 8px; }
 [data-pipeline-compact-filters] { display: grid; gap: 12px; }
 [data-pipeline-filter-popover] > label { flex-shrink: 0; }
