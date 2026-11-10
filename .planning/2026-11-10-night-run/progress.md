@@ -104,3 +104,12 @@ Wniosek: **jedyny bloker** — sesja File Browser/API Hostingera wymaga odświe�
 - OTWARTE: RTK (brak źródła pakietu), Skill-Retrieval (brak wtyczki), UXKIN ui-from-screenshot
   (równoważnik: `f1_probe.py` + `f1_compare.py` + skill `weryfikacja-responsywnosci`).
 - Dowód blokady shimu: bezpośrednie `codex exec` → „BRAMKA KODU: ODMOWA — brak tokenu bramki”.
+
+### KM3.2.08 — delta i poprawka typografii (10.11, 16:20–16:55)
+- delta.json (`~/.hermes/k3/render/km3208/delta_final.json`): regiony 1536 px — pasek 11,02%, rail 13,80%,
+  panel 9,38%, toolbar 20,05%, nagłówek kolumny 27,98% rozbieżnych pikseli.
+- Różnice zmierzone w DOM: D4 nagłówek kolumny 15 px/550 (było 14/400), D5 toolbar 14 px (było 11–12),
+  D6 wiersz panelu 13 px (było 14). Geometria (panel 220/198, kolumna 230, karta 220×79 r=4) — zgodna.
+- Jeden Codex przez bramkę (D2 PASS), commit **`7cba0d9`**, `tsc` RC 0, vitest **2358 PASS / 1 skip / 0 FAIL**.
+- PUBLIKACJA: upload TUS nadal **401** → archiwum gotowe `/Users/Shared/wacrm-km3208.tgz` (2,7 MB).
+- Dobór skilli po numerze: KM3.2.08 → `k3-screen-delivery` + `ui-from-screenshot` (test indeksu, bez płatnego LLM).
