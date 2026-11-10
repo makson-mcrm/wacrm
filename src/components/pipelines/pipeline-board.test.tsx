@@ -326,6 +326,10 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     expect(rules('[data-pipeline-workspace]')['padding-left']).toBe('var(--pipeline-team-panel-width)');
     expect(rules('[data-pipeline-team-panel]').width).toBe('calc(var(--pipeline-team-panel-width) - 1px)');
     expect(rules('[data-pipeline-team-panel]').inset).toBe('0 auto 0 1px');
+    // KM3.2.08 D6: team-panel rows retain regular weight at 13 px.
+    expect(rules('[data-pipeline-team-panel] > button')).toMatchObject({
+      'font-size': '13px', 'font-weight': '400',
+    });
     expect(rules('[data-pipeline-toolbar]')).toMatchObject({
       height: 'var(--pipeline-toolbar-height)', 'min-height': 'var(--pipeline-toolbar-height)',
     });
@@ -338,6 +342,10 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     });
     expect(rules('[data-bigin-pipeline-shell] [data-pipeline-column]')).toMatchObject({
       width: 'var(--pipeline-column-width)', 'padding-inline': 'var(--pipeline-column-padding)',
+    });
+    // KM3.2.08 D4: stage headings match the measured Bigin typography.
+    expect(rules('[data-pipeline-column] [data-stage-header] h3')).toMatchObject({
+      'font-size': '15px', 'font-weight': '550', color: 'rgb(33, 33, 41)',
     });
     expect(rules('[data-bigin-pipeline-cards] [data-pipeline-deal]')).toMatchObject({
       'box-sizing': 'border-box', display: 'grid',
@@ -363,6 +371,8 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
     expect(shellSource).toContain('data-bigin-pipeline-cards={(isPipeline && !surfaceFlags.pipelineExtensions) || undefined}');
     expect(rules('[data-pipeline-toolbar] :is(button, select, input, summary)')).toMatchObject({
       height: 'var(--pipeline-toolbar-button-height)', 'min-height': 'var(--pipeline-toolbar-button-height)',
+      // KM3.2.08 D5: change only type size, keeping the height contract.
+      'font-size': '14px',
     });
     expect(rules('[data-pipeline-toolbar]')).toMatchObject({ 'overflow-x': 'auto', 'flex-wrap': 'nowrap' });
     const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
