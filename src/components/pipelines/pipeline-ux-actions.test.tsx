@@ -190,7 +190,7 @@ describe('KM3.5.1G: zwijanie Potoków zespołu', () => {
       return reference ? pixel(variables[reference[1]], variables) : Number.parseFloat(value);
     };
     const rail = pixel(inherited['--app-sidebar-width'], inherited);
-    const expected = viewport === 1536 ? [295, 115, 295] : viewport === 390 ? [272, 114, 272] : [294, 114, 294];
+    const expected = viewport === 1536 ? [295, 115, 295] : viewport === 390 ? [272, 114, 272] : [272, 114, 272];
     expected.forEach((x, index) => {
       const tree = page();
       const collapsed = workspace(tree).props['data-pipeline-team-collapsed'];
@@ -200,7 +200,7 @@ describe('KM3.5.1G: zwijanie Potoków zespołu', () => {
       const contentX = rail + pixel(padding, variables);
       const inset = pixel(rules('[data-bigin-pipeline-shell] .pipeline-scroll')['padding-left'], variables);
       expect(contentX + inset).toBe(x);
-      expect(pixel(variables['--pipeline-team-panel-width'], variables)).toBe(collapsed ? 0 : viewport === 390 ? 199 : 221);
+      expect(pixel(variables['--pipeline-team-panel-width'], variables)).toBe(collapsed ? 0 : viewport === 390 ? 199 : viewport <= 1280 ? 199 : 221);
       expect(pixel(variables['--pipeline-column-width'], variables)).toBe(230);
       expect(pixel(variables['--pipeline-card-width'], variables)).toBe(220);
       expect(viewport - contentX).toBeGreaterThan(0);

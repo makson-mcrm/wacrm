@@ -407,11 +407,11 @@ describe('KM3.2.18: mobile i firma na karcie', () => {
       return reference ? pixels(reference[1]) : Number.parseFloat(value);
     };
     const mobile = viewport < MOBILE_BREAKPOINT;
-    expect(pixels('--pipeline-team-panel-width')).toBe(mobile ? 199 : 221);
+    expect(pixels('--pipeline-team-panel-width')).toBe(mobile ? 199 : viewport <= 1280 ? 199 : 221);
     const compact = viewport <= COMPACT_SHELL_MAX_WIDTH;
     expect(pixels('--pipeline-toolbar-height')).toBe(compact ? 72 : 67);
     expect(pixels('--pipeline-toolbar-button-height')).toBe(compact ? 29 : 32);
-    expect((compact ? 63 : 64) + pixels('--pipeline-team-panel-width') + pixels('--content-pad-x')).toBe(mobile ? 272 : compact ? 294 : 295);
+    expect((compact ? 63 : 64) + pixels('--pipeline-team-panel-width') + pixels('--content-pad-x')).toBe(mobile ? 272 : compact ? 272 : 295);
     expect((compact ? 43 : 48) + pixels('--pipeline-toolbar-height')).toBe(115);
     const source = readFileSync('src/app/(dashboard)/pipelines/page.tsx', 'utf8');
     const containers = source.match(/<div data-pipeline-workspace[^>]*>/g) ?? [];

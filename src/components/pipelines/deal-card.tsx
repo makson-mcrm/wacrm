@@ -70,7 +70,9 @@ export function DealCard({ deal, stage, onEdit, isOverlay, accentColor }: DealCa
           {contactName}{companyName ? ' · kontakt' : ''}
         </p>
       ) : null}
-      <p className="mt-2 text-sm font-bold">{formatCurrency(deal.value, deal.currency)}</p>
+      {deal.value > 0 ? (
+        <p className="mt-2 text-sm font-bold">{formatCurrency(deal.value, deal.currency)}</p>
+      ) : null}
       <time className="mt-1 block text-xs text-slate-600" dateTime={cardDate} title={deal.expected_close_date ? 'Planowana data zamknięcia' : 'Data utworzenia'}>
         {formatDate(cardDate)}
       </time>

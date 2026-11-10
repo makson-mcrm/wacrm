@@ -742,6 +742,7 @@ body {
   }
   /* Override inherited defaults below the shell's inline geometry tokens. */
   [data-bigin-pipeline-shell] [data-pipeline-workspace] {
+    --pipeline-team-panel-width: var(--pipeline-mobile-team-panel-width);
     --pipeline-toolbar-height: var(--pipeline-mobile-toolbar-height);
     --pipeline-toolbar-button-height: var(--pipeline-mobile-toolbar-button-height);
   }
@@ -790,9 +791,6 @@ body {
   [data-pipeline-filter-popover] > label { width: 100%; }
 }
 @media (max-width: 767px) {
-  [data-bigin-pipeline-shell] [data-pipeline-workspace] {
-    --pipeline-team-panel-width: var(--pipeline-mobile-team-panel-width);
-  }
   [data-bigin-pipeline-shell] #main-content {
     margin-bottom: calc(56px + env(safe-area-inset-bottom));
   }
@@ -846,6 +844,8 @@ body {
 .header-icon:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 [data-bigin-pipeline-cards] [data-pipeline-deal] {
   box-sizing: border-box;
+  border-color: #e5ebef;
+  border-radius: 4px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: 16px 14px 16px;
