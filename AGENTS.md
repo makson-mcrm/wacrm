@@ -1,8 +1,10 @@
-# AGENTS.md — mCRM AI · zasady obowiązujące (stan 09.11.2026)
+# AGENTS.md — mCRM AI · zasady obowiązujące (stan 11.11.2026)
 
 > **Wersja nadrzędna.** Wpisy z 10–11.10.2026 (blokady Windows, stara numeracja L0–L4, historia KM1,
 > limity „5 USD łącznie”) są **ARCHIWALNE i nieobowiązujące** — kopia: `~/.hermes/cache/k3/AGENTS-ARCHIWUM-2026-11-09.md`.
 > Nie przenoś ich z powrotem.
+
+> **Aktualna decyzja KM3.2.08:** tylko zalogowane Bigin DEMO jest wzorcem wyglądu i zachowania całego istniejącego WaCRM. 00S/FINAL-PASS/HEL są archiwalne. Aktywne zadanie: jedna paczka SHELL i Lejek; mechanizm FAIL → ten sam abonamentowy Codex → ponowny test → TEST wymaga **rzeczywistej próby lokalnej**. Kontrolę kosztu Nous wykonać technicznie, nie instrukcją. Odczytać stan runtime i kopie przed zmianą. `mcrm-ux-gate` określa szczegółowe bramki. **Ten zdalny AGENTS może nie być plikiem ładowanym przez lokalnego Hermesa — sprawdzić po wznowieniu.**
 
 ## 1. Role
 
@@ -43,24 +45,21 @@ Jedyny wzorzec: **zalogowane demo Bigin** (1536×1024). Tokeny zmierzone 09.11.2
 Autorskie dodatki mCRM: kod zostaje na zawsze, widoczność sterowana `surfaceFlags.*`.
 Domyślnie `false` (powierzchnia = rdzeń Bigin), chyba że właściciel każe odsłonić.
 
-## 5. PĘTLA AUTOMATYZACJI UX (twarda, bez pytania o zgodę)
+## 5. PĘTLA AUTOMATYZACJI UX (tylko w ramach zatwierdzonej paczki i działających bramek)
 
 1. Hermes uruchamia **headless Playwright** na zalogowanym demo Bigin (CDP `127.0.0.1:9400`, 1536×1024)
    i pobiera `getBoundingClientRect` + `getComputedStyle` dla paska, panelu, tablicy, kolumn, kart, tabel.
 2. Zmierzone stałe wpisuje **Codex** do `src/lib/ui/layout-geometry.ts` i tokenów `--bigin-*`.
 3. Hermes mierzy tę samą trasę na `test.makson.space` i liczy **Visual Diff (pixelmatch)**.
-4. Iteracja CSS przez Codexa aż do odchylenia **< 0,5%** ramy (pasek, panel, tablica).
-   Różnice treści (dane, nazwiska, kwoty) nie liczą się jako odchylenie ramy.
+4. Iteracja CSS i funkcji przez tego samego Codexa po pełnym raporcie różnic, z ponowną niezależną kontrolą. Próg obrazu <0,5% **tylko po kalibracji na równych danych i stanie**; brak kontrolki, działającej akcji lub trwałości to FAIL niezależnie od progu. Nie zmieniać testów, by wymusić PASS.
 5. Meldunek z odbioru zawiera **liczbę diff**; bez pomiaru nie podaje się linku.
 
 Skrypty pomiaru: `~/.hermes/k3/render/pomiar_pw.py` (Bigin) i `pomiar_mcrm.py` (mCRM),
 uruchamiane interpreterem `~/.hermes/cache/scratch/pwenv/bin/python`.
 
-## 6. Wdrożenie na TEST (bez GitHuba)
+## 6. Publikacja tylko na TEST — sprawdzona bramka
 
-`tar --exclude=node_modules --exclude=.next --exclude=.git` → TUS (Hostinger MCP `generate-upload-url`)
-→ `review-build/*.tgz` → `hosting_nodejs_start-build` (archive, node 22, app next, `build:webpack`, `.next`).
-Numer builda z `hosting_get-deployment`. Push do GitHuba niemożliwy (brak poświadczeń) — nie obchodzić.
+Pierwszeństwo ma **rzeczywiście sprawdzona, autoryzowana ścieżka** GitHub → Hostinger TEST albo istniejąca bezpieczna ścieżka lokalna. Nie zakładać, że dawny sposób pakowania lub brak uprawnień GitHub nadal obowiązuje. Przed wysłaniem sprawdzić docelową aplikację TEST, gałąź/commit, izolację od produkcji oraz **faktyczną zawartość** archiwum (bez `.env`, tokenów, kluczy, baz klientów, sekretów, pamięci prywatnej i logów). Błąd bramki = bez publikacji. Po publikacji odczytać aktywny build, commit i działanie na https://test.makson.space. Nie dotykać PROD.
 
 ## 7. Bramka zlecenia
 
@@ -73,7 +72,7 @@ ZAKAZY, ŹRÓDŁA, SKILLS, MODEL, BUDŻET, TESTY, DOWODY, ODBIÓR, CHECKPOINT) +
 PASS nadaje wyłącznie Tomasz po zobaczeniu ekranu. Raport wykonawcy, zielone testy i numer builda to dowód
 techniczny, nie odbiór. Statusy ekranu: **ZGODNY I DZIAŁA** · **DZIAŁA CZĘŚCIOWO** · **NIE DZIAŁA**.
 
-## 9. Stan na 09.11.2026
+## 9. Historyczny stan z 09.11.2026 — NIE UŻYWAĆ jako bieżący
 
 - TEST: `test.makson.space` — build `01a1c147-d6a1-7103-a37c-fc02f715f3d6` (completed 09.11 18:12), źródło: archiwum
   `review-build/wacrm-i3.tgz` ze źródeł `907cf7d` (archiwum nie niesie numeru commita).
